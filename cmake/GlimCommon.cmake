@@ -1,0 +1,16 @@
+function(glim_target_defaults target)
+    if(NOT TARGET ${target})
+        message(FATAL_ERROR "glim_target_defaults: ${target} is not a target")
+    endif()
+    target_compile_features(${target} PUBLIC cxx_std_17)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    target_compile_definitions(${target} PUBLIC
+        $<$<CONFIG:Debug>:GLIM_DEBUG=1>)
+endfunction()
+
+set(GLIM_GPU "metal" CACHE STRING "GPU backend: metal|vulkan|webgpu")
+set(GLIM_SHELL "macos" CACHE STRING "Shell: macos|ios|tvos|wayland|android|windows|web|custom")

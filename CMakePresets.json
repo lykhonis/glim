@@ -1,0 +1,43 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 22, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "macos-metal-debug",
+      "displayName": "macOS Metal Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-metal-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "GLIM_GPU": "metal",
+        "GLIM_SHELL": "macos"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "macos-metal-release",
+      "displayName": "macOS Metal Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-metal-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "GLIM_GPU": "metal",
+        "GLIM_SHELL": "macos"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "macos-metal-debug", "configurePreset": "macos-metal-debug" },
+    { "name": "macos-metal-release", "configurePreset": "macos-metal-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "macos-metal-debug",
+      "configurePreset": "macos-metal-debug",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

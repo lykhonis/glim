@@ -1,10 +1,9 @@
 add_library(glim-core STATIC src/math.cpp)
 add_library(glim::core ALIAS glim-core)
 target_include_directories(glim-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_features(glim-core PUBLIC cxx_std_17)
-target_compile_definitions(glim-core PUBLIC $<$<CONFIG:Debug>:GLIM_DEBUG=1>)
+glim_target_defaults(glim-core)
 
 add_executable(glim-math-test tests/math_test.cpp)
 target_link_libraries(glim-math-test PRIVATE glim::core)
-target_compile_features(glim-math-test PRIVATE cxx_std_17)
+glim_target_defaults(glim-math-test)
 add_test(NAME glim-math-test COMMAND glim-math-test)

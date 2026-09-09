@@ -8,6 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 enable_testing()
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(GlimCommon)
+
 add_subdirectory(packages/glim-core)
 
 # Legacy OpenGL/GLM tree (unused by new packages; removed in a later PR).
