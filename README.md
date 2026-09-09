@@ -16,6 +16,18 @@ Glim sits in a shell you already have — a TV launcher, a vehicle HMI, a phone,
 - **In-process:** `draw` the scene. No packet, no extra copy.
 - **Embedded:** a sandboxed guest (WASM, out-of-process UI) `encode`s one frame packet per vsync; a native host `submit`s it. The OEM keeps the swapchain and the run loop.
 
+## Platforms
+
+| | GPU | Window size |
+| --- | --- | --- |
+| **macOS 13+** | Metal | App chooses (`setSize`); user can resize |
+| **iOS 16+** | Metal | Host-owned (full scene) |
+| **tvOS 16+** | Metal | Host-owned (display + overscan) |
+
+Same `draw` on **CPU** when there is no GPU. Logical pixels, Y-down; retina is `pixelRatio`.
+
+Linux (Wayland / Vulkan), Android / Android TV (Vulkan), Windows (Vulkan), and the browser (WebGPU) are next. No OpenGL, no X11, no WebGL.
+
 ## Try it
 
 ```sh
