@@ -1,6 +1,10 @@
 {
   "name": "glim",
   "private": true,
+  "author": {
+    "name": "Volodymyr Lykhonis",
+    "url": "https://lykhonis.com"
+  },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "nx run-many -t build --projects=tag:example",

@@ -7,7 +7,7 @@ Glim is a **C++ paint and compositor library** for drawing user interfaces: rect
 
 The same drawing model is meant to run on **televisions, embedded boards, phones, browsers, and desktops**. Each platform uses the GPU it actually has — Metal, Vulkan, or WebGPU — instead of a lowest-common-denominator GL stack that those platforms are already leaving behind.
 
-Open source under the [MIT License](LICENSE).
+Open source under the [MIT License](LICENSE). Created by [Volodymyr Lykhonis](https://lykhonis.com).
 
 ## Why
 
