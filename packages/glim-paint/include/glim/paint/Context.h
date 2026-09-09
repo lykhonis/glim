@@ -45,6 +45,4 @@ private:
     bool recording_ = false;
 };
 
-void recordHello(Context& context, Vec2 size, float timeSeconds);
-
 }  // namespace glim::paint

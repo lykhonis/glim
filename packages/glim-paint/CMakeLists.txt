@@ -14,9 +14,3 @@ add_executable(glim-merge-test tests/merge_test.cpp)
 target_link_libraries(glim-merge-test PRIVATE glim::paint)
 glim_target_defaults(glim-merge-test)
 add_test(NAME glim-merge-test COMMAND glim-merge-test)
-
-add_executable(glim-golden-test tests/golden_test.cpp)
-target_link_libraries(glim-golden-test PRIVATE glim::paint)
-glim_target_defaults(glim-golden-test)
-add_test(NAME glim-golden-test
-         COMMAND glim-golden-test "${CMAKE_SOURCE_DIR}/tests/golden/hello.png")

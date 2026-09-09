@@ -1,15 +1,16 @@
+#include "HelloScene.h"
+
 #include <glim/paint/Context.h>
 #include <glim/paint/Raster.h>
 
 #include <cstdlib>
 #include <iostream>
-#include <string>
 #include <vector>
 
 int main(int argc, char** argv) {
-    const char* goldenPath = argc > 1 ? argv[1] : "tests/golden/hello.png";
+    const char* goldenPath = argc > 1 ? argv[1] : "examples/hello/golden/hello.png";
     glim::paint::Context ctx;
-    glim::paint::recordHello(ctx, {720, 480}, 0.0f);
+    recordHello(ctx, {720, 480}, 0.0f);
 
     std::vector<std::uint8_t> got(static_cast<std::size_t>(720 * 480 * 4));
     glim::paint::raster(ctx.scene(), 720, 480, got.data());

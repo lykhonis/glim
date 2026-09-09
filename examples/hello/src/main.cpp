@@ -9,6 +9,8 @@
 #include <glim/shell/Surface.h>
 #include <glim/shell/Window.h>
 
+#include "HelloScene.h"
+
 int main() {
     glim::shell::Application app;
     glim::shell::Window window;
@@ -32,7 +34,7 @@ int main() {
     const auto paint = [&] {
         const glim::Vec2 size = window.size();
         const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-        glim::paint::recordHello(context, size, t);
+        recordHello(context, size, t);
         renderer.draw(context.scene());
     };
 

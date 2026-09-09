@@ -21,6 +21,13 @@
         "preset": "macos-metal-debug",
         "binary": "examples/hello/glim-hello"
       }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-hello-golden"
+      }
     }
   }
 }
