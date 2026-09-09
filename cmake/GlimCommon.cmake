@@ -14,3 +14,5 @@ endfunction()
 
 set(GLIM_GPU "metal" CACHE STRING "GPU backend: metal|vulkan|webgpu")
 set(GLIM_SHELL "macos" CACHE STRING "Shell: macos|ios|tvos|wayland|android|windows|web|custom")
+option(GLIM_SOFTWARE "CPU raster in Renderer (no Device)" OFF)
+option(GLIM_EMBED "Packet submit API instead of draw(Scene)" OFF)

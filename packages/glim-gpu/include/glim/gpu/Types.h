@@ -21,8 +21,6 @@ struct ColorClear {
     float rgba[4]{0, 0, 0, 0};
 };
 
-// native[] is filled by the embedder (CAMetalLayer, VkSwapchain, WebGPU surface,
-// or a vehicle compositor's display). Paint/encode never dereference these.
 struct DeviceCreateInfo {
     Backend backend = Backend::Metal;
     void* native[8]{};

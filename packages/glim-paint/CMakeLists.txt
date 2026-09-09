@@ -1,7 +1,8 @@
 add_library(glim-paint STATIC
     src/Context.cpp
     src/Merge.cpp
-    src/Encode.cpp)
+    src/Encode.cpp
+    src/Software.cpp)
 add_library(glim::paint ALIAS glim-paint)
 target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(glim-paint PUBLIC glim::core)
@@ -13,13 +14,38 @@ target_include_directories(glim-paint-ref PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(glim-paint-ref PUBLIC glim::paint z)
 glim_target_defaults(glim-paint-ref)
 
-add_library(glim-paint-gpu STATIC src/Renderer.cpp)
+function(glim_add_renderer name)
+    add_library(${name} STATIC src/Renderer.cpp)
+    target_include_directories(${name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(${name} PUBLIC glim::paint ${ARGN})
+    glim_target_defaults(${name})
+    target_compile_definitions(${name} PRIVATE
+        GLIM_METAL_SHADER_DIR="${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
+endfunction()
+
+glim_add_renderer(glim-paint-gpu glim::gpu)
+target_compile_definitions(glim-paint-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=0)
 add_library(glim::paint-gpu ALIAS glim-paint-gpu)
-target_include_directories(glim-paint-gpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(glim-paint-gpu PUBLIC glim::paint glim::gpu)
-glim_target_defaults(glim-paint-gpu)
-target_compile_definitions(glim-paint-gpu PRIVATE
-    GLIM_METAL_SHADER_DIR="${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
+
+glim_add_renderer(glim-paint-cpu)
+target_compile_definitions(glim-paint-cpu PUBLIC GLIM_SOFTWARE=1 GLIM_EMBED=0)
+add_library(glim::paint-cpu ALIAS glim-paint-cpu)
+
+glim_add_renderer(glim-paint-embed-gpu glim::gpu)
+target_compile_definitions(glim-paint-embed-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=1)
+add_library(glim::paint-embed-gpu ALIAS glim-paint-embed-gpu)
+
+if(GLIM_SOFTWARE)
+    if(GLIM_EMBED)
+        set(_glim_renderer glim::paint-embed-gpu)
+        message(FATAL_ERROR "packet-cpu renderer is not built as a named alias yet; use GLIM_SOFTWARE without GLIM_EMBED for cpu draw")
+    endif()
+    set(_glim_renderer glim::paint-cpu)
+elseif(GLIM_EMBED)
+    set(_glim_renderer glim::paint-embed-gpu)
+else()
+    set(_glim_renderer glim::paint-gpu)
+endif()
 
 add_executable(glim-merge-test tests/merge_test.cpp)
 target_link_libraries(glim-merge-test PRIVATE glim::paint)
@@ -31,4 +57,9 @@ target_link_libraries(glim-encode-test PRIVATE glim::paint)
 glim_target_defaults(glim-encode-test)
 add_test(NAME glim-encode-test COMMAND glim-encode-test)
 
-add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test)
+add_executable(glim-cpu-test tests/cpu_test.cpp)
+target_link_libraries(glim-cpu-test PRIVATE glim::paint-cpu)
+glim_target_defaults(glim-cpu-test)
+add_test(NAME glim-cpu-test COMMAND glim-cpu-test)
+
+add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test)

@@ -7,8 +7,6 @@
 
 namespace glim::paint {
 
-// Premultiplied quad in logical pixels. This is the CPU→GPU (and future
-// WASM→native) unit of work. No GPU types.
 struct Quad {
     float x = 0;
     float y = 0;
@@ -20,8 +18,6 @@ struct Quad {
     float a = 0;
 };
 
-// Isolated group: contents are in local 0..contentW x 0..contentH; blit to dest
-// in the parent with opacity. Nested isolates allowed.
 struct Isolate {
     float destX = 0;
     float destY = 0;
@@ -34,8 +30,6 @@ struct Isolate {
     std::vector<Isolate> isolates;
 };
 
-// One frame after merge. Safe to copy across a WASM linear-memory boundary
-// once a compact serializer exists; until then this is the in-process contract.
 struct FramePacket {
     Vec2 logicalSize;
     std::vector<Quad> quads;

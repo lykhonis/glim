@@ -7,7 +7,6 @@
 
 namespace glim::paint {
 
-// CPU reference: premul src-over, Y-down, integer pixel coverage. pixelRatio=1.
 void raster(const Scene& scene, int width, int height, std::uint8_t* rgba);
 
 bool writeRgbaPng(const char* path, int width, int height, const std::uint8_t* rgba);

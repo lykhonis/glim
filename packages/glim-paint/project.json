@@ -16,7 +16,7 @@
       "options": {
         "preset": "macos-metal-debug",
         "target": "glim-paint-tests",
-        "ctestRegex": "glim-merge-test|glim-encode-test"
+        "ctestRegex": "glim-merge-test|glim-encode-test|glim-cpu-test"
       }
     }
   }
