@@ -67,6 +67,9 @@ int main() {
     expectNear(pm.w, 1.0f, "opaque alpha");
     expectNear(pm.x, 0xac / 255.0f, "opaque premul r");
 
+    expect(!glim::Mat4::identity().is3D(), "identity not 3D");
+    expect(!glim::Mat4::translate(3, 4).is3D(), "translation not 3D");
+
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

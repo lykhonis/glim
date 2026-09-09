@@ -13,10 +13,7 @@ jobs:
         run: brew install ninja
       - name: Configure
         run: cmake --preset macos-metal-debug
-      - name: Build math tests
-        run: cmake --build --preset macos-metal-debug --target glim-math-test
+      - name: Build tests and hello
+        run: cmake --build --preset macos-metal-debug --target glim-math-test glim-merge-test glim-golden-test glim-hello
       - name: Test
         run: ctest --test-dir build/macos-metal-debug --output-on-failure
-      - name: Build hello
-        run: cmake --build --preset macos-metal-debug --target glim-hello
-        if: hashFiles('packages/glim-gpu-metal/CMakeLists.txt') != ''
