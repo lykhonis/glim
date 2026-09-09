@@ -21,10 +21,9 @@ Optional workspace orchestration (pnpm / Nx); caches install artifacts under `di
 
 ```sh
 pnpm install
-pnpm exec nx build hello          # one example
-pnpm exec nx run hello:run        # build (if needed) and launch
-pnpm exec nx build examples       # every example
-pnpm exec nx run examples:run     # build and launch every example
+pnpm exec nx build hello          # cmake target glim-hello
+pnpm exec nx run hello:run        # build if needed, then launch
+pnpm exec nx run-many -t run --projects=tag:example   # every example
 ```
 
 The legacy `glim/` OpenGL tree has been removed. Do not add GLM includes to public headers.

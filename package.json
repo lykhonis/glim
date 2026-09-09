@@ -3,10 +3,9 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "nx build examples",
+    "build": "nx run-many -t build --projects=tag:example",
     "test": "nx test core",
-    "hello": "nx run hello:run",
-    "examples": "nx run examples:run"
+    "hello": "nx run hello:run"
   },
   "devDependencies": {
     "@glim/native": "workspace:*",
