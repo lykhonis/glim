@@ -26,7 +26,8 @@
       "executor": "@glim/native:cmake",
       "options": {
         "preset": "macos-metal-debug",
-        "target": "glim-hello-golden"
+        "target": "glim-hello-golden",
+        "ctestRegex": "glim-hello-golden"
       }
     }
   }

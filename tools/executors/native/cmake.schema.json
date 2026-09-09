@@ -4,7 +4,11 @@
   "properties": {
     "preset": { "type": "string", "description": "CMake configure/build preset name" },
     "target": { "type": "string", "description": "CMake target to build" },
-    "buildDir": { "type": "string", "description": "Fallback -B directory when preset is omitted" }
+    "buildDir": { "type": "string", "description": "Fallback -B directory when preset is omitted" },
+    "ctestRegex": {
+      "type": "string",
+      "description": "If set, run ctest -R <regex> in the CMake build directory after the build"
+    }
   },
   "required": ["target"]
 }

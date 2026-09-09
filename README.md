@@ -1,29 +1,35 @@
 # Glim
 
-Cross-platform compositor and 2D graphics library.
+[![CI](https://github.com/lykhonis/glim/actions/workflows/ci.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Status:** greenfield rewrite. The in-tree `glim/` OpenGL / NSOpenGL / GLM path is **legacy** and will be removed. The product GPU APIs are **Metal** (Apple), **Vulkan** (Android / Linux Wayland / Windows), and **WebGPU** (web).
+A **C++ compositor and 2D paint library** for GUIs that need a little depth — stacked panels, perspective cards — without becoming a 3D engine.
 
-Architecture: [docs/architecture.md](docs/architecture.md)
+One engine for **TVs, embedded devices, phones, the web, and desktop**. Native GPU backends (Metal, Vulkan, WebGPU) share the same paint API. Open source under [MIT](LICENSE).
 
-License: [MIT](LICENSE)
+## Why this exists
 
-## Build (macOS 13+, Metal)
+Most UI stacks either sit on **legacy GL/GLES** (deprecated on Apple, a dead end on modern Android and the web) or pull in a **full toolkit or 3D runtime**. Glim is the layer in between: you record fills and groups, it **merges** what can share a pass and **isolates** only when opacity or a 3D transform requires an offscreen.
 
-CMake 3.22+ and Ninja. Node is **not** required for this path.
+It is **not** a widget library, **not** a scene graph for games, and **not** a wrapper around a desktop OpenGL context. Native APIs keep the compositor small enough for embedded and honest about what each OS actually ships.
+
+## Build
+
+**Nx** is the workflow: build, test, run, and CI. It invokes CMake/Ninja and caches install artifacts under `dist/` (not object files), so the graph stays one place as packages and examples grow.
+
+```sh
+pnpm install
+pnpm test                      # nx run-many -t test
+pnpm exec nx run hello:run
+```
+
+CMake presets remain for a single native target when you do not want Node. That is an escape hatch. New packages get an Nx project so `nx affected` and CI see them.
 
 ```sh
 cmake --preset macos-metal-debug
 cmake --build --preset macos-metal-debug --target glim-hello
 ```
 
-Optional workspace orchestration (pnpm / Nx); caches install artifacts under `dist/` only:
+## License
 
-```sh
-pnpm install
-pnpm exec nx build hello          # cmake target glim-hello
-pnpm exec nx run hello:run        # build if needed, then launch
-pnpm exec nx run-many -t run --projects=tag:example   # every example
-```
-
-The legacy `glim/` OpenGL tree has been removed. Do not add GLM includes to public headers.
+[MIT](LICENSE)

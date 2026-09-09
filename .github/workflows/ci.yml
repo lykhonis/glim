@@ -9,11 +9,18 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
       - name: Install Ninja
         run: brew install ninja
-      - name: Configure
-        run: cmake --preset macos-metal-debug
-      - name: Build tests and hello
-        run: cmake --build --preset macos-metal-debug --target glim-math-test glim-merge-test glim-hello-golden glim-hello
+      - name: Install
+        run: pnpm install --frozen-lockfile
       - name: Test
-        run: ctest --test-dir build/macos-metal-debug --output-on-failure
+        run: pnpm exec nx run-many -t test --output-style=stream
+      - name: Build hello
+        run: pnpm exec nx build hello

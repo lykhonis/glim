@@ -4,7 +4,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "nx run-many -t build --projects=tag:example",
-    "test": "nx test core",
+    "test": "nx run-many -t test",
     "hello": "nx run hello:run"
   },
   "devDependencies": {
