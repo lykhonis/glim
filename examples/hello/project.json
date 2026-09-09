@@ -2,6 +2,8 @@
   "name": "hello",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "examples/hello",
+  "projectType": "application",
+  "tags": ["example"],
   "implicitDependencies": ["core"],
   "targets": {
     "build": {
@@ -9,6 +11,15 @@
       "options": {
         "preset": "macos-metal-debug",
         "target": "glim-hello"
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/hello/glim-hello"
       }
     }
   }

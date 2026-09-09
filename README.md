@@ -21,7 +21,10 @@ Optional workspace orchestration (pnpm / Nx); caches install artifacts under `di
 
 ```sh
 pnpm install
-pnpm exec nx build hello
+pnpm exec nx build hello          # one example
+pnpm exec nx run hello:run        # build (if needed) and launch
+pnpm exec nx build examples       # every example
+pnpm exec nx run examples:run     # build and launch every example
 ```
 
 The GLM git submodule is unused by new packages. Do not add GLM includes to public headers.

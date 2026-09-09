@@ -4,6 +4,11 @@
       "implementation": "./cmake.js",
       "schema": "./cmake.schema.json",
       "description": "Configure, build, and install a CMake target into dist/. Does not cache the CMake build tree."
+    },
+    "run": {
+      "implementation": "./run.js",
+      "schema": "./run.schema.json",
+      "description": "Run a built native example binary from build/<preset>/."
     }
   }
 }

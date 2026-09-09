@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "preset": { "type": "string", "description": "CMake preset whose build dir contains the binary" },
+    "binary": {
+      "type": "string",
+      "description": "Path to the executable, relative to build/<preset>/"
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Arguments forwarded to the example"
+    }
+  },
+  "required": ["binary"]
+}

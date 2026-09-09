@@ -1,0 +1,17 @@
+{
+  "name": "examples",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples",
+  "implicitDependencies": ["hello"],
+  "targets": {
+    "build": {
+      "executor": "nx:noop",
+      "dependsOn": ["^build"]
+    },
+    "run": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": ["^run"]
+    }
+  }
+}
