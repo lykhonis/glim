@@ -12,8 +12,6 @@ Glim sits in a shell you already have — a TV launcher, a vehicle HMI, a phone,
 - **In-process:** `draw` the scene. No packet, no extra copy.
 - **Embedded:** a sandboxed guest (WASM, out-of-process UI) `encode`s one frame packet per vsync; a native host `submit`s it. The OEM keeps the swapchain and the run loop.
 
-[MIT](LICENSE). Created by [Volodymyr Lykhonis](https://lykhonis.com).
-
 ## Try it
 
 ```sh
@@ -21,3 +19,7 @@ pnpm install
 pnpm test
 pnpm exec nx run hello:run
 ```
+
+---
+
+[MIT](LICENSE) · [Volodymyr Lykhonis](https://lykhonis.com)
