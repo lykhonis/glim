@@ -6,3 +6,6 @@
 /.nx
 /compile_commands.json
 .DS_Store
+
+# Local-only design notes; not part of the published tree.
+/docs/
