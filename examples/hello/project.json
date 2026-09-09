@@ -10,7 +10,8 @@
       "executor": "@glim/native:cmake",
       "options": {
         "preset": "macos-metal-debug",
-        "target": "glim-hello"
+        "target": "glim-hello",
+        "install": true
       }
     },
     "run": {

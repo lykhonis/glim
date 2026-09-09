@@ -3,7 +3,7 @@
     "cmake": {
       "implementation": "./cmake.js",
       "schema": "./cmake.schema.json",
-      "description": "Configure, build, and install a CMake target into dist/. Does not cache the CMake build tree."
+      "description": "Configure and build a CMake target. Optionally installs into dist/. Does not cache the CMake build tree."
     },
     "run": {
       "implementation": "./run.js",
