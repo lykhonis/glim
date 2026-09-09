@@ -22,3 +22,5 @@ jobs:
         run: pnpm exec nx run-many -t test --output-style=stream
       - name: Build hello
         run: pnpm exec nx build hello
+      - name: Build hello software
+        run: pnpm exec nx build-software hello

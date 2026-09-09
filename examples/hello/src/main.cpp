@@ -1,12 +1,17 @@
+#include <algorithm>
 #include <chrono>
+#include <memory>
+#include <vector>
 
+#if !GLIM_SOFTWARE
 #include <glim/gpu/Device.h>
+#include <glim/shell/Surface.h>
+#endif
 #include <glim/paint/Context.h>
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/Event.h>
 #include <glim/shell/RunLoop.h>
-#include <glim/shell/Surface.h>
 #include <glim/shell/Window.h>
 
 #include "HelloScene.h"
@@ -18,6 +23,7 @@ int main() {
     window.setSize(720, 480);
     window.center();
 
+#if !GLIM_SOFTWARE
     glim::shell::Surface surface;
     surface.attach(window);
     surface.setVSync(true);
@@ -28,14 +34,34 @@ int main() {
     }
     glim::gpu::Device device = std::move(created.value());
     glim::paint::Renderer renderer(device);
+#endif
     glim::paint::Context context;
+#if GLIM_SOFTWARE
+    std::vector<std::uint8_t> pixels;
+    std::unique_ptr<glim::paint::Renderer> renderer;
+    int bufW = 0;
+    int bufH = 0;
+#endif
     const auto start = std::chrono::steady_clock::now();
 
     const auto paint = [&] {
         const glim::Vec2 size = window.size();
         const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
         recordHello(context, size, t);
+#if GLIM_SOFTWARE
+        const int w = std::max(1, static_cast<int>(size.x));
+        const int h = std::max(1, static_cast<int>(size.y));
+        if (w != bufW || h != bufH) {
+            pixels.assign(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4, 0);
+            renderer = std::make_unique<glim::paint::Renderer>(pixels.data(), w, h);
+            bufW = w;
+            bufH = h;
+        }
+        renderer->draw(context.scene());
+        window.presentRgba(pixels.data(), w, h);
+#else
         renderer.draw(context.scene());
+#endif
     };
 
     window.setEventCallback([&](const glim::shell::Event& e) {

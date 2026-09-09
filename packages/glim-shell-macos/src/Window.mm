@@ -2,6 +2,8 @@
 
 #include "WindowRegistry.h"
 
+#include <cstring>
+
 #import <AppKit/AppKit.h>
 #import <QuartzCore/CAMetalLayer.h>
 
@@ -172,6 +174,35 @@ Vec2 Window::drawableSize() const {
 void* Window::nativeView() const {
     return view_;
 }
+
+#if GLIM_SOFTWARE
+void Window::presentRgba(const std::uint8_t* rgba, int width, int height) {
+    if (!rgba || width <= 0 || height <= 0 || !view_) {
+        return;
+    }
+    NSView* view = (__bridge NSView*)view_;
+    const size_t stride = static_cast<size_t>(width) * 4;
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(nullptr, static_cast<size_t>(width),
+                                             static_cast<size_t>(height), 8, stride, space,
+                                             kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(space);
+    if (!ctx) {
+        return;
+    }
+    auto* dest = static_cast<std::uint8_t*>(CGBitmapContextGetData(ctx));
+    std::memcpy(dest, rgba, stride * static_cast<size_t>(height));
+    CGImageRef image = CGBitmapContextCreateImage(ctx);
+    CGContextRelease(ctx);
+    if (!image) {
+        return;
+    }
+    view.wantsLayer = YES;
+    view.layer.contents = (__bridge id)image;
+    view.layer.contentsGravity = kCAGravityResize;
+    CGImageRelease(image);
+}
+#endif
 
 void Window::dispatch(const Event& event) {
     [(__bridge GlimView*)view_ dispatchEvent:event];

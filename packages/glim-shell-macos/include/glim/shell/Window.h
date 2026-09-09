@@ -1,7 +1,14 @@
 #pragma once
 
+#ifndef GLIM_SOFTWARE
+#define GLIM_SOFTWARE 0
+#endif
+
 #include <functional>
 #include <string>
+#if GLIM_SOFTWARE
+#include <cstdint>
+#endif
 
 #include <glim/math.h>
 #include <glim/shell/Event.h>
@@ -28,6 +35,9 @@ public:
     Vec2 drawableSize() const;
     float pixelRatio() const;
     void* nativeView() const;
+#if GLIM_SOFTWARE
+    void presentRgba(const std::uint8_t* rgba, int width, int height);
+#endif
 
     void dispatch(const Event&);
 

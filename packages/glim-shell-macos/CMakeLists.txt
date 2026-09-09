@@ -14,6 +14,7 @@ set_source_files_properties(
     src/Window.mm
     src/Surface.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+set_source_files_properties(src/Window.mm PROPERTIES COMPILE_DEFINITIONS GLIM_SOFTWARE=1)
 
 find_library(GLIM_APPKIT AppKit REQUIRED)
 find_library(GLIM_METAL Metal REQUIRED)

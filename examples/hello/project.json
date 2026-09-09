@@ -23,6 +23,22 @@
         "binary": "examples/hello/glim-hello"
       }
     },
+    "build-software": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-hello-software"
+      }
+    },
+    "run-software": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-software"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/hello/glim-hello-software"
+      }
+    },
     "test": {
       "executor": "@glim/native:cmake",
       "options": {
