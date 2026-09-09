@@ -114,8 +114,9 @@ void Renderer::flushSolid(gpu::Pass& pass) {
     pending_.clear();
 }
 
-void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
-                           int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load) {
+void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
+                           const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
+                           int viewportH, void* nativeColor, gpu::LoadOp load) {
     gpu::PassDesc passDesc;
     passDesc.nativeColor = nativeColor;
     passDesc.load = load;
@@ -127,73 +128,44 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
     std::memcpy(u.projection, projection.m, sizeof(u.projection));
     pass.setBytes(1, &u, sizeof(u));
 
-    auto addFill = [this](const FillRect& f) {
-        SolidInstance inst{};
-        inst.rect[0] = f.rect.origin.x;
-        inst.rect[1] = f.rect.origin.y;
-        inst.rect[2] = f.rect.size.x;
-        inst.rect[3] = f.rect.size.y;
-        const Vec4 premul = f.color.premul();
-        inst.color[0] = premul.x;
-        inst.color[1] = premul.y;
-        inst.color[2] = premul.z;
-        inst.color[3] = premul.w;
-        pending_.push_back(inst);
-    };
-
     pending_.clear();
-    for (const Shape& s : group.shapes) {
-        if (const auto* f = std::get_if<FillRect>(&s)) {
-            addFill(*f);
-        }
-    }
-    for (const auto& child : group.children) {
-        if (!child || needsIsolate(*child)) {
-            continue;
-        }
-        for (const Shape& s : child->shapes) {
-            if (const auto* f = std::get_if<FillRect>(&s)) {
-                addFill(transformFill(child->params.transform, *f));
-            }
-        }
+    for (const Quad& q : quads) {
+        SolidInstance inst{};
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.color[0] = q.r;
+        inst.color[1] = q.g;
+        inst.color[2] = q.b;
+        inst.color[3] = q.a;
+        pending_.push_back(inst);
     }
     flushSolid(pass);
 
-    for (const auto& child : group.children) {
-        if (!child || !needsIsolate(*child)) {
-            continue;
-        }
-        Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
-        const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
-        const int ih = std::max(1, static_cast<int>(std::ceil(b.size.y)));
-        auto ft = device_.createFrameTarget({iw, ih});
+    for (const Isolate& iso : isolates) {
+        auto ft = device_.createFrameTarget({iso.contentW, iso.contentH});
         if (!ft.ok()) {
             continue;
         }
         pass.end();
-
-        auto content = cloneGroup(*child);
-        content->params.opacity = 1.0f;
-        content->params.isolate = false;
-        content->params.transform = Mat4::identity();
-        const Mat4 localProj = Mat4::orthoYDown(0, 0, static_cast<float>(iw), static_cast<float>(ih));
-        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear);
-        ++stats_.isolateCount;
+        const Mat4 localProj =
+            Mat4::orthoYDown(0, 0, static_cast<float>(iso.contentW), static_cast<float>(iso.contentH));
+        submitLayer(encoder, iso.quads, iso.isolates, localProj, iso.contentW, iso.contentH, ft->native(),
+                    gpu::LoadOp::Clear);
 
         passDesc.load = gpu::LoadOp::Load;
         passDesc.nativeColor = nativeColor;
-        passDesc.clear = {0, 0, 0, nativeColor ? 0.f : 1.f};
         pass = encoder.beginPass(passDesc);
         Uniforms parentU{};
         std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
         pass.setBytes(1, &parentU, sizeof(parentU));
-        const FillRect dest = transformFill(child->params.transform, FillRect{Rect{{0, 0}, b.size}, Color{}});
         BlitInstance blit{};
-        blit.rect[0] = dest.rect.origin.x;
-        blit.rect[1] = dest.rect.origin.y;
-        blit.rect[2] = dest.rect.size.x;
-        blit.rect[3] = dest.rect.size.y;
-        blit.opacity = child->params.opacity;
+        blit.rect[0] = iso.destX;
+        blit.rect[1] = iso.destY;
+        blit.rect[2] = iso.destW;
+        blit.rect[3] = iso.destH;
+        blit.opacity = iso.opacity;
         device_.writeBuffer(instanceBuffer_, &blit, sizeof(blit));
         pass.setPipeline(blit_);
         pass.setVertexBuffer(0, instanceBuffer_, 0);
@@ -207,8 +179,12 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
 }
 
 void Renderer::draw(const Scene& scene) {
+    submit(encode(scene, 1.0f));
+}
+
+void Renderer::submit(const FramePacket& packet) {
     const auto t0 = std::chrono::steady_clock::now();
-    stats_ = Stats{};
+    stats_ = packet.stats;
     if (!ensurePipelines()) {
         return;
     }
@@ -216,15 +192,10 @@ void Renderer::draw(const Scene& scene) {
     if (!drawable.ok()) {
         return;
     }
-    Group root = merge(scene.root, &stats_);
-    const float pr = scene.logicalSize.x > 0
-                         ? static_cast<float>(drawable->width()) / scene.logicalSize.x
-                         : 1.0f;
-    stats_.tileCount = static_cast<unsigned>(coarseTileCount(scene.logicalSize, pr));
-
     gpu::CommandEncoder encoder = device_.encoder();
-    const Mat4 proj = Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y);
-    encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear);
+    const Mat4 proj = Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y);
+    submitLayer(encoder, packet.quads, packet.isolates, proj, drawable->width(), drawable->height(), nullptr,
+                gpu::LoadOp::Clear);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();

@@ -1,0 +1,5 @@
+add_library(glim-embed INTERFACE)
+add_library(glim::embed ALIAS glim-embed)
+target_include_directories(glim-embed INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(glim-embed INTERFACE glim::gpu glim::shell-api glim::paint)
+target_compile_features(glim-embed INTERFACE cxx_std_17)

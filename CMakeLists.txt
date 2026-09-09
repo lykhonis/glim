@@ -22,12 +22,14 @@ include(GlimCommon)
 
 add_subdirectory(packages/glim-core)
 add_subdirectory(packages/glim-gpu)
+add_subdirectory(packages/glim-shell)
 
 if(APPLE AND GLIM_GPU STREQUAL "metal")
     add_subdirectory(packages/glim-gpu-metal)
 endif()
 
 add_subdirectory(packages/glim-paint)
+add_subdirectory(packages/glim-embed)
 
 if(APPLE AND GLIM_SHELL STREQUAL "macos")
     enable_language(OBJCXX)
@@ -38,7 +40,7 @@ add_subdirectory(examples/hello)
 
 add_library(glim INTERFACE)
 add_library(glim::glim ALIAS glim)
-target_link_libraries(glim INTERFACE glim::core glim::gpu glim::paint)
+target_link_libraries(glim INTERFACE glim::core glim::gpu glim::paint glim::paint-gpu glim::embed)
 if(TARGET glim::gpu-metal)
     target_link_libraries(glim INTERFACE glim::gpu-metal)
 endif()

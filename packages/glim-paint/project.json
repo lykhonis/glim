@@ -15,8 +15,8 @@
       "executor": "@glim/native:cmake",
       "options": {
         "preset": "macos-metal-debug",
-        "target": "glim-merge-test",
-        "ctestRegex": "glim-merge-test"
+        "target": "glim-paint-tests",
+        "ctestRegex": "glim-merge-test|glim-encode-test"
       }
     }
   }

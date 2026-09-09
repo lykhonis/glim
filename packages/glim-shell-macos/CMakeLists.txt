@@ -6,7 +6,7 @@ add_library(glim-shell STATIC
     src/WindowRegistry.cpp)
 add_library(glim::shell ALIAS glim-shell)
 target_include_directories(glim-shell PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(glim-shell PUBLIC glim::core glim::gpu)
+target_link_libraries(glim-shell PUBLIC glim::core glim::gpu glim::shell-api)
 glim_target_defaults(glim-shell)
 
 set_source_files_properties(
