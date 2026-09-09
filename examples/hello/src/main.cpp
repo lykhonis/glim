@@ -27,23 +27,12 @@ int main() {
     glim::paint::Context context;
     context.setSize(window.size());
 
-    window.setEventCallback([&](const glim::shell::Event& e) {
-        using T = glim::shell::EventType;
-        if (e.type() == T::WindowClosed) {
-            glim::shell::RunLoop().stop();
-            return;
-        }
-        if (e.type() == T::WindowResized) {
-            context.setSize({static_cast<float>(e.width()), static_cast<float>(e.height())});
-            return;
-        }
-        if (e.type() != T::Frame) {
-            return;
-        }
-
+    const auto paint = [&] {
+        const glim::Vec2 size = window.size();
+        context.setSize(size);
         context.beginFrame();
         context.setFillColor(0x334c4cff);
-        context.fill(glim::Rect::fromSize(window.size()));
+        context.fill(glim::Rect::fromSize(size));
         context.save();
         context.translate({100.f, 50.f});
         context.setFillColor(0xac6363ff);
@@ -51,6 +40,17 @@ int main() {
         context.restore();
         context.finish();
         renderer.draw(context.scene());
+    };
+
+    window.setEventCallback([&](const glim::shell::Event& e) {
+        using T = glim::shell::EventType;
+        if (e.type() == T::WindowClosed) {
+            glim::shell::RunLoop().stop();
+            return;
+        }
+        if (e.type() == T::WindowResized || e.type() == T::Frame) {
+            paint();
+        }
     });
     window.show();
     app.run();

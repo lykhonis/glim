@@ -24,6 +24,7 @@ void Surface::attach(Window& window) {
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     layer.framebufferOnly = YES;
     layer.opaque = YES;
+    layer.contentsGravity = kCAGravityTopLeft;
     const CGFloat scale = view.window ? view.window.backingScaleFactor : 1.0;
     layer.contentsScale = scale;
     layer.drawableSize = CGSizeMake(view.bounds.size.width * scale, view.bounds.size.height * scale);

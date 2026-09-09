@@ -40,6 +40,22 @@ using glim::shell::Window;
     return YES;
 }
 
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    self.postsFrameChangedNotifications = YES;
+    [self syncMetalDrawableSize];
+}
+
+- (void)viewDidChangeBackingProperties {
+    [super viewDidChangeBackingProperties];
+    [self notifyResized];
+}
+
+- (void)setFrameSize:(NSSize)newSize {
+    [super setFrameSize:newSize];
+    [self notifyResized];
+}
+
 - (void)windowWillClose:(NSNotification*)notification {
     (void)notification;
     if (eventCallback_) {
@@ -57,16 +73,15 @@ using glim::shell::Window;
     layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
 }
 
-- (void)windowDidResize:(NSNotification*)notification {
-    (void)notification;
+- (void)notifyResized {
     [self syncMetalDrawableSize];
     if (!eventCallback_) {
         return;
     }
     const NSSize size = self.bounds.size;
-    Event e(EventType::WindowResized);
-    e.setSize(static_cast<int>(size.width), static_cast<int>(size.height));
-    eventCallback_(e);
+    Event resized(EventType::WindowResized);
+    resized.setSize(static_cast<int>(size.width), static_cast<int>(size.height));
+    eventCallback_(resized);
 }
 
 @end
@@ -81,6 +96,7 @@ Window::Window() {
                                                        defer:NO];
     GlimView* view = [[GlimView alloc] initWithFrame:window.contentView.frame];
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    view.postsFrameChangedNotifications = YES;
     view.wantsLayer = YES;
     window.delegate = view;
     window.releasedWhenClosed = NO;
