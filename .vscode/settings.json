@@ -1,0 +1,10 @@
+{
+  "C_Cpp.default.cppStandard": "c++17",
+  "C_Cpp.default.cStandard": "c17",
+  "C_Cpp.default.intelliSenseMode": "macos-clang-arm64",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/macos-metal-debug/compile_commands.json",
+  "cmake.useCMakePresets": "always",
+  "cmake.preferredGenerators": ["Ninja"],
+  "cmake.configureOnOpen": true,
+  "cmake.buildDirectory": "${workspaceFolder}/build/macos-metal-debug"
+}

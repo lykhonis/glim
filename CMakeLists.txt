@@ -6,6 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_OBJCXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Help editors that look at the source root (gitignored).
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+else()
+    file(CREATE_LINK
+        "${CMAKE_BINARY_DIR}/compile_commands.json"
+        "${CMAKE_SOURCE_DIR}/compile_commands.json"
+        SYMBOLIC COPY_ON_ERROR)
+endif()
 
 enable_testing()
 
