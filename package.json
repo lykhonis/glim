@@ -1,0 +1,13 @@
+{
+  "name": "glim",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "nx build hello",
+    "test": "nx test core"
+  },
+  "devDependencies": {
+    "@glim/native": "workspace:*",
+    "nx": "^20.3.0"
+  }
+}

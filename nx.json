@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "extends": "nx/presets/npm.json",
+  "namedInputs": {
+    "native": [
+      "{projectRoot}/**/*",
+      "{workspaceRoot}/CMakeLists.txt",
+      "{workspaceRoot}/CMakePresets.json",
+      "{workspaceRoot}/cmake/**",
+      "{workspaceRoot}/packages/**"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "inputs": ["native"],
+      "outputs": ["{workspaceRoot}/dist/{projectName}"]
+    },
+    "test": {
+      "cache": true,
+      "inputs": ["native"]
+    }
+  },
+  "defaultBase": "master"
+}

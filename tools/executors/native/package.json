@@ -1,0 +1,5 @@
+{
+  "name": "@glim/native",
+  "private": true,
+  "executors": "./executors.json"
+}

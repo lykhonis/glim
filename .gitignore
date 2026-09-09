@@ -1,2 +1,8 @@
 /.idea
 /cmake-build*
+/build
+/dist
+/node_modules
+/.nx
+/compile_commands.json
+.DS_Store
