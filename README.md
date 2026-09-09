@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/glim-icon.png" width="200" alt="Glim">
+</p>
+
 # Glim
 
 [![CI](https://github.com/lykhonis/glim/actions/workflows/ci.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/ci.yml)
