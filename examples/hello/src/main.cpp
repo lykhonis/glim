@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
-#include <vector>
 
 #if !GLIM_SOFTWARE
 #include <glim/gpu/Device.h>
@@ -37,10 +36,7 @@ int main() {
 #endif
     glim::paint::Context context;
 #if GLIM_SOFTWARE
-    std::vector<std::uint8_t> pixels;
     std::unique_ptr<glim::paint::Renderer> renderer;
-    int bufW = 0;
-    int bufH = 0;
 #endif
     const auto start = std::chrono::steady_clock::now();
 
@@ -51,14 +47,14 @@ int main() {
 #if GLIM_SOFTWARE
         const int w = std::max(1, static_cast<int>(size.x));
         const int h = std::max(1, static_cast<int>(size.y));
-        if (w != bufW || h != bufH) {
-            pixels.assign(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4, 0);
-            renderer = std::make_unique<glim::paint::Renderer>(pixels.data(), w, h);
-            bufW = w;
-            bufH = h;
+        std::uint8_t* pixels = window.mapSoftware(w, h);
+        if (!renderer) {
+            renderer = std::make_unique<glim::paint::Renderer>(pixels, w, h);
+        } else {
+            renderer->setTarget(pixels, w, h);
         }
         renderer->draw(context.scene());
-        window.presentRgba(pixels.data(), w, h);
+        window.presentSoftware();
 #else
         renderer.draw(context.scene());
 #endif

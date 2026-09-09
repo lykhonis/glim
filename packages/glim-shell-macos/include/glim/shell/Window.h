@@ -36,7 +36,8 @@ public:
     float pixelRatio() const;
     void* nativeView() const;
 #if GLIM_SOFTWARE
-    void presentRgba(const std::uint8_t* rgba, int width, int height);
+    std::uint8_t* mapSoftware(int width, int height);
+    void presentSoftware();
 #endif
 
     void dispatch(const Event&);
@@ -45,6 +46,7 @@ private:
     void* window_ = nullptr;
     void* view_ = nullptr;
     bool shown_ = false;
+    void* software_ = nullptr;
 };
 
 }  // namespace glim::shell

@@ -131,14 +131,16 @@ void toRgba(const std::vector<Pixel>& buf, std::uint8_t* rgba) {
 }  // namespace
 
 void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba) {
-    std::vector<Pixel> buf(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
+    thread_local std::vector<Pixel> buf;
+    buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     Group root = merge(scene.root, nullptr);
     rasterGroup(buf, width, height, root);
     toRgba(buf, rgba);
 }
 
 void rasterPacket(const FramePacket& packet, int width, int height, std::uint8_t* rgba) {
-    std::vector<Pixel> buf(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
+    thread_local std::vector<Pixel> buf;
+    buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     paintQuads(buf, width, height, packet.quads, packet.isolates);
     toRgba(buf, rgba);
 }

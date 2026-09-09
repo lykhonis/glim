@@ -25,6 +25,7 @@ class Renderer {
 public:
 #if GLIM_SOFTWARE
     Renderer(std::uint8_t* rgba, int width, int height);
+    void setTarget(std::uint8_t* rgba, int width, int height);
 #else
     explicit Renderer(gpu::Device& device);
 #endif

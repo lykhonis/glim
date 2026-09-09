@@ -320,6 +320,12 @@ void Renderer::draw(const Scene& scene) {
 Renderer::Renderer(std::uint8_t* rgba, int width, int height)
     : rgba_(rgba), width_(width), height_(height) {}
 
+void Renderer::setTarget(std::uint8_t* rgba, int width, int height) {
+    rgba_ = rgba;
+    width_ = width;
+    height_ = height;
+}
+
 Renderer::~Renderer() = default;
 
 #if GLIM_EMBED

@@ -2,7 +2,7 @@
 
 #include "WindowRegistry.h"
 
-#include <cstring>
+#include <vector>
 
 #import <AppKit/AppKit.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -88,6 +88,18 @@ using glim::shell::Window;
 
 @end
 
+#if GLIM_SOFTWARE
+namespace {
+struct SoftwarePresent {
+    std::vector<std::uint8_t> buffers[2];
+    int width = 0;
+    int height = 0;
+    int back = 0;
+    CGColorSpaceRef space = nullptr;
+};
+}  // namespace
+#endif
+
 namespace glim::shell {
 
 Window::Window() {
@@ -110,6 +122,19 @@ Window::Window() {
 
 Window::~Window() {
     detail::unregisterShownWindow(this);
+#if GLIM_SOFTWARE
+    if (software_) {
+        if (view_) {
+            ((__bridge NSView*)view_).layer.contents = nil;
+        }
+        auto* s = static_cast<SoftwarePresent*>(software_);
+        if (s->space) {
+            CGColorSpaceRelease(s->space);
+        }
+        delete s;
+        software_ = nullptr;
+    }
+#endif
     if (view_) {
         CFRelease(view_);
         view_ = nullptr;
@@ -176,31 +201,58 @@ void* Window::nativeView() const {
 }
 
 #if GLIM_SOFTWARE
-void Window::presentRgba(const std::uint8_t* rgba, int width, int height) {
-    if (!rgba || width <= 0 || height <= 0 || !view_) {
+std::uint8_t* Window::mapSoftware(int width, int height) {
+    if (width <= 0 || height <= 0) {
+        return nullptr;
+    }
+    auto* s = static_cast<SoftwarePresent*>(software_);
+    if (!s) {
+        s = new SoftwarePresent();
+        s->space = CGColorSpaceCreateDeviceRGB();
+        software_ = s;
+    }
+    if (width != s->width || height != s->height) {
+        if (view_) {
+            ((__bridge NSView*)view_).layer.contents = nil;
+        }
+        const std::size_t n = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
+        s->buffers[0].assign(n, 0);
+        s->buffers[1].assign(n, 0);
+        s->width = width;
+        s->height = height;
+        s->back = 0;
+    }
+    return s->buffers[s->back].data();
+}
+
+void Window::presentSoftware() {
+    if (!software_ || !view_) {
         return;
     }
-    NSView* view = (__bridge NSView*)view_;
-    const size_t stride = static_cast<size_t>(width) * 4;
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGContextRef ctx = CGBitmapContextCreate(nullptr, static_cast<size_t>(width),
-                                             static_cast<size_t>(height), 8, stride, space,
-                                             kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    CGColorSpaceRelease(space);
-    if (!ctx) {
+    auto* s = static_cast<SoftwarePresent*>(software_);
+    const std::vector<std::uint8_t>& buf = s->buffers[s->back];
+    if (buf.empty()) {
         return;
     }
-    auto* dest = static_cast<std::uint8_t*>(CGBitmapContextGetData(ctx));
-    std::memcpy(dest, rgba, stride * static_cast<size_t>(height));
-    CGImageRef image = CGBitmapContextCreateImage(ctx);
-    CGContextRelease(ctx);
+    CGDataProviderRef provider = CGDataProviderCreateWithData(nullptr, buf.data(), buf.size(), nullptr);
+    if (!provider) {
+        return;
+    }
+    CGImageRef image =
+        CGImageCreate(static_cast<size_t>(s->width), static_cast<size_t>(s->height), 8, 32,
+                      static_cast<size_t>(s->width) * 4, s->space,
+                      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big, provider, nullptr, false,
+                      kCGRenderingIntentDefault);
+    CGDataProviderRelease(provider);
     if (!image) {
         return;
     }
+    NSView* view = (__bridge NSView*)view_;
     view.wantsLayer = YES;
     view.layer.contents = (__bridge id)image;
     view.layer.contentsGravity = kCAGravityResize;
     CGImageRelease(image);
+    s->back ^= 1;
 }
 #endif
 
