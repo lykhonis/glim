@@ -14,9 +14,21 @@ target_include_directories(glim-paint-ref PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(glim-paint-ref PUBLIC glim::paint z)
 glim_target_defaults(glim-paint-ref)
 
+set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${_glim_shader_dir}/solid.metal"
+    "${_glim_shader_dir}/blit.metal")
+file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
+file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/glim_metal_shaders.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h"
+    @ONLY)
+
 function(glim_add_renderer name)
     add_library(${name} STATIC src/Renderer.cpp)
     target_include_directories(${name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(${name} PUBLIC glim::paint ${ARGN})
     glim_target_defaults(${name})
     target_compile_definitions(${name} PRIVATE
@@ -47,19 +59,21 @@ else()
     set(_glim_renderer glim::paint-gpu)
 endif()
 
-add_executable(glim-merge-test tests/merge_test.cpp)
-target_link_libraries(glim-merge-test PRIVATE glim::paint)
-glim_target_defaults(glim-merge-test)
-add_test(NAME glim-merge-test COMMAND glim-merge-test)
+if(GLIM_HOST_TESTS)
+    add_executable(glim-merge-test tests/merge_test.cpp)
+    target_link_libraries(glim-merge-test PRIVATE glim::paint)
+    glim_target_defaults(glim-merge-test)
+    add_test(NAME glim-merge-test COMMAND glim-merge-test)
 
-add_executable(glim-encode-test tests/encode_test.cpp)
-target_link_libraries(glim-encode-test PRIVATE glim::paint)
-glim_target_defaults(glim-encode-test)
-add_test(NAME glim-encode-test COMMAND glim-encode-test)
+    add_executable(glim-encode-test tests/encode_test.cpp)
+    target_link_libraries(glim-encode-test PRIVATE glim::paint)
+    glim_target_defaults(glim-encode-test)
+    add_test(NAME glim-encode-test COMMAND glim-encode-test)
 
-add_executable(glim-cpu-test tests/cpu_test.cpp)
-target_link_libraries(glim-cpu-test PRIVATE glim::paint-cpu)
-glim_target_defaults(glim-cpu-test)
-add_test(NAME glim-cpu-test COMMAND glim-cpu-test)
+    add_executable(glim-cpu-test tests/cpu_test.cpp)
+    target_link_libraries(glim-cpu-test PRIVATE glim::paint-cpu)
+    glim_target_defaults(glim-cpu-test)
+    add_test(NAME glim-cpu-test COMMAND glim-cpu-test)
 
-add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test)
+    add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test)
+endif()

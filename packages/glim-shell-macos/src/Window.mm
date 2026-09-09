@@ -193,6 +193,10 @@ Vec2 Window::drawableSize() const {
     return {logical.x * r, logical.y * r};
 }
 
+Rect Window::safeArea() const {
+    return Rect::fromSize(size());
+}
+
 void* Window::nativeView() const {
     return view_;
 }

@@ -46,6 +46,42 @@
         "target": "glim-hello-golden",
         "ctestRegex": "glim-hello-golden"
       }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-hello"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/hello/glim-hello.app",
+        "simulator": "ios",
+        "bundleId": "com.lykhonis.glim.hello"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-hello"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-tvos-sim"],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/hello/glim-hello.app",
+        "simulator": "tvos",
+        "bundleId": "com.lykhonis.glim.hello"
+      }
     }
   }
 }

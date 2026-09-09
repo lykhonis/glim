@@ -53,6 +53,27 @@ public:
         return *this;
     }
 
+    Event& setPoint(float x, float y) {
+        x_ = x;
+        y_ = y;
+        return *this;
+    }
+
+    Event& setKey(Key key) {
+        key_ = key;
+        return *this;
+    }
+
+    Event& setButton(PointerButton button) {
+        button_ = button;
+        return *this;
+    }
+
+    Event& setPointerId(int id) {
+        pointerId_ = id;
+        return *this;
+    }
+
     explicit operator bool() const { return type_ != EventType::None; }
 
 private:

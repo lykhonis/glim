@@ -6,4 +6,5 @@ glim_target_defaults(glim-gpu-metal)
 
 find_library(GLIM_METAL Metal REQUIRED)
 find_library(GLIM_QUARTZ QuartzCore REQUIRED)
-target_link_libraries(glim-gpu-metal PUBLIC ${GLIM_METAL} ${GLIM_QUARTZ})
+find_library(GLIM_FOUNDATION Foundation REQUIRED)
+target_link_libraries(glim-gpu-metal PUBLIC ${GLIM_METAL} ${GLIM_QUARTZ} ${GLIM_FOUNDATION})

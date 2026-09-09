@@ -9,6 +9,8 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+
+#include "glim_metal_shaders.h"
 #endif
 
 namespace glim::paint {
@@ -31,10 +33,18 @@ std::string loadShader(const char* name) {
     if (in) {
         std::ostringstream ss;
         ss << in.rdbuf();
-        return ss.str();
+        const std::string fromFile = ss.str();
+        if (!fromFile.empty()) {
+            return fromFile;
+        }
     }
 #endif
-    (void)name;
+    if (std::strcmp(name, "solid.metal") == 0) {
+        return glim::metal_shaders::solid;
+    }
+    if (std::strcmp(name, "blit.metal") == 0) {
+        return glim::metal_shaders::blit;
+    }
     return {};
 }
 

@@ -5,12 +5,25 @@
     "preset": { "type": "string", "description": "CMake preset whose build dir contains the binary" },
     "binary": {
       "type": "string",
-      "description": "Path to the executable, relative to build/<preset>/"
+      "description": "Path to the executable or .app bundle, relative to build/<preset>/"
     },
     "args": {
       "type": "array",
       "items": { "type": "string" },
       "description": "Arguments forwarded to the example"
+    },
+    "simulator": {
+      "type": "string",
+      "enum": ["ios", "tvos"],
+      "description": "If set, install and launch the .app on an iOS or tvOS simulator via simctl"
+    },
+    "bundleId": {
+      "type": "string",
+      "description": "CFBundleIdentifier of the app (required when simulator is set)"
+    },
+    "device": {
+      "type": "string",
+      "description": "Optional simulator name substring (e.g. iPhone 17, Apple TV)"
     }
   },
   "required": ["binary"]

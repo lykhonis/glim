@@ -17,7 +17,7 @@ struct VSOut {
 
 vertex VSOut vs_main(uint vid [[vertex_id]],
                      uint iid [[instance_id]],
-                     device const Instance* instances [[buffer(0)]],
+                     constant Instance* instances [[buffer(0)]],
                      constant Uniforms& uniforms [[buffer(1)]]) {
     const float2 unit[6] = {
         float2(0.0, 0.0), float2(1.0, 0.0), float2(0.0, 1.0),

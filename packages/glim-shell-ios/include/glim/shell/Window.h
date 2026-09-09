@@ -47,7 +47,6 @@ private:
     void* window_ = nullptr;
     void* view_ = nullptr;
     bool shown_ = false;
-    void* software_ = nullptr;
 };
 
 }  // namespace glim::shell

@@ -24,3 +24,35 @@ jobs:
         run: pnpm exec nx build hello
       - name: Build hello software
         run: pnpm exec nx build-software hello
+
+  ios-sim:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install Ninja
+        run: brew install ninja
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build hello (iOS simulator)
+        run: pnpm exec nx build-ios-sim hello
+
+  tvos-sim:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install Ninja
+        run: brew install ninja
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build hello (tvOS simulator)
+        run: pnpm exec nx build-tvos-sim hello

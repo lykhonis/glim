@@ -1,0 +1,10 @@
+#pragma once
+
+namespace glim {
+namespace metal_shaders {
+
+inline constexpr const char solid[] = R"GLIMMSL(@GLIM_SOLID_METAL@)GLIMMSL";
+inline constexpr const char blit[] = R"GLIMMSL(@GLIM_BLIT_METAL@)GLIMMSL";
+
+}  // namespace metal_shaders
+}  // namespace glim
