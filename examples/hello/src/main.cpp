@@ -1,49 +1,58 @@
-#include <glim/shell/macos/Application.h>
-#include <glim/shell/macos/Window.h>
-#include <glim/shell/macos/Surface.h>
-#include <glim/shell/macos/RunLoop.h>
-#include <glim/paint/gl/Context.h>
+#include <glim/gpu/Device.h>
+#include <glim/paint/Context.h>
+#include <glim/paint/Renderer.h>
+#include <glim/shell/Application.h>
+#include <glim/shell/Event.h>
+#include <glim/shell/RunLoop.h>
+#include <glim/shell/Surface.h>
+#include <glim/shell/Window.h>
 
 int main() {
-    glim::shell::macos::Application app;
-    glim::shell::macos::Window window;
-
-    window.setEventCallback([](glim::shell::macos::Event event) {
-        switch (event.type()) {
-            case glim::shell::macos::Event::Type::WindowClosed:
-                glim::shell::macos::RunLoop().stop();
-                break;
-            default:
-                break;
-        }
-    });
+    glim::shell::Application app;
+    glim::shell::Window window;
     window.setTitle("Hello");
     window.setSize(720, 480);
     window.center();
-    window.show();
 
-    glim::shell::macos::Surface surface;
-    surface.attachGlContext();
-    surface.setIntervalSwap(false);
-    surface.setOpaque(true);
-    surface.attach(window.view());
+    glim::shell::Surface surface;
+    surface.attach(window);
+    surface.setVSync(true);
 
-    surface.makeCurrent();
-
-    auto size = glim::paint::Size(400.0f, 300.0f);
-
+    auto created = glim::gpu::Device::create(surface.deviceCreateInfo());
+    if (!created.ok()) {
+        return 1;
+    }
+    glim::gpu::Device device = std::move(created.value());
+    glim::paint::Renderer renderer(device);
     glim::paint::Context context;
-    context.setSize({720.0f, 480.0f});
-    context.setFillColor(0x334c4cff);
-    context.fill(glim::paint::Size(720.0f, 480.0));
-    context.translate({100.0f, 50.0f});
-//    context.rotate(45.0f, {size.width() * 0.5f, size.height() * 0.5f});
-    context.setFillColor(0xac6363ff);
-    context.fill(size);
+    context.setSize(window.size());
 
-    surface.present();
+    window.setEventCallback([&](const glim::shell::Event& e) {
+        using T = glim::shell::EventType;
+        if (e.type() == T::WindowClosed) {
+            glim::shell::RunLoop().stop();
+            return;
+        }
+        if (e.type() == T::WindowResized) {
+            context.setSize({static_cast<float>(e.width()), static_cast<float>(e.height())});
+            return;
+        }
+        if (e.type() != T::Frame) {
+            return;
+        }
 
+        context.beginFrame();
+        context.setFillColor(0x334c4cff);
+        context.fill(glim::Rect::fromSize(window.size()));
+        context.save();
+        context.translate({100.f, 50.f});
+        context.setFillColor(0xac6363ff);
+        context.fill(glim::Rect::fromSize({400.f, 300.f}));
+        context.restore();
+        context.finish();
+        renderer.draw(context.scene());
+    });
+    window.show();
     app.run();
-
     return 0;
 }
