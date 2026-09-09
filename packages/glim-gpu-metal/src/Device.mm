@@ -3,6 +3,7 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -29,6 +30,8 @@ struct Device::Impl {
     std::vector<id<MTLFunction>> shaders;
     std::vector<id<MTLRenderPipelineState>> pipelines;
     std::vector<id<MTLBuffer>> buffers;
+    std::vector<id<MTLTexture>> textures;
+    id<MTLSamplerState> sampler = nil;
 };
 
 struct Pass::Impl {
@@ -68,6 +71,20 @@ void Pass::setBytes(std::uint32_t index, const void* data, std::uint64_t size) {
     [impl_->encoder setVertexBytes:data length:static_cast<NSUInteger>(size) atIndex:index];
 }
 
+void Pass::setFragmentBytes(std::uint32_t index, const void* data, std::uint64_t size) {
+    [impl_->encoder setFragmentBytes:data length:static_cast<NSUInteger>(size) atIndex:index];
+}
+
+void Pass::setFragmentTexture(std::uint32_t index, void* nativeTexture) {
+    id<MTLTexture> tex = (__bridge id<MTLTexture>)nativeTexture;
+    [impl_->encoder setFragmentTexture:tex atIndex:index];
+}
+
+void Pass::setFragmentSampler(std::uint32_t index, void* nativeSampler) {
+    id<MTLSamplerState> samp = (__bridge id<MTLSamplerState>)nativeSampler;
+    [impl_->encoder setFragmentSamplerState:samp atIndex:index];
+}
+
 void Pass::setViewport(float x, float y, float w, float h, float z0, float z1) {
     MTLViewport vp{x, y, w, h, z0, z1};
     [impl_->encoder setViewport:vp];
@@ -104,7 +121,11 @@ CommandEncoder& CommandEncoder::operator=(CommandEncoder&&) noexcept = default;
 Pass CommandEncoder::beginPass(const PassDesc& desc) {
     Pass pass;
     MTLRenderPassDescriptor* rpd = [MTLRenderPassDescriptor renderPassDescriptor];
-    rpd.colorAttachments[0].texture = impl_->drawable.texture;
+    if (desc.nativeColor) {
+        rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)desc.nativeColor;
+    } else {
+        rpd.colorAttachments[0].texture = impl_->drawable.texture;
+    }
     switch (desc.load) {
         case LoadOp::Load:
             rpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
@@ -170,6 +191,13 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     out.impl_->shaders.resize(1);
     out.impl_->pipelines.resize(1);
     out.impl_->buffers.resize(1);
+    out.impl_->textures.resize(1);
+    MTLSamplerDescriptor* samp = [[MTLSamplerDescriptor alloc] init];
+    samp.minFilter = MTLSamplerMinMagFilterLinear;
+    samp.magFilter = MTLSamplerMinMagFilterLinear;
+    samp.sAddressMode = MTLSamplerAddressModeClampToEdge;
+    samp.tAddressMode = MTLSamplerAddressModeClampToEdge;
+    out.impl_->sampler = [device newSamplerStateWithDescriptor:samp];
     return Result<Device>::ok(std::move(out));
 }
 
@@ -191,10 +219,27 @@ Result<Drawable> Device::nextDrawable() {
 }
 
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
+    const int w = std::max(desc.width, 1);
+    const int h = std::max(desc.height, 1);
+    MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                                  width:static_cast<NSUInteger>(w)
+                                                                                 height:static_cast<NSUInteger>(h)
+                                                                              mipmapped:NO];
+    td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+    td.storageMode = MTLStorageModePrivate;
+    id<MTLTexture> tex = [impl_->device newTextureWithDescriptor:td];
+    if (!tex) {
+        return Result<FrameTarget>::fail("Metal FrameTarget texture failed");
+    }
     FrameTarget t;
     t.handle_ = impl_->next++;
-    t.width_ = desc.width;
-    t.height_ = desc.height;
+    t.width_ = w;
+    t.height_ = h;
+    if (t.handle_ >= impl_->textures.size()) {
+        impl_->textures.resize(t.handle_ + 1);
+    }
+    impl_->textures[t.handle_] = tex;
+    t.native_ = (__bridge void*)tex;
     return Result<FrameTarget>::ok(t);
 }
 
@@ -309,6 +354,10 @@ void* Device::nativeDevice() const {
 
 void* Device::nativeLayer() const {
     return impl_ ? (__bridge void*)impl_->layer : nullptr;
+}
+
+void* Device::nativeSampler() const {
+    return impl_ ? (__bridge void*)impl_->sampler : nullptr;
 }
 
 }  // namespace glim::gpu

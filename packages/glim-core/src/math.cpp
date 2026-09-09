@@ -65,4 +65,11 @@ Vec4 Mat4::operator*(const Vec4& v) const noexcept {
     };
 }
 
+bool Mat4::is3D(float eps) const noexcept {
+    // 2D affine in XY: Z basis is (0,0,1), w-row is (0,0,0,1). tx/ty (m[12], m[13]) are not 3D.
+    auto nz = [eps](float v) { return std::fabs(v) > eps; };
+    return nz(m[2]) || nz(m[3]) || nz(m[6]) || nz(m[7]) || nz(m[8]) || nz(m[9]) || nz(m[11]) ||
+           nz(m[14]) || nz(m[10] - 1.0f) || nz(m[15] - 1.0f);
+}
+
 }  // namespace glim

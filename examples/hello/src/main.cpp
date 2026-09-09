@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <glim/gpu/Device.h>
 #include <glim/paint/Context.h>
 #include <glim/paint/Renderer.h>
@@ -10,7 +12,7 @@
 int main() {
     glim::shell::Application app;
     glim::shell::Window window;
-    window.setTitle("Hello");
+    window.setTitle("Glim");
     window.setSize(720, 480);
     window.center();
 
@@ -25,20 +27,12 @@ int main() {
     glim::gpu::Device device = std::move(created.value());
     glim::paint::Renderer renderer(device);
     glim::paint::Context context;
-    context.setSize(window.size());
+    const auto start = std::chrono::steady_clock::now();
 
     const auto paint = [&] {
         const glim::Vec2 size = window.size();
-        context.setSize(size);
-        context.beginFrame();
-        context.setFillColor(0x334c4cff);
-        context.fill(glim::Rect::fromSize(size));
-        context.save();
-        context.translate({100.f, 50.f});
-        context.setFillColor(0xac6363ff);
-        context.fill(glim::Rect::fromSize({400.f, 300.f}));
-        context.restore();
-        context.finish();
+        const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+        glim::paint::recordHello(context, size, t);
         renderer.draw(context.scene());
     };
 

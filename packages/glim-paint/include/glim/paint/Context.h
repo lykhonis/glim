@@ -4,18 +4,9 @@
 #include <vector>
 
 #include <glim/math.h>
+#include <glim/paint/Scene.h>
 
 namespace glim::paint {
-
-struct FillCommand {
-    Rect rect;
-    Color color;
-};
-
-struct Scene {
-    Vec2 logicalSize;
-    std::vector<FillCommand> fills;
-};
 
 class Context {
 public:
@@ -32,6 +23,9 @@ public:
     void save();
     void restore();
 
+    void pushGroup(const GroupParams&);
+    void popGroup();
+
     const Scene& scene() const { return scene_; }
     Mat4 projection() const;
 
@@ -41,11 +35,16 @@ private:
         Color fill{0, 0, 0, 255};
     };
 
+    Group* current();
+
     Vec2 size_{720, 480};
     State state_{};
     std::vector<State> stack_;
+    std::vector<Group*> groupStack_;
     Scene scene_{};
     bool recording_ = false;
 };
+
+void recordHello(Context& context, Vec2 size, float timeSeconds);
 
 }  // namespace glim::paint

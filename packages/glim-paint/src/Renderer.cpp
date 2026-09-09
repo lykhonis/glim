@@ -1,76 +1,37 @@
 #include <glim/paint/Renderer.h>
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 namespace glim::paint {
 namespace {
-
-struct Instance {
-    float rect[4];
-    float color[4];
-};
 
 struct Uniforms {
     float projection[16];
 };
 
-constexpr char kSolidMetalFallback[] = R"METAL(
-#include <metal_stdlib>
-using namespace metal;
-
-struct Instance {
-    float4 rect;
-    float4 color;
+struct BlitInstance {
+    float rect[4];
+    float opacity;
+    float pad[3];
 };
 
-struct Uniforms {
-    float4x4 projection;
-};
-
-struct VSOut {
-    float4 position [[position]];
-    float4 color;
-};
-
-vertex VSOut vs_main(uint vid [[vertex_id]],
-                     uint iid [[instance_id]],
-                     constant Instance* instances [[buffer(0)]],
-                     constant Uniforms& uniforms [[buffer(1)]]) {
-    const float2 unit[6] = {
-        float2(0.0, 0.0), float2(1.0, 0.0), float2(0.0, 1.0),
-        float2(0.0, 1.0), float2(1.0, 0.0), float2(1.0, 1.0),
-    };
-    const float2 p = unit[vid];
-    const Instance inst = instances[iid];
-    const float2 pos = inst.rect.xy + p * inst.rect.zw;
-    VSOut out;
-    out.position = uniforms.projection * float4(pos, 0.0, 1.0);
-    out.color = inst.color;
-    return out;
-}
-
-fragment float4 fs_main(VSOut in [[stage_in]]) {
-    return in.color;
-}
-)METAL";
-
-std::string loadMetalSource() {
+std::string loadShader(const char* name) {
 #ifdef GLIM_METAL_SHADER_DIR
-    const char* path = GLIM_METAL_SHADER_DIR "/solid.metal";
+    std::string path = std::string(GLIM_METAL_SHADER_DIR) + "/" + name;
     std::ifstream in(path);
     if (in) {
         std::ostringstream ss;
         ss << in.rdbuf();
-        const std::string s = ss.str();
-        if (!s.empty()) {
-            return s;
-        }
+        return ss.str();
     }
 #endif
-    return kSolidMetalFallback;
+    (void)name;
+    return {};
 }
 
 }  // namespace
@@ -79,16 +40,17 @@ Renderer::Renderer(gpu::Device& device) : device_(device) {}
 
 Renderer::~Renderer() = default;
 
-bool Renderer::ensurePipeline() {
+bool Renderer::ensurePipelines() {
     if (ready_) {
         return true;
     }
-    const std::string src = loadMetalSource();
-    if (src.empty()) {
+    const std::string solidSrc = loadShader("solid.metal");
+    const std::string blitSrc = loadShader("blit.metal");
+    if (solidSrc.empty() || blitSrc.empty()) {
         return false;
     }
-    auto vs = device_.createShader(gpu::ShaderStage::Vertex, src.data(), src.size());
-    auto fs = device_.createShader(gpu::ShaderStage::Fragment, src.data(), src.size());
+    auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
+    auto fs = device_.createShader(gpu::ShaderStage::Fragment, solidSrc.data(), solidSrc.size());
     if (!vs.ok() || !fs.ok()) {
         return false;
     }
@@ -100,10 +62,23 @@ bool Renderer::ensurePipeline() {
     if (!pipe.ok()) {
         return false;
     }
-    pipeline_ = std::move(pipe.value());
+    solid_ = std::move(pipe.value());
+
+    auto bvs = device_.createShader(gpu::ShaderStage::Vertex, blitSrc.data(), blitSrc.size());
+    auto bfs = device_.createShader(gpu::ShaderStage::Fragment, blitSrc.data(), blitSrc.size());
+    if (!bvs.ok() || !bfs.ok()) {
+        return false;
+    }
+    pd.vertexShader = bvs->handle();
+    pd.fragmentShader = bfs->handle();
+    auto blit = device_.createPipeline(pd);
+    if (!blit.ok()) {
+        return false;
+    }
+    blit_ = std::move(blit.value());
 
     gpu::BufferDesc bd;
-    bd.size = sizeof(Instance) * 64;
+    bd.size = sizeof(SolidInstance) * 256;
     bd.vertex = true;
     auto buf = device_.createBuffer(bd);
     if (!buf.ok()) {
@@ -114,64 +89,145 @@ bool Renderer::ensurePipeline() {
     return true;
 }
 
-void Renderer::draw(const Scene& scene) {
-    if (!ensurePipeline()) {
+void Renderer::flushSolid(gpu::Pass& pass) {
+    if (pending_.empty()) {
         return;
     }
-    auto drawable = device_.nextDrawable();
-    if (!drawable.ok()) {
-        return;
-    }
-
-    std::vector<Instance> instances;
-    instances.reserve(scene.fills.size());
-    for (const FillCommand& cmd : scene.fills) {
-        Instance inst{};
-        inst.rect[0] = cmd.rect.origin.x;
-        inst.rect[1] = cmd.rect.origin.y;
-        inst.rect[2] = cmd.rect.size.x;
-        inst.rect[3] = cmd.rect.size.y;
-        const Vec4 premul = cmd.color.premul();
-        inst.color[0] = premul.x;
-        inst.color[1] = premul.y;
-        inst.color[2] = premul.z;
-        inst.color[3] = premul.w;
-        instances.push_back(inst);
-    }
-    if (instances.empty()) {
-        return;
-    }
-    const std::uint64_t bytes = sizeof(Instance) * instances.size();
+    const std::uint64_t bytes = sizeof(SolidInstance) * pending_.size();
     if (bytes > instanceBuffer_.size()) {
         gpu::BufferDesc bd;
         bd.size = bytes * 2;
         bd.vertex = true;
         auto buf = device_.createBuffer(bd);
         if (!buf.ok()) {
+            pending_.clear();
             return;
         }
         instanceBuffer_ = std::move(buf.value());
     }
-    device_.writeBuffer(instanceBuffer_, instances.data(), bytes);
+    device_.writeBuffer(instanceBuffer_, pending_.data(), bytes);
+    pass.setPipeline(solid_);
+    pass.setVertexBuffer(0, instanceBuffer_, 0);
+    pass.draw(6, static_cast<std::uint32_t>(pending_.size()), 0, 0);
+    stats_.draws += 1;
+    stats_.instances += static_cast<unsigned>(pending_.size());
+    pending_.clear();
+}
 
+void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
+                           int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load) {
+    gpu::PassDesc passDesc;
+    passDesc.nativeColor = nativeColor;
+    passDesc.load = load;
+    passDesc.clear = {0, 0, 0, nativeColor ? 0.f : 1.f};
+    passDesc.viewportW = viewportW;
+    passDesc.viewportH = viewportH;
+    gpu::Pass pass = encoder.beginPass(passDesc);
     Uniforms u{};
-    const Mat4 proj = Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y);
-    std::memcpy(u.projection, proj.m, sizeof(u.projection));
+    std::memcpy(u.projection, projection.m, sizeof(u.projection));
+    pass.setBytes(1, &u, sizeof(u));
+
+    auto addFill = [this](const FillRect& f) {
+        SolidInstance inst{};
+        inst.rect[0] = f.rect.origin.x;
+        inst.rect[1] = f.rect.origin.y;
+        inst.rect[2] = f.rect.size.x;
+        inst.rect[3] = f.rect.size.y;
+        const Vec4 premul = f.color.premul();
+        inst.color[0] = premul.x;
+        inst.color[1] = premul.y;
+        inst.color[2] = premul.z;
+        inst.color[3] = premul.w;
+        pending_.push_back(inst);
+    };
+
+    pending_.clear();
+    for (const Shape& s : group.shapes) {
+        if (const auto* f = std::get_if<FillRect>(&s)) {
+            addFill(*f);
+        }
+    }
+    for (const auto& child : group.children) {
+        if (!child || needsIsolate(*child)) {
+            continue;
+        }
+        for (const Shape& s : child->shapes) {
+            if (const auto* f = std::get_if<FillRect>(&s)) {
+                addFill(transformFill(child->params.transform, *f));
+            }
+        }
+    }
+    flushSolid(pass);
+
+    for (const auto& child : group.children) {
+        if (!child || !needsIsolate(*child)) {
+            continue;
+        }
+        Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
+        const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
+        const int ih = std::max(1, static_cast<int>(std::ceil(b.size.y)));
+        auto ft = device_.createFrameTarget({iw, ih});
+        if (!ft.ok()) {
+            continue;
+        }
+        pass.end();
+
+        auto content = cloneGroup(*child);
+        content->params.opacity = 1.0f;
+        content->params.isolate = false;
+        content->params.transform = Mat4::identity();
+        const Mat4 localProj = Mat4::orthoYDown(0, 0, static_cast<float>(iw), static_cast<float>(ih));
+        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear);
+        ++stats_.isolateCount;
+
+        passDesc.load = gpu::LoadOp::Load;
+        passDesc.nativeColor = nativeColor;
+        passDesc.clear = {0, 0, 0, nativeColor ? 0.f : 1.f};
+        pass = encoder.beginPass(passDesc);
+        Uniforms parentU{};
+        std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
+        pass.setBytes(1, &parentU, sizeof(parentU));
+        const FillRect dest = transformFill(child->params.transform, FillRect{Rect{{0, 0}, b.size}, Color{}});
+        BlitInstance blit{};
+        blit.rect[0] = dest.rect.origin.x;
+        blit.rect[1] = dest.rect.origin.y;
+        blit.rect[2] = dest.rect.size.x;
+        blit.rect[3] = dest.rect.size.y;
+        blit.opacity = child->params.opacity;
+        device_.writeBuffer(instanceBuffer_, &blit, sizeof(blit));
+        pass.setPipeline(blit_);
+        pass.setVertexBuffer(0, instanceBuffer_, 0);
+        pass.setFragmentTexture(0, ft->native());
+        pass.setFragmentSampler(0, device_.nativeSampler());
+        pass.draw(6, 1, 0, 0);
+        stats_.draws += 1;
+        stats_.instances += 1;
+    }
+    pass.end();
+}
+
+void Renderer::draw(const Scene& scene) {
+    const auto t0 = std::chrono::steady_clock::now();
+    stats_ = Stats{};
+    if (!ensurePipelines()) {
+        return;
+    }
+    auto drawable = device_.nextDrawable();
+    if (!drawable.ok()) {
+        return;
+    }
+    Group root = merge(scene.root, &stats_);
+    const float pr = scene.logicalSize.x > 0
+                         ? static_cast<float>(drawable->width()) / scene.logicalSize.x
+                         : 1.0f;
+    stats_.tileCount = static_cast<unsigned>(coarseTileCount(scene.logicalSize, pr));
 
     gpu::CommandEncoder encoder = device_.encoder();
-    gpu::PassDesc passDesc;
-    passDesc.load = gpu::LoadOp::Clear;
-    passDesc.clear = {0, 0, 0, 1};
-    passDesc.viewportW = drawable->width();
-    passDesc.viewportH = drawable->height();
-    gpu::Pass pass = encoder.beginPass(passDesc);
-    pass.setPipeline(pipeline_);
-    pass.setVertexBuffer(0, instanceBuffer_, 0);
-    pass.setBytes(1, &u, sizeof(u));
-    pass.draw(6, static_cast<std::uint32_t>(instances.size()), 0, 0);
-    pass.end();
+    const Mat4 proj = Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y);
+    encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());
+    stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
 
 }  // namespace glim::paint

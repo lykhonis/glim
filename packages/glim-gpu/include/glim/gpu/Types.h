@@ -55,7 +55,8 @@ struct BindingsDesc {
 };
 
 struct PassDesc {
-    Handle color = 0;  // Drawable or FrameTarget handle
+    Handle color = 0;
+    void* nativeColor = nullptr;  // MTLTexture / VkImage view; null = current drawable
     LoadOp load = LoadOp::Clear;
     StoreOp store = StoreOp::Store;
     ColorClear clear{};

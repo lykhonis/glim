@@ -43,10 +43,12 @@ public:
     Handle handle() const { return handle_; }
     int width() const { return width_; }
     int height() const { return height_; }
+    void* native() const { return native_; }
 
     Handle handle_ = 0;
     int width_ = 0;
     int height_ = 0;
+    void* native_ = nullptr;
 };
 
 class Buffer {
@@ -110,6 +112,9 @@ public:
     void setBindings(std::uint32_t index, const Bindings&);
     void setVertexBuffer(std::uint32_t index, const Buffer&, std::uint64_t offset);
     void setBytes(std::uint32_t index, const void* data, std::uint64_t size);
+    void setFragmentBytes(std::uint32_t index, const void* data, std::uint64_t size);
+    void setFragmentTexture(std::uint32_t index, void* nativeTexture);
+    void setFragmentSampler(std::uint32_t index, void* nativeSampler);
     void setViewport(float x, float y, float w, float h, float z0, float z1);
     void setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t w, std::uint32_t h);
     void draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex,
@@ -163,6 +168,7 @@ public:
 
     void* nativeDevice() const;
     void* nativeLayer() const;
+    void* nativeSampler() const;
 
     struct Impl;
     std::unique_ptr<Impl> impl_;

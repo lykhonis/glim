@@ -35,6 +35,8 @@ struct Mat4 {
 
     Mat4 operator*(const Mat4& rhs) const noexcept;
     Vec4 operator*(const Vec4& v) const noexcept;
+
+    bool is3D(float eps = 1e-5f) const noexcept;
 };
 
 struct Rect {
