@@ -1,9 +1,18 @@
-cmake_minimum_required(VERSION 3.5)
-
-project(glim)
+cmake_minimum_required(VERSION 3.22)
+project(glim LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(vendor/glm)
-add_subdirectory(glim)
-add_subdirectory(examples/hello)
+enable_testing()
+
+add_subdirectory(packages/glim-core)
+
+# Legacy OpenGL/GLM tree (unused by new packages; removed in a later PR).
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm/CMakeLists.txt")
+    add_subdirectory(vendor/glm)
+    add_subdirectory(glim)
+    add_subdirectory(examples/hello)
+endif()
