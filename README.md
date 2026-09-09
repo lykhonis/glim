@@ -27,4 +27,4 @@ pnpm exec nx build examples       # every example
 pnpm exec nx run examples:run     # build and launch every example
 ```
 
-The GLM git submodule is unused by new packages. Do not add GLM includes to public headers.
+The legacy `glim/` OpenGL tree has been removed. Do not add GLM includes to public headers.
