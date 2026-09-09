@@ -55,7 +55,6 @@ private:
     gpu::Device& device_;
     gpu::Pipeline solid_{};
     gpu::Pipeline blit_{};
-    gpu::Buffer instanceBuffer_{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];

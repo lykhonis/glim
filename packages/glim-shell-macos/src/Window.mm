@@ -95,7 +95,6 @@ struct SoftwarePresent {
     int width = 0;
     int height = 0;
     int back = 0;
-    CGColorSpaceRef space = nullptr;
 };
 }  // namespace
 #endif
@@ -114,6 +113,7 @@ Window::Window() {
     view.wantsLayer = YES;
     window.delegate = view;
     window.releasedWhenClosed = NO;
+    window.colorSpace = [NSColorSpace sRGBColorSpace];
     [window.contentView addSubview:view];
     [window makeFirstResponder:view];
     window_ = (__bridge_retained void*)window;
@@ -128,9 +128,6 @@ Window::~Window() {
             ((__bridge NSView*)view_).layer.contents = nil;
         }
         auto* s = static_cast<SoftwarePresent*>(software_);
-        if (s->space) {
-            CGColorSpaceRelease(s->space);
-        }
         delete s;
         software_ = nullptr;
     }
@@ -208,7 +205,6 @@ std::uint8_t* Window::mapSoftware(int width, int height) {
     auto* s = static_cast<SoftwarePresent*>(software_);
     if (!s) {
         s = new SoftwarePresent();
-        s->space = CGColorSpaceCreateDeviceRGB();
         software_ = s;
     }
     if (width != s->width || height != s->height) {
@@ -234,23 +230,30 @@ void Window::presentSoftware() {
     if (buf.empty()) {
         return;
     }
+    NSView* view = (__bridge NSView*)view_;
+    CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     CGDataProviderRef provider = CGDataProviderCreateWithData(nullptr, buf.data(), buf.size(), nullptr);
     if (!provider) {
+        CGColorSpaceRelease(space);
         return;
     }
     CGImageRef image =
         CGImageCreate(static_cast<size_t>(s->width), static_cast<size_t>(s->height), 8, 32,
-                      static_cast<size_t>(s->width) * 4, s->space,
-                      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big, provider, nullptr, false,
-                      kCGRenderingIntentDefault);
+                      static_cast<size_t>(s->width) * 4, space,
+                      static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast), provider, nullptr, false,
+                      kCGRenderingIntentAbsoluteColorimetric);
     CGDataProviderRelease(provider);
+    CGColorSpaceRelease(space);
     if (!image) {
         return;
     }
-    NSView* view = (__bridge NSView*)view_;
     view.wantsLayer = YES;
-    view.layer.contents = (__bridge id)image;
+    view.layer.opaque = YES;
+    if (view.window) {
+        view.layer.contentsScale = view.window.backingScaleFactor;
+    }
     view.layer.contentsGravity = kCAGravityResize;
+    view.layer.contents = (__bridge id)image;
     CGImageRelease(image);
     s->back ^= 1;
 }

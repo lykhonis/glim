@@ -21,8 +21,7 @@ struct Uniforms {
 
 struct BlitInstance {
     float rect[4];
-    float opacity;
-    float pad[3];
+    float extra[4];
 };
 
 std::string loadShader(const char* name) {
@@ -81,15 +80,6 @@ bool Renderer::ensurePipelines() {
         return false;
     }
     blit_ = std::move(blit.value());
-
-    gpu::BufferDesc bd;
-    bd.size = sizeof(SolidInstance) * 256;
-    bd.vertex = true;
-    auto buf = device_.createBuffer(bd);
-    if (!buf.ok()) {
-        return false;
-    }
-    instanceBuffer_ = std::move(buf.value());
     ready_ = true;
     return true;
 }
@@ -99,20 +89,8 @@ void Renderer::flushSolid(gpu::Pass& pass) {
         return;
     }
     const std::uint64_t bytes = sizeof(SolidInstance) * pending_.size();
-    if (bytes > instanceBuffer_.size()) {
-        gpu::BufferDesc bd;
-        bd.size = bytes * 2;
-        bd.vertex = true;
-        auto buf = device_.createBuffer(bd);
-        if (!buf.ok()) {
-            pending_.clear();
-            return;
-        }
-        instanceBuffer_ = std::move(buf.value());
-    }
-    device_.writeBuffer(instanceBuffer_, pending_.data(), bytes);
     pass.setPipeline(solid_);
-    pass.setVertexBuffer(0, instanceBuffer_, 0);
+    pass.setBytes(0, pending_.data(), bytes);
     pass.draw(6, static_cast<std::uint32_t>(pending_.size()), 0, 0);
     stats_.draws += 1;
     stats_.instances += static_cast<unsigned>(pending_.size());
@@ -172,10 +150,9 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         blit.rect[1] = iso.destY;
         blit.rect[2] = iso.destW;
         blit.rect[3] = iso.destH;
-        blit.opacity = iso.opacity;
-        device_.writeBuffer(instanceBuffer_, &blit, sizeof(blit));
+        blit.extra[0] = iso.opacity;
         pass.setPipeline(blit_);
-        pass.setVertexBuffer(0, instanceBuffer_, 0);
+        pass.setBytes(0, &blit, sizeof(blit));
         pass.setFragmentTexture(0, ft->native());
         pass.setFragmentSampler(0, device_.nativeSampler());
         pass.draw(6, 1, 0, 0);
@@ -282,10 +259,9 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         blit.rect[1] = dest.rect.origin.y;
         blit.rect[2] = dest.rect.size.x;
         blit.rect[3] = dest.rect.size.y;
-        blit.opacity = child->params.opacity;
-        device_.writeBuffer(instanceBuffer_, &blit, sizeof(blit));
+        blit.extra[0] = child->params.opacity;
         pass.setPipeline(blit_);
-        pass.setVertexBuffer(0, instanceBuffer_, 0);
+        pass.setBytes(0, &blit, sizeof(blit));
         pass.setFragmentTexture(0, ft->native());
         pass.setFragmentSampler(0, device_.nativeSampler());
         pass.draw(6, 1, 0, 0);

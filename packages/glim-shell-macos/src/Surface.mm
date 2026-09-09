@@ -25,6 +25,14 @@ void Surface::attach(Window& window) {
     layer.framebufferOnly = YES;
     layer.opaque = YES;
     layer.contentsGravity = kCAGravityTopLeft;
+    static CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    layer.colorspace = srgb;
+    layer.wantsExtendedDynamicRangeContent = NO;
+#if defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+    if (@available(macOS 26.0, *)) {
+        layer.preferredDynamicRange = CADynamicRangeStandard;
+    }
+#endif
     const CGFloat scale = view.window ? view.window.backingScaleFactor : 1.0;
     layer.contentsScale = scale;
     layer.drawableSize = CGSizeMake(view.bounds.size.width * scale, view.bounds.size.height * scale);
