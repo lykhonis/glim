@@ -12,6 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(GlimCommon)
 
 add_subdirectory(packages/glim-core)
+add_subdirectory(packages/glim-gpu)
 
 # Legacy OpenGL/GLM tree (unused by new packages; removed in a later PR).
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glm/CMakeLists.txt")

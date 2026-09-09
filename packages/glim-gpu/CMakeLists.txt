@@ -1,0 +1,5 @@
+add_library(glim-gpu INTERFACE)
+add_library(glim::gpu ALIAS glim-gpu)
+target_include_directories(glim-gpu INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(glim-gpu INTERFACE glim::core)
+target_compile_features(glim-gpu INTERFACE cxx_std_17)
