@@ -8,6 +8,7 @@
 [![iOS](https://github.com/lykhonis/glim/actions/workflows/ios.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/ios.yml)
 [![tvOS](https://github.com/lykhonis/glim/actions/workflows/tvos.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/tvos.yml)
 [![Linux](https://github.com/lykhonis/glim/actions/workflows/linux.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/linux.yml)
+[![Android](https://github.com/lykhonis/glim/actions/workflows/android.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A **C++ compositor** for user interfaces: rectangles, groups, opacity, a little perspective. **2D with slight 3D.** Not a game engine. Not a widget kit.

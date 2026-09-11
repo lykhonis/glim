@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.lykhonis.glim.hello"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+    <uses-feature android:name="android.hardware.vulkan.version" android:required="true" android:version="0x00401000" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <application
+        android:label="Glim"
+        android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/banner"
+        android:hasCode="false"
+        android:extractNativeLibs="true"
+        android:appCategory="game">
+        <activity
+            android:name="android.app.NativeActivity"
+            android:exported="true"
+            android:label="Glim"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:launchMode="singleTask">
+            <meta-data android:name="android.app.lib_name" android:value="glim-hello" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

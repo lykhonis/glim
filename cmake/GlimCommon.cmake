@@ -54,8 +54,8 @@ else()
     set(GLIM_APPLE_MOBILE OFF)
 endif()
 
-# Host ctest binaries (math, merge, golden). iOS/tvOS only build app bundles.
-if(GLIM_APPLE_MOBILE)
+# Host ctest binaries (math, merge, golden). iOS/tvOS/Android only build the app.
+if(GLIM_APPLE_MOBILE OR ANDROID)
     set(GLIM_HOST_TESTS OFF)
 else()
     set(GLIM_HOST_TESTS ON)

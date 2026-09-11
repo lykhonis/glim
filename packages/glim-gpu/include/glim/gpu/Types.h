@@ -25,6 +25,7 @@ struct DeviceCreateInfo {
     Backend backend = Backend::Metal;
     // Metal: [0] CAMetalLayer*, [1] id<MTLDevice>
     // Vulkan Wayland: [0] wl_display*, [1] wl_surface*, [2] vsync (nullptr = off)
+    // Vulkan Android: [0] ANativeWindow*, [1] unused, [2] vsync (nullptr = off)
     void* native[8]{};
 };
 

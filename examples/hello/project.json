@@ -83,6 +83,24 @@
         "simulator": "tvos",
         "bundleId": "com.lykhonis.glim.hello"
       }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-hello"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/hello/glim-hello.apk",
+        "android": true,
+        "packageName": "com.lykhonis.glim.hello"
+      }
     }
   }
 }

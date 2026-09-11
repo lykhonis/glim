@@ -1,0 +1,43 @@
+# Android NDK toolchain wrapper. Used by the android-arm64-vulkan-* presets.
+# Locates the NDK, then includes the NDK's android.toolchain.cmake.
+
+if(NOT ANDROID_NDK)
+    if(DEFINED ENV{ANDROID_NDK_HOME} AND EXISTS "$ENV{ANDROID_NDK_HOME}")
+        set(ANDROID_NDK "$ENV{ANDROID_NDK_HOME}")
+    elseif(DEFINED ENV{ANDROID_NDK} AND EXISTS "$ENV{ANDROID_NDK}")
+        set(ANDROID_NDK "$ENV{ANDROID_NDK}")
+    else()
+        set(_glim_sdk "")
+        if(DEFINED ENV{ANDROID_HOME} AND EXISTS "$ENV{ANDROID_HOME}")
+            set(_glim_sdk "$ENV{ANDROID_HOME}")
+        elseif(DEFINED ENV{ANDROID_SDK_ROOT} AND EXISTS "$ENV{ANDROID_SDK_ROOT}")
+            set(_glim_sdk "$ENV{ANDROID_SDK_ROOT}")
+        elseif(EXISTS "$ENV{HOME}/Library/Android/sdk")
+            set(_glim_sdk "$ENV{HOME}/Library/Android/sdk")
+        elseif(EXISTS "$ENV{HOME}/Android/Sdk")
+            set(_glim_sdk "$ENV{HOME}/Android/Sdk")
+        endif()
+        if(_glim_sdk)
+            file(GLOB _glim_ndks "${_glim_sdk}/ndk/*")
+            list(SORT _glim_ndks)
+            list(REVERSE _glim_ndks)
+            foreach(_glim_ndk ${_glim_ndks})
+                if(IS_DIRECTORY "${_glim_ndk}" AND EXISTS "${_glim_ndk}/build/cmake/android.toolchain.cmake")
+                    set(ANDROID_NDK "${_glim_ndk}")
+                    break()
+                endif()
+            endforeach()
+        endif()
+    endif()
+endif()
+
+if(NOT ANDROID_NDK OR NOT EXISTS "${ANDROID_NDK}/build/cmake/android.toolchain.cmake")
+    message(FATAL_ERROR
+        "Android NDK not found. Set ANDROID_NDK_HOME to the NDK root "
+        "(needs build/cmake/android.toolchain.cmake).")
+endif()
+
+set(ANDROID_ABI "arm64-v8a" CACHE STRING "Android ABI")
+set(ANDROID_PLATFORM "android-24" CACHE STRING "Android API level")
+set(ANDROID_STL "c++_static" CACHE STRING "Android C++ STL")
+include("${ANDROID_NDK}/build/cmake/android.toolchain.cmake")

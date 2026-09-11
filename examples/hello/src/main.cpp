@@ -15,7 +15,11 @@
 
 #include "HelloScene.h"
 
+#if defined(__ANDROID__)
+extern "C" int glim_app_main() {
+#else
 int main() {
+#endif
     glim::shell::Application app;
     glim::shell::Window window;
     window.setTitle("Glim");

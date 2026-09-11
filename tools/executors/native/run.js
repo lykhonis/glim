@@ -209,6 +209,31 @@ function runOnSimulator(options, app) {
   return { success: launch.status === 0 };
 }
 
+function runOnAndroid(options, apk) {
+  const pkg = options.packageName;
+  if (!pkg) {
+    return fail("@glim/native:run with android requires options.packageName");
+  }
+  const serial = options.device;
+  const adb = serial ? ["adb", "-s", serial] : ["adb"];
+  console.log(`Installing ${apk}`);
+  const install = spawnSync(adb[0], [...adb.slice(1), "install", "-r", apk], { stdio: "inherit" });
+  if (install.status !== 0) {
+    return fail("adb install failed (is a device or emulator connected?)");
+  }
+  const component = `${pkg}/android.app.NativeActivity`;
+  console.log(`Launching ${component}`);
+  const launch = spawnSync(
+    adb[0],
+    [...adb.slice(1), "shell", "am", "start", "-n", component],
+    { stdio: "inherit" },
+  );
+  if (launch.error) {
+    return fail(launch.error.message);
+  }
+  return { success: launch.status === 0 };
+}
+
 function resolvePreset(preset) {
   if (process.platform === "linux") {
     if (!preset || /^macos-/.test(preset)) {
@@ -234,6 +259,13 @@ exports.default = async function runExecutor(options, context) {
       return fail(`missing app bundle: ${exe} (build the example first)`);
     }
     return runOnSimulator(options, app);
+  }
+
+  if (options.android) {
+    if (!fs.existsSync(exe)) {
+      return fail(`missing APK: ${exe} (build the example first; needs Android SDK build-tools)`);
+    }
+    return runOnAndroid(options, exe);
   }
 
   if (!fs.existsSync(exe)) {

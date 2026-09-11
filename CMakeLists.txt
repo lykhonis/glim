@@ -49,6 +49,8 @@ elseif(APPLE AND (GLIM_SHELL STREQUAL "ios" OR GLIM_SHELL STREQUAL "tvos"))
     add_subdirectory(packages/glim-shell-ios)
 elseif(GLIM_SHELL STREQUAL "wayland")
     add_subdirectory(packages/glim-shell-wayland)
+elseif(ANDROID AND GLIM_SHELL STREQUAL "android")
+    add_subdirectory(packages/glim-shell-android)
 endif()
 
 add_subdirectory(examples/hello)

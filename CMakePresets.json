@@ -119,6 +119,44 @@
         "GLIM_SHELL": "wayland"
       },
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "android-arm64-vulkan-debug",
+      "displayName": "Android arm64 Vulkan Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android-arm64-vulkan-debug",
+      "toolchainFile": "${sourceDir}/cmake/android-arm64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GLIM_GPU": "vulkan",
+        "GLIM_SHELL": "android"
+      },
+      "condition": {
+        "type": "anyOf",
+        "conditions": [
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+        ]
+      }
+    },
+    {
+      "name": "android-arm64-vulkan-release",
+      "displayName": "Android arm64 Vulkan Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android-arm64-vulkan-release",
+      "toolchainFile": "${sourceDir}/cmake/android-arm64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "GLIM_GPU": "vulkan",
+        "GLIM_SHELL": "android"
+      },
+      "condition": {
+        "type": "anyOf",
+        "conditions": [
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+        ]
+      }
     }
   ],
   "buildPresets": [
@@ -129,7 +167,9 @@
     { "name": "tvos-sim-metal-debug", "configurePreset": "tvos-sim-metal-debug" },
     { "name": "tvos-metal-debug", "configurePreset": "tvos-metal-debug" },
     { "name": "linux-vulkan-debug", "configurePreset": "linux-vulkan-debug" },
-    { "name": "linux-vulkan-release", "configurePreset": "linux-vulkan-release" }
+    { "name": "linux-vulkan-release", "configurePreset": "linux-vulkan-release" },
+    { "name": "android-arm64-vulkan-debug", "configurePreset": "android-arm64-vulkan-debug" },
+    { "name": "android-arm64-vulkan-release", "configurePreset": "android-arm64-vulkan-release" }
   ],
   "testPresets": [
     {

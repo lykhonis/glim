@@ -6,7 +6,11 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+#include <android/native_window.h>
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
 #include <wayland-client.h>
+#endif
 
 namespace glim::gpu {
 namespace {
@@ -62,6 +66,10 @@ void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, V
 
 }  // namespace
 
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+void androidUnregisterDevice(void* impl);
+#endif
+
 struct GpuImage {
     VkImage image = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
@@ -99,8 +107,12 @@ struct Frame {
 };
 
 struct Device::Impl {
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    ANativeWindow* androidWindow = nullptr;
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     wl_display* display = nullptr;
     wl_surface* wlSurface = nullptr;
+#endif
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkPhysicalDevice physical = VK_NULL_HANDLE;
@@ -189,7 +201,34 @@ struct Device::Impl {
         haveSwapchain = false;
     }
 
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    void bindAndroidWindow(ANativeWindow* window) {
+        if (androidWindow == window && ((window == nullptr && !surface) || (window && surface))) {
+            return;
+        }
+        if (device) {
+            vkDeviceWaitIdle(device);
+        }
+        destroySwapchain();
+        if (instance && surface) {
+            vkDestroySurfaceKHR(instance, surface, nullptr);
+            surface = VK_NULL_HANDLE;
+        }
+        androidWindow = window;
+        if (!window || !instance) {
+            return;
+        }
+        VkAndroidSurfaceCreateInfoKHR sci{};
+        sci.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+        sci.window = window;
+        vkCreateAndroidSurfaceKHR(instance, &sci, nullptr, &surface);
+    }
+#endif
+
     void destroy() {
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        androidUnregisterDevice(this);
+#endif
         if (device) {
             vkDeviceWaitIdle(device);
         }
@@ -486,8 +525,12 @@ struct Device::Impl {
         ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         ci.preTransform = caps.currentTransform;
         ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        if (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR) {
+        if (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR) {
+            ci.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+        } else if (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR) {
             ci.compositeAlpha = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
+        } else if (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
+            ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         }
         ci.presentMode = present;
         ci.clipped = VK_TRUE;
@@ -572,6 +615,18 @@ struct Device::Impl {
         return nullptr;
     }
 };
+
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+std::vector<Device::Impl*>& androidDevices() {
+    static std::vector<Device::Impl*> devices;
+    return devices;
+}
+
+void androidUnregisterDevice(void* impl) {
+    auto& list = androidDevices();
+    list.erase(std::remove(list.begin(), list.end(), static_cast<Device::Impl*>(impl)), list.end());
+}
+#endif
 
 struct Pass::Impl {
     Device::Impl* device = nullptr;
@@ -886,20 +941,33 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     if (info.backend != Backend::Vulkan) {
         return Result<Device>::fail("glim-gpu-vulkan: backend is not Vulkan");
     }
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    auto* androidWindow = static_cast<ANativeWindow*>(info.native[0]);
+    if (!androidWindow) {
+        return Result<Device>::fail("Vulkan Android ANativeWindow is null");
+    }
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     auto* display = static_cast<wl_display*>(info.native[0]);
     auto* wlSurface = static_cast<wl_surface*>(info.native[1]);
     if (!display || !wlSurface) {
         return Result<Device>::fail("Vulkan Wayland display/surface is null");
     }
+#else
+    return Result<Device>::fail("Vulkan WSI platform is not enabled");
+#endif
     if (volkInitialize() != VK_SUCCESS) {
-        return Result<Device>::fail("volkInitialize failed (libvulkan.so.1 missing?)");
+        return Result<Device>::fail("volkInitialize failed (libvulkan.so missing?)");
     }
 
     Device out;
     out.impl_ = std::make_unique<Impl>();
     Impl& d = *out.impl_;
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    d.androidWindow = androidWindow;
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     d.display = display;
     d.wlSurface = wlSurface;
+#endif
     d.vsync = info.native[2] != nullptr;
     d.shaders.resize(1);
     d.pipelines.resize(1);
@@ -911,7 +979,12 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     std::vector<VkExtensionProperties> instExt(instExtCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &instExtCount, instExt.data());
     std::vector<const char*> instanceExts = {VK_KHR_SURFACE_EXTENSION_NAME,
-                                             VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME};
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+                                             VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+                                             VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
+#endif
+    };
     for (const char* e : instanceExts) {
         if (!hasExtension(instExt, e)) {
             return Result<Device>::fail(std::string("missing instance extension ") + e);
@@ -951,6 +1024,14 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     }
     volkLoadInstance(d.instance);
 
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    VkAndroidSurfaceCreateInfoKHR sci{};
+    sci.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+    sci.window = androidWindow;
+    if (vkCreateAndroidSurfaceKHR(d.instance, &sci, nullptr, &d.surface) != VK_SUCCESS) {
+        return Result<Device>::fail("vkCreateAndroidSurfaceKHR failed");
+    }
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     VkWaylandSurfaceCreateInfoKHR sci{};
     sci.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
     sci.display = display;
@@ -958,6 +1039,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     if (vkCreateWaylandSurfaceKHR(d.instance, &sci, nullptr, &d.surface) != VK_SUCCESS) {
         return Result<Device>::fail("vkCreateWaylandSurfaceKHR failed");
     }
+#endif
 
     uint32_t physCount = 0;
     vkEnumeratePhysicalDevices(d.instance, &physCount, nullptr);
@@ -977,9 +1059,11 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
             if (!(qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
                 continue;
             }
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
             if (!vkGetPhysicalDeviceWaylandPresentationSupportKHR(p, i, display)) {
                 continue;
             }
+#endif
             VkBool32 present = VK_FALSE;
             vkGetPhysicalDeviceSurfaceSupportKHR(p, i, d.surface, &present);
             if (present) {
@@ -1020,7 +1104,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         }
     }
     if (best < 0) {
-        return Result<Device>::fail("no GPU with graphics + Wayland present + swapchain");
+        return Result<Device>::fail("no GPU with graphics + present + swapchain");
     }
     vkGetPhysicalDeviceProperties(d.physical, &d.props);
     d.ringAlign = std::max<VkDeviceSize>(d.props.limits.minStorageBufferOffsetAlignment, 16);
@@ -1170,6 +1254,9 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     vkWaitForFences(d.device, 1, &d.frames[0].inFlight, VK_TRUE, UINT64_MAX);
     d.dummyImage.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    androidDevices().push_back(&d);
+#endif
     return Result<Device>::ok(std::move(out));
 }
 
@@ -1181,6 +1268,11 @@ Result<Drawable> Device::nextDrawable() {
     for (GpuImage& t : impl_->targets) {
         t.inUse = false;
     }
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    if (!impl_->surface) {
+        return Result<Drawable>::fail("Android window is gone");
+    }
+#endif
     if (!impl_->haveSwapchain) {
         const VkResult r = impl_->recreateSwapchain();
         if (r != VK_SUCCESS) {
@@ -1423,8 +1515,23 @@ void* Device::nativeDevice() const {
 }
 
 void* Device::nativeLayer() const {
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    return impl_ ? impl_->androidWindow : nullptr;
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     return impl_ ? impl_->wlSurface : nullptr;
+#else
+    return nullptr;
+#endif
 }
+
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+void setAndroidNativeWindow(void* native) {
+    auto* window = static_cast<ANativeWindow*>(native);
+    for (Device::Impl* d : androidDevices()) {
+        d->bindAndroidWindow(window);
+    }
+}
+#endif
 
 void* Device::nativeSampler() const {
     return impl_ ? impl_->sampler : nullptr;

@@ -8,7 +8,7 @@
     "run": {
       "implementation": "./run.js",
       "schema": "./run.schema.json",
-      "description": "Run a built native example from build/<preset>/, or install and launch an .app on the iOS/tvOS simulator."
+      "description": "Run a built native example from build/<preset>/, install an .app on the iOS/tvOS simulator, or adb-install an Android APK."
     }
   }
 }
