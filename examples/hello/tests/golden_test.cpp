@@ -1,44 +1,57 @@
 #include "HelloScene.h"
 
+#include <glim/image/Image.h>
+#include <glim/image/Png.h>
 #include <glim/paint/Context.h>
-#include <glim/paint/Raster.h>
+#include <glim/paint/Software.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <vector>
+
+namespace {
+
+bool fileExists(const char* path) {
+    FILE* f = std::fopen(path, "rb");
+    if (!f) {
+        return false;
+    }
+    std::fclose(f);
+    return true;
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
     const char* goldenPath = argc > 1 ? argv[1] : "examples/hello/golden/hello.png";
     glim::paint::Context ctx;
     recordHello(ctx, {720, 480}, 0.0f);
 
-    std::vector<std::uint8_t> got(static_cast<std::size_t>(720 * 480 * 4));
-    glim::paint::raster(ctx.scene(), 720, 480, got.data());
+    glim::image::Image got = glim::image::Image::rgba8(720, 480);
+    glim::paint::rasterScene(ctx.scene(), got.width, got.height, got.rgba.data());
 
-    std::vector<std::uint8_t> want;
-    int w = 0;
-    int h = 0;
-    if (!glim::paint::readRgbaPng(goldenPath, &w, &h, &want)) {
-        if (!glim::paint::writeRgbaPng(goldenPath, 720, 480, got.data())) {
+    if (!fileExists(goldenPath)) {
+        if (!glim::image::Png::write(goldenPath, got)) {
             std::cerr << "could not write golden " << goldenPath << '\n';
             return EXIT_FAILURE;
         }
         std::cout << "wrote golden " << goldenPath << '\n';
         return EXIT_SUCCESS;
     }
-    if (w != 720 || h != 480 || want.size() != got.size()) {
-        std::cerr << "golden size mismatch\n";
+
+    glim::image::Image want;
+    if (!glim::image::Png::read(goldenPath, &want)) {
+        std::cerr << "could not read golden " << goldenPath << '\n';
         return EXIT_FAILURE;
     }
-    std::size_t diffs = 0;
-    for (std::size_t i = 0; i < got.size(); ++i) {
-        const int d = static_cast<int>(got[i]) - static_cast<int>(want[i]);
-        if (d > 2 || d < -2) {
-            ++diffs;
+
+    const glim::image::Diff diff = glim::image::compare(got, want);
+    if (!diff.match()) {
+        if (!diff.sameSize) {
+            std::cerr << "golden size mismatch\n";
+        } else {
+            std::cerr << "golden mismatch: " << diff.overDelta << " channels differ by >2\n";
         }
-    }
-    if (diffs != 0) {
-        std::cerr << "golden mismatch: " << diffs << " channels differ by >2\n";
         return EXIT_FAILURE;
     }
     std::cout << "golden_test ok\n";

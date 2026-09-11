@@ -7,7 +7,8 @@
       "{workspaceRoot}/CMakeLists.txt",
       "{workspaceRoot}/CMakePresets.json",
       "{workspaceRoot}/cmake/**",
-      "{workspaceRoot}/packages/**"
+      "{workspaceRoot}/packages/**",
+      "{workspaceRoot}/vendor/**"
     ]
   },
   "targetDefaults": {

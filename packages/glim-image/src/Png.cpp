@@ -1,12 +1,11 @@
-#include <glim/paint/Raster.h>
-#include <glim/paint/Software.h>
+#include <glim/image/Png.h>
 
 #include <cstdio>
 #include <cstring>
 #include <vector>
 #include <zlib.h>
 
-namespace glim::paint {
+namespace glim::image {
 namespace {
 
 std::uint32_t crc32Png(const std::uint8_t* data, std::size_t n) {
@@ -40,18 +39,23 @@ void chunk(std::vector<std::uint8_t>& o, const char type[4], const std::uint8_t*
     put32(o, static_cast<std::uint32_t>(n));
     const std::size_t start = o.size();
     o.insert(o.end(), type, type + 4);
-    o.insert(o.end(), data, data + n);
+    if (n != 0 && data != nullptr) {
+        o.insert(o.end(), data, data + n);
+    }
     const std::uint32_t crc = crc32Png(o.data() + start, 4 + n);
     put32(o, crc);
 }
 
 }  // namespace
 
-void raster(const Scene& scene, int width, int height, std::uint8_t* rgba) {
-    rasterScene(scene, width, height, rgba);
-}
+bool Png::write(const char* path, const Image& image) {
+    if (path == nullptr || image.empty()) {
+        return false;
+    }
+    const int width = image.width;
+    const int height = image.height;
+    const std::uint8_t* rgba = image.rgba.data();
 
-bool writeRgbaPng(const char* path, int width, int height, const std::uint8_t* rgba) {
     std::vector<std::uint8_t> raw(static_cast<std::size_t>((width * 4 + 1) * height));
     for (int y = 0; y < height; ++y) {
         raw[static_cast<std::size_t>(y * (width * 4 + 1))] = 0;
@@ -92,7 +96,10 @@ bool writeRgbaPng(const char* path, int width, int height, const std::uint8_t* r
     return ok;
 }
 
-bool readRgbaPng(const char* path, int* width, int* height, std::vector<std::uint8_t>* rgba) {
+bool Png::read(const char* path, Image* out) {
+    if (path == nullptr || out == nullptr) {
+        return false;
+    }
     FILE* f = std::fopen(path, "rb");
     if (!f) {
         return false;
@@ -142,17 +149,16 @@ bool readRgbaPng(const char* path, int* width, int* height, std::vector<std::uin
     if (uncompress(raw.data(), &dest, idat.data(), static_cast<uLong>(idat.size())) != Z_OK) {
         return false;
     }
-    rgba->assign(static_cast<std::size_t>(w * h * 4), 0);
+    Image image = Image::rgba8(w, h);
     for (int y = 0; y < h; ++y) {
         if (raw[static_cast<std::size_t>(y * (w * 4 + 1))] != 0) {
             return false;
         }
-        std::memcpy(rgba->data() + y * w * 4, &raw[static_cast<std::size_t>(y * (w * 4 + 1) + 1)],
+        std::memcpy(image.rgba.data() + y * w * 4, &raw[static_cast<std::size_t>(y * (w * 4 + 1) + 1)],
                     static_cast<std::size_t>(w * 4));
     }
-    *width = w;
-    *height = h;
+    *out = std::move(image);
     return true;
 }
 
-}  // namespace glim::paint
+}  // namespace glim::image

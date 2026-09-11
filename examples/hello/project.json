@@ -4,10 +4,11 @@
   "sourceRoot": "examples/hello",
   "projectType": "application",
   "tags": ["example"],
-  "implicitDependencies": ["core"],
+  "implicitDependencies": ["core", "image"],
   "targets": {
     "build": {
       "executor": "@glim/native:cmake",
+      "dependsOn": ["gpu-vulkan:shaders"],
       "options": {
         "preset": "macos-metal-debug",
         "target": "glim-hello",

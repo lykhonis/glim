@@ -1,0 +1,15 @@
+{
+  "name": "gpu-vulkan",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/glim-gpu-vulkan",
+  "implicitDependencies": ["core"],
+  "targets": {
+    "shaders": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-vulkan-shaders"
+      }
+    }
+  }
+}

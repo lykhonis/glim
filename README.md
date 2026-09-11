@@ -23,10 +23,11 @@ Glim sits in a shell you already have — a TV launcher, a vehicle HMI, a phone,
 | **macOS 13+** | Metal | App chooses (`setSize`); user can resize |
 | **iOS 16+** | Metal | Host-owned (full scene) |
 | **tvOS 16+** | Metal | Host-owned (display + overscan) |
+| **Linux** | Vulkan 1.1 | App chooses (`setSize`); compositor may resize |
 
 Same `draw` on **CPU** when there is no GPU. Logical pixels, Y-down; retina is `pixelRatio`.
 
-Linux (Wayland / Vulkan), Android / Android TV (Vulkan), Windows (Vulkan), and the browser (WebGPU) are next. No OpenGL, no X11, no WebGL.
+Android / Android TV (Vulkan), Windows (Vulkan), and the browser (WebGPU) are next. No OpenGL, no X11, no WebGL.
 
 ## Try it
 

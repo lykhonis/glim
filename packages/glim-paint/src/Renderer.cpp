@@ -7,10 +7,16 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#if !GLIM_GPU_VULKAN
 #include <fstream>
 #include <sstream>
+#endif
 
+#if GLIM_GPU_VULKAN
+#include "glim_vulkan_shaders.h"
+#else
 #include "glim_metal_shaders.h"
+#endif
 #endif
 
 namespace glim::paint {
@@ -26,6 +32,7 @@ struct BlitInstance {
     float extra[4];
 };
 
+#if !GLIM_GPU_VULKAN
 std::string loadShader(const char* name) {
 #ifdef GLIM_METAL_SHADER_DIR
     std::string path = std::string(GLIM_METAL_SHADER_DIR) + "/" + name;
@@ -47,6 +54,7 @@ std::string loadShader(const char* name) {
     }
     return {};
 }
+#endif
 
 }  // namespace
 
@@ -58,6 +66,16 @@ bool Renderer::ensurePipelines() {
     if (ready_) {
         return true;
     }
+#if GLIM_GPU_VULKAN
+    auto vs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::solid_vert),
+        sizeof(glim::vulkan_shaders::solid_vert));
+    auto fs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::solid_frag),
+        sizeof(glim::vulkan_shaders::solid_frag));
+#else
     const std::string solidSrc = loadShader("solid.metal");
     const std::string blitSrc = loadShader("blit.metal");
     if (solidSrc.empty() || blitSrc.empty()) {
@@ -65,6 +83,7 @@ bool Renderer::ensurePipelines() {
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
     auto fs = device_.createShader(gpu::ShaderStage::Fragment, solidSrc.data(), solidSrc.size());
+#endif
     if (!vs.ok() || !fs.ok()) {
         return false;
     }
@@ -78,8 +97,19 @@ bool Renderer::ensurePipelines() {
     }
     solid_ = std::move(pipe.value());
 
+#if GLIM_GPU_VULKAN
+    auto bvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_vert),
+        sizeof(glim::vulkan_shaders::blit_vert));
+    auto bfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_frag),
+        sizeof(glim::vulkan_shaders::blit_frag));
+#else
     auto bvs = device_.createShader(gpu::ShaderStage::Vertex, blitSrc.data(), blitSrc.size());
     auto bfs = device_.createShader(gpu::ShaderStage::Fragment, blitSrc.data(), blitSrc.size());
+#endif
     if (!bvs.ok() || !bfs.ok()) {
         return false;
     }

@@ -1,0 +1,14 @@
+#pragma once
+
+#include <cstdint>
+
+namespace glim {
+namespace vulkan_shaders {
+
+inline constexpr unsigned char solid_vert[] = {@GLIM_SOLID_VERT_SPV@};
+inline constexpr unsigned char solid_frag[] = {@GLIM_SOLID_FRAG_SPV@};
+inline constexpr unsigned char blit_vert[] = {@GLIM_BLIT_VERT_SPV@};
+inline constexpr unsigned char blit_frag[] = {@GLIM_BLIT_FRAG_SPV@};
+
+}  // namespace vulkan_shaders
+}  // namespace glim

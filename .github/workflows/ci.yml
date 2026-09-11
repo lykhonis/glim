@@ -56,3 +56,25 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build hello (tvOS simulator)
         run: pnpm exec nx build-tvos-sim hello
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm exec nx run-many -t test --output-style=stream
+      - name: Build hello
+        run: pnpm exec nx build hello
+      - name: Build hello software
+        run: pnpm exec nx build-software hello

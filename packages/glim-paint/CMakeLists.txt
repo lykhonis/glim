@@ -8,12 +8,6 @@ target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 target_link_libraries(glim-paint PUBLIC glim::core)
 glim_target_defaults(glim-paint)
 
-add_library(glim-paint-ref STATIC src/Raster.cpp)
-add_library(glim::paint-ref ALIAS glim-paint-ref)
-target_include_directories(glim-paint-ref PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(glim-paint-ref PUBLIC glim::paint z)
-glim_target_defaults(glim-paint-ref)
-
 set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/solid.metal"
@@ -37,6 +31,11 @@ endfunction()
 
 glim_add_renderer(glim-paint-gpu glim::gpu)
 target_compile_definitions(glim-paint-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=0)
+if(GLIM_GPU STREQUAL "vulkan")
+    target_compile_definitions(glim-paint-gpu PRIVATE GLIM_GPU_VULKAN=1)
+    target_include_directories(glim-paint-gpu PRIVATE "${GLIM_VULKAN_SHADER_INCLUDE}")
+    add_dependencies(glim-paint-gpu glim-vulkan-shaders)
+endif()
 add_library(glim::paint-gpu ALIAS glim-paint-gpu)
 
 glim_add_renderer(glim-paint-cpu)
@@ -45,6 +44,11 @@ add_library(glim::paint-cpu ALIAS glim-paint-cpu)
 
 glim_add_renderer(glim-paint-embed-gpu glim::gpu)
 target_compile_definitions(glim-paint-embed-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=1)
+if(GLIM_GPU STREQUAL "vulkan")
+    target_compile_definitions(glim-paint-embed-gpu PRIVATE GLIM_GPU_VULKAN=1)
+    target_include_directories(glim-paint-embed-gpu PRIVATE "${GLIM_VULKAN_SHADER_INCLUDE}")
+    add_dependencies(glim-paint-embed-gpu glim-vulkan-shaders)
+endif()
 add_library(glim::paint-embed-gpu ALIAS glim-paint-embed-gpu)
 
 if(GLIM_SOFTWARE)

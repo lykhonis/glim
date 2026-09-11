@@ -95,6 +95,30 @@
         "GLIM_SHELL": "tvos"
       },
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "linux-vulkan-debug",
+      "displayName": "Linux Vulkan Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-vulkan-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GLIM_GPU": "vulkan",
+        "GLIM_SHELL": "wayland"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "linux-vulkan-release",
+      "displayName": "Linux Vulkan Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-vulkan-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "GLIM_GPU": "vulkan",
+        "GLIM_SHELL": "wayland"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     }
   ],
   "buildPresets": [
@@ -103,12 +127,19 @@
     { "name": "ios-sim-metal-debug", "configurePreset": "ios-sim-metal-debug" },
     { "name": "ios-metal-debug", "configurePreset": "ios-metal-debug" },
     { "name": "tvos-sim-metal-debug", "configurePreset": "tvos-sim-metal-debug" },
-    { "name": "tvos-metal-debug", "configurePreset": "tvos-metal-debug" }
+    { "name": "tvos-metal-debug", "configurePreset": "tvos-metal-debug" },
+    { "name": "linux-vulkan-debug", "configurePreset": "linux-vulkan-debug" },
+    { "name": "linux-vulkan-release", "configurePreset": "linux-vulkan-release" }
   ],
   "testPresets": [
     {
       "name": "macos-metal-debug",
       "configurePreset": "macos-metal-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "linux-vulkan-debug",
+      "configurePreset": "linux-vulkan-debug",
       "output": { "outputOnFailure": true }
     }
   ]

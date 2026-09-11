@@ -13,6 +13,15 @@ function run(cmd, args, cwd) {
   return true;
 }
 
+function resolvePreset(preset) {
+  if (process.platform === "linux") {
+    if (!preset || /^macos-/.test(preset)) {
+      return /release/i.test(preset || "") ? "linux-vulkan-release" : "linux-vulkan-debug";
+    }
+  }
+  return preset || "macos-metal-debug";
+}
+
 function withBuildLock(lockFile, fn) {
   fs.mkdirSync(path.dirname(lockFile), { recursive: true });
   const deadline = Date.now() + 120000;
@@ -46,7 +55,7 @@ function withBuildLock(lockFile, fn) {
 
 exports.default = async function cmakeExecutor(options, context) {
   const root = context.root;
-  const preset = options.preset;
+  const preset = resolvePreset(options.preset);
   const target = options.target;
   const dist = path.join(root, "dist", context.projectName);
   const buildDir = preset

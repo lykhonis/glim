@@ -1,23 +1,21 @@
 {
-  "name": "paint",
+  "name": "image",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/glim-paint",
-  "implicitDependencies": ["core"],
+  "sourceRoot": "packages/glim-image",
   "targets": {
     "build": {
       "executor": "@glim/native:cmake",
-      "dependsOn": ["gpu-vulkan:shaders"],
       "options": {
         "preset": "macos-metal-debug",
-        "target": "glim-paint"
+        "target": "glim-image"
       }
     },
     "test": {
       "executor": "@glim/native:cmake",
       "options": {
         "preset": "macos-metal-debug",
-        "target": "glim-paint-tests",
-        "ctestRegex": "glim-merge-test|glim-encode-test|glim-cpu-test"
+        "target": "glim-image-test",
+        "ctestRegex": "glim-image-test"
       }
     }
   }

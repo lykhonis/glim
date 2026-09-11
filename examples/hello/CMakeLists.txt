@@ -22,7 +22,7 @@ if(NOT GLIM_APPLE_MOBILE)
 
     add_executable(glim-hello-golden tests/golden_test.cpp ${HELLO_SCENE})
     target_include_directories(glim-hello-golden PRIVATE src)
-    target_link_libraries(glim-hello-golden PRIVATE glim::paint-ref)
+    target_link_libraries(glim-hello-golden PRIVATE glim::paint glim::image)
     glim_target_defaults(glim-hello-golden)
     add_test(NAME glim-hello-golden
              COMMAND glim-hello-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png")

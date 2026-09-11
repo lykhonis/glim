@@ -209,9 +209,18 @@ function runOnSimulator(options, app) {
   return { success: launch.status === 0 };
 }
 
+function resolvePreset(preset) {
+  if (process.platform === "linux") {
+    if (!preset || /^macos-/.test(preset)) {
+      return /release/i.test(preset || "") ? "linux-vulkan-release" : "linux-vulkan-debug";
+    }
+  }
+  return preset || "macos-metal-debug";
+}
+
 exports.default = async function runExecutor(options, context) {
   const root = context.root;
-  const preset = options.preset || "macos-metal-debug";
+  const preset = resolvePreset(options.preset);
   if (!options.binary) {
     return fail("@glim/native:run requires options.binary");
   }
