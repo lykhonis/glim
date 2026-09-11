@@ -1,4 +1,3 @@
-#define VK_USE_PLATFORM_WAYLAND_KHR
 #include <glim/gpu/Device.h>
 
 #include <volk.h>
