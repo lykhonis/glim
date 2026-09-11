@@ -100,14 +100,18 @@ fi
 link="$workdir/linked.apk"
 "$aapt2" link -o "$link" -I "$android_jar" --manifest "$manifest" --auto-add-overlay "${flats[@]}"
 
-unzip -q "$link" -d "$workdir/apk"
-mkdir -p "$workdir/apk/lib/$abi"
-cp "$lib" "$workdir/apk/lib/$abi/libglim-hello.so"
-
+# Keep aapt2's uncompressed resources.arsc and add the native lib stored
+# uncompressed so zipalign can 4-byte-align .arsc and page-align .so files.
+# Re-zipping the whole APK with default compression fails install on API 30+:
+# "resources.arsc of installed APKs to be stored uncompressed and aligned
+# on a 4-byte boundary".
 unsigned="$workdir/unsigned.apk"
+cp "$link" "$unsigned"
+mkdir -p "$workdir/libadd/lib/$abi"
+cp "$lib" "$workdir/libadd/lib/$abi/libglim-hello.so"
 (
-    cd "$workdir/apk"
-    zip -q -r "$unsigned" .
+    cd "$workdir/libadd"
+    zip -q -0 -X "$unsigned" "lib/$abi/libglim-hello.so"
 )
 
 aligned="$workdir/aligned.apk"
@@ -124,4 +128,5 @@ fi
 mkdir -p "$(dirname "$out")"
 "$apksigner" sign --ks "$keystore" --ks-pass pass:android --key-pass pass:android \
     --ks-key-alias androiddebugkey --out "$out" "$aligned"
+"$zipalign" -c -p 4 "$out"
 echo "APK $out"
