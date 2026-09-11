@@ -1,0 +1,16 @@
+name: Linux
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/native.yml
+    with:
+      runs-on: ubuntu-24.04
+      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools
+      nx: |
+        pnpm exec nx run-many -t test --output-style=stream
+        pnpm exec nx build hello
+        pnpm exec nx build-software hello

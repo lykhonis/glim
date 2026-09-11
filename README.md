@@ -4,7 +4,10 @@
 
 # Glim
 
-[![CI](https://github.com/lykhonis/glim/actions/workflows/ci.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/ci.yml)
+[![macOS](https://github.com/lykhonis/glim/actions/workflows/macos.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/macos.yml)
+[![iOS](https://github.com/lykhonis/glim/actions/workflows/ios.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/ios.yml)
+[![tvOS](https://github.com/lykhonis/glim/actions/workflows/tvos.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/tvos.yml)
+[![Linux](https://github.com/lykhonis/glim/actions/workflows/linux.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/linux.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A **C++ compositor** for user interfaces: rectangles, groups, opacity, a little perspective. **2D with slight 3D.** Not a game engine. Not a widget kit.
@@ -15,19 +18,6 @@ Glim sits in a shell you already have — a TV launcher, a vehicle HMI, a phone,
 
 - **In-process:** `draw` the scene. No packet, no extra copy.
 - **Embedded:** a sandboxed guest (WASM, out-of-process UI) `encode`s one frame packet per vsync; a native host `submit`s it. The OEM keeps the swapchain and the run loop.
-
-## Platforms
-
-| | GPU | Window size |
-| --- | --- | --- |
-| **macOS 13+** | Metal | App chooses (`setSize`); user can resize |
-| **iOS 16+** | Metal | Host-owned (full scene) |
-| **tvOS 16+** | Metal | Host-owned (display + overscan) |
-| **Linux** | Vulkan 1.1 | App chooses (`setSize`); compositor may resize |
-
-Same `draw` on **CPU** when there is no GPU. Logical pixels, Y-down; retina is `pixelRatio`.
-
-Android / Android TV (Vulkan), Windows (Vulkan), and the browser (WebGPU) are next. No OpenGL, no X11, no WebGL.
 
 ## Try it
 

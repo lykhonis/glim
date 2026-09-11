@@ -1,0 +1,15 @@
+name: macOS
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/native.yml
+    with:
+      runs-on: macos-14
+      nx: |
+        pnpm exec nx run-many -t test --output-style=stream
+        pnpm exec nx build hello
+        pnpm exec nx build-software hello

@@ -1,0 +1,39 @@
+name: native
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: true
+        type: string
+      packages:
+        required: false
+        type: string
+        default: ""
+      nx:
+        required: true
+        type: string
+
+jobs:
+  ci:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ inputs.packages }}
+      - name: Install Ninja
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: CI
+        run: |
+          ${{ inputs.nx }}

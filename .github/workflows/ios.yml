@@ -1,0 +1,12 @@
+name: iOS
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/native.yml
+    with:
+      runs-on: macos-14
+      nx: pnpm exec nx build-ios-sim hello
