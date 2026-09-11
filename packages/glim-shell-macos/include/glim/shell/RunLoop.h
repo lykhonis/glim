@@ -49,7 +49,6 @@ private:
 
         CFRunLoopRef runLoop = nullptr;
         CFRunLoopTimerRef timer = nullptr;
-        CFRunLoopTimerRef frameTimer = nullptr;
         std::atomic_bool running{false};
         std::mutex mutex;
         std::vector<ScheduledTask> tasks;

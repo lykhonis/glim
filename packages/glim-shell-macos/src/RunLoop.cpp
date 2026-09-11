@@ -10,7 +10,6 @@ namespace glim::shell {
 namespace {
 
 constexpr CFTimeInterval kDistantFuture = 1.0e10;
-constexpr CFTimeInterval kFrameInterval = 1.0 / 60.0;
 
 }  // namespace
 
@@ -26,17 +25,11 @@ RunLoop::LocalRunLoop::LocalRunLoop() noexcept : runLoop(CFRunLoopGetCurrent()) 
     timer = CFRunLoopTimerCreate(kCFAllocatorDefault, kDistantFuture, kDistantFuture, 0, 0,
                                  glimRunLoopTimerCallback, &ctx);
     CFRunLoopAddTimer(runLoop, timer, kCFRunLoopCommonModes);
-
-    frameTimer = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + kFrameInterval,
-                                      kFrameInterval, 0, 0, glimRunLoopTimerCallback, &ctx);
-    CFRunLoopAddTimer(runLoop, frameTimer, kCFRunLoopCommonModes);
 }
 
 RunLoop::LocalRunLoop::~LocalRunLoop() {
     CFRunLoopRemoveTimer(runLoop, timer, kCFRunLoopCommonModes);
-    CFRunLoopRemoveTimer(runLoop, frameTimer, kCFRunLoopCommonModes);
     CFRelease(timer);
-    CFRelease(frameTimer);
 }
 
 RunLoop::RunLoop() : local_(LocalRunLoop::get()) {}

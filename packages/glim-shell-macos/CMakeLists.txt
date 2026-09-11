@@ -19,6 +19,7 @@ set_source_files_properties(src/Window.mm PROPERTIES COMPILE_DEFINITIONS GLIM_SO
 find_library(GLIM_APPKIT AppKit REQUIRED)
 find_library(GLIM_METAL Metal REQUIRED)
 find_library(GLIM_QUARTZ QuartzCore REQUIRED)
+find_library(GLIM_COREVIDEO CoreVideo REQUIRED)
 find_library(GLIM_COREFOUNDATION CoreFoundation REQUIRED)
 target_link_libraries(glim-shell PUBLIC
-    ${GLIM_APPKIT} ${GLIM_METAL} ${GLIM_QUARTZ} ${GLIM_COREFOUNDATION})
+    ${GLIM_APPKIT} ${GLIM_METAL} ${GLIM_QUARTZ} ${GLIM_COREVIDEO} ${GLIM_COREFOUNDATION})
