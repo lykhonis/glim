@@ -58,8 +58,47 @@ Rect transformRect(const Mat4& t, Rect r) {
     return {{o.x, o.y}, {c.x - o.x, c.y - o.y}};
 }
 
+namespace {
+
+float transformScale(const Mat4& t, const Rect& r) {
+    if (r.size.x <= 1e-6f || r.size.y <= 1e-6f) {
+        return 1.f;
+    }
+    const Rect xf = transformRect(t, r);
+    const float sx = std::fabs(xf.size.x / r.size.x);
+    const float sy = std::fabs(xf.size.y / r.size.y);
+    return std::min(sx, sy);
+}
+
+Radius transformRadius(const Mat4& t, const Rect& r, Radius rad) {
+    const float s = transformScale(t, r);
+    rad.lt *= s;
+    rad.rt *= s;
+    rad.lb *= s;
+    rad.rb *= s;
+    return rad;
+}
+
+}  // namespace
+
 FillRect transformFill(const Mat4& t, const FillRect& src) {
     FillRect out = src;
+    out.rect = transformRect(t, src.rect);
+    return out;
+}
+
+FillRounded transformRounded(const Mat4& t, const FillRounded& src) {
+    FillRounded out = src;
+    out.radius = transformRadius(t, src.rect, src.radius);
+    out.rect = transformRect(t, src.rect);
+    return out;
+}
+
+Stroke transformStroke(const Mat4& t, const Stroke& src) {
+    Stroke out = src;
+    const float s = transformScale(t, src.rect);
+    out.radius = transformRadius(t, src.rect, src.radius);
+    out.width = src.width * s;
     out.rect = transformRect(t, src.rect);
     return out;
 }
@@ -70,12 +109,24 @@ Blit transformBlit(const Mat4& t, const Blit& src) {
     return out;
 }
 
-void appendTransformed(std::vector<Shape>& dst, const Mat4& t, const Shape& s) {
+Shape transformShape(const Mat4& t, const Shape& s) {
     if (const auto* f = std::get_if<FillRect>(&s)) {
-        dst.emplace_back(transformFill(t, *f));
-    } else if (const auto* b = std::get_if<Blit>(&s)) {
-        dst.emplace_back(transformBlit(t, *b));
+        return transformFill(t, *f);
     }
+    if (const auto* r = std::get_if<FillRounded>(&s)) {
+        return transformRounded(t, *r);
+    }
+    if (const auto* st = std::get_if<Stroke>(&s)) {
+        return transformStroke(t, *st);
+    }
+    if (const auto* b = std::get_if<Blit>(&s)) {
+        return transformBlit(t, *b);
+    }
+    return s;
+}
+
+void appendTransformed(std::vector<Shape>& dst, const Mat4& t, const Shape& s) {
+    dst.push_back(transformShape(t, s));
 }
 
 bool needsIsolate(const Group& g) {
@@ -92,7 +143,7 @@ bool needsIsolate(const Group& g) {
 }
 
 bool canMerge(const Group& g) {
-    if (needsIsolate(g)) {
+    if (needsIsolate(g) || hasClip(g.params)) {
         return false;
     }
     return g.params.blend == Blend::SrcOver;
@@ -103,6 +154,12 @@ Rect contentBounds(const Group& g) {
     for (const Shape& s : g.shapes) {
         if (const auto* f = std::get_if<FillRect>(&s)) {
             b = unionRect(b, f->rect);
+        } else if (const auto* r = std::get_if<FillRounded>(&s)) {
+            b = unionRect(b, r->rect);
+        } else if (const auto* st = std::get_if<Stroke>(&s)) {
+            const float o = std::max(0.f, st->width) * 0.5f;
+            b = unionRect(b, {{st->rect.origin.x - o, st->rect.origin.y - o},
+                              {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}});
         } else if (const auto* blit = std::get_if<Blit>(&s)) {
             b = unionRect(b, blit->rect);
         }

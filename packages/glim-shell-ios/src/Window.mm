@@ -16,6 +16,111 @@ using glim::shell::Key;
 using glim::shell::PointerButton;
 using glim::shell::Window;
 
+namespace {
+
+UIWindowScene* glimSceneForView(UIView* view) {
+    if (view.window.windowScene) {
+        return view.window.windowScene;
+    }
+    for (UIScene* connected in UIApplication.sharedApplication.connectedScenes) {
+        if ([connected isKindOfClass:[UIWindowScene class]]) {
+            return (UIWindowScene*)connected;
+        }
+    }
+    return nil;
+}
+
+#if !TARGET_OS_TV
+UIInterfaceOrientation glimSceneOrientation(UIWindowScene* scene) {
+    if (!scene) {
+        return UIInterfaceOrientationUnknown;
+    }
+    UIInterfaceOrientation orientation = UIInterfaceOrientationUnknown;
+    if (@available(iOS 16.0, *)) {
+        orientation = scene.effectiveGeometry.interfaceOrientation;
+    }
+    if (orientation == UIInterfaceOrientationUnknown) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        orientation = scene.interfaceOrientation;
+#pragma clang diagnostic pop
+    }
+    return orientation;
+}
+
+BOOL glimWantLandscape(UIWindowScene* scene) {
+    NSString* forced = NSProcessInfo.processInfo.environment[@"GLIM_SIM_ORIENTATION"];
+    if (forced.length > 0) {
+        return [forced.lowercaseString hasPrefix:@"land"];
+    }
+    const UIDeviceOrientation device = UIDevice.currentDevice.orientation;
+    if (UIDeviceOrientationIsLandscape(device)) {
+        return YES;
+    }
+    if (UIDeviceOrientationIsPortrait(device)) {
+        return NO;
+    }
+    const UIInterfaceOrientation orientation = glimSceneOrientation(scene);
+    if (UIInterfaceOrientationIsLandscape(orientation)) {
+        return YES;
+    }
+    if (UIInterfaceOrientationIsPortrait(orientation)) {
+        return NO;
+    }
+    return NO;
+}
+#endif
+
+CGSize glimIntendedPointSize(UIWindowScene* scene, UIView* view) {
+    UIScreen* screen = scene.screen;
+    if (!screen && view) {
+        screen = view.window.screen;
+    }
+    if (!screen) {
+        screen = UIScreen.mainScreen;
+    }
+    const CGFloat scale = screen.scale > 0 ? screen.scale : 1.0;
+    CGSize size = CGSizeMake(screen.nativeBounds.size.width / scale, screen.nativeBounds.size.height / scale);
+    if (size.width < 1.0 || size.height < 1.0) {
+        size = screen.bounds.size;
+    }
+#if !TARGET_OS_TV
+    const BOOL landscape = glimWantLandscape(scene);
+    if (landscape && size.width < size.height) {
+        size = CGSizeMake(size.height, size.width);
+    } else if (!landscape && size.width > size.height) {
+        size = CGSizeMake(size.height, size.width);
+    }
+#endif
+    if (size.width < 1.0) {
+        size.width = 1.0;
+    }
+    if (size.height < 1.0) {
+        size.height = 1.0;
+    }
+    return size;
+}
+
+#if !TARGET_OS_TV
+void glimRequestSceneGeometry(UIWindowScene* scene) {
+    if (!scene) {
+        return;
+    }
+    if (@available(iOS 16.0, *)) {
+        UIInterfaceOrientationMask mask = UIInterfaceOrientationMaskAllButUpsideDown;
+        if (glimWantLandscape(scene)) {
+            mask = UIInterfaceOrientationMaskLandscape;
+        }
+        UIWindowSceneGeometryPreferencesIOS* prefs =
+            [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+        [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError*){
+        }];
+    }
+}
+#endif
+
+}  // namespace
+
 @interface GlimView : UIView
 - (void)setEventCallback:(Window::EventCallback)callback;
 - (void)dispatchEvent:(const Event&)event;
@@ -57,6 +162,12 @@ using glim::shell::Window;
     }
 }
 
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    lastBackingSize_ = CGSizeMake(-1, -1);
+    [self notifyResizedIfNeeded];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     [self notifyResizedIfNeeded];
@@ -69,9 +180,9 @@ using glim::shell::Window;
 
 - (CGSize)backingPixelSize {
     const CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 1.0;
-    const CGSize bounds = self.bounds.size;
-    return CGSizeMake(std::max(1.0, std::round(bounds.width * scale)),
-                      std::max(1.0, std::round(bounds.height * scale)));
+    const CGSize points = glimIntendedPointSize(glimSceneForView(self), self);
+    return CGSizeMake(std::max(1.0, std::round(points.width * scale)),
+                      std::max(1.0, std::round(points.height * scale)));
 }
 
 - (void)syncMetalDrawableSize {
@@ -164,16 +275,40 @@ using glim::shell::Window;
 @implementation GlimViewController
 
 - (void)loadView {
-    CGRect frame = CGRectMake(0, 0, 320, 480);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if (UIScreen.mainScreen) {
-        frame = UIScreen.mainScreen.bounds;
-    }
-#pragma clang diagnostic pop
-    GlimView* view = [[GlimView alloc] initWithFrame:frame];
+    GlimView* view = [[GlimView alloc] initWithFrame:CGRectZero];
     view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.view = view;
+}
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+#if TARGET_OS_TV
+    return UIInterfaceOrientationMaskAll;
+#else
+    return UIInterfaceOrientationMaskAllButUpsideDown;
+#endif
+}
+
+#if !TARGET_OS_TV
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    UIWindowScene* scene = glimSceneForView(self.view);
+    if (glimWantLandscape(scene)) {
+        const UIInterfaceOrientation o = glimSceneOrientation(scene);
+        if (o == UIInterfaceOrientationLandscapeLeft || o == UIInterfaceOrientationLandscapeRight) {
+            return o;
+        }
+        return UIInterfaceOrientationLandscapeRight;
+    }
+    return UIInterfaceOrientationPortrait;
+}
+#endif
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [(GlimView*)self.view notifyResizedIfNeeded];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -286,21 +421,25 @@ using glim::shell::Window;
 @end
 
 namespace glim::shell {
+namespace {
+
+void glimSyncWindowToScene(UIWindow* window, GlimView* view, UIWindowScene* scene) {
+#if !TARGET_OS_TV
+    glimRequestSceneGeometry(scene);
+#else
+    (void)scene;
+#endif
+    [window layoutIfNeeded];
+    [view notifyResizedIfNeeded];
+}
+
+}  // namespace
 
 Window::Window() {
     @autoreleasepool {
-        CGRect frame = CGRectMake(0, 0, 320, 480);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        if (UIScreen.mainScreen) {
-            frame = UIScreen.mainScreen.bounds;
-        }
-#pragma clang diagnostic pop
-        UIWindow* window = [[UIWindow alloc] initWithFrame:frame];
         GlimViewController* vc = [[GlimViewController alloc] init];
-        window.rootViewController = vc;
-        window.backgroundColor = [UIColor blackColor];
-        window_ = (__bridge_retained void*)window;
+        [vc loadViewIfNeeded];
+        controller_ = (__bridge_retained void*)vc;
         view_ = (__bridge_retained void*)vc.view;
     }
 }
@@ -314,6 +453,10 @@ Window::~Window() {
     if (window_) {
         CFRelease(window_);
         window_ = nullptr;
+    }
+    if (controller_) {
+        CFRelease(controller_);
+        controller_ = nullptr;
     }
 }
 
@@ -343,30 +486,28 @@ void Window::attachToScene(void* scenePtr) {
     if (!scene) {
         return;
     }
+    GlimView* view = view_ ? (__bridge GlimView*)view_ : nil;
+    UIViewController* vc = controller_ ? (__bridge UIViewController*)controller_ : nil;
+    if (!view || !vc) {
+        return;
+    }
     UIWindow* window = window_ ? (__bridge UIWindow*)window_ : nil;
-    if (window && window.windowScene == scene) {
-        window.frame = scene.coordinateSpace.bounds;
+    if (!window) {
+        if (scene.windows.count > 0) {
+            window = scene.windows.firstObject;
+        } else {
+            window = [[UIWindow alloc] initWithWindowScene:scene];
+        }
+        window.backgroundColor = [UIColor blackColor];
+        window.rootViewController = vc;
+        window_ = (__bridge_retained void*)window;
+    } else if (window.windowScene != scene) {
+        window.windowScene = scene;
+    }
+    if (!window.isKeyWindow) {
         [window makeKeyAndVisible];
-        return;
     }
-
-    UIViewController* vc = window ? window.rootViewController : nil;
-    if (!vc) {
-        return;
-    }
-    if (window_) {
-        window.rootViewController = nil;
-        window.hidden = YES;
-        CFRelease(window_);
-        window_ = nullptr;
-    }
-
-    window = [[UIWindow alloc] initWithWindowScene:scene];
-    window.backgroundColor = [UIColor blackColor];
-    window.rootViewController = vc;
-    window.frame = scene.coordinateSpace.bounds;
-    window_ = (__bridge_retained void*)window;
-    [window makeKeyAndVisible];
+    glimSyncWindowToScene(window, view, scene);
 }
 
 void Window::show() {
@@ -378,8 +519,9 @@ void Window::show() {
 }
 
 void Window::hide() {
-    UIWindow* window = (__bridge UIWindow*)window_;
-    window.hidden = YES;
+    if (window_) {
+        ((__bridge UIWindow*)window_).hidden = YES;
+    }
     shown_ = false;
     detail::unregisterShownWindow(this);
 }
@@ -389,8 +531,10 @@ void Window::setSize(int, int) {
 }
 
 void Window::setTitle(const std::string& title) {
-    UIWindow* window = (__bridge UIWindow*)window_;
-    window.rootViewController.title = [NSString stringWithUTF8String:title.c_str()];
+    UIViewController* vc = controller_ ? (__bridge UIViewController*)controller_ : nil;
+    if (vc) {
+        vc.title = [NSString stringWithUTF8String:title.c_str()];
+    }
 }
 
 void Window::center() {}
@@ -434,10 +578,11 @@ void* Window::nativeView() const {
 }
 
 void Window::dispatch(const Event& event) {
+    GlimView* view = (__bridge GlimView*)view_;
     if (event.type() == EventType::Frame || event.type() == EventType::WindowResized) {
-        [(__bridge GlimView*)view_ syncMetalDrawableSize];
+        [view syncMetalDrawableSize];
     }
-    [(__bridge GlimView*)view_ dispatchEvent:event];
+    [view dispatchEvent:event];
 }
 
 }  // namespace glim::shell

@@ -1194,11 +1194,11 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     binds[0].binding = 0;
     binds[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     binds[0].descriptorCount = 1;
-    binds[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    binds[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     binds[1].binding = 1;
     binds[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binds[1].descriptorCount = 1;
-    binds[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    binds[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     binds[2].binding = 2;
     binds[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     binds[2].descriptorCount = 1;

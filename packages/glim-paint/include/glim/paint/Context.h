@@ -20,6 +20,11 @@ public:
     void setFillColor(Color color) { setFill(Matter::solid(color)); }
     void setFillColor(std::uint32_t rgba) { setFillColor(Color{rgba}); }
     void fill(const Rect&);
+    void fillRounded(const Rect&, Radius);
+    void strokeRect(const Rect&, float width);
+    void strokeRect(const Rect&, Radius, float width);
+    void clipRect(const Rect&);
+    void clipRect(const Rect&, Radius);
     std::uint32_t addImage(int width, int height, const std::uint8_t* rgba);
     void releaseImage(std::uint32_t id);
     const ImageStore& images() const { return images_; }

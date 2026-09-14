@@ -1,5 +1,7 @@
 #include <glim/paint/Context.h>
 
+#include <algorithm>
+
 namespace glim::paint {
 
 void Context::setSize(Vec2 size) {
@@ -36,6 +38,58 @@ void Context::fill(const Rect& rect) {
     }
     current()->shapes.emplace_back(
         transformFill(state_.model, FillRect{rect, Matter::solid(state_.fill.color)}));
+}
+
+void Context::fillRounded(const Rect& rect, Radius radius) {
+    if (!recording_) {
+        return;
+    }
+    current()->shapes.emplace_back(transformRounded(
+        state_.model, FillRounded{rect, radius, Matter::solid(state_.fill.color)}));
+}
+
+void Context::strokeRect(const Rect& rect, float width) {
+    strokeRect(rect, Radius{}, width);
+}
+
+void Context::strokeRect(const Rect& rect, Radius radius, float width) {
+    if (!recording_ || width <= 0.f) {
+        return;
+    }
+    current()->shapes.emplace_back(transformStroke(
+        state_.model, Stroke{rect, radius, width, Matter::solid(state_.fill.color)}));
+}
+
+void Context::clipRect(const Rect& rect) {
+    clipRect(rect, Radius{});
+}
+
+void Context::clipRect(const Rect& rect, Radius radius) {
+    if (!recording_) {
+        return;
+    }
+    Group* g = current();
+    const Rect xf = transformRect(state_.model, rect);
+    const FillRounded scaled =
+        transformRounded(state_.model, FillRounded{rect, radius, Matter::solid(Color{})});
+    if (!hasClip(g->params)) {
+        g->params.clip = xf;
+        g->params.clipRadius = scaled.radius;
+        return;
+    }
+    const float x0 = std::max(g->params.clip.origin.x, xf.origin.x);
+    const float y0 = std::max(g->params.clip.origin.y, xf.origin.y);
+    const float x1 =
+        std::min(g->params.clip.origin.x + g->params.clip.size.x, xf.origin.x + xf.size.x);
+    const float y1 =
+        std::min(g->params.clip.origin.y + g->params.clip.size.y, xf.origin.y + xf.size.y);
+    if (x1 <= x0 || y1 <= y0) {
+        g->params.clip = {};
+        g->params.clipRadius = {};
+        return;
+    }
+    g->params.clip = {{x0, y0}, {x1 - x0, y1 - y0}};
+    g->params.clipRadius = {};
 }
 
 std::uint32_t Context::addImage(int width, int height, const std::uint8_t* rgba) {

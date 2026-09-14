@@ -35,6 +35,7 @@ std::uint32_t helloBadge(glim::paint::Context& context) {
 
 void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSeconds) {
     using glim::Mat4;
+    using glim::Radius;
     using glim::Rect;
     using glim::paint::GroupParams;
 
@@ -48,7 +49,20 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     context.save();
     context.translate({100.f, 50.f});
     context.setFillColor(0xac6363ff);
-    context.fill(Rect::fromSize({400.f, 300.f}));
+    context.fillRounded(Rect::fromSize({400.f, 300.f}), Radius{28.f});
+
+    GroupParams scroll;
+    scroll.clip = Rect{{16.f, 204.f}, {368.f, 80.f}};
+    context.pushGroup(scroll);
+    const float scrollX = std::fmod(timeSeconds * 48.f, 200.f);
+    context.translate({16.f - scrollX, 216.f});
+    const std::uint32_t pills[] = {0xf4a261ff, 0xe9c46aff, 0x2a9d8fff, 0x264653ff,
+                                  0xe76f51ff, 0x8ab17dff, 0x3d7ea6ff, 0xd4a373ff};
+    for (int i = 0; i < 8; ++i) {
+        context.setFillColor(pills[i]);
+        context.fillRounded(Rect{{static_cast<float>(i) * 56.f, 0.f}, {48.f, 56.f}}, Radius{14.f});
+    }
+    context.popGroup();
     context.restore();
 
     const float bob = std::sin(timeSeconds * 1.4f) * 10.f;
@@ -56,17 +70,19 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     context.save();
     context.translate({sideX, 70.f + bob});
     context.setFillColor(0x3d7ea6ff);
-    context.fill(Rect::fromSize({180.f, 200.f}));
+    context.fillRounded(Rect::fromSize({180.f, 200.f}), Radius{20.f});
+    context.setFillColor(0xf0d5a8ff);
+    context.strokeRect(Rect{{12.f, 12.f}, {156.f, 176.f}}, Radius{14.f}, 3.f);
     context.restore();
 
-    context.save();
-    context.translate({140.f, 80.f});
+    const Rect card{{140.f, 80.f}, {96.f, 64.f}};
     context.setFillColor(0xf0d5a8ff);
-    context.fill(Rect::fromSize({80.f, 48.f}));
+    context.fillRounded(card, Radius{12.f});
     if (badge != 0) {
-        context.blit(Rect{{8.f, 8.f}, {32.f, 32.f}}, badge);
+        context.blit(Rect{{156.f, 96.f}, {32.f, 32.f}}, badge);
     }
-    context.restore();
+    context.setFillColor(0x2a9d8fff);
+    context.strokeRect(card, Radius{12.f}, 3.f);
 
     GroupParams glass;
     glass.opacity = 0.42f;
@@ -76,7 +92,9 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     context.setFillColor(0xe8eef4ff);
     context.fill(Rect::fromSize({size.x, 96.f}));
     context.setFillColor(0x2a9d8fff);
-    context.fill(Rect{{24.f, 28.f}, {160.f, 40.f}});
+    context.fillRounded(Rect{{24.f, 24.f}, {160.f, 48.f}}, Radius{16.f});
+    context.setFillColor(0x243038ff);
+    context.strokeRect(Rect{{24.f, 24.f}, {160.f, 48.f}}, Radius{16.f}, 2.f);
     context.popGroup();
 
     context.finish();

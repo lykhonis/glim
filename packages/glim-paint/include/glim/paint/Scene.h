@@ -65,10 +65,25 @@ struct GroupParams {
     Rect bounds{};
     bool isolate = false;
     Blend blend = Blend::SrcOver;
+    Rect clip{};
+    Radius clipRadius{};
 };
 
 struct FillRect {
     Rect rect;
+    Matter matter;
+};
+
+struct FillRounded {
+    Rect rect;
+    Radius radius;
+    Matter matter;
+};
+
+struct Stroke {
+    Rect rect;
+    Radius radius;
+    float width = 1.f;
     Matter matter;
 };
 
@@ -77,7 +92,11 @@ struct Blit {
     Matter matter;
 };
 
-using Shape = std::variant<FillRect, Blit>;
+using Shape = std::variant<FillRect, FillRounded, Stroke, Blit>;
+
+inline bool hasClip(const GroupParams& p) noexcept {
+    return p.clip.size.x > 0.f && p.clip.size.y > 0.f;
+}
 
 struct Group {
     GroupParams params;
@@ -112,9 +131,12 @@ std::unique_ptr<Group> cloneGroup(const Group&);
 Group merge(Group, Stats* stats = nullptr);
 Rect transformRect(const Mat4&, Rect);
 FillRect transformFill(const Mat4&, const FillRect&);
+FillRounded transformRounded(const Mat4&, const FillRounded&);
+Stroke transformStroke(const Mat4&, const Stroke&);
 Blit transformBlit(const Mat4&, const Blit&);
 Rect contentBounds(const Group&);
 void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
+Shape transformShape(const Mat4&, const Shape&);
 
 constexpr int kTileSize = 32;
 

@@ -17,6 +17,7 @@
 #else
 #include "glim_metal_shaders.h"
 #endif
+#include "Strip.h"
 #endif
 
 namespace glim::paint {
@@ -75,6 +76,9 @@ std::string loadShader(const char* name) {
     if (std::strcmp(name, "blit.metal") == 0) {
         return glim::metal_shaders::blit;
     }
+    if (std::strcmp(name, "rounded.metal") == 0) {
+        return glim::metal_shaders::rounded;
+    }
     return {};
 }
 #endif
@@ -101,7 +105,8 @@ bool Renderer::ensurePipelines() {
 #else
     const std::string solidSrc = loadShader("solid.metal");
     const std::string blitSrc = loadShader("blit.metal");
-    if (solidSrc.empty() || blitSrc.empty()) {
+    const std::string roundedSrc = loadShader("rounded.metal");
+    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty()) {
         return false;
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
@@ -143,6 +148,28 @@ bool Renderer::ensurePipelines() {
         return false;
     }
     blit_ = std::move(blit.value());
+
+#if GLIM_GPU_VULKAN
+    auto rvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::rounded_vert),
+        sizeof(glim::vulkan_shaders::rounded_vert));
+    auto rfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::rounded_frag),
+        sizeof(glim::vulkan_shaders::rounded_frag));
+#else
+    auto rvs = device_.createShader(gpu::ShaderStage::Vertex, roundedSrc.data(), roundedSrc.size());
+    auto rfs = device_.createShader(gpu::ShaderStage::Fragment, roundedSrc.data(), roundedSrc.size());
+#endif
+    if (rvs.ok() && rfs.ok()) {
+        pd.vertexShader = rvs->handle();
+        pd.fragmentShader = rfs->handle();
+        auto rounded = device_.createPipeline(pd);
+        if (rounded.ok()) {
+            rounded_ = std::move(rounded.value());
+        }
+    }
     ready_ = true;
     return true;
 }
@@ -151,13 +178,42 @@ void Renderer::flushSolid(gpu::Pass& pass) {
     if (pending_.empty()) {
         return;
     }
-    const std::uint64_t bytes = sizeof(SolidInstance) * pending_.size();
     pass.setPipeline(solid_);
-    pass.setBytes(0, pending_.data(), bytes);
-    pass.draw(6, static_cast<std::uint32_t>(pending_.size()), 0, 0);
-    stats_.draws += 1;
-    stats_.instances += static_cast<unsigned>(pending_.size());
+    constexpr std::size_t kMax = 4096 / sizeof(SolidInstance);
+    std::size_t i = 0;
+    while (i < pending_.size()) {
+        const std::size_t n = std::min(kMax, pending_.size() - i);
+        pass.setBytes(0, pending_.data() + i, sizeof(SolidInstance) * n);
+        pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
+        stats_.draws += 1;
+        stats_.instances += static_cast<unsigned>(n);
+        i += n;
+    }
     pending_.clear();
+}
+
+void Renderer::flushRounded(gpu::Pass& pass) {
+    if (pendingRounded_.empty()) {
+        return;
+    }
+    if (!rounded_.native()) {
+        pendingRounded_.clear();
+        return;
+    }
+    pass.setPipeline(rounded_);
+    constexpr std::size_t kMax = 4096 / sizeof(RoundedInstance);
+    std::size_t i = 0;
+    while (i < pendingRounded_.size()) {
+        const std::size_t n = std::min(kMax, pendingRounded_.size() - i);
+        const std::uint64_t bytes = sizeof(RoundedInstance) * n;
+        pass.setBytes(0, pendingRounded_.data() + i, bytes);
+        pass.setFragmentBytes(0, pendingRounded_.data() + i, bytes);
+        pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
+        stats_.draws += 1;
+        stats_.instances += static_cast<unsigned>(n);
+        i += n;
+    }
+    pendingRounded_.clear();
 }
 
 void Renderer::flushBlit(gpu::Pass& pass) {
@@ -167,12 +223,18 @@ void Renderer::flushBlit(gpu::Pass& pass) {
         return;
     }
     pass.setPipeline(blit_);
-    pass.setBytes(0, pendingBlit_.data(), sizeof(BlitInstance) * pendingBlit_.size());
     pass.setFragmentTexture(0, pendingBlitTex_);
     pass.setFragmentSampler(0, device_.nativeSampler());
-    pass.draw(6, static_cast<std::uint32_t>(pendingBlit_.size()), 0, 0);
-    stats_.draws += 1;
-    stats_.instances += static_cast<unsigned>(pendingBlit_.size());
+    constexpr std::size_t kMax = 4096 / sizeof(BlitInstance);
+    std::size_t i = 0;
+    while (i < pendingBlit_.size()) {
+        const std::size_t n = std::min(kMax, pendingBlit_.size() - i);
+        pass.setBytes(0, pendingBlit_.data() + i, sizeof(BlitInstance) * n);
+        pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
+        stats_.draws += 1;
+        stats_.instances += static_cast<unsigned>(n);
+        i += n;
+    }
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
 }
@@ -342,77 +404,194 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
     pass.setBytes(1, &u, sizeof(u));
 
     pending_.clear();
+    pendingRounded_.clear();
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
-    auto addFill = [this](const FillRect& f) {
+
+    const auto scissorFor = [&](const ClipState& clip) {
+        const int vw = std::max(0, viewportW);
+        const int vh = std::max(0, viewportH);
+        if (!clip.active || vw <= 0 || vh <= 0 || clip.rect.size.x <= 0.f || clip.rect.size.y <= 0.f) {
+            pass.setScissor(0, 0, static_cast<std::uint32_t>(vw), static_cast<std::uint32_t>(vh));
+            return;
+        }
+        const float x0 = clip.rect.origin.x;
+        const float y0 = clip.rect.origin.y;
+        const float x1 = x0 + clip.rect.size.x;
+        const float y1 = y0 + clip.rect.size.y;
+        const Vec2 corners[4] = {{x0, y0}, {x1, y0}, {x0, y1}, {x1, y1}};
+        float minX = 0.f;
+        float minY = 0.f;
+        float maxX = 0.f;
+        float maxY = 0.f;
+        for (int i = 0; i < 4; ++i) {
+            const Vec4 clipP = projection * Vec4{corners[i].x, corners[i].y, 0.f, 1.f};
+            const float iw = clipP.w != 0.f ? 1.f / clipP.w : 1.f;
+            const float fx = (clipP.x * iw * 0.5f + 0.5f) * static_cast<float>(vw);
+            const float fy = (0.5f - clipP.y * iw * 0.5f) * static_cast<float>(vh);
+            if (i == 0) {
+                minX = maxX = fx;
+                minY = maxY = fy;
+            } else {
+                minX = std::min(minX, fx);
+                minY = std::min(minY, fy);
+                maxX = std::max(maxX, fx);
+                maxY = std::max(maxY, fy);
+            }
+        }
+        int x = static_cast<int>(std::floor(minX));
+        int y = static_cast<int>(std::floor(minY));
+        int w = static_cast<int>(std::ceil(maxX)) - x;
+        int h = static_cast<int>(std::ceil(maxY)) - y;
+        x = std::max(0, std::min(x, vw));
+        y = std::max(0, std::min(y, vh));
+        w = std::max(0, std::min(w, vw - x));
+        h = std::max(0, std::min(h, vh - y));
+        pass.setScissor(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y),
+                        static_cast<std::uint32_t>(w), static_cast<std::uint32_t>(h));
+    };
+
+    auto addQuad = [this](const Quad& q) {
         SolidInstance inst{};
-        inst.rect[0] = f.rect.origin.x;
-        inst.rect[1] = f.rect.origin.y;
-        inst.rect[2] = f.rect.size.x;
-        inst.rect[3] = f.rect.size.y;
-        const Vec4 premul = f.matter.color.premul();
-        inst.color[0] = premul.x;
-        inst.color[1] = premul.y;
-        inst.color[2] = premul.z;
-        inst.color[3] = premul.w;
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.color[0] = q.r;
+        inst.color[1] = q.g;
+        inst.color[2] = q.b;
+        inst.color[3] = q.a;
         pending_.push_back(inst);
     };
-    auto addBlit = [this, &pass](const Blit& b) {
-        void* tex = gpuTexture(b.matter.imageId);
+    auto addBlit = [this, &pass](const BlitQuad& q) {
+        void* tex = gpuTexture(q.imageId);
         if (!tex) {
             return;
         }
         flushSolid(pass);
+        flushRounded(pass);
         if (pendingBlitTex_ && pendingBlitTex_ != tex) {
             flushBlit(pass);
         }
         pendingBlitTex_ = tex;
-        const Vec4 tint = b.matter.color.premul();
         BlitInstance inst{};
-        inst.rect[0] = b.rect.origin.x;
-        inst.rect[1] = b.rect.origin.y;
-        inst.rect[2] = b.rect.size.x;
-        inst.rect[3] = b.rect.size.y;
-        inst.uv[0] = b.matter.uv.origin.x;
-        inst.uv[1] = b.matter.uv.origin.y;
-        inst.uv[2] = b.matter.uv.origin.x + b.matter.uv.size.x;
-        inst.uv[3] = b.matter.uv.origin.y + b.matter.uv.size.y;
-        inst.extra[0] = tint.x;
-        inst.extra[1] = tint.y;
-        inst.extra[2] = tint.z;
-        inst.extra[3] = tint.w;
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.uv[0] = q.u0;
+        inst.uv[1] = q.v0;
+        inst.uv[2] = q.u1;
+        inst.uv[3] = q.v1;
+        inst.extra[0] = q.r;
+        inst.extra[1] = q.g;
+        inst.extra[2] = q.b;
+        inst.extra[3] = q.a;
         pendingBlit_.push_back(inst);
     };
-    auto emit = [&](const Shape& s) {
-        if (const auto* f = std::get_if<FillRect>(&s)) {
-            flushBlit(pass);
-            addFill(*f);
-        } else if (const auto* b = std::get_if<Blit>(&s)) {
-            addBlit(*b);
-        }
+
+    struct PendingIso {
+        const Group* group = nullptr;
+        Mat4 extra = Mat4::identity();
     };
-    for (const Shape& s : group.shapes) {
-        emit(s);
-    }
-    for (const auto& child : group.children) {
-        if (!child || needsIsolate(*child)) {
-            continue;
-        }
-        for (const Shape& s : child->shapes) {
-            if (const auto* f = std::get_if<FillRect>(&s)) {
-                emit(transformFill(child->params.transform, *f));
-            } else if (const auto* b = std::get_if<Blit>(&s)) {
-                emit(transformBlit(child->params.transform, *b));
+    std::vector<PendingIso> pendingIso;
+
+    const auto emitTree = [&](auto& self, const Group& g, const Mat4& extra,
+                             const ClipState& parentClip) -> void {
+        const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
+        flushSolid(pass);
+        flushRounded(pass);
+        flushBlit(pass);
+        scissorFor(clip);
+        const auto addRounded = [this, &pass, &clip, &addQuad](const Shape& xf) {
+            flushBlit(pass);
+            if (rounded_.native()) {
+                RoundedInstance inst{};
+                const Rect* rect = nullptr;
+                const Radius* radius = nullptr;
+                const Matter* matter = nullptr;
+                float strokeWidth = 0.f;
+                if (const auto* r = std::get_if<FillRounded>(&xf)) {
+                    rect = &r->rect;
+                    radius = &r->radius;
+                    matter = &r->matter;
+                } else if (const auto* st = std::get_if<Stroke>(&xf)) {
+                    rect = &st->rect;
+                    radius = &st->radius;
+                    matter = &st->matter;
+                    strokeWidth = st->width;
+                }
+                if (!rect || !radius || !matter) {
+                    return;
+                }
+                inst.rect[0] = rect->origin.x;
+                inst.rect[1] = rect->origin.y;
+                inst.rect[2] = rect->size.x;
+                inst.rect[3] = rect->size.y;
+                inst.radii[0] = radius->lt;
+                inst.radii[1] = radius->rt;
+                inst.radii[2] = radius->lb;
+                inst.radii[3] = radius->rb;
+                const Vec4 premul = matter->color.premul();
+                inst.color[0] = premul.x;
+                inst.color[1] = premul.y;
+                inst.color[2] = premul.z;
+                inst.color[3] = premul.w;
+                inst.extra[0] = strokeWidth;
+                pendingRounded_.push_back(inst);
+                return;
+            }
+            std::vector<Quad> quads;
+            std::vector<BlitQuad> unused;
+            appendShape(quads, unused, xf, clip);
+            flushRounded(pass);
+            for (const Quad& q : quads) {
+                addQuad(q);
+            }
+        };
+        for (const Shape& s : g.shapes) {
+            const Shape xf = transformShape(extra, s);
+            if (std::get_if<FillRect>(&xf)) {
+                std::vector<Quad> quads;
+                std::vector<BlitQuad> unused;
+                appendShape(quads, unused, xf, clip);
+                if (!quads.empty()) {
+                    flushBlit(pass);
+                    flushRounded(pass);
+                    for (const Quad& q : quads) {
+                        addQuad(q);
+                    }
+                }
+            } else if (std::get_if<FillRounded>(&xf) || std::get_if<Stroke>(&xf)) {
+                addRounded(xf);
+            } else if (std::get_if<Blit>(&xf)) {
+                std::vector<Quad> unused;
+                std::vector<BlitQuad> blits;
+                appendShape(unused, blits, xf, clip);
+                for (const BlitQuad& q : blits) {
+                    addBlit(q);
+                }
             }
         }
-    }
-    flushSolid(pass);
-    flushBlit(pass);
-
-    for (const auto& child : group.children) {
-        if (!child || !needsIsolate(*child)) {
-            continue;
+        for (const auto& child : g.children) {
+            if (!child) {
+                continue;
+            }
+            if (needsIsolate(*child)) {
+                pendingIso.push_back({child.get(), extra});
+                continue;
+            }
+            self(self, *child, extra * child->params.transform, clip);
         }
+        flushSolid(pass);
+        flushRounded(pass);
+        flushBlit(pass);
+        scissorFor(parentClip);
+    };
+    emitTree(emitTree, group, Mat4::identity(), {});
+
+    for (const PendingIso& item : pendingIso) {
+        const Group* child = item.group;
         Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
         const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
         const int ih = std::max(1, static_cast<int>(std::ceil(b.size.y)));
@@ -425,6 +604,9 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         content->params.opacity = 1.0f;
         content->params.isolate = false;
         content->params.transform = Mat4::identity();
+        if (!hasClip(content->params) && b.size.x > 0.f && b.size.y > 0.f) {
+            content->params.clip = Rect{{0, 0}, b.size};
+        }
         const Mat4 localProj = Mat4::orthoYDown(0, 0, static_cast<float>(iw), static_cast<float>(ih));
         encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear);
         ++stats_.isolateCount;
@@ -435,7 +617,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         Uniforms parentU{};
         std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
         pass.setBytes(1, &parentU, sizeof(parentU));
-        const Rect dest = transformRect(child->params.transform, Rect{{0, 0}, b.size});
+        const Rect dest = transformRect(item.extra * child->params.transform, Rect{{0, 0}, b.size});
         BlitInstance blit{};
         blit.rect[0] = dest.origin.x;
         blit.rect[1] = dest.origin.y;

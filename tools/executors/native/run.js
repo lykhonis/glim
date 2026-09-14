@@ -7,6 +7,23 @@ function xcrun(args, opts = {}) {
   return spawnSync("xcrun", args, { encoding: "utf8", ...opts });
 }
 
+function timedOut(r) {
+  return Boolean(r && r.error && (r.error.code === "ETIMEDOUT" || r.signal));
+}
+
+function simulatorWindowOrientation(udid) {
+  const plist = `${process.env.HOME || ""}/Library/Preferences/com.apple.iphonesimulator.plist`;
+  const r = spawnSync(
+    "plutil",
+    ["-extract", `DevicePreferences.${udid}.SimulatorWindowOrientation`, "raw", plist],
+    { encoding: "utf8" },
+  );
+  if (r.status !== 0) {
+    return "";
+  }
+  return (r.stdout || "").trim();
+}
+
 function fail(message) {
   console.error(message);
   return { success: false };
@@ -55,35 +72,6 @@ function listDevices() {
   } catch (err) {
     return { error: `could not parse simctl JSON: ${err.message}` };
   }
-}
-
-function findDevice(data, udid) {
-  for (const devices of Object.values(data.devices || {})) {
-    for (const device of devices) {
-      if (device.udid === udid) {
-        return device;
-      }
-    }
-  }
-  return null;
-}
-
-function waitUntilBooted(udid, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const listed = listDevices();
-    if (!listed.error) {
-      const device = findDevice(listed.data, udid);
-      if (device && device.state === "Booted") {
-        return true;
-      }
-      if (device && (device.state === "Shutdown" || device.state === "Shutting Down")) {
-        xcrun(["simctl", "boot", udid], { stdio: "ignore" });
-      }
-    }
-    spawnSync("sleep", ["1"]);
-  }
-  return false;
 }
 
 function retry(times, delaySec, fn) {
@@ -168,16 +156,24 @@ function runOnSimulator(options, app) {
   const device = picked.device;
   console.log(`Simulator: ${device.name} (${device.runtime}, ${device.state})`);
 
-  spawnSync("open", ["-a", "Simulator", "--args", "-CurrentDeviceUDID", device.udid], {
-    stdio: "ignore",
-  });
-
-  const boot = xcrun(["simctl", "bootstatus", device.udid, "-b"], { stdio: "inherit" });
-  if (boot.status !== 0) {
-    xcrun(["simctl", "boot", device.udid], { stdio: "inherit" });
+  if (device.state !== "Booted") {
+    const boot = xcrun(["simctl", "boot", device.udid], { encoding: "utf8" });
+    const err = (boot.stderr || boot.stdout || "").trim();
+    if (boot.status !== 0 && !/current state:/i.test(err)) {
+      return fail(`simctl boot failed: ${err || "unknown error"}`);
+    }
   }
-  if (!waitUntilBooted(device.udid, 180000)) {
-    return fail(`simulator ${device.name} did not reach Booted`);
+
+  spawnSync("open", ["-a", "Simulator"], { stdio: "ignore" });
+
+  if (device.state !== "Booted") {
+    const ready = xcrun(["simctl", "bootstatus", device.udid, "-b"], {
+      stdio: "inherit",
+      timeout: 180000,
+    });
+    if (ready.status !== 0 && !timedOut(ready)) {
+      return fail(`simulator ${device.name} did not finish booting`);
+    }
   }
 
   const sign = spawnSync("codesign", ["--force", "--sign", "-", "--timestamp=none", app], {
@@ -188,15 +184,14 @@ function runOnSimulator(options, app) {
     return fail(`codesign failed: ${err || "unknown error"}`);
   }
 
-  xcrun(["simctl", "terminate", device.udid, bundleId], { stdio: "ignore" });
-
-  let install = retry(5, 2, () =>
-    xcrun(["simctl", "install", device.udid, app], { stdio: "inherit" }),
+  console.log(`Installing ${app}`);
+  let install = retry(3, 1, () =>
+    xcrun(["simctl", "install", device.udid, app], { stdio: "inherit", timeout: 30000 }),
   );
   if (install.status !== 0) {
-    xcrun(["simctl", "uninstall", device.udid, bundleId], { stdio: "ignore" });
-    install = retry(5, 2, () =>
-      xcrun(["simctl", "install", device.udid, app], { stdio: "inherit" }),
+    xcrun(["simctl", "uninstall", device.udid, bundleId], { stdio: "ignore", timeout: 10000 });
+    install = retry(3, 1, () =>
+      xcrun(["simctl", "install", device.udid, app], { stdio: "inherit", timeout: 30000 }),
     );
   }
   if (install.status !== 0) {
@@ -205,14 +200,29 @@ function runOnSimulator(options, app) {
 
   console.log(`Launching ${bundleId} on ${device.name}`);
   const args = Array.isArray(options.args) ? options.args : [];
-  const launch = xcrun(
-    ["simctl", "launch", "--console", device.udid, bundleId, ...args],
-    { stdio: "inherit" },
-  );
-  if (launch.error) {
-    return fail(launch.error.message);
+  const env = { ...process.env };
+  const simOrient = simulatorWindowOrientation(device.udid);
+  if (/landscape/i.test(simOrient)) {
+    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = "landscape";
+  } else if (/portrait/i.test(simOrient)) {
+    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = "portrait";
   }
-  return { success: launch.status === 0 };
+  if (simOrient) {
+    console.log(`Simulator window: ${simOrient}`);
+  }
+  const launch = xcrun(
+    ["simctl", "launch", "--terminate-running-process", device.udid, bundleId, ...args],
+    { encoding: "utf8", timeout: 15000, env },
+  );
+  if (launch.status !== 0) {
+    const err = (launch.stderr || launch.stdout || (launch.error && launch.error.message) || "").trim();
+    return fail(`simctl launch failed: ${err || "unknown error"}`);
+  }
+  const launched = (launch.stdout || "").trim();
+  if (launched) {
+    console.log(launched);
+  }
+  return { success: true };
 }
 
 function which(cmd) {

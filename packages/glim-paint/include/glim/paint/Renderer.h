@@ -44,6 +44,7 @@ private:
 #if !GLIM_SOFTWARE
     bool ensurePipelines();
     void flushSolid(gpu::Pass& pass);
+    void flushRounded(gpu::Pass& pass);
     void flushBlit(gpu::Pass& pass);
     void* gpuTexture(std::uint32_t imageId);
 #if GLIM_EMBED
@@ -57,11 +58,18 @@ private:
 #endif
     gpu::Device& device_;
     gpu::Pipeline solid_{};
+    gpu::Pipeline rounded_{};
     gpu::Pipeline blit_{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];
         float color[4];
+    };
+    struct RoundedInstance {
+        float rect[4];
+        float radii[4];
+        float color[4];
+        float extra[4];
     };
     struct BlitInstance {
         float rect[4];
@@ -69,6 +77,7 @@ private:
         float extra[4];
     };
     std::vector<SolidInstance> pending_;
+    std::vector<RoundedInstance> pendingRounded_;
     std::vector<BlitInstance> pendingBlit_;
     void* pendingBlitTex_ = nullptr;
     std::vector<gpu::Texture> gpuImages_;

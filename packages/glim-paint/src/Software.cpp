@@ -1,5 +1,7 @@
 #include <glim/paint/Software.h>
 
+#include "Strip.h"
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -19,34 +21,50 @@ void srcOver(Pixel& dst, Pixel src) {
     dst.a = src.a + dst.a * ia;
 }
 
-void fillRect(std::vector<Pixel>& buf, int w, int h, const FillRect& f) {
-    const int x0 = std::max(0, static_cast<int>(std::floor(f.rect.origin.x)));
-    const int y0 = std::max(0, static_cast<int>(std::floor(f.rect.origin.y)));
-    const int x1 = std::min(w, static_cast<int>(std::ceil(f.rect.origin.x + f.rect.size.x)));
-    const int y1 = std::min(h, static_cast<int>(std::ceil(f.rect.origin.y + f.rect.size.y)));
-    const Vec4 premul = f.matter.color.premul();
-    const Pixel src{premul.x, premul.y, premul.z, premul.w};
-    for (int y = y0; y < y1; ++y) {
-        for (int x = x0; x < x1; ++x) {
-            srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
-        }
-    }
-}
-
 void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
-    const int x0 = std::max(0, static_cast<int>(std::floor(q.x)));
-    const int y0 = std::max(0, static_cast<int>(std::floor(q.y)));
-    const int x1 = std::min(w, static_cast<int>(std::ceil(q.x + q.w)));
-    const int y1 = std::min(h, static_cast<int>(std::ceil(q.y + q.h)));
-    const Pixel src{q.r, q.g, q.b, q.a};
+    const float qx0 = q.x;
+    const float qy0 = q.y;
+    const float qx1 = q.x + q.w;
+    const float qy1 = q.y + q.h;
+    const int x0 = std::max(0, static_cast<int>(std::floor(qx0)));
+    const int y0 = std::max(0, static_cast<int>(std::floor(qy0)));
+    const int x1 = std::min(w, static_cast<int>(std::ceil(qx1)));
+    const int y1 = std::min(h, static_cast<int>(std::ceil(qy1)));
     for (int y = y0; y < y1; ++y) {
+        const float cy0 = std::max(static_cast<float>(y), qy0);
+        const float cy1 = std::min(static_cast<float>(y + 1), qy1);
+        const float ycov = cy1 - cy0;
+        if (ycov <= 1e-6f) {
+            continue;
+        }
         for (int x = x0; x < x1; ++x) {
+            const float cx0 = std::max(static_cast<float>(x), qx0);
+            const float cx1 = std::min(static_cast<float>(x + 1), qx1);
+            const float cov = (cx1 - cx0) * ycov;
+            if (cov <= 1e-6f) {
+                continue;
+            }
+            Pixel src{q.r * cov, q.g * cov, q.b * cov, q.a * cov};
             srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
         }
     }
 }
 
-void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images);
+void fillQuads(std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& quads) {
+    for (const Quad& q : quads) {
+        fillQuad(buf, w, h, q);
+    }
+}
+
+float clipCoverageAt(const ClipState& clip, float px, float py) {
+    if (!clip.active) {
+        return 1.f;
+    }
+    if (clip.rect.size.x <= 0.f || clip.rect.size.y <= 0.f) {
+        return 0.f;
+    }
+    return roundedCoverage(clip.rect, clip.radius, px, py);
+}
 
 void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixel>& src, int sw, int sh,
                 Rect dstRect, float opacity) {
@@ -71,7 +89,7 @@ void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixe
 }
 
 void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const ImageStore& images,
-               Vec4 tint) {
+               Vec4 tint, const ClipState& clip) {
     const StoredImage* img = images.get(b.matter.imageId);
     if (!img) {
         return;
@@ -98,31 +116,47 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
             const int sx = std::min(img->width - 1, std::max(0, static_cast<int>(u * iw)));
             const std::uint8_t* px = img->rgba.data() + static_cast<std::size_t>((sy * img->width + sx) * 4);
             Pixel src{px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f};
-            src.r *= src.a * tint.x;
-            src.g *= src.a * tint.y;
-            src.b *= src.a * tint.z;
-            src.a *= tint.w;
+            const float cov = clipCoverageAt(clip, static_cast<float>(x) + 0.5f,
+                                             static_cast<float>(y) + 0.5f);
+            if (cov <= 0.f) {
+                continue;
+            }
+            src.r *= src.a * tint.x * cov;
+            src.g *= src.a * tint.y * cov;
+            src.b *= src.a * tint.z * cov;
+            src.a *= tint.w * cov;
             srcOver(dest[static_cast<std::size_t>(y * w + x)], src);
         }
     }
 }
 
-void paintMerged(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images) {
+void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
+                 const Mat4& extra, const ClipState& parentClip);
+
+void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
+                 const Mat4& world, const ClipState& clip) {
     for (const Shape& s : g.shapes) {
-        if (const auto* f = std::get_if<FillRect>(&s)) {
-            fillRect(dest, w, h, *f);
-        } else if (const auto* blit = std::get_if<Blit>(&s)) {
-            blitImage(dest, w, h, *blit, images, blit->matter.color.premul());
+        const Shape xf = transformShape(world, s);
+        if (const auto* blit = std::get_if<Blit>(&xf)) {
+            blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip);
+            continue;
         }
+        std::vector<Quad> quads;
+        std::vector<BlitQuad> unused;
+        appendShape(quads, unused, xf, clip);
+        fillQuads(dest, w, h, quads);
     }
     for (const auto& child : g.children) {
         if (child) {
-            rasterGroup(dest, w, h, *child, images);
+            rasterGroup(dest, w, h, *child, images, world, clip);
         }
     }
 }
 
-void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images) {
+void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
+                 const Mat4& extra, const ClipState& parentClip) {
+    const Mat4 world = extra * g.params.transform;
+    const ClipState clip = intersectClip(parentClip, clipOf(g.params, world));
     if (needsIsolate(g)) {
         Rect b = g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g);
         const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
@@ -132,12 +166,15 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         local->params.opacity = 1.0f;
         local->params.isolate = false;
         local->params.transform = Mat4::identity();
-        paintMerged(tmp, iw, ih, *local, images);
-        const Rect xf = transformRect(g.params.transform, Rect{{0, 0}, b.size});
+        if (!hasClip(local->params) && b.size.x > 0.f && b.size.y > 0.f) {
+            local->params.clip = Rect{{0, 0}, b.size};
+        }
+        paintShapes(tmp, iw, ih, *local, images, Mat4::identity(), clipOf(local->params, Mat4::identity()));
+        const Rect xf = transformRect(world, Rect{{0, 0}, b.size});
         blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
         return;
     }
-    paintMerged(dest, w, h, g, images);
+    paintShapes(dest, w, h, g, images, world, clip);
 }
 
 void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, const ImageStore& images);
@@ -150,7 +187,7 @@ void paintBlits(std::vector<Pixel>& dest, int w, int h, const std::vector<BlitQu
         b.matter.kind = MatterKind::Sampled;
         b.matter.imageId = q.imageId;
         b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a});
+        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, {});
     }
 }
 
@@ -188,7 +225,7 @@ void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba) 
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     Group root = merge(scene.root, nullptr);
-    rasterGroup(buf, width, height, root, scene.images);
+    rasterGroup(buf, width, height, root, scene.images, Mat4::identity(), {});
     toRgba(buf, rgba);
 }
 

@@ -98,6 +98,38 @@ int main() {
     expect(std::get_if<glim::paint::Blit>(&merged.shapes[1]) != nullptr, "second shape is Blit");
     expect(blitCtx.addImage(5000, 1, px) == 0, "reject oversize side");
 
+    glim::paint::Context clipCtx;
+    clipCtx.setSize({100, 100});
+    clipCtx.beginFrame();
+    clipCtx.setFillColor(0xff0000ff);
+    clipCtx.fill(glim::Rect::fromSize({100, 40}));
+    glim::paint::GroupParams clipParams;
+    clipParams.clip = glim::Rect{{10, 0}, {80, 40}};
+    clipCtx.pushGroup(clipParams);
+    clipCtx.setFillColor(0x00ff00ff);
+    clipCtx.fill(glim::Rect{{0, 0}, {200, 40}});
+    clipCtx.popGroup();
+    clipCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(clipCtx.scene().root), &stats);
+    expect(merged.children.size() == 1, "clip-only group is not merged");
+    expect(!glim::paint::needsIsolate(*merged.children[0]), "clip does not isolate");
+    expect(glim::paint::hasClip(merged.children[0]->params), "clip stays on GroupParams");
+    expect(merged.shapes.size() == 1, "parent background is not folded into clip");
+    auto* bg = std::get_if<glim::paint::FillRect>(&merged.shapes[0]);
+    expect(bg && bg->rect.size.x >= 99.f, "scroll-clip keeps unclipped background");
+
+    glim::paint::Context roundCtx;
+    roundCtx.setSize({80, 80});
+    roundCtx.beginFrame();
+    roundCtx.setFillColor(0xffffffff);
+    roundCtx.fillRounded(glim::Rect::fromSize({40, 40}), glim::Radius{8.f});
+    roundCtx.strokeRect(glim::Rect{{4, 4}, {32, 32}}, glim::Radius{6.f}, 2.f);
+    roundCtx.finish();
+    merged = glim::paint::merge(std::move(roundCtx.scene().root), nullptr);
+    expect(std::get_if<glim::paint::FillRounded>(&merged.shapes[0]) != nullptr, "fillRounded records");
+    expect(std::get_if<glim::paint::Stroke>(&merged.shapes[1]) != nullptr, "stroke records");
+
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

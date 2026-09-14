@@ -47,6 +47,7 @@ public:
 private:
     void* window_ = nullptr;
     void* view_ = nullptr;
+    void* controller_ = nullptr;
     bool shown_ = false;
 };
 

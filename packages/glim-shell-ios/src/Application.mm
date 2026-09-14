@@ -65,17 +65,28 @@ void GlimPauseDisplayLink(BOOL paused) {
     (void)session;
     (void)options;
     UIWindowScene* ws = [scene isKindOfClass:[UIWindowScene class]] ? (UIWindowScene*)scene : nil;
+    if (ws && !self.window) {
+        if (ws.windows.count > 0) {
+            self.window = ws.windows.firstObject;
+        } else {
+            self.window = [[UIWindow alloc] initWithWindowScene:ws];
+        }
+    }
     GlimBindWindowsToScene(ws);
     const auto& shown = glim::shell::detail::shownWindows();
     if (!shown.empty()) {
         UIView* view = (__bridge UIView*)shown.front()->nativeView();
-        self.window = view.window;
+        if (view.window) {
+            self.window = view.window;
+        }
     }
     GlimEnsureDisplayLink();
 }
 
 - (void)sceneDidBecomeActive:(UIScene*)scene {
-    (void)scene;
+    if ([scene isKindOfClass:[UIWindowScene class]]) {
+        GlimBindWindowsToScene((UIWindowScene*)scene);
+    }
     GlimPauseDisplayLink(NO);
 }
 
@@ -86,7 +97,6 @@ void GlimPauseDisplayLink(BOOL paused) {
 @end
 
 @interface GlimAppDelegate : UIResponder <UIApplicationDelegate>
-@property(nonatomic, strong) UIWindow* window;
 @end
 
 @implementation GlimAppDelegate
@@ -94,23 +104,11 @@ void GlimPauseDisplayLink(BOOL paused) {
 - (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
     (void)application;
     (void)launchOptions;
-    UIWindowScene* scene = nil;
-    for (UIScene* connected in UIApplication.sharedApplication.connectedScenes) {
-        if ([connected isKindOfClass:[UIWindowScene class]]) {
-            scene = (UIWindowScene*)connected;
-            break;
-        }
-    }
-    GlimBindWindowsToScene(scene);
-    const auto& shown = glim::shell::detail::shownWindows();
-    if (!shown.empty()) {
-        UIView* view = (__bridge UIView*)shown.front()->nativeView();
-        self.window = view.window;
-        if (!scene) {
-            [self.window makeKeyAndVisible];
-        }
-    }
+#if !TARGET_OS_TV
+    [UIDevice.currentDevice beginGeneratingDeviceOrientationNotifications];
+#endif
     GlimEnsureDisplayLink();
+    GlimPauseDisplayLink(YES);
     return YES;
 }
 

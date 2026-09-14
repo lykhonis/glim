@@ -3,7 +3,8 @@ add_library(glim-paint STATIC
     src/Merge.cpp
     src/Encode.cpp
     src/Software.cpp
-    src/ImageStore.cpp)
+    src/ImageStore.cpp
+    src/Strip.cpp)
 add_library(glim::paint ALIAS glim-paint)
 target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(glim-paint PUBLIC glim::core)
@@ -12,9 +13,11 @@ glim_target_defaults(glim-paint)
 set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/solid.metal"
-    "${_glim_shader_dir}/blit.metal")
+    "${_glim_shader_dir}/blit.metal"
+    "${_glim_shader_dir}/rounded.metal")
 file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
 file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
+file(READ "${_glim_shader_dir}/rounded.metal" GLIM_ROUNDED_METAL)
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/glim_metal_shaders.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h"

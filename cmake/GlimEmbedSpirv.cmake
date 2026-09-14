@@ -22,5 +22,7 @@ glim_spv_bytes("${GLIM_SPV_DIR}/solid.vert.spv" GLIM_SOLID_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/solid.frag.spv" GLIM_SOLID_FRAG_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/blit.vert.spv" GLIM_BLIT_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/blit.frag.spv" GLIM_BLIT_FRAG_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/rounded.vert.spv" GLIM_ROUNDED_VERT_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/rounded.frag.spv" GLIM_ROUNDED_FRAG_SPV)
 
 configure_file("${GLIM_HEADER_IN}" "${GLIM_HEADER_OUT}" @ONLY)
