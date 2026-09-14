@@ -53,7 +53,7 @@ elseif(ANDROID AND GLIM_SHELL STREQUAL "android")
     add_subdirectory(packages/glim-shell-android)
 endif()
 
-add_subdirectory(examples/hello)
+add_subdirectory(examples)
 
 add_library(glim INTERFACE)
 add_library(glim::glim ALIAS glim)

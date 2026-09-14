@@ -107,11 +107,12 @@ link="$workdir/linked.apk"
 # on a 4-byte boundary".
 unsigned="$workdir/unsigned.apk"
 cp "$link" "$unsigned"
+libname="$(basename "$lib")"
 mkdir -p "$workdir/libadd/lib/$abi"
-cp "$lib" "$workdir/libadd/lib/$abi/libglim-hello.so"
+cp "$lib" "$workdir/libadd/lib/$abi/$libname"
 (
     cd "$workdir/libadd"
-    zip -q -0 -X "$unsigned" "lib/$abi/libglim-hello.so"
+    zip -q -0 -X "$unsigned" "lib/$abi/$libname"
 )
 
 aligned="$workdir/aligned.apk"

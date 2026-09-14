@@ -14,3 +14,4 @@ jobs:
         pnpm exec nx run-many -t test --output-style=stream
         pnpm exec nx build hello
         pnpm exec nx build-software hello
+        pnpm exec nx build foreign

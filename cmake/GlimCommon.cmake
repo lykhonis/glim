@@ -114,25 +114,108 @@ function(glim_apple_mobile_bundle target)
     if(NOT GLIM_APPLE_MOBILE)
         return()
     endif()
+    cmake_parse_arguments(ARG "" "BUNDLE_ID;NAME" "" ${ARGN})
+    if(NOT ARG_BUNDLE_ID)
+        set(ARG_BUNDLE_ID "com.glim.hello")
+    endif()
+    if(NOT ARG_NAME)
+        set(ARG_NAME "Glim Hello")
+    endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "tvOS")
-        set(_plist "${CMAKE_SOURCE_DIR}/examples/hello/apple/Info.tvos.plist.in")
+        set(_plist "${CMAKE_SOURCE_DIR}/examples/common/apple/Info.tvos.plist.in")
         set(_family "3")
     else()
-        set(_plist "${CMAKE_SOURCE_DIR}/examples/hello/apple/Info.ios.plist.in")
+        set(_plist "${CMAKE_SOURCE_DIR}/examples/common/apple/Info.ios.plist.in")
         set(_family "1,2")
     endif()
     set_target_properties(${target} PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.glim.hello"
-        MACOSX_BUNDLE_BUNDLE_NAME "Glim Hello"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${ARG_BUNDLE_ID}"
+        MACOSX_BUNDLE_BUNDLE_NAME "${ARG_NAME}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_INFO_PLIST "${_plist}"
-        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.glim.hello"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${ARG_BUNDLE_ID}"
         XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "${_family}"
         XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
         XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED NO
         XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED NO
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")
     glim_apple_app_icon(${target})
+endfunction()
+
+function(glim_add_example name)
+    cmake_parse_arguments(ARG "SOFTWARE" "TITLE" "SOURCES" ${ARGN})
+    if(NOT ARG_TITLE)
+        set(ARG_TITLE "Glim ${name}")
+    endif()
+    if(NOT ARG_SOURCES)
+        set(ARG_SOURCES src/main.cpp)
+    endif()
+    set(_target "glim-${name}")
+    set(_run "${CMAKE_SOURCE_DIR}/examples/common/run.cpp")
+    if(ANDROID)
+        add_library(${_target} SHARED ${_run} ${ARG_SOURCES})
+        target_link_libraries(${_target} PRIVATE glim::glim glim-example-run android log)
+        glim_target_defaults(${_target})
+        set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${_target})
+        install(TARGETS ${_target} LIBRARY DESTINATION lib/${ANDROID_ABI})
+        set(_glim_sdk "")
+        if(DEFINED ENV{ANDROID_HOME} AND EXISTS "$ENV{ANDROID_HOME}")
+            set(_glim_sdk "$ENV{ANDROID_HOME}")
+        elseif(DEFINED ENV{ANDROID_SDK_ROOT} AND EXISTS "$ENV{ANDROID_SDK_ROOT}")
+            set(_glim_sdk "$ENV{ANDROID_SDK_ROOT}")
+        elseif(EXISTS "$ENV{HOME}/Library/Android/sdk")
+            set(_glim_sdk "$ENV{HOME}/Library/Android/sdk")
+        elseif(EXISTS "$ENV{HOME}/Android/Sdk")
+            set(_glim_sdk "$ENV{HOME}/Android/Sdk")
+        endif()
+        set(_glim_apk_script "${CMAKE_SOURCE_DIR}/tools/scripts/package-android-apk.sh")
+        set(_manifest "${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml")
+        set(GLIM_EXAMPLE_PACKAGE "com.glim.${name}")
+        set(GLIM_EXAMPLE_LABEL "${ARG_TITLE}")
+        set(GLIM_EXAMPLE_LIB "${_target}")
+        configure_file("${CMAKE_SOURCE_DIR}/examples/common/AndroidManifest.xml.in" "${_manifest}" @ONLY)
+        if(_glim_sdk AND EXISTS "${_glim_apk_script}")
+            set(_glim_apk "${CMAKE_CURRENT_BINARY_DIR}/${_target}.apk")
+            add_custom_command(TARGET ${_target} POST_BUILD
+                COMMAND /bin/bash "${_glim_apk_script}"
+                    "$<TARGET_FILE:${_target}>"
+                    "${_manifest}"
+                    "${CMAKE_SOURCE_DIR}/assets/glim-icon.png"
+                    "${_glim_apk}"
+                    "${_glim_sdk}"
+                    "${ANDROID_ABI}"
+                COMMENT "Packaging ${_target}.apk"
+                VERBATIM)
+        endif()
+    else()
+        add_executable(${_target} ${_run} ${ARG_SOURCES})
+        target_link_libraries(${_target} PRIVATE glim::glim glim-example-run)
+        glim_target_defaults(${_target})
+        if(GLIM_APPLE_MOBILE)
+            glim_apple_mobile_bundle(${_target} BUNDLE_ID "com.glim.${name}" NAME "${ARG_TITLE}")
+            install(TARGETS ${_target} BUNDLE DESTINATION .)
+        else()
+            install(TARGETS ${_target} RUNTIME DESTINATION bin)
+        endif()
+    endif()
+    target_include_directories(${_target} PRIVATE
+        "${CMAKE_SOURCE_DIR}/examples/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_compile_definitions(${_target} PRIVATE GLIM_EXAMPLE_TITLE="${ARG_TITLE}")
+
+    if(ARG_SOFTWARE AND GLIM_HOST_TESTS AND NOT GLIM_SOFTWARE)
+        set(_soft "glim-${name}-software")
+        add_executable(${_soft} ${_run} ${ARG_SOURCES})
+        target_include_directories(${_soft} PRIVATE
+            "${CMAKE_SOURCE_DIR}/examples/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_link_libraries(${_soft} PRIVATE glim::core glim::paint glim::paint-cpu)
+        if(TARGET glim::shell)
+            target_link_libraries(${_soft} PRIVATE glim::shell)
+        endif()
+        glim_target_defaults(${_soft})
+        target_compile_definitions(${_soft} PRIVATE GLIM_EXAMPLE_TITLE="${ARG_TITLE}")
+    endif()
 endfunction()

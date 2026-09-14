@@ -29,4 +29,6 @@ jobs:
       - name: CI
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: pnpm exec nx build-android hello
+        run: |
+          pnpm exec nx build-android hello
+          pnpm exec nx build-android foreign

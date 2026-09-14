@@ -1,0 +1,82 @@
+{
+  "name": "foreign",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/foreign",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["core"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "dependsOn": ["gpu-vulkan:shaders"],
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-foreign",
+        "install": true
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/foreign/glim-foreign"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-foreign"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/foreign/glim-foreign.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.foreign"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-foreign"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-tvos-sim"],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/foreign/glim-foreign.app",
+        "simulator": "tvos",
+        "bundleId": "com.glim.foreign"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-foreign"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/foreign/glim-foreign.apk",
+        "android": true,
+        "packageName": "com.glim.foreign"
+      }
+    }
+  }
+}

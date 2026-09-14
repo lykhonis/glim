@@ -1,5 +1,3 @@
-#include "HelloScene.h"
-
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -8,6 +6,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+
+void recordHello(glim::paint::Context&, glim::Vec2, float, glim::Rect = {});
 
 namespace {
 

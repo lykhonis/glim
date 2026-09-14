@@ -8,6 +8,7 @@
       "{workspaceRoot}/CMakePresets.json",
       "{workspaceRoot}/cmake/**",
       "{workspaceRoot}/packages/**",
+      "{workspaceRoot}/examples/common/**",
       "{workspaceRoot}/vendor/**"
     ]
   },
