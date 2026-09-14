@@ -13,7 +13,7 @@
 
 A **C++ compositor** for user interfaces: rectangles, groups, opacity, a little perspective. **2D with slight 3D.** Not a game engine. Not a widget kit.
 
-You record paint. Compatible groups **merge into one pass**. An offscreen exists only when opacity or a tilt needs it. **Metal, Vulkan, or WebGPU** when the device has a GPU; the same `draw` rasters **CPU** when it does not.
+You record a **scene**. Compatible groups **merge into one pass**. An offscreen exists only when opacity or a tilt needs it. **Metal, Vulkan, or WebGPU** when the device has a GPU; the same `draw` rasters **CPU** when it does not.
 
 Glim sits in a shell you already have — a TV launcher, a vehicle HMI, a phone, a browser, a desktop.
 

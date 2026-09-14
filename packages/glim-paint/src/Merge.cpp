@@ -52,12 +52,15 @@ std::unique_ptr<Group> cloneGroup(const Group& g) {
     return out;
 }
 
+Rect transformRect(const Mat4& t, Rect r) {
+    const Vec4 o = t * Vec4{r.origin.x, r.origin.y, 0, 1};
+    const Vec4 c = t * Vec4{r.origin.x + r.size.x, r.origin.y + r.size.y, 0, 1};
+    return {{o.x, o.y}, {c.x - o.x, c.y - o.y}};
+}
+
 FillRect transformFill(const Mat4& t, const FillRect& src) {
-    const Vec4 o = t * Vec4{src.rect.origin.x, src.rect.origin.y, 0, 1};
-    const Vec4 c = t * Vec4{src.rect.origin.x + src.rect.size.x, src.rect.origin.y + src.rect.size.y, 0, 1};
     FillRect out = src;
-    out.rect.origin = {o.x, o.y};
-    out.rect.size = {c.x - o.x, c.y - o.y};
+    out.rect = transformRect(t, src.rect);
     return out;
 }
 

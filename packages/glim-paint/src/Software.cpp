@@ -24,7 +24,8 @@ void fillRect(std::vector<Pixel>& buf, int w, int h, const FillRect& f) {
     const int y0 = std::max(0, static_cast<int>(std::floor(f.rect.origin.y)));
     const int x1 = std::min(w, static_cast<int>(std::ceil(f.rect.origin.x + f.rect.size.x)));
     const int y1 = std::min(h, static_cast<int>(std::ceil(f.rect.origin.y + f.rect.size.y)));
-    const Pixel src{f.color.premul().x, f.color.premul().y, f.color.premul().z, f.color.premul().w};
+    const Vec4 premul = f.matter.color.premul();
+    const Pixel src{premul.x, premul.y, premul.z, premul.w};
     for (int y = y0; y < y1; ++y) {
         for (int x = x0; x < x1; ++x) {
             srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
@@ -93,8 +94,8 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g) {
         local->params.isolate = false;
         local->params.transform = Mat4::identity();
         paintMerged(tmp, iw, ih, *local);
-        const FillRect xf = transformFill(g.params.transform, FillRect{Rect{{0, 0}, b.size}, Color{}});
-        blitBuffer(dest, w, h, tmp, iw, ih, xf.rect, g.params.opacity);
+        const Rect xf = transformRect(g.params.transform, Rect{{0, 0}, b.size});
+        blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
         return;
     }
     paintMerged(dest, w, h, g);

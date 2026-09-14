@@ -26,7 +26,7 @@ void expectNear(float got, float want, const char* what, float eps = 1e-5f) {
 
 int main() {
     // Pin Y-down setOrthogonal(0,0,w,h) against glm::ortho(0, w, h, 0, -1, 1)
-    // for the hello canvas 720×480.
+    // for the hello golden 720×480.
     const float w = 720.0f;
     const float h = 480.0f;
     const glim::Mat4 p = glim::Mat4::orthoYDown(0.0f, 0.0f, w, h, -1.0f, 1.0f);

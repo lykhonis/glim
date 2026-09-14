@@ -16,7 +16,8 @@ public:
     void beginFrame();
     void finish();
 
-    void setFillColor(Color);
+    void setFill(Matter);
+    void setFillColor(Color color) { setFill(Matter::solid(color)); }
     void setFillColor(std::uint32_t rgba) { setFillColor(Color{rgba}); }
     void fill(const Rect&);
     void translate(Vec2);
@@ -32,7 +33,7 @@ public:
 private:
     struct State {
         Mat4 model = Mat4::identity();
-        Color fill{0, 0, 0, 255};
+        Matter fill = Matter::solid(Color{0, 0, 0, 255});
     };
 
     Group* current();

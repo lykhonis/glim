@@ -7,7 +7,7 @@ namespace glim::paint {
 namespace {
 
 Quad toQuad(const FillRect& f) {
-    const Vec4 p = f.color.premul();
+    const Vec4 p = f.matter.color.premul();
     Quad q;
     q.x = f.rect.origin.x;
     q.y = f.rect.origin.y;
@@ -34,11 +34,11 @@ Isolate encodeIsolate(const Group& g) {
     const Rect b = g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g);
     iso.contentW = std::max(1, static_cast<int>(std::ceil(b.size.x)));
     iso.contentH = std::max(1, static_cast<int>(std::ceil(b.size.y)));
-    const FillRect dest = transformFill(g.params.transform, FillRect{Rect{{0, 0}, b.size}, Color{}});
-    iso.destX = dest.rect.origin.x;
-    iso.destY = dest.rect.origin.y;
-    iso.destW = dest.rect.size.x;
-    iso.destH = dest.rect.size.y;
+    const Rect dest = transformRect(g.params.transform, Rect{{0, 0}, b.size});
+    iso.destX = dest.origin.x;
+    iso.destY = dest.origin.y;
+    iso.destW = dest.size.x;
+    iso.destH = dest.size.y;
     appendShapes(iso.quads, g, Mat4::identity());
     for (const auto& child : g.children) {
         if (!child) {

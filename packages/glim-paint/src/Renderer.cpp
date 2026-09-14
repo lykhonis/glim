@@ -243,7 +243,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         inst.rect[1] = f.rect.origin.y;
         inst.rect[2] = f.rect.size.x;
         inst.rect[3] = f.rect.size.y;
-        const Vec4 premul = f.color.premul();
+        const Vec4 premul = f.matter.color.premul();
         inst.color[0] = premul.x;
         inst.color[1] = premul.y;
         inst.color[2] = premul.z;
@@ -293,12 +293,12 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         Uniforms parentU{};
         std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
         pass.setBytes(1, &parentU, sizeof(parentU));
-        const FillRect dest = transformFill(child->params.transform, FillRect{Rect{{0, 0}, b.size}, Color{}});
+        const Rect dest = transformRect(child->params.transform, Rect{{0, 0}, b.size});
         BlitInstance blit{};
-        blit.rect[0] = dest.rect.origin.x;
-        blit.rect[1] = dest.rect.origin.y;
-        blit.rect[2] = dest.rect.size.x;
-        blit.rect[3] = dest.rect.size.y;
+        blit.rect[0] = dest.origin.x;
+        blit.rect[1] = dest.origin.y;
+        blit.rect[2] = dest.size.x;
+        blit.rect[3] = dest.size.y;
         blit.extra[0] = child->params.opacity;
         pass.setPipeline(blit_);
         pass.setBytes(0, &blit, sizeof(blit));

@@ -24,8 +24,8 @@ void Context::finish() {
     groupStack_.clear();
 }
 
-void Context::setFillColor(Color color) {
-    state_.fill = color;
+void Context::setFill(Matter matter) {
+    state_.fill = matter;
 }
 
 void Context::fill(const Rect& rect) {

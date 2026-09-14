@@ -10,6 +10,21 @@ namespace glim::paint {
 
 enum class Blend { SrcOver, Plus };
 
+enum class MatterKind { Solid };
+
+// Pigment for a Shape. Solid only for now; sampled / foreign kinds come later.
+struct Matter {
+    MatterKind kind = MatterKind::Solid;
+    Color color{};
+
+    static Matter solid(Color color) {
+        Matter m;
+        m.kind = MatterKind::Solid;
+        m.color = color;
+        return m;
+    }
+};
+
 struct GroupParams {
     float opacity = 1.0f;
     Mat4 transform = Mat4::identity();
@@ -20,7 +35,7 @@ struct GroupParams {
 
 struct FillRect {
     Rect rect;
-    Color color;
+    Matter matter;
 };
 
 using Shape = std::variant<FillRect>;
@@ -55,6 +70,7 @@ bool needsIsolate(const Group&);
 bool canMerge(const Group&);
 std::unique_ptr<Group> cloneGroup(const Group&);
 Group merge(Group, Stats* stats = nullptr);
+Rect transformRect(const Mat4&, Rect);
 FillRect transformFill(const Mat4&, const FillRect&);
 Rect contentBounds(const Group&);
 

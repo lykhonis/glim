@@ -62,6 +62,8 @@ int main() {
     auto* childFill = std::get_if<glim::paint::FillRect>(&merged.shapes[1]);
     expect(childFill && glim::nearlyEqual(childFill->rect.origin.x, 5.f), "merged child origin x");
     expect(childFill && glim::nearlyEqual(childFill->rect.origin.y, 6.f), "merged child origin y");
+    expect(childFill && childFill->matter.kind == glim::paint::MatterKind::Solid, "merged fill is solid matter");
+    expect(childFill && childFill->matter.color.rgba == 0x00ff00ff, "merged fill keeps color");
 
     glim::paint::Context glass;
     glass.setSize({100, 100});
