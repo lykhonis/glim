@@ -503,6 +503,7 @@ void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const S
         }
         appendGlyphs(blits, *run);
     }
+    // SlotHole: skip paint. Not dest-out.
 }
 
 }  // namespace glim::paint

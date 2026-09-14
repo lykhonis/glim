@@ -145,6 +145,11 @@ Window::Window() {
 
 Window::~Window() {
     detail::unregisterShownWindow(this);
+    slots_.forEach([](std::uint32_t, void* view) {
+        NSView* child = (__bridge NSView*)view;
+        [child removeFromSuperview];
+    });
+    slots_.clear();
 #if GLIM_SOFTWARE
     if (software_) {
         if (view_) {
@@ -232,6 +237,33 @@ Rect Window::safeArea() const {
 
 void* Window::nativeView() const {
     return view_;
+}
+
+void Window::attachSlot(std::uint32_t id, SlotNative native) {
+    NSView* parent = (__bridge NSView*)view_;
+    NSView* child = (__bridge NSView*)native.view;
+    if (!parent || !child || id == 0) {
+        return;
+    }
+    if (void* prev = slots_.get(id); prev && prev != native.view) {
+        [(__bridge NSView*)prev removeFromSuperview];
+    }
+    [parent addSubview:child];
+    slots_.attach(id, native.view);
+}
+
+void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
+    NSView* child = (__bridge NSView*)slots_.get(id);
+    if (!child) {
+        return;
+    }
+    [child setFrame:NSMakeRect(windowLogical.origin.x, windowLogical.origin.y, windowLogical.size.x,
+                               windowLogical.size.y)];
+}
+
+void Window::detachSlot(std::uint32_t id) {
+    NSView* child = (__bridge NSView*)slots_.detach(id);
+    [child removeFromSuperview];
 }
 
 #if GLIM_SOFTWARE

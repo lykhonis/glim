@@ -12,6 +12,7 @@
 
 #include <glim/math.h>
 #include <glim/shell/Event.h>
+#include <glim/shell/Slot.h>
 
 namespace glim::shell {
 
@@ -37,6 +38,9 @@ public:
     float pixelRatio() const;
     Rect safeArea() const;
     void* nativeView() const;
+    void attachSlot(std::uint32_t id, SlotNative);
+    void positionSlot(std::uint32_t id, Rect windowLogical);
+    void detachSlot(std::uint32_t id);
 #if GLIM_SOFTWARE
     std::uint8_t* mapSoftware(int width, int height);
     void presentSoftware();
@@ -49,6 +53,7 @@ private:
     void* view_ = nullptr;
     void* controller_ = nullptr;
     bool shown_ = false;
+    SlotTable slots_{};
 };
 
 }  // namespace glim::shell

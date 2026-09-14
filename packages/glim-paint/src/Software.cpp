@@ -178,6 +178,9 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip, false);
             continue;
         }
+        if (std::get_if<SlotHole>(&xf)) {
+            continue;
+        }
         if (std::get_if<GlyphRun>(&xf)) {
             std::vector<Quad> unused;
             std::vector<BlitQuad> blits;

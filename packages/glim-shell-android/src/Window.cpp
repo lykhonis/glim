@@ -90,6 +90,19 @@ void* Window::nativeView() const {
     return detail::nativeWindow();
 }
 
+void Window::attachSlot(std::uint32_t id, SlotNative native) {
+    // Embedder owns the child surface; Glim only tracks the id for positionSlot.
+    slots_.attach(id, native.view);
+}
+
+void Window::positionSlot(std::uint32_t, Rect) {
+    // NativeActivity hello has one window. Child ANativeWindow placement is embedder-owned.
+}
+
+void Window::detachSlot(std::uint32_t id) {
+    slots_.detach(id);
+}
+
 void Window::dispatch(const Event& event) {
     auto* impl = static_cast<WindowImpl*>(window_);
     if (impl && impl->callback) {

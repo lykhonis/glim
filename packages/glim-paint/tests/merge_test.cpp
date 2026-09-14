@@ -130,6 +130,22 @@ int main() {
     expect(std::get_if<glim::paint::FillRounded>(&merged.shapes[0]) != nullptr, "fillRounded records");
     expect(std::get_if<glim::paint::Stroke>(&merged.shapes[1]) != nullptr, "stroke records");
 
+    glim::paint::Context slotCtx;
+    slotCtx.setSize({80, 80});
+    slotCtx.beginFrame();
+    slotCtx.setFillColor(0xffffffff);
+    slotCtx.fill(glim::Rect::fromSize({80, 80}));
+    glim::paint::GroupParams slotGroup;
+    slotCtx.pushGroup(slotGroup);
+    slotCtx.slot(glim::Rect{{8, 8}, {24, 16}}, 1);
+    slotCtx.popGroup();
+    slotCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(slotCtx.scene().root), &stats);
+    expect(merged.children.size() == 1, "SlotHole child is not merged");
+    expect(merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
+           "merged tree keeps SlotHole");
+
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

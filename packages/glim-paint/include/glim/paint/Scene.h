@@ -105,7 +105,18 @@ struct GlyphRun {
     std::vector<GlyphQuad> glyphs;
 };
 
-using Shape = std::variant<FillRect, FillRounded, Stroke, Blit, GlyphRun>;
+// Hosted native hole. Occupies a rect; Renderer emits no coverage. Illegal under needsIsolate.
+struct SlotHole {
+    Rect rect{};
+    std::uint32_t id = 0;
+};
+
+using Shape = std::variant<FillRect, FillRounded, Stroke, Blit, GlyphRun, SlotHole>;
+
+struct SlotPlacement {
+    std::uint32_t id = 0;
+    Rect windowLogical{};
+};
 
 inline bool hasClip(const GroupParams& p) noexcept {
     return p.clip.size.x > 0.f && p.clip.size.y > 0.f;
@@ -148,9 +159,12 @@ FillRounded transformRounded(const Mat4&, const FillRounded&);
 Stroke transformStroke(const Mat4&, const Stroke&);
 Blit transformBlit(const Mat4&, const Blit&);
 GlyphRun transformGlyphs(const Mat4&, const GlyphRun&);
+SlotHole transformSlot(const Mat4&, const SlotHole&);
 Rect contentBounds(const Group&);
 void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
 Shape transformShape(const Mat4&, const Shape&);
+bool hasSlotHole(const Group&);
+void collectSlots(const Scene&, std::vector<SlotPlacement>* out);
 
 constexpr int kTileSize = 32;
 

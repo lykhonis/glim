@@ -111,6 +111,11 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-glyph-test)
     add_test(NAME glim-glyph-test COMMAND glim-glyph-test)
 
+    add_executable(glim-slot-test tests/slot_test.cpp)
+    target_link_libraries(glim-slot-test PRIVATE glim::paint glim::paint-cpu)
+    glim_target_defaults(glim-slot-test)
+    add_test(NAME glim-slot-test COMMAND glim-slot-test)
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
-                      glim-overlay-test glim-glyph-test)
+                      glim-overlay-test glim-glyph-test glim-slot-test)
 endif()

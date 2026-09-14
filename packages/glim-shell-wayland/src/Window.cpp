@@ -362,6 +362,17 @@ void* Window::nativeView() const {
     return view_;
 }
 
+void Window::attachSlot(std::uint32_t id, SlotNative native) {
+    // wl_subsurface attach is embedder-owned in v1; Glim tracks the id.
+    slots_.attach(id, native.view);
+}
+
+void Window::positionSlot(std::uint32_t, Rect) {}
+
+void Window::detachSlot(std::uint32_t id) {
+    slots_.detach(id);
+}
+
 #if GLIM_SOFTWARE
 std::uint8_t* Window::mapSoftware(int width, int height) {
     auto* impl = static_cast<WindowImpl*>(window_);

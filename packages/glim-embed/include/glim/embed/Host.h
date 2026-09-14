@@ -3,6 +3,7 @@
 #include <glim/gpu/Types.h>
 #include <glim/math.h>
 #include <glim/shell/Event.h>
+#include <glim/shell/Slot.h>
 
 namespace glim::embed {
 
@@ -19,6 +20,9 @@ struct Host {
     virtual void setVSync(bool enabled) = 0;
     virtual void present() = 0;
     virtual void inject(const shell::Event&) {}
+    virtual void attachSlot(std::uint32_t, shell::SlotNative) {}
+    virtual void positionSlot(std::uint32_t, Rect) {}
+    virtual void detachSlot(std::uint32_t) {}
 };
 
 }  // namespace glim::embed

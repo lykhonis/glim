@@ -446,6 +446,11 @@ Window::Window() {
 
 Window::~Window() {
     detail::unregisterShownWindow(this);
+    slots_.forEach([](std::uint32_t, void* view) {
+        UIView* child = (__bridge UIView*)view;
+        [child removeFromSuperview];
+    });
+    slots_.clear();
     if (view_) {
         CFRelease(view_);
         view_ = nullptr;
@@ -575,6 +580,33 @@ Rect Window::safeArea() const {
 
 void* Window::nativeView() const {
     return view_;
+}
+
+void Window::attachSlot(std::uint32_t id, SlotNative native) {
+    UIView* parent = (__bridge UIView*)view_;
+    UIView* child = (__bridge UIView*)native.view;
+    if (!parent || !child || id == 0) {
+        return;
+    }
+    if (void* prev = slots_.get(id); prev && prev != native.view) {
+        [(__bridge UIView*)prev removeFromSuperview];
+    }
+    [parent addSubview:child];
+    slots_.attach(id, native.view);
+}
+
+void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
+    UIView* child = (__bridge UIView*)slots_.get(id);
+    if (!child) {
+        return;
+    }
+    child.frame = CGRectMake(windowLogical.origin.x, windowLogical.origin.y, windowLogical.size.x,
+                             windowLogical.size.y);
+}
+
+void Window::detachSlot(std::uint32_t id) {
+    UIView* child = (__bridge UIView*)slots_.detach(id);
+    [child removeFromSuperview];
 }
 
 void Window::dispatch(const Event& event) {

@@ -653,6 +653,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 for (const BlitQuad& q : blits) {
                     addBlit(q);
                 }
+            } else if (std::get_if<SlotHole>(&xf)) {
+                // Skip paint. Hole is a Host native sibling, not dest-out.
             }
         }
         for (const auto& child : g.children) {

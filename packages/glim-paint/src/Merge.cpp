@@ -120,6 +120,12 @@ GlyphRun transformGlyphs(const Mat4& t, const GlyphRun& src) {
     return out;
 }
 
+SlotHole transformSlot(const Mat4& t, const SlotHole& src) {
+    SlotHole out = src;
+    out.rect = transformRect(t, src.rect);
+    return out;
+}
+
 Shape transformShape(const Mat4& t, const Shape& s) {
     if (const auto* f = std::get_if<FillRect>(&s)) {
         return transformFill(t, *f);
@@ -135,6 +141,9 @@ Shape transformShape(const Mat4& t, const Shape& s) {
     }
     if (const auto* g = std::get_if<GlyphRun>(&s)) {
         return transformGlyphs(t, *g);
+    }
+    if (const auto* h = std::get_if<SlotHole>(&s)) {
+        return transformSlot(t, *h);
     }
     return s;
 }
@@ -156,8 +165,17 @@ bool needsIsolate(const Group& g) {
     return false;
 }
 
+bool hasSlotHole(const Group& g) {
+    for (const Shape& s : g.shapes) {
+        if (std::holds_alternative<SlotHole>(s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool canMerge(const Group& g) {
-    if (needsIsolate(g) || hasClip(g.params)) {
+    if (needsIsolate(g) || hasClip(g.params) || hasSlotHole(g)) {
         return false;
     }
     return g.params.blend == Blend::SrcOver;
@@ -180,6 +198,8 @@ Rect contentBounds(const Group& g) {
             for (const GlyphQuad& g : run->glyphs) {
                 b = unionRect(b, g.dest);
             }
+        } else if (const auto* hole = std::get_if<SlotHole>(&s)) {
+            b = unionRect(b, hole->rect);
         }
     }
     for (const auto& child : g.children) {
@@ -221,6 +241,66 @@ Group merge(Group g, Stats* stats) {
         g.params.bounds = contentBounds(g);
     }
     return g;
+}
+
+namespace {
+
+Rect intersectAabb(Rect a, Rect b) {
+    const float x0 = std::max(a.origin.x, b.origin.x);
+    const float y0 = std::max(a.origin.y, b.origin.y);
+    const float x1 = std::min(a.origin.x + a.size.x, b.origin.x + b.size.x);
+    const float y1 = std::min(a.origin.y + a.size.y, b.origin.y + b.size.y);
+    if (x1 <= x0 || y1 <= y0) {
+        return {};
+    }
+    return {{x0, y0}, {x1 - x0, y1 - y0}};
+}
+
+void collectSlotsIn(const Group& g, const Mat4& extra, Rect clip, bool clipActive, bool underIsolate,
+                    std::vector<SlotPlacement>* out) {
+    const Mat4 world = extra;
+    const bool isolate = underIsolate || needsIsolate(g);
+    Rect nextClip = clip;
+    bool nextActive = clipActive;
+    if (hasClip(g.params)) {
+        const Rect xf = transformRect(world, g.params.clip);
+        if (!nextActive) {
+            nextClip = xf;
+            nextActive = true;
+        } else {
+            nextClip = intersectAabb(nextClip, xf);
+        }
+    }
+    if (!isolate) {
+        for (const Shape& s : g.shapes) {
+            const auto* hole = std::get_if<SlotHole>(&s);
+            if (!hole || hole->id == 0) {
+                continue;
+            }
+            Rect r = transformRect(world, hole->rect);
+            if (nextActive) {
+                r = intersectAabb(r, nextClip);
+            }
+            if (r.size.x <= 0.f || r.size.y <= 0.f) {
+                continue;
+            }
+            out->push_back(SlotPlacement{hole->id, r});
+        }
+    }
+    for (const auto& child : g.children) {
+        if (child) {
+            collectSlotsIn(*child, world * child->params.transform, nextClip, nextActive, isolate, out);
+        }
+    }
+}
+
+}  // namespace
+
+void collectSlots(const Scene& scene, std::vector<SlotPlacement>* out) {
+    if (!out) {
+        return;
+    }
+    collectSlotsIn(scene.root, Mat4::identity(), {}, false, false, out);
 }
 
 int coarseTileCount(Vec2 logicalSize, float pixelRatio) {

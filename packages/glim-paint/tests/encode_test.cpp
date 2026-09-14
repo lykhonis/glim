@@ -80,6 +80,23 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    glim::paint::Context slot;
+    slot.setSize({40, 40});
+    slot.beginFrame();
+    slot.setFillColor(0xff0000ff);
+    slot.fill(glim::Rect::fromSize({40, 40}));
+    slot.slot(glim::Rect{{4, 4}, {8, 8}}, 1);
+    slot.finish();
+    const glim::paint::FramePacket hole = glim::paint::encode(slot.scene());
+    if (hole.quads.size() != 1) {
+        std::cerr << "SlotHole should not encode coverage, got " << hole.quads.size() << " quads\n";
+        return EXIT_FAILURE;
+    }
+    if (!hole.isolates.empty()) {
+        std::cerr << "SlotHole should not isolate\n";
+        return EXIT_FAILURE;
+    }
+
     std::cout << "encode_test ok\n";
     return EXIT_SUCCESS;
 }

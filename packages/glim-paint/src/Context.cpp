@@ -2,6 +2,8 @@
 
 #include "Font.h"
 
+#include <glim/assert.h>
+
 #include <algorithm>
 #include <cstdint>
 
@@ -177,6 +179,17 @@ void Context::text(Vec2 origin, const char* latin, float sizePx) {
         return;
     }
     current()->shapes.emplace_back(transformGlyphs(state_.model, run));
+}
+
+void Context::slot(const Rect& rect, std::uint32_t id) {
+    if (!recording_ || id == 0) {
+        return;
+    }
+    GLIM_ASSERT(!needsIsolate(*current()), "SlotHole illegal under needsIsolate");
+    for (const Group* g : groupStack_) {
+        GLIM_ASSERT(g && !needsIsolate(*g), "SlotHole illegal under needsIsolate");
+    }
+    current()->shapes.emplace_back(transformSlot(state_.model, SlotHole{rect, id}));
 }
 
 void Context::translate(Vec2 offset) {
