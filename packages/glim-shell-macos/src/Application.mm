@@ -61,22 +61,33 @@ namespace {
 
 GlimDisplayLinkTarget* gDisplayTarget = nil;
 
+void GlimSetDisplayLinkPaused(BOOL paused);
+
+bool GlimShouldPauseDisplayLink() {
+    if (NSApp.hidden) {
+        return true;
+    }
+    for (Window* w : glim::shell::detail::shownWindows()) {
+        NSView* view = (__bridge NSView*)w->nativeView();
+        NSWindow* window = view ? view.window : nil;
+        if (window && window.isVisible && !window.miniaturized) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void GlimSyncDisplayLinkPaused() {
+    GlimSetDisplayLinkPaused(GlimShouldPauseDisplayLink() ? YES : NO);
+}
+
 void GlimEnsureDisplayLink() {
     if (gDisplayLink || gCVLink) {
         return;
     }
     if (@available(macOS 14.0, *)) {
         gDisplayTarget = [GlimDisplayLinkTarget new];
-        NSView* view = nil;
-        for (Window* w : glim::shell::detail::shownWindows()) {
-            view = (__bridge NSView*)w->nativeView();
-            if (view) {
-                break;
-            }
-        }
-        if (view) {
-            gDisplayLink = [view displayLinkWithTarget:gDisplayTarget selector:@selector(tick:)];
-        } else if (NSScreen.mainScreen) {
+        if (NSScreen.mainScreen) {
             gDisplayLink = [NSScreen.mainScreen displayLinkWithTarget:gDisplayTarget selector:@selector(tick:)];
         }
         if (gDisplayLink) {
@@ -140,21 +151,34 @@ void GlimStopDisplayLink() {
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
     (void)notification;
     [NSApp activateIgnoringOtherApps:YES];
+    NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
+    [center addObserver:self
+               selector:@selector(glimSyncDisplayLink:)
+                   name:NSWindowDidMiniaturizeNotification
+                 object:nil];
+    [center addObserver:self
+               selector:@selector(glimSyncDisplayLink:)
+                   name:NSWindowDidDeminiaturizeNotification
+                 object:nil];
+}
+
+- (void)glimSyncDisplayLink:(NSNotification*)notification {
+    (void)notification;
+    GlimSyncDisplayLinkPaused();
 }
 
 - (void)applicationDidBecomeActive:(NSNotification*)notification {
     (void)notification;
-    GlimSetDisplayLinkPaused(NO);
+    GlimSyncDisplayLinkPaused();
 }
 
 - (void)applicationDidResignActive:(NSNotification*)notification {
     (void)notification;
-    GlimSetDisplayLinkPaused(YES);
 }
 
 - (void)applicationDidUnhide:(NSNotification*)notification {
     (void)notification;
-    GlimSetDisplayLinkPaused(NO);
+    GlimSyncDisplayLinkPaused();
 }
 
 - (void)applicationDidHide:(NSNotification*)notification {

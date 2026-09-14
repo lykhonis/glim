@@ -18,6 +18,7 @@ struct ExampleFrame {
     glim::shell::Window& window;
     glim::Vec2 size;
     glim::Rect safeArea;
+    bool reduceTransparency = false;
     float time = 0.f;
 #if !GLIM_SOFTWARE
     glim::gpu::Device& device;

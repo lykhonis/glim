@@ -999,6 +999,8 @@ bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
     return true;
 }
 
+void CommandEncoder::generateMips(const FrameTarget&) {}
+
 void CommandEncoder::present(const Drawable&) {
     impl_->presentQueued = true;
 }
@@ -1313,6 +1315,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samp.magFilter = VK_FILTER_LINEAR;
     samp.minFilter = VK_FILTER_LINEAR;
+    samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;

@@ -163,7 +163,75 @@ float snapBackdropSigma(float sigma) {
     if (sigma < 12.f) {
         return 8.f;
     }
-    return 16.f;
+    if (sigma < 20.f) {
+        return 16.f;
+    }
+    return 24.f;
+}
+
+Rect backdropSurface(const Group& g) {
+    return g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+}
+
+int collectBackdropPills(const Group& g, BackdropPill* out) {
+    if (!out) {
+        return 0;
+    }
+    int n = 0;
+    for (const Shape& s : g.shapes) {
+        if (const auto* r = std::get_if<FillRounded>(&s)) {
+            if (n >= kMaxBackdropPills) {
+                break;
+            }
+            out[n].rect = r->rect;
+            out[n].radius = plateRadius(r->radius);
+            ++n;
+        }
+    }
+    if (n == 0) {
+        Rect b = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+        out[0].rect = b;
+        out[0].radius = plateRadius(g.params.clipRadius);
+        n = 1;
+    }
+    return n;
+}
+
+void dropBackdropPills(Group& g) {
+    std::vector<Shape> keep;
+    std::vector<std::uint32_t> map(g.shapes.size(), ~0u);
+    keep.reserve(g.shapes.size());
+    for (std::size_t i = 0; i < g.shapes.size(); ++i) {
+        if (std::get_if<FillRounded>(&g.shapes[i])) {
+            continue;
+        }
+        map[i] = static_cast<std::uint32_t>(keep.size());
+        keep.push_back(std::move(g.shapes[i]));
+    }
+    if (keep.size() == g.shapes.size()) {
+        return;
+    }
+    std::vector<GroupItem> order;
+    order.reserve(g.order.size());
+    for (const GroupItem& item : g.order) {
+        if (item.kind == GroupItem::Shape) {
+            if (item.index < map.size() && map[item.index] != ~0u) {
+                order.push_back({GroupItem::Shape, map[item.index]});
+            }
+        } else {
+            order.push_back(item);
+        }
+    }
+    g.shapes = std::move(keep);
+    g.order = std::move(order);
+}
+
+void clearBackdropParams(GroupParams& p) {
+    p.backdropBlur = 0.f;
+    p.backdropBend = 0.f;
+    p.backdropMerge = 0.f;
+    p.backdropPress = 0.f;
+    p.backdropFlat = false;
 }
 
 int isolatePixelSize(float logical, float pixelRatio) {

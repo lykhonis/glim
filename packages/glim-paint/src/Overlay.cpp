@@ -46,58 +46,59 @@ void Overlay::record(Context& context, Rect safeArea) {
         return;
     }
 
-    constexpr float kPad = 10.f;
-    constexpr float kGap = 4.f;
-    constexpr float kSparkH = 16.f;
-    constexpr float kBar = 2.f;
-    constexpr float kSparkW = static_cast<float>(kSpark) * kBar;
-    constexpr float kFpsPx = 18.f;
-    constexpr float kLinePx = 12.f;
-    const TextSize fpsM = context.measureText("FPS 000", kFpsPx);
-    const TextSize lineM = context.measureText("00.0 ms", kLinePx);
-    const float line1 = fpsM.height > 0.f ? fpsM.height : kFpsPx;
-    const float line2 = lineM.height > 0.f ? lineM.height : kLinePx;
-    const float width = kPad * 2.f + kSparkW;
-    const float height = kPad * 2.f + line1 + kGap + line2 + kGap + kSparkH + kGap + line2;
-    const float x0 = safeArea.origin.x + 8.f;
-    const float y0 = safeArea.origin.y + 8.f;
-    if (safeArea.size.x <= 0.f || safeArea.size.y <= 0.f) {
+    const Vec2 size = context.size();
+    const float width = size.x > 0.f ? size.x : safeArea.size.x;
+    if (width <= 0.f) {
         return;
     }
 
-    const Rect panel{{x0, y0}, {width, height}};
-    context.setFillColor(0x0d1117ff);
-    context.fillRounded(panel, Radius{8.f});
-    context.setFillColor(0x2a9d8fff);
-    context.strokeRect(panel, Radius{8.f}, 1.5f);
+    constexpr float kH = 44.f;
+    constexpr float kPad = 10.f;
+    constexpr float kGap = 14.f;
+    constexpr float kFpsPx = 16.f;
+    constexpr float kMetaPx = 13.f;
+    const float y0 = safeArea.size.y > 0.f ? safeArea.origin.y : 0.f;
+    const Rect banner{{0.f, y0}, {width, kH}};
+    context.setFillColor(0x0d111766);
+    context.fill(banner);
 
-    char line[32];
+    char line[48];
     const int fpsI = std::max(0, static_cast<int>(fps_ + 0.5f));
     std::snprintf(line, sizeof(line), "FPS %d", fpsI);
-    drawText(context, {x0 + kPad, y0 + kPad}, line, kFpsPx, Color{0xe8eef2ff});
+    const TextSize fpsM = context.measureText(line, kFpsPx);
+    float x = kPad;
+    const float textY = y0 + (kH - (fpsM.height > 0.f ? fpsM.height : kFpsPx)) * 0.5f;
+    drawText(context, {x, textY}, line, kFpsPx, Color{0xe8eef2ff});
+    x += (fpsM.width > 0.f ? fpsM.width : 72.f) + kGap;
 
     std::snprintf(line, sizeof(line), "%.1f ms", static_cast<double>(lastFrameMs_));
-    drawText(context, {x0 + kPad, y0 + kPad + line1 + kGap}, line, kLinePx, Color{0xc5ccd1ff});
+    const TextSize msM = context.measureText(line, kMetaPx);
+    drawText(context, {x, textY + 2.f}, line, kMetaPx, Color{0xc5ccd1ff});
+    x += (msM.width > 0.f ? msM.width : 48.f) + kGap;
 
-    const float sx = x0 + kPad;
-    const float sy = y0 + kPad + line1 + kGap + line2 + kGap;
-    context.setFillColor(0x0b0e11ff);
-    context.fill(Rect{{sx, sy}, {kSparkW, kSparkH}});
-    if (sparkCount_ > 0) {
+    std::snprintf(line, sizeof(line), "%.1f %ud %ui %uo", static_cast<double>(stats_.encodeMs),
+                  stats_.draws, stats_.instances, stats_.isolateCount);
+    const TextSize stM = context.measureText(line, kMetaPx);
+    drawText(context, {x, textY + 2.f}, line, kMetaPx, Color{0xa8b3b8ff});
+    x += (stM.width > 0.f ? stM.width : 88.f) + kGap;
+
+    constexpr float kSparkMax = 132.f;
+    const float sparkW = std::min(kSparkMax, std::max(8.f, width - kPad - x));
+    const float sx = width - kPad - sparkW;
+    const float sparkH = kH - 6.f;
+    const float sy = y0 + 3.f;
+    const float bar = sparkW / static_cast<float>(kSpark);
+    if (sparkCount_ > 0 && bar > 0.f) {
         const int n = sparkCount_;
         const int start = sparkCount_ < kSpark ? 0 : sparkHead_;
         for (int i = 0; i < n; ++i) {
             const float ms = spark_[(start + i) % kSpark];
-            const float h = std::min(kSparkH, std::max(1.f, ms * (kSparkH / 33.4f)));
+            const float h = std::min(sparkH, std::max(1.f, ms * (sparkH / 22.f)));
             const bool slow = ms > 16.7f * 1.5f;
             context.setFillColor(slow ? 0xe76f51ff : 0x2a9d8fff);
-            context.fill(Rect{{sx + static_cast<float>(i) * kBar, sy + kSparkH - h}, {kBar, h}});
+            context.fill(Rect{{sx + static_cast<float>(i) * bar, sy + sparkH - h}, {bar, h}});
         }
     }
-
-    std::snprintf(line, sizeof(line), "%.1f %ud %ui %uo", static_cast<double>(stats_.encodeMs),
-                  stats_.draws, stats_.instances, stats_.isolateCount);
-    drawText(context, {x0 + kPad, sy + kSparkH + kGap}, line, kLinePx, Color{0xa8b3b8ff});
 }
 
 }  // namespace glim::paint

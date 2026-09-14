@@ -155,6 +155,16 @@ bool CommandEncoder::copyColorTo(const FrameTarget&) {
     return false;
 }
 
+void CommandEncoder::generateMips(const FrameTarget& dst) {
+    id<MTLTexture> tex = (__bridge id<MTLTexture>)dst.native();
+    if (!impl_->commandBuffer || !tex || tex.mipmapLevelCount <= 1) {
+        return;
+    }
+    id<MTLBlitCommandEncoder> blit = [impl_->commandBuffer blitCommandEncoder];
+    [blit generateMipmapsForTexture:tex];
+    [blit endEncoding];
+}
+
 void CommandEncoder::present(const Drawable& drawable) {
     impl_->drawable = (__bridge id<CAMetalDrawable>)drawable.native();
 }
@@ -209,6 +219,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     MTLSamplerDescriptor* samp = [[MTLSamplerDescriptor alloc] init];
     samp.minFilter = MTLSamplerMinMagFilterLinear;
     samp.magFilter = MTLSamplerMinMagFilterLinear;
+    samp.mipFilter = MTLSamplerMipFilterLinear;
     samp.sAddressMode = MTLSamplerAddressModeClampToEdge;
     samp.tAddressMode = MTLSamplerAddressModeClampToEdge;
     out.impl_->sampler = [device newSamplerStateWithDescriptor:samp];
@@ -252,7 +263,7 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                                                                   width:static_cast<NSUInteger>(w)
                                                                                  height:static_cast<NSUInteger>(h)
-                                                                              mipmapped:NO];
+                                                                              mipmapped:desc.mipmaps ? YES : NO];
     td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
     td.storageMode = MTLStorageModePrivate;
     id<MTLTexture> tex = [impl_->device newTextureWithDescriptor:td];

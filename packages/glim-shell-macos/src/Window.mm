@@ -11,6 +11,7 @@
 
 using glim::shell::Event;
 using glim::shell::EventType;
+using glim::shell::Key;
 using glim::shell::Window;
 
 @interface GlimView : NSView <NSWindowDelegate>
@@ -42,6 +43,18 @@ using glim::shell::Window;
 
 - (BOOL)acceptsFirstResponder {
     return YES;
+}
+
+- (void)keyDown:(NSEvent*)event {
+    if (event.keyCode == 53) {
+        Event e(EventType::KeyDown);
+        e.setKey(Key::Escape);
+        if (eventCallback_) {
+            eventCallback_(e);
+        }
+        return;
+    }
+    [super keyDown:event];
 }
 
 - (void)viewDidMoveToWindow {

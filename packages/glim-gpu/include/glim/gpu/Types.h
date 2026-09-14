@@ -46,6 +46,7 @@ struct TextureDesc {
 struct FrameTargetDesc {
     int width = 1;
     int height = 1;
+    bool mipmaps = false;
 };
 
 struct PipelineDesc {

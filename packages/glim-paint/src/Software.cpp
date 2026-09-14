@@ -172,35 +172,218 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
 void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
                  const Mat4& extra, const ClipState& parentClip, float pixelRatio);
 
-void sampleRect(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw, int dh,
-                Rect src, float bend) {
+float sdSquircle(float px, float py, float hx, float hy, float r) {
+    r = std::min(r, std::min(hx, hy));
+    const float qx = std::fabs(px) - hx + r;
+    const float qy = std::fabs(py) - hy + r;
+    const float mx = std::max(qx, 0.f);
+    const float my = std::max(qy, 0.f);
+    return std::pow(std::pow(mx, 4.f) + std::pow(my, 4.f), 0.25f) + std::min(std::max(qx, qy), 0.f) - r;
+}
+
+float smin(float a, float b, float k) {
+    if (k <= 0.001f) {
+        return std::min(a, b);
+    }
+    const float h = std::max(k - std::fabs(a - b), 0.f) / k;
+    return std::min(a, b) - h * h * k * 0.25f;
+}
+
+struct PlateSpec {
+    float sigma = 0;
+    float bend = 0;
+    float mergeK = 0;
+    float press = 0;
+    float lightX = 0.35f;
+    float lightY = 0.8f;
+    float lightZ = 0.5f;
+    bool flat = false;
+    int n = 0;
+    BackdropPill pills[kMaxBackdropPills]{};
+};
+
+float fieldSdf(const PlateSpec& spec, float px, float py, float plateW, float plateH) {
+    float sdf = 1e6f;
+    const int n = spec.n > 0 ? spec.n : 1;
+    for (int i = 0; i < n; ++i) {
+        const BackdropPill& pill = spec.pills[i];
+        const float cx = pill.rect.origin.x + pill.rect.size.x * 0.5f;
+        const float cy = pill.rect.origin.y + pill.rect.size.y * 0.5f;
+        const float d = sdSquircle(px - cx, py - cy, pill.rect.size.x * 0.5f, pill.rect.size.y * 0.5f,
+                                   pill.radius);
+        sdf = (i == 0) ? d : smin(sdf, d, spec.mergeK);
+    }
+    sdf += spec.press * 0.035f * std::min(plateW, plateH);
+    return sdf;
+}
+
+Pixel sampleDest(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy) {
+    const int ix = std::min(dw - 1, std::max(0, static_cast<int>(sx)));
+    const int iy = std::min(dh - 1, std::max(0, static_cast<int>(sy)));
+    return dest[static_cast<std::size_t>(iy * dw + ix)];
+}
+
+Pixel sampleDestBlur(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float sigma) {
+    if (sigma <= 0.5f) {
+        return sampleDest(dest, dw, dh, sx, sy);
+    }
+    Pixel acc{0, 0, 0, 0};
+    float wt = 0.f;
+    auto add = [&](float x, float y, float w) {
+        const Pixel s = sampleDest(dest, dw, dh, x, y);
+        acc.r += s.r * w;
+        acc.g += s.g * w;
+        acc.b += s.b * w;
+        acc.a += s.a * w;
+        wt += w;
+    };
+    add(sx, sy, 0.227027f);
+    add(sx + sigma, sy, 0.1945946f);
+    add(sx - sigma, sy, 0.1945946f);
+    add(sx, sy + sigma, 0.1945946f);
+    add(sx, sy - sigma, 0.1945946f);
+    add(sx + sigma, sy + sigma, 0.1216216f);
+    add(sx - sigma, sy - sigma, 0.1216216f);
+    add(sx + sigma, sy - sigma, 0.1216216f);
+    add(sx - sigma, sy + sigma, 0.1216216f);
+    if (wt > 0.f) {
+        acc.r /= wt;
+        acc.g /= wt;
+        acc.b /= wt;
+        acc.a /= wt;
+    }
+    return acc;
+}
+
+PlateSpec specFromGroup(const Group& g, Rect surface, float pr) {
+    PlateSpec spec;
+    spec.sigma = snapBackdropSigma(g.params.backdropBlur) * pr * 0.5f;
+    spec.bend = g.params.backdropBend;
+    spec.mergeK = g.params.backdropMerge * pr;
+    spec.press = g.params.backdropPress;
+    spec.lightX = g.params.backdropLightX;
+    spec.lightY = g.params.backdropLightY;
+    spec.lightZ = g.params.backdropLightZ;
+    spec.flat = g.params.backdropFlat;
+    BackdropPill pills[kMaxBackdropPills];
+    spec.n = collectBackdropPills(g, pills);
+    for (int i = 0; i < spec.n; ++i) {
+        spec.pills[i] = pills[i];
+        spec.pills[i].rect.origin.x = (pills[i].rect.origin.x - surface.origin.x) * pr;
+        spec.pills[i].rect.origin.y = (pills[i].rect.origin.y - surface.origin.y) * pr;
+        spec.pills[i].rect.size.x *= pr;
+        spec.pills[i].rect.size.y *= pr;
+        spec.pills[i].radius *= pr;
+    }
+    return spec;
+}
+
+PlateSpec specFromIsolate(const Isolate& iso, float pr) {
+    PlateSpec spec;
+    spec.sigma = iso.backdropSigma * pr * 0.5f;
+    spec.bend = iso.backdropBend;
+    spec.mergeK = iso.backdropMerge * pr;
+    spec.press = iso.backdropPress;
+    spec.lightX = iso.backdropLightX;
+    spec.lightY = iso.backdropLightY;
+    spec.lightZ = iso.backdropLightZ;
+    spec.flat = iso.backdropFlat;
+    spec.n = std::min(kMaxBackdropPills, static_cast<int>(iso.backdropPills.size()));
+    const float sx = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pr;
+    const float sy = iso.destH > 0.f ? static_cast<float>(iso.contentH) / iso.destH : pr;
+    for (int i = 0; i < spec.n; ++i) {
+        spec.pills[i] = iso.backdropPills[static_cast<std::size_t>(i)];
+        spec.pills[i].rect.origin.x *= sx;
+        spec.pills[i].rect.origin.y *= sy;
+        spec.pills[i].rect.size.x *= sx;
+        spec.pills[i].rect.size.y *= sy;
+        spec.pills[i].radius *= std::min(sx, sy);
+    }
+    return spec;
+}
+
+void samplePlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw, int dh,
+                 Rect src, const PlateSpec& spec) {
     if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
         return;
     }
+    const float plateW = static_cast<float>(iw);
+    const float plateH = static_cast<float>(ih);
+    const float minSide = std::max(1.f, std::min(plateW, plateH));
+    const float thickness = std::max(18.f, minSide * 0.42f);
+    PlateSpec field = spec;
+    if (field.n <= 0) {
+        field.n = 1;
+        field.pills[0].rect = Rect::fromSize({plateW, plateH});
+    }
     for (int y = 0; y < ih; ++y) {
-        float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(ih);
+        const float v = (static_cast<float>(y) + 0.5f) / plateH;
+        const float py = static_cast<float>(y) + 0.5f;
         for (int x = 0; x < iw; ++x) {
-            float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(iw);
-            if (bend > 0.f) {
-                const float dx = u - 0.5f;
-                const float dy = v - 0.5f;
-                const float r2 = dx * dx + dy * dy;
-                const float k = bend * (0.25f - r2);
-                u -= dx * k;
-                v -= dy * k;
+            const float u = (static_cast<float>(x) + 0.5f) / plateW;
+            const float px = static_cast<float>(x) + 0.5f;
+            const float sdf = fieldSdf(field, px, py, plateW, plateH);
+            const float mask = std::clamp(0.5f - sdf, 0.f, 1.f);
+            if (mask < 0.001f) {
+                plate[static_cast<std::size_t>(y * iw + x)] = Pixel{0, 0, 0, 0};
+                continue;
             }
-            const float sy = src.origin.y + std::clamp(v, 0.f, 1.f) * src.size.y;
-            const float sx = src.origin.x + std::clamp(u, 0.f, 1.f) * src.size.x;
-            const int iy = std::min(dh - 1, std::max(0, static_cast<int>(sy)));
-            const int ix = std::min(dw - 1, std::max(0, static_cast<int>(sx)));
-            Pixel p = dest[static_cast<std::size_t>(iy * dw + ix)];
-            if (bend > 0.f) {
-                const float edge = std::max(std::fabs(u - 0.5f), std::fabs(v - 0.5f));
-                const float spec = std::pow(std::clamp(1.f - edge * 2.f, 0.f, 1.f), 8.f) * bend * 0.55f;
-                p.r = std::min(1.f, p.r + spec);
-                p.g = std::min(1.f, p.g + spec);
-                p.b = std::min(1.f, p.b + spec);
+            float sx = src.origin.x + u * src.size.x;
+            float sy = src.origin.y + v * src.size.y;
+            float edge = 0.f;
+            float nx = 0.f;
+            float ny = 0.f;
+            float nz = 1.f;
+            if (spec.bend > 0.f && !spec.flat) {
+                const float height = std::clamp(-sdf / thickness, 0.f, 1.f);
+                const float gx = fieldSdf(field, px + 1.f, py, plateW, plateH) -
+                                 fieldSdf(field, px - 1.f, py, plateW, plateH);
+                const float gy = fieldSdf(field, px, py + 1.f, plateW, plateH) -
+                                 fieldSdf(field, px, py - 1.f, plateW, plateH);
+                const float glen = std::max(1e-4f, std::hypot(gx, gy));
+                nx = gx / glen;
+                ny = gy / glen;
+                edge = 1.f - height;
+                const float nxy = edge * 1.05f;
+                nx *= nxy;
+                ny *= nxy;
+                const float nlen = std::max(1e-4f, std::sqrt(nx * nx + ny * ny + 1.f));
+                nx /= nlen;
+                ny /= nlen;
+                nz = 1.f / nlen;
+                const float mag = std::pow(edge, 4.f) * spec.bend * std::min(48.f, minSide * 0.30f);
+                sx += nx * mag * (src.size.x / plateW);
+                sy += ny * mag * (src.size.y / plateH);
             }
+            Pixel p = sampleDestBlur(dest, dw, dh, sx, sy, spec.sigma);
+            const float lum = p.r * 0.2126f + p.g * 0.7152f + p.b * 0.0722f;
+            if (spec.flat) {
+                const float tint = lum >= 0.45f ? 0.92f : 0.16f;
+                p.r = tint;
+                p.g = tint;
+                p.b = tint;
+                p.a = 1.f;
+            } else {
+                const float frost = 0.06f + 0.30f * std::clamp(spec.sigma / 12.f, 0.f, 1.f);
+                p.r = p.r + (1.f - p.r) * frost;
+                p.g = p.g + (1.f - p.g) * frost;
+                p.b = p.b + (1.f - p.b) * frost;
+                if (spec.bend > 0.f) {
+                    const float Llen = std::sqrt(spec.lightX * spec.lightX + spec.lightY * spec.lightY +
+                                                 spec.lightZ * spec.lightZ);
+                    const float ndl = std::clamp(
+                        (nx * spec.lightX + ny * spec.lightY + nz * spec.lightZ) / std::max(Llen, 1e-4f), 0.f,
+                        1.f);
+                    const float hi = std::pow(ndl, 72.f) * std::pow(edge, 2.4f) * 0.85f;
+                    p.r += hi;
+                    p.g += hi;
+                    p.b += hi;
+                }
+            }
+            p.r *= mask;
+            p.g *= mask;
+            p.b *= mask;
+            p.a *= mask;
             plate[static_cast<std::size_t>(y * iw + x)] = p;
         }
     }
@@ -297,29 +480,41 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     const Mat4 world = extra * g.params.transform;
     const ClipState clip = intersectClip(parentClip, clipOf(g.params, world));
     if (needsIsolate(g)) {
-        Rect b = g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g);
+        const bool backdrop = hasBackdrop(g);
+        const Rect surface =
+            backdrop ? backdropSurface(g)
+                     : (g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g));
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
-        const int iw = isolatePixelSize(b.size.x, pr);
-        const int ih = isolatePixelSize(b.size.y, pr);
+        const int iw = isolatePixelSize(surface.size.x, pr);
+        const int ih = isolatePixelSize(surface.size.y, pr);
         std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
-        const Rect xf = transformRect(world, b);
+        const Rect xf = transformRect(world, surface);
         const float sigma = snapBackdropSigma(g.params.backdropBlur);
         if (sigma > 0.f || g.params.backdropBend > 0.f) {
-            sampleRect(tmp, iw, ih, dest, w, h, xf, g.params.backdropBend);
-            if (sigma > 0.f) {
-                blurSeparable(tmp, iw, ih, sigma * pr * 0.5f);
+            if (g.params.backdropBend > 0.f) {
+                samplePlate(tmp, iw, ih, dest, w, h, xf, specFromGroup(g, surface, pr));
+            } else {
+                PlateSpec copy = specFromGroup(g, surface, pr);
+                copy.bend = 0.f;
+                copy.sigma = 0.f;
+                samplePlate(tmp, iw, ih, dest, w, h, xf, copy);
+                if (sigma > 0.f) {
+                    blurSeparable(tmp, iw, ih, sigma * pr * 0.5f);
+                }
             }
         }
         auto local = cloneGroup(g);
         local->params.opacity = 1.0f;
         local->params.isolate = false;
-        local->params.backdropBlur = 0.f;
-        local->params.backdropBend = 0.f;
+        clearBackdropParams(local->params);
         local->params.transform = Mat4::identity();
-        if (!hasClip(local->params) && b.size.x > 0.f && b.size.y > 0.f) {
-            local->params.clip = Rect{{0, 0}, b.size};
+        if (backdrop) {
+            dropBackdropPills(*local);
         }
-        const Mat4 localX = Mat4::scale(pr, pr) * Mat4::translate(-b.origin.x, -b.origin.y);
+        if (!hasClip(local->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
+            local->params.clip = Rect{{0, 0}, surface.size};
+        }
+        const Mat4 localX = Mat4::scale(pr, pr) * Mat4::translate(-surface.origin.x, -surface.origin.y);
         paintShapes(tmp, iw, ih, *local, images, localX, clipOf(local->params, localX), pr);
         blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
         return;
@@ -358,10 +553,18 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
                    float pixelRatio) {
     std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
     if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
-        sampleRect(tmp, iso.contentW, iso.contentH, dest, w, h,
-                   Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}}, iso.backdropBend);
-        if (iso.backdropSigma > 0.f) {
-            blurSeparable(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
+        const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
+        const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
+        if (iso.backdropBend > 0.f) {
+            samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, specFromIsolate(iso, pr));
+        } else {
+            PlateSpec copy = specFromIsolate(iso, pr);
+            copy.bend = 0.f;
+            copy.sigma = 0.f;
+            samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, copy);
+            if (iso.backdropSigma > 0.f) {
+                blurSeparable(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
+            }
         }
     }
     paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.isolates, images, pixelRatio);

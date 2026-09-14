@@ -144,6 +144,7 @@ public:
 
     Pass beginPass(const PassDesc&);
     bool copyColorTo(const FrameTarget& dst);
+    void generateMips(const FrameTarget& dst);
     void present(const Drawable&);
     void submit(Queue&);
 

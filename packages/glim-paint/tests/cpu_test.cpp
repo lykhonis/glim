@@ -139,6 +139,63 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    std::fill(buf.begin(), buf.end(), 0);
+    ctx.beginFrame();
+    for (int x = 0; x < w; ++x) {
+        ctx.setFillColor((x / 8) % 2 == 0 ? 0xff0000ff : 0x0000ffff);
+        ctx.fill(glim::Rect{{static_cast<float>(x), 0.f}, {1.f, static_cast<float>(h)}});
+    }
+    glim::paint::GroupParams lens;
+    lens.backdropBlur = 8.f;
+    lens.backdropBend = 0.55f;
+    lens.bounds = glim::Rect{{16.f, 8.f}, {32.f, 24.f}};
+    lens.clipRadius = glim::Radius{6.f};
+    ctx.pushGroup(lens);
+    ctx.popGroup();
+    ctx.setFillColor(0x00ff00ff);
+    ctx.fill(glim::Rect{{20.f, 12.f}, {8.f, 8.f}});
+    ctx.finish();
+    renderer.draw(ctx.scene());
+    const std::size_t lensC = static_cast<std::size_t>((20 * w + 32) * 4);
+    if (buf[lensC + 3] < 180) {
+        std::cerr << "lens center should stay opaque\n";
+        return EXIT_FAILURE;
+    }
+    if (buf[lensC] < 20 || buf[lensC + 2] < 20) {
+        std::cerr << "lens should still sample dest, not a solid plate\n";
+        return EXIT_FAILURE;
+    }
+    const std::size_t farPx = static_cast<std::size_t>((2 * w + 2) * 4);
+    if (buf[farPx] < 200 || buf[farPx + 1] > 40 || buf[farPx + 2] > 40) {
+        std::cerr << "wallpaper outside the lens should stay a dest stripe\n";
+        return EXIT_FAILURE;
+    }
+
+    std::fill(buf.begin(), buf.end(), 0);
+    ctx.beginFrame();
+    ctx.setFillColor(0xffffffff);
+    ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+    glim::paint::GroupParams blob;
+    blob.backdropBend = 0.5f;
+    blob.backdropMerge = 20.f;
+    blob.bounds = glim::Rect{{8.f, 12.f}, {48.f, 16.f}};
+    ctx.pushGroup(blob);
+    ctx.fillRounded(glim::Rect{{8.f, 12.f}, {16.f, 16.f}}, glim::Radius{8.f});
+    ctx.fillRounded(glim::Rect{{40.f, 12.f}, {16.f, 16.f}}, glim::Radius{8.f});
+    ctx.popGroup();
+    ctx.finish();
+    renderer.draw(ctx.scene());
+    const std::size_t neck = static_cast<std::size_t>((20 * w + 32) * 4);
+    if (buf[neck + 3] < 40) {
+        std::cerr << "smooth-min should fill the neck between pills\n";
+        return EXIT_FAILURE;
+    }
+    const std::size_t lensOver = static_cast<std::size_t>((16 * w + 24) * 4);
+    if (buf[lensOver + 1] < 200) {
+        std::cerr << "overlay after lens should paint on top\n";
+        return EXIT_FAILURE;
+    }
+
     std::cout << "cpu_test ok\n";
     return EXIT_SUCCESS;
 }

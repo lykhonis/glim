@@ -46,10 +46,18 @@ struct Isolate {
     int contentH = 1;
     float backdropSigma = 0;
     float backdropBend = 0;
+    float backdropRadius = 0;
+    float backdropMerge = 0;
+    float backdropPress = 0;
+    float backdropLightX = 0.35f;
+    float backdropLightY = 0.8f;
+    float backdropLightZ = 0.5f;
     float backdropU0 = 0;
     float backdropV0 = 0;
     float backdropU1 = 1;
     float backdropV1 = 1;
+    bool backdropFlat = false;
+    std::vector<BackdropPill> backdropPills;
     std::vector<Quad> quads;
     std::vector<BlitQuad> blits;
     std::vector<Isolate> isolates;

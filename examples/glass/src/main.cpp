@@ -1,53 +1,106 @@
 #include "run.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 
 void recordExample(ExampleFrame& frame) {
     using glim::Radius;
     using glim::Rect;
     using glim::paint::GroupParams;
 
-    frame.context.setFillColor(0x243038ff);
-    frame.context.fill(Rect::fromSize(frame.size));
-
-    const Rect area = frame.safeArea.size.x > 0.f ? frame.safeArea : Rect::fromSize(frame.size);
+    const Rect win = Rect::fromSize(frame.size);
+    const Rect area = frame.safeArea.size.x > 0.f ? frame.safeArea : win;
     const float m = std::min(area.size.x, area.size.y);
     const float pad = std::clamp(m * 0.06f, 14.f, 28.f);
-    const float stripe = std::max(10.f, m * 0.045f);
-    for (int i = 0; i < 24; ++i) {
-        const float x = area.origin.x + static_cast<float>(i) * stripe;
-        frame.context.setFillColor((i % 2) == 0 ? 0xac6363ff : 0x2a9d8fff);
-        frame.context.fill(Rect{{x, area.origin.y}, {stripe, area.size.y}});
+
+    frame.context.setFillColor(0x1a2228ff);
+    frame.context.fill(win);
+
+    const float stripe = 44.f;
+    const float period = stripe * 4.f;
+    const float scroll = std::fmod(frame.time * 28.f, period);
+    const float origin = -scroll;
+    const int first = static_cast<int>(std::floor(-origin / stripe)) - 1;
+    const int last = static_cast<int>(std::ceil((win.size.x - origin) / stripe)) + 1;
+    for (int i = first; i <= last; ++i) {
+        const float x = origin + static_cast<float>(i) * stripe;
+        const int k = ((i % 4) + 4) % 4;
+        const std::uint32_t c = k == 0   ? 0xd97b6bff
+                                : k == 1 ? 0x2a9d8fff
+                                : k == 2 ? 0xe9c46aff
+                                         : 0x3d5a80ff;
+        frame.context.setFillColor(c);
+        frame.context.fill(Rect{{x, 0.f}, {stripe, win.size.y}});
     }
 
     const float gap = pad * 0.7f;
-    const float cardW = std::max(8.f, (area.size.x - pad * 2.f - gap) * 0.5f);
-    const float cardH = std::max(8.f, area.size.y - pad * 2.f);
-    const Rect frostR{{area.origin.x + pad, area.origin.y + pad}, {cardW, cardH}};
-    const Rect lensR{{frostR.origin.x + cardW + gap, frostR.origin.y}, {cardW, cardH}};
+    const float barH = std::clamp(m * 0.11f, 48.f, 64.f);
+    const float pillH = std::clamp(m * 0.16f, 64.f, 96.f);
+    const float inner = area.size.x - pad * 2.f;
+    const float clearW = std::max(72.f, inner * 0.24f);
+    const float pairW = std::max(8.f, inner - clearW - gap);
+    const float mergeW = std::max(56.f, (pairW - gap) * 0.5f);
+    const float pillsY = area.origin.y + 52.f + pad;
+    const Rect clearR{{area.origin.x + pad, pillsY}, {clearW, pillH}};
+    const Rect frostR{{clearR.origin.x + clearW + gap, pillsY}, {mergeW, pillH}};
+    const Rect mergeR{{frostR.origin.x + mergeW + gap, pillsY}, {mergeW, pillH}};
+    const Rect cluster{{frostR.origin.x, pillsY}, {mergeR.origin.x + mergeW - frostR.origin.x, pillH}};
+    const Rect barR{{area.origin.x + pad, area.origin.y + area.size.y - pad - barH},
+                    {area.size.x - pad * 2.f, barH}};
 
-    GroupParams frost;
-    frost.bounds = frostR;
-    frost.backdropBlur = 8.f;
-    frame.context.pushGroup(frost);
-    frame.context.setFillColor(0xf0d5a866);
-    frame.context.fillRounded(frostR, Radius{20.f});
+    const float driftX = std::sin(frame.time * 0.65f) * std::min(64.f, area.size.x * 0.12f);
+    const float driftY = std::cos(frame.time * 0.48f) * std::min(36.f, area.size.y * 0.06f);
+    frame.context.setFillColor(0xf4f1deff);
+    frame.context.fillRounded({{area.origin.x + pad + driftX,
+                               pillsY + pillH + pad * 0.8f + driftY},
+                               {area.size.x * 0.34f, pad * 2.2f}},
+                              Radius{12.f});
+    frame.context.setFillColor(0x0d1b2aff);
+    frame.context.fillRounded(
+        {{area.origin.x + area.size.x * 0.42f - driftX * 0.6f,
+          barR.origin.y - pad * 2.8f + driftY * 0.8f},
+         {area.size.x * 0.4f, pad * 3.2f}},
+        Radius{16.f});
+
+    GroupParams clearP;
+    clearP.bounds = clearR;
+    clearP.clip = clearR;
+    clearP.clipRadius = Radius{pillH * 0.5f};
+    clearP.backdropBlur = 4.f;
+    clearP.backdropBend = 0.85f;
+    clearP.backdropFlat = frame.reduceTransparency;
+    frame.context.pushGroup(clearP);
     frame.context.popGroup();
 
-    GroupParams lens;
-    lens.bounds = lensR;
-    lens.backdropBlur = 8.f;
-    lens.backdropBend = 0.45f;
-    frame.context.pushGroup(lens);
-    frame.context.setFillColor(0xe8eef466);
-    frame.context.fillRounded(lensR, Radius{20.f});
+    GroupParams clusterP;
+    clusterP.bounds = cluster;
+    clusterP.backdropBlur = 28.f;
+    clusterP.backdropMerge = 7.f;
+    clusterP.backdropFlat = frame.reduceTransparency;
+    frame.context.pushGroup(clusterP);
+    frame.context.fillRounded(frostR, Radius{pillH * 0.5f});
+    frame.context.fillRounded(mergeR, Radius{pillH * 0.5f});
     frame.context.popGroup();
 
-    frame.context.setFillColor(0xf0d5a8ff);
-    frame.context.strokeRect(frostR, Radius{20.f}, 2.f);
-    frame.context.strokeRect(lensR, Radius{20.f}, 2.f);
-    frame.context.text({frostR.origin.x + pad * 0.45f, frostR.origin.y + frostR.size.y - 24.f}, "blur",
-                       18.f);
-    frame.context.text({lensR.origin.x + pad * 0.45f, lensR.origin.y + lensR.size.y - 24.f}, "lookalike",
-                       18.f);
+    GroupParams bar;
+    bar.bounds = barR;
+    bar.clip = barR;
+    bar.clipRadius = Radius{barH * 0.5f};
+    bar.backdropBlur = 28.f;
+    bar.backdropFlat = frame.reduceTransparency;
+    frame.context.pushGroup(bar);
+    frame.context.popGroup();
+
+    const float label = 18.f;
+    const std::uint32_t ink = frame.reduceTransparency ? 0xf8fafcff : 0x1a2228ff;
+    frame.context.setFillColor(ink);
+    frame.context.text({clearR.origin.x + pad * 0.35f, clearR.origin.y + pillH * 0.5f - 7.f}, "clear",
+                       label);
+    frame.context.text({frostR.origin.x + pad * 0.25f, frostR.origin.y + pillH * 0.5f - 7.f}, "frost",
+                       label);
+    frame.context.text({mergeR.origin.x + pad * 0.25f, mergeR.origin.y + pillH * 0.5f - 7.f}, "merge",
+                       label);
+    frame.context.text({barR.origin.x + pad * 0.6f, barR.origin.y + barH * 0.5f - 8.f},
+                       frame.reduceTransparency ? "flat" : "regular", label);
 }

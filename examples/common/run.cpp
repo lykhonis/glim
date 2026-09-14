@@ -40,6 +40,7 @@ int glimRunExample(const ExampleApp& app, void (*record)(ExampleFrame&)) {
     overlay.setEnabled(true);
     const auto start = std::chrono::steady_clock::now();
     auto lastPaint = start;
+    bool reduceTransparency = false;
 
     const auto paint = [&] {
         const auto now = std::chrono::steady_clock::now();
@@ -53,6 +54,7 @@ int glimRunExample(const ExampleApp& app, void (*record)(ExampleFrame&)) {
             window,
             size,
             window.safeArea(),
+            reduceTransparency,
             std::chrono::duration<float>(now - start).count(),
 #if !GLIM_SOFTWARE
             device,
@@ -95,6 +97,11 @@ int glimRunExample(const ExampleApp& app, void (*record)(ExampleFrame&)) {
         using T = glim::shell::EventType;
         if (e.type() == T::WindowClosed) {
             glim::shell::RunLoop().stop();
+            return;
+        }
+        if (e.type() == T::KeyDown && e.key() == glim::shell::Key::Escape) {
+            reduceTransparency = !reduceTransparency;
+            paint();
             return;
         }
         if (e.type() == T::WindowResized || e.type() == T::Frame) {

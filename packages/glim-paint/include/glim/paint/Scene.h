@@ -83,6 +83,12 @@ struct GroupParams {
     Radius clipRadius{};
     float backdropBlur = 0.f;
     float backdropBend = 0.f;
+    float backdropMerge = 0.f;
+    float backdropPress = 0.f;
+    float backdropLightX = 0.35f;
+    float backdropLightY = 0.8f;
+    float backdropLightZ = 0.5f;
+    bool backdropFlat = false;
 };
 
 struct FillRect {
@@ -138,6 +144,29 @@ inline bool hasClip(const GroupParams& p) noexcept {
     return p.clip.size.x > 0.f && p.clip.size.y > 0.f;
 }
 
+inline float plateRadius(const Radius& r) noexcept {
+    float m = r.lt;
+    if (r.rt > m) {
+        m = r.rt;
+    }
+    if (r.lb > m) {
+        m = r.lb;
+    }
+    if (r.rb > m) {
+        m = r.rb;
+    }
+    return m;
+}
+
+constexpr int kMaxBackdropPills = 4;
+
+struct BackdropPill {
+    Rect rect{};
+    float radius = 0.f;
+};
+
+
+
 struct GroupItem {
     enum Kind : std::uint8_t { Shape, Child } kind = Shape;
     std::uint32_t index = 0;
@@ -174,6 +203,10 @@ struct Stats {
 
 float snapBackdropSigma(float sigma);
 int isolatePixelSize(float logical, float pixelRatio);
+Rect backdropSurface(const Group&);
+int collectBackdropPills(const Group&, BackdropPill* out);
+void dropBackdropPills(Group&);
+void clearBackdropParams(GroupParams&);
 bool hasBackdrop(const Group&);
 bool needsIsolate(const Group&);
 bool canMerge(const Group&);

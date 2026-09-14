@@ -92,7 +92,16 @@ void GlimPauseDisplayLink(BOOL paused) {
 
 - (void)sceneWillResignActive:(UIScene*)scene {
     (void)scene;
+}
+
+- (void)sceneDidEnterBackground:(UIScene*)scene {
+    (void)scene;
     GlimPauseDisplayLink(YES);
+}
+
+- (void)sceneWillEnterForeground:(UIScene*)scene {
+    (void)scene;
+    GlimPauseDisplayLink(NO);
 }
 @end
 

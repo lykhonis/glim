@@ -29,6 +29,69 @@ struct Uniforms {
     float projection[16];
 };
 
+struct PlateInstance {
+    float rect[4];
+    float uv[4];
+    float extra[4];
+    float light[4];
+    float pill0[4];
+    float pill1[4];
+    float pill2[4];
+    float pill3[4];
+    float radii[4];
+};
+
+void packPill(float* dst, const BackdropPill& pill) {
+    dst[0] = pill.rect.origin.x;
+    dst[1] = pill.rect.origin.y;
+    dst[2] = pill.rect.size.x;
+    dst[3] = pill.rect.size.y;
+}
+
+PlateInstance makePlate(float x, float y, float w, float h, float u0, float v0, float u1, float v1,
+                        float sigma, float bend, float mergeK, float press, bool flat, float lx, float ly,
+                        float lz, const BackdropPill* pills, int n) {
+    PlateInstance p{};
+    p.rect[0] = x;
+    p.rect[1] = y;
+    p.rect[2] = w;
+    p.rect[3] = h;
+    p.uv[0] = u0;
+    p.uv[1] = v0;
+    p.uv[2] = u1;
+    p.uv[3] = v1;
+    const int count = n > 0 ? n : 1;
+    p.extra[0] = sigma * 0.5f;
+    p.extra[1] = bend;
+    p.extra[2] = mergeK;
+    p.extra[3] = static_cast<float>(count | (flat ? 8 : 0));
+    p.light[0] = lx;
+    p.light[1] = ly;
+    p.light[2] = lz;
+    p.light[3] = press;
+    if (pills && n > 0) {
+        packPill(p.pill0, pills[0]);
+        p.radii[0] = pills[0].radius;
+        if (n > 1) {
+            packPill(p.pill1, pills[1]);
+            p.radii[1] = pills[1].radius;
+        }
+        if (n > 2) {
+            packPill(p.pill2, pills[2]);
+            p.radii[2] = pills[2].radius;
+        }
+        if (n > 3) {
+            packPill(p.pill3, pills[3]);
+            p.radii[3] = pills[3].radius;
+        }
+    } else {
+        p.pill0[2] = w;
+        p.pill0[3] = h;
+        p.radii[0] = 0.f;
+    }
+    return p;
+}
+
 Mat4 presentProjection(const Mat4& ortho, int degrees) {
     if (degrees == 0) {
         return ortho;
@@ -432,11 +495,15 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         }
         pass.end();
         gpu::LoadOp plateLoad = gpu::LoadOp::Clear;
-        if (iso.backdropSigma > 0.f) {
+        if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
             const int hw = std::max(1, viewportW / 2);
             const int hh = std::max(1, viewportH / 2);
             if (!backdrop_.native() || backdrop_.width() != hw || backdrop_.height() != hh) {
-                auto bg = device_.createFrameTarget({hw, hh});
+                gpu::FrameTargetDesc bgDesc;
+                bgDesc.width = hw;
+                bgDesc.height = hh;
+                bgDesc.mipmaps = true;
+                auto bg = device_.createFrameTarget(bgDesc);
                 if (bg.ok()) {
                     backdrop_ = std::move(bg.value());
                 }
@@ -472,6 +539,7 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                         dp.end();
                     }
                 }
+                encoder.generateMips(backdrop_);
                 gpu::PassDesc plate;
                 plate.nativeColor = ft->native();
                 plate.load = gpu::LoadOp::Clear;
@@ -485,19 +553,17 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                                      iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
                 std::memcpy(gu.projection, localProj.m, sizeof(gu.projection));
                 gp.setBytes(1, &gu, sizeof(gu));
-                BlitInstance back{};
-                back.rect[2] = iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW);
-                back.rect[3] = iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH);
-                back.uv[0] = iso.backdropU0;
-                back.uv[1] = iso.backdropV0;
-                back.uv[2] = iso.backdropU1;
-                back.uv[3] = iso.backdropV1;
-                back.extra[0] = iso.backdropSigma * 0.5f;
-                back.extra[1] = iso.backdropBend;
-                back.extra[2] = 1.f / static_cast<float>(std::max(1, backdrop_.width()));
-                back.extra[3] = 1.f / static_cast<float>(std::max(1, backdrop_.height()));
+                const float pw = iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW);
+                const float ph = iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH);
+                const PlateInstance back = makePlate(
+                    0.f, 0.f, pw, ph, iso.backdropU0, iso.backdropV0, iso.backdropU1, iso.backdropV1,
+                    iso.backdropSigma, iso.backdropBend, iso.backdropMerge, iso.backdropPress,
+                    iso.backdropFlat, iso.backdropLightX, iso.backdropLightY, iso.backdropLightZ,
+                    iso.backdropPills.empty() ? nullptr : iso.backdropPills.data(),
+                    static_cast<int>(iso.backdropPills.size()));
                 gp.setPipeline(blur_.native() ? blur_ : blit_);
                 gp.setBytes(0, &back, sizeof(back));
+                gp.setFragmentBytes(0, &back, sizeof(back));
                 gp.setFragmentTexture(0, backdrop_.native());
                 gp.setFragmentSampler(0, device_.nativeSampler());
                 gp.draw(6, 1, 0, 0);
@@ -697,13 +763,18 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         const int hw = std::max(1, viewportW / 2);
         const int hh = std::max(1, viewportH / 2);
         if (!backdrop_.native() || backdrop_.width() != hw || backdrop_.height() != hh) {
-            auto ft = device_.createFrameTarget({hw, hh});
+            gpu::FrameTargetDesc d;
+            d.width = hw;
+            d.height = hh;
+            d.mipmaps = true;
+            auto ft = device_.createFrameTarget(d);
             if (!ft.ok()) {
                 return nullptr;
             }
             backdrop_ = std::move(ft.value());
         }
         if (encoder.copyColorTo(backdrop_)) {
+            encoder.generateMips(backdrop_);
             return backdrop_.native();
         }
         void* src = nativeColor ? nativeColor : device_.colorNative();
@@ -740,6 +811,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         dp.draw(6, 1, 0, 0);
         stats_.draws += 1;
         dp.end();
+        encoder.generateMips(backdrop_);
         return backdrop_.native();
     };
 
@@ -851,22 +923,27 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         backdropTex = backdrop_.native();
                     }
                 }
-                Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
-                const int iw = isolatePixelSize(b.size.x, pixelRatio);
-                const int ih = isolatePixelSize(b.size.y, pixelRatio);
+                const Rect surface = backdrop ? backdropSurface(*child)
+                                              : (child->params.bounds.size.x > 0 ? child->params.bounds
+                                                                                : contentBounds(*child));
+                const int iw = isolatePixelSize(surface.size.x, pixelRatio);
+                const int ih = isolatePixelSize(surface.size.y, pixelRatio);
                 auto ft = device_.createFrameTarget({iw, ih});
                 if (ft.ok()) {
                     auto content = cloneGroup(*child);
                     content->params.opacity = 1.0f;
                     content->params.isolate = false;
-                    content->params.backdropBlur = 0.f;
-                    content->params.backdropBend = 0.f;
+                    clearBackdropParams(content->params);
                     content->params.transform = Mat4::identity();
-                    if (!hasClip(content->params) && b.size.x > 0.f && b.size.y > 0.f) {
-                        content->params.clip = Rect{{0, 0}, b.size};
+                    if (backdrop) {
+                        dropBackdropPills(*content);
                     }
-                    const Mat4 localProj = Mat4::orthoYDown(0, 0, b.size.x, b.size.y);
-                    const float localPr = b.size.x > 0.f ? static_cast<float>(iw) / b.size.x : 1.f;
+                    if (!hasClip(content->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
+                        content->params.clip = Rect{{0, 0}, surface.size};
+                    }
+                    const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
+                    const float localPr =
+                        surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
                     if (backdrop && backdropTex) {
                         gpu::PassDesc plate;
                         plate.nativeColor = ft->native();
@@ -878,44 +955,49 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         Uniforms gu{};
                         std::memcpy(gu.projection, localProj.m, sizeof(gu.projection));
                         gp.setBytes(1, &gu, sizeof(gu));
-                        const Rect dest = transformRect(extra * child->params.transform, b);
-                        BlitInstance back{};
-                        back.rect[0] = 0.f;
-                        back.rect[1] = 0.f;
-                        back.rect[2] = b.size.x;
-                        back.rect[3] = b.size.y;
+                        const Rect dest = transformRect(extra * child->params.transform, surface);
+                        float u0 = 0.f;
+                        float v0 = 0.f;
+                        float u1 = 1.f;
+                        float v1 = 1.f;
                         if (logicalSize.x > 0.f && logicalSize.y > 0.f) {
-                            back.uv[0] = dest.origin.x / logicalSize.x;
-                            back.uv[1] = dest.origin.y / logicalSize.y;
-                            back.uv[2] = (dest.origin.x + dest.size.x) / logicalSize.x;
-                            back.uv[3] = (dest.origin.y + dest.size.y) / logicalSize.y;
-                        } else {
-                            back.uv[0] = 0.f;
-                            back.uv[1] = 0.f;
-                            back.uv[2] = 1.f;
-                            back.uv[3] = 1.f;
+                            u0 = dest.origin.x / logicalSize.x;
+                            v0 = dest.origin.y / logicalSize.y;
+                            u1 = (dest.origin.x + dest.size.x) / logicalSize.x;
+                            v1 = (dest.origin.y + dest.size.y) / logicalSize.y;
+                        }
+                        BackdropPill pills[kMaxBackdropPills];
+                        const int n = collectBackdropPills(*child, pills);
+                        for (int i = 0; i < n; ++i) {
+                            pills[i].rect.origin.x -= surface.origin.x;
+                            pills[i].rect.origin.y -= surface.origin.y;
                         }
                         const float sigma = snapBackdropSigma(child->params.backdropBlur);
-                        back.extra[0] = sigma * 0.5f;
-                        back.extra[1] = child->params.backdropBend;
-                        back.extra[2] = 1.f / static_cast<float>(std::max(1, backdrop_.width()));
-                        back.extra[3] = 1.f / static_cast<float>(std::max(1, backdrop_.height()));
+                        const PlateInstance back = makePlate(
+                            0.f, 0.f, surface.size.x, surface.size.y, u0, v0, u1, v1, sigma,
+                            child->params.backdropBend, child->params.backdropMerge,
+                            child->params.backdropPress, child->params.backdropFlat,
+                            child->params.backdropLightX, child->params.backdropLightY,
+                            child->params.backdropLightZ, pills, n);
                         gp.setPipeline(blur_.native() ? blur_ : blit_);
                         gp.setBytes(0, &back, sizeof(back));
+                        gp.setFragmentBytes(0, &back, sizeof(back));
                         gp.setFragmentTexture(0, backdropTex);
                         gp.setFragmentSampler(0, device_.nativeSampler());
                         gp.draw(6, 1, 0, 0);
                         stats_.draws += 1;
                         gp.end();
                         encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Load,
-                                    localPr, b.size, Mat4::translate(-b.origin.x, -b.origin.y));
+                                    localPr, surface.size,
+                                    Mat4::translate(-surface.origin.x, -surface.origin.y));
                     } else {
                         encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear,
-                                    localPr, b.size, Mat4::translate(-b.origin.x, -b.origin.y));
+                                    localPr, surface.size,
+                                    Mat4::translate(-surface.origin.x, -surface.origin.y));
                     }
                     ++stats_.isolateCount;
                     resumePass();
-                    const Rect dest = transformRect(extra * child->params.transform, b);
+                    const Rect dest = transformRect(extra * child->params.transform, surface);
                     BlitInstance blit{};
                     blit.rect[0] = dest.origin.x;
                     blit.rect[1] = dest.origin.y;

@@ -70,6 +70,51 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    glim::paint::Context lens;
+    lens.setSize({80, 40});
+    lens.beginFrame();
+    lens.setFillColor(0xff0000ff);
+    lens.fill(glim::Rect::fromSize({80, 40}));
+    glim::paint::GroupParams bend;
+    bend.backdropBend = 0.5f;
+    bend.clipRadius = glim::Radius{8.f};
+    bend.bounds = glim::Rect{{8, 4}, {32, 16}};
+    lens.pushGroup(bend);
+    lens.popGroup();
+    lens.finish();
+    const glim::paint::FramePacket lensPkt = glim::paint::encode(lens.scene(), 1.f);
+    if (lensPkt.isolates.size() != 1 || lensPkt.isolates[0].backdropBend != 0.5f ||
+        lensPkt.isolates[0].backdropRadius != 8.f) {
+        std::cerr << "bend isolate should carry radius and bend\n";
+        return EXIT_FAILURE;
+    }
+    const auto& li = lensPkt.isolates[0];
+    if (li.backdropPills.size() != 1 || li.backdropU1 <= li.backdropU0 || li.backdropV1 <= li.backdropV0) {
+        std::cerr << "bend isolate should map dest UV and carry a pill\n";
+        return EXIT_FAILURE;
+    }
+
+    glim::paint::Context merge;
+    merge.setSize({80, 40});
+    merge.beginFrame();
+    merge.setFillColor(0xff0000ff);
+    merge.fill(glim::Rect::fromSize({80, 40}));
+    glim::paint::GroupParams blob;
+    blob.backdropBend = 0.5f;
+    blob.backdropMerge = 18.f;
+    blob.bounds = glim::Rect{{8, 8}, {56, 20}};
+    merge.pushGroup(blob);
+    merge.fillRounded(glim::Rect{{8, 8}, {20, 20}}, glim::Radius{10.f});
+    merge.fillRounded(glim::Rect{{36, 8}, {20, 20}}, glim::Radius{10.f});
+    merge.popGroup();
+    merge.finish();
+    const glim::paint::FramePacket mergePkt = glim::paint::encode(merge.scene(), 1.f);
+    if (mergePkt.isolates.size() != 1 || mergePkt.isolates[0].backdropPills.size() != 2 ||
+        mergePkt.isolates[0].backdropMerge != 18.f) {
+        std::cerr << "merge isolate should keep both pills\n";
+        return EXIT_FAILURE;
+    }
+
     glim::paint::Context round;
     round.setSize({64, 64});
     round.beginFrame();

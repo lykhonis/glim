@@ -115,11 +115,13 @@ void onAppCmd(android_app* app, int32_t cmd) {
             dispatchResize();
             break;
         case APP_CMD_GAINED_FOCUS:
-            setChoreographer(true);
+            if (app->window) {
+                setChoreographer(true);
+            }
             break;
         case APP_CMD_LOST_FOCUS:
+            break;
         case APP_CMD_PAUSE:
-            setChoreographer(false);
             break;
         case APP_CMD_RESUME:
             if (app->window) {
