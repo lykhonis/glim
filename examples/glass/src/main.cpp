@@ -38,14 +38,11 @@ void recordExample(ExampleFrame& frame) {
     const float barH = std::clamp(m * 0.11f, 48.f, 64.f);
     const float pillH = std::clamp(m * 0.16f, 64.f, 96.f);
     const float inner = area.size.x - pad * 2.f;
-    const float clearW = std::max(72.f, inner * 0.24f);
-    const float pairW = std::max(8.f, inner - clearW - gap);
-    const float mergeW = std::max(56.f, (pairW - gap) * 0.5f);
+    const float pillW = std::max(64.f, (inner - gap * 2.f) / 3.f);
     const float pillsY = area.origin.y + 52.f + pad;
-    const Rect clearR{{area.origin.x + pad, pillsY}, {clearW, pillH}};
-    const Rect frostR{{clearR.origin.x + clearW + gap, pillsY}, {mergeW, pillH}};
-    const Rect mergeR{{frostR.origin.x + mergeW + gap, pillsY}, {mergeW, pillH}};
-    const Rect cluster{{frostR.origin.x, pillsY}, {mergeR.origin.x + mergeW - frostR.origin.x, pillH}};
+    const Rect clearR{{area.origin.x + pad, pillsY}, {pillW, pillH}};
+    const Rect glassR{{clearR.origin.x + pillW + gap, pillsY}, {pillW, pillH}};
+    const Rect frostR{{glassR.origin.x + pillW + gap, pillsY}, {pillW, pillH}};
     const Rect barR{{area.origin.x + pad, area.origin.y + area.size.y - pad - barH},
                     {area.size.x - pad * 2.f, barH}};
 
@@ -73,14 +70,23 @@ void recordExample(ExampleFrame& frame) {
     frame.context.pushGroup(clearP);
     frame.context.popGroup();
 
-    GroupParams clusterP;
-    clusterP.bounds = cluster;
-    clusterP.backdropBlur = 28.f;
-    clusterP.backdropMerge = 7.f;
-    clusterP.backdropFlat = frame.reduceTransparency;
-    frame.context.pushGroup(clusterP);
-    frame.context.fillRounded(frostR, Radius{pillH * 0.5f});
-    frame.context.fillRounded(mergeR, Radius{pillH * 0.5f});
+    GroupParams glassP;
+    glassP.bounds = glassR;
+    glassP.clip = glassR;
+    glassP.clipRadius = Radius{pillH * 0.5f};
+    glassP.backdropBlur = 28.f;
+    glassP.backdropBend = 0.7f;
+    glassP.backdropFlat = frame.reduceTransparency;
+    frame.context.pushGroup(glassP);
+    frame.context.popGroup();
+
+    GroupParams frostP;
+    frostP.bounds = frostR;
+    frostP.clip = frostR;
+    frostP.clipRadius = Radius{pillH * 0.5f};
+    frostP.backdropBlur = 28.f;
+    frostP.backdropFlat = frame.reduceTransparency;
+    frame.context.pushGroup(frostP);
     frame.context.popGroup();
 
     GroupParams bar;
@@ -97,10 +103,10 @@ void recordExample(ExampleFrame& frame) {
     frame.context.setFillColor(ink);
     frame.context.text({clearR.origin.x + pad * 0.35f, clearR.origin.y + pillH * 0.5f - 7.f}, "clear",
                        label);
-    frame.context.text({frostR.origin.x + pad * 0.25f, frostR.origin.y + pillH * 0.5f - 7.f}, "frost",
+    frame.context.text({glassR.origin.x + pad * 0.35f, glassR.origin.y + pillH * 0.5f - 7.f}, "frosted",
                        label);
-    frame.context.text({mergeR.origin.x + pad * 0.25f, mergeR.origin.y + pillH * 0.5f - 7.f}, "merge",
+    frame.context.text({frostR.origin.x + pad * 0.35f, frostR.origin.y + pillH * 0.5f - 7.f}, "frost",
                        label);
     frame.context.text({barR.origin.x + pad * 0.6f, barR.origin.y + barH * 0.5f - 8.f},
-                       frame.reduceTransparency ? "flat" : "regular", label);
+                       frame.reduceTransparency ? "flat" : "backdrop", label);
 }
