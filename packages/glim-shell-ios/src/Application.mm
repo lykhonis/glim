@@ -45,7 +45,7 @@ void GlimEnsureDisplayLink() {
     }
     gDisplayTarget = [GlimDisplayLinkTarget new];
     gDisplayLink = [CADisplayLink displayLinkWithTarget:gDisplayTarget selector:@selector(tick:)];
-    gDisplayLink.preferredFramesPerSecond = 60;
+    gDisplayLink.preferredFrameRateRange = CAFrameRateRangeDefault;
     [gDisplayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
 }
 

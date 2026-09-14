@@ -7,6 +7,7 @@
 #include <glim/shell/Surface.h>
 #endif
 #include <glim/paint/Context.h>
+#include <glim/paint/Overlay.h>
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/Event.h>
@@ -42,12 +43,32 @@ int main() {
 #if GLIM_SOFTWARE
     std::unique_ptr<glim::paint::Renderer> renderer;
 #endif
+    glim::paint::Overlay overlay;
+    overlay.setEnabled(true);
     const auto start = std::chrono::steady_clock::now();
+    auto lastPaint = start;
 
     const auto paint = [&] {
+        const auto now = std::chrono::steady_clock::now();
+        const float dt = std::chrono::duration<float>(now - lastPaint).count();
+        lastPaint = now;
         const glim::Vec2 size = window.size();
-        const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+        const float t = std::chrono::duration<float>(now - start).count();
+        context.setSize(size);
+        context.beginFrame();
         recordHello(context, size, t);
+        if (overlay.enabled()) {
+            overlay.tick(dt);
+#if GLIM_SOFTWARE
+            if (renderer) {
+                overlay.setStats(renderer->stats());
+            }
+#else
+            overlay.setStats(renderer.stats());
+#endif
+            overlay.record(context, window.safeArea());
+        }
+        context.finish();
 #if GLIM_SOFTWARE
         const int w = std::max(1, static_cast<int>(size.x));
         const int h = std::max(1, static_cast<int>(size.y));

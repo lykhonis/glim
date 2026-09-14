@@ -39,8 +39,6 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     using glim::Rect;
     using glim::paint::GroupParams;
 
-    context.setSize(size);
-    context.beginFrame();
     const std::uint32_t badge = helloBadge(context);
 
     context.setFillColor(0x243038ff);
@@ -96,6 +94,4 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     context.setFillColor(0x243038ff);
     context.strokeRect(Rect{{24.f, 24.f}, {160.f, 48.f}}, Radius{16.f}, 2.f);
     context.popGroup();
-
-    context.finish();
 }

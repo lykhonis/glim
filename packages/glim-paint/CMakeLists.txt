@@ -4,7 +4,8 @@ add_library(glim-paint STATIC
     src/Encode.cpp
     src/Software.cpp
     src/ImageStore.cpp
-    src/Strip.cpp)
+    src/Strip.cpp
+    src/Overlay.cpp)
 add_library(glim::paint ALIAS glim-paint)
 target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(glim-paint PUBLIC glim::core)
@@ -83,5 +84,11 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-cpu-test)
     add_test(NAME glim-cpu-test COMMAND glim-cpu-test)
 
-    add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test)
+    add_executable(glim-overlay-test tests/overlay_test.cpp)
+    target_link_libraries(glim-overlay-test PRIVATE glim::paint)
+    glim_target_defaults(glim-overlay-test)
+    add_test(NAME glim-overlay-test COMMAND glim-overlay-test)
+
+    add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
+                      glim-overlay-test)
 endif()
