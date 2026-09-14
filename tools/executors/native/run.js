@@ -1,5 +1,6 @@
-const { spawnSync } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 function xcrun(args, opts = {}) {
@@ -188,11 +189,16 @@ function runOnSimulator(options, app) {
   }
 
   xcrun(["simctl", "terminate", device.udid, bundleId], { stdio: "ignore" });
-  xcrun(["simctl", "uninstall", device.udid, bundleId], { stdio: "ignore" });
 
-  const install = retry(5, 2, () =>
+  let install = retry(5, 2, () =>
     xcrun(["simctl", "install", device.udid, app], { stdio: "inherit" }),
   );
+  if (install.status !== 0) {
+    xcrun(["simctl", "uninstall", device.udid, bundleId], { stdio: "ignore" });
+    install = retry(5, 2, () =>
+      xcrun(["simctl", "install", device.udid, app], { stdio: "inherit" }),
+    );
+  }
   if (install.status !== 0) {
     return fail(`simctl install failed for ${app}`);
   }
@@ -209,23 +215,281 @@ function runOnSimulator(options, app) {
   return { success: launch.status === 0 };
 }
 
+function which(cmd) {
+  const bin = process.platform === "win32" ? "where" : "which";
+  const r = spawnSync(bin, [cmd], { encoding: "utf8" });
+  if (r.status !== 0) {
+    return null;
+  }
+  return (r.stdout || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .find(Boolean) || null;
+}
+
+function androidSdkRoot() {
+  const candidates = [
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+    path.join(os.homedir(), "Library", "Android", "sdk"),
+    path.join(os.homedir(), "Android", "Sdk"),
+  ].filter(Boolean);
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+function androidTool(sdk, rel) {
+  if (!sdk) {
+    return null;
+  }
+  const p = path.join(sdk, ...rel);
+  if (fs.existsSync(p)) {
+    return p;
+  }
+  if (process.platform === "win32" && fs.existsSync(`${p}.exe`)) {
+    return `${p}.exe`;
+  }
+  return null;
+}
+
+function findAdb(sdk) {
+  return androidTool(sdk, ["platform-tools", "adb"]) || which("adb");
+}
+
+function findEmulator(sdk) {
+  return androidTool(sdk, ["emulator", "emulator"]) || which("emulator");
+}
+
+function matchesHint(text, hint) {
+  if (!hint) {
+    return true;
+  }
+  return String(text || "").toLowerCase().includes(hint);
+}
+
+function listAdbDevices(adbPath) {
+  const r = spawnSync(adbPath, ["devices", "-l"], { encoding: "utf8" });
+  if (r.status !== 0) {
+    const err = ((r.stderr || r.stdout || "").trim());
+    return { error: err || "adb devices failed" };
+  }
+  const devices = [];
+  for (const line of (r.stdout || "").split("\n")) {
+    const m = line.match(/^(\S+)\s+(device|offline|unauthorized|authorizing|no permissions)\s*(.*)$/);
+    if (!m) {
+      continue;
+    }
+    const serial = m[1];
+    const rest = m[3] || "";
+    const model = (rest.match(/model:(\S+)/) || [])[1] || "";
+    const product = (rest.match(/product:(\S+)/) || [])[1] || "";
+    devices.push({
+      serial,
+      state: m[2],
+      model,
+      product,
+      avd: "",
+      emulator: serial.startsWith("emulator-"),
+      name: model || product || serial,
+    });
+  }
+  return { devices };
+}
+
+function listAvds(emulatorPath) {
+  const r = spawnSync(emulatorPath, ["-list-avds"], { encoding: "utf8" });
+  if (r.status !== 0) {
+    const err = ((r.stderr || r.stdout || "").trim());
+    return { error: err || "emulator -list-avds failed" };
+  }
+  return {
+    avds: (r.stdout || "")
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  };
+}
+
+function waitForAndroidDevice(adbPath, serial, timeoutMs, emulatorOnly, excludeSerials) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const listed = listAdbDevices(adbPath);
+    if (!listed.error) {
+      const ready = listed.devices.filter(
+        (d) =>
+          d.state === "device" &&
+          (!emulatorOnly || d.emulator) &&
+          (!excludeSerials || !excludeSerials.has(d.serial)),
+      );
+      const d = serial ? ready.find((x) => x.serial === serial) : ready[0];
+      if (d) {
+        const boot = spawnSync(adbPath, ["-s", d.serial, "shell", "getprop", "sys.boot_completed"], {
+          encoding: "utf8",
+        });
+        if ((boot.stdout || "").trim() === "1") {
+          return d;
+        }
+      }
+    }
+    spawnSync("sleep", ["1"]);
+  }
+  return null;
+}
+
+function fillAvdNames(adbPath, devices) {
+  for (const d of devices) {
+    if (!d.emulator) {
+      continue;
+    }
+    const name = spawnSync(adbPath, ["-s", d.serial, "emu", "avd", "name"], {
+      encoding: "utf8",
+      timeout: 2000,
+    });
+    const avd = (name.stdout || "").split(/\r?\n/).map((s) => s.trim()).find(Boolean) || "";
+    if (avd) {
+      d.avd = avd;
+      d.name = avd;
+    }
+  }
+}
+
+function pickAndroid(adbPath, emulatorPath, nameHint) {
+  const hint = (nameHint || "").toLowerCase();
+  const listed = listAdbDevices(adbPath);
+  if (listed.error) {
+    return { error: listed.error };
+  }
+  fillAvdNames(adbPath, listed.devices);
+
+  const online = listed.devices.filter((d) => {
+    if (d.state !== "device") {
+      return false;
+    }
+    return matchesHint(`${d.serial} ${d.name} ${d.model} ${d.product} ${d.avd}`, hint);
+  });
+  online.sort((a, b) => {
+    const aPhone = /pixel|phone|sdk_gphone/i.test(a.name) ? 1 : 0;
+    const bPhone = /pixel|phone|sdk_gphone/i.test(b.name) ? 1 : 0;
+    if (aPhone !== bPhone) {
+      return bPhone - aPhone;
+    }
+    return String(a.name).localeCompare(String(b.name));
+  });
+  if (online.length > 0) {
+    return { device: online[0] };
+  }
+
+  if (hint) {
+    const serialMatch = listed.devices.find((d) => d.serial.toLowerCase() === hint);
+    if (serialMatch && serialMatch.state !== "device") {
+      return { device: serialMatch };
+    }
+  }
+
+  if (!emulatorPath) {
+    return {
+      error:
+        "No Android device connected, and the emulator binary was not found.\n" +
+        "Connect a device with USB debugging, or install Android emulator:\n" +
+        "  sdkmanager emulator",
+    };
+  }
+
+  const avds = listAvds(emulatorPath);
+  if (avds.error) {
+    return { error: avds.error };
+  }
+  const candidates = avds.avds.filter((name) => matchesHint(name, hint));
+  if (candidates.length === 0) {
+    return {
+      error:
+        "No Android device or emulator." +
+        (hint ? ` None matched "${nameHint}".` : "") +
+        "\nConnect a device, or create an AVD in Android Studio (Device Manager).",
+    };
+  }
+  candidates.sort((a, b) => {
+    const score = (n) => (/pixel|phone/i.test(n) && !/tv|wear|automotive/i.test(n) ? 1 : 0);
+    const d = score(b) - score(a);
+    return d !== 0 ? d : a.localeCompare(b);
+  });
+  return { avd: candidates[0] };
+}
+
+function bootAvd(emulatorPath, sdk, avd) {
+  const child = spawn(emulatorPath, ["-avd", avd], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      ...(sdk ? { ANDROID_HOME: sdk, ANDROID_SDK_ROOT: sdk } : {}),
+    },
+  });
+  child.unref();
+}
+
 function runOnAndroid(options, apk) {
   const pkg = options.packageName;
   if (!pkg) {
     return fail("@glim/native:run with android requires options.packageName");
   }
-  const serial = options.device;
-  const adb = serial ? ["adb", "-s", serial] : ["adb"];
-  console.log(`Installing ${apk}`);
-  const install = spawnSync(adb[0], [...adb.slice(1), "install", "-r", apk], { stdio: "inherit" });
-  if (install.status !== 0) {
-    return fail("adb install failed (is a device or emulator connected?)");
+
+  const sdk = androidSdkRoot();
+  const adbPath = findAdb(sdk);
+  if (!adbPath) {
+    return fail(
+      "adb not found. Set ANDROID_HOME, or install platform-tools:\n" +
+        "  sdkmanager platform-tools",
+    );
   }
+  spawnSync(adbPath, ["start-server"], { stdio: "ignore" });
+
+  const emulatorPath = findEmulator(sdk);
+  const picked = pickAndroid(adbPath, emulatorPath, options.device);
+  if (picked.error) {
+    return fail(picked.error);
+  }
+
+  let serial;
+  if (picked.avd) {
+    const listed = listAdbDevices(adbPath);
+    const known = new Set((listed.devices || []).map((d) => d.serial));
+    console.log(`Emulator: ${picked.avd}`);
+    bootAvd(emulatorPath, sdk, picked.avd);
+    const ready = waitForAndroidDevice(adbPath, null, 180000, true, known);
+    if (!ready) {
+      return fail(`emulator ${picked.avd} did not boot`);
+    }
+    serial = ready.serial;
+    console.log(`Emulator: ${picked.avd} (${serial}, booted)`);
+  } else {
+    console.log(`Device: ${picked.device.name} (${picked.device.serial}, ${picked.device.state})`);
+    const ready = waitForAndroidDevice(adbPath, picked.device.serial, 180000);
+    if (!ready) {
+      return fail(`Android device ${picked.device.serial} did not become ready`);
+    }
+    serial = ready.serial;
+  }
+
+  console.log(`Installing ${apk}`);
+  const install = retry(5, 2, () =>
+    spawnSync(adbPath, ["-s", serial, "install", "-r", "-t", apk], { stdio: "inherit" }),
+  );
+  if (install.status !== 0) {
+    return fail(`adb install failed for ${apk}`);
+  }
+
   const component = `${pkg}/android.app.NativeActivity`;
-  console.log(`Launching ${component}`);
+  spawnSync(adbPath, ["-s", serial, "shell", "am", "force-stop", pkg], { stdio: "ignore" });
+  console.log(`Launching ${component} on ${serial}`);
+  const args = Array.isArray(options.args) ? options.args : [];
   const launch = spawnSync(
-    adb[0],
-    [...adb.slice(1), "shell", "am", "start", "-n", component],
+    adbPath,
+    ["-s", serial, "shell", "am", "start", "-n", component, ...args],
     { stdio: "inherit" },
   );
   if (launch.error) {

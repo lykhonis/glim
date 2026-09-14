@@ -123,12 +123,12 @@ function(glim_apple_mobile_bundle target)
     endif()
     set_target_properties(${target} PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.lykhonis.glim.hello"
-        MACOSX_BUNDLE_BUNDLE_NAME "Glim"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.glim.hello"
+        MACOSX_BUNDLE_BUNDLE_NAME "Glim Hello"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_INFO_PLIST "${_plist}"
-        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.lykhonis.glim.hello"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.glim.hello"
         XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "${_family}"
         XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
         XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED NO

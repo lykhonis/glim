@@ -164,6 +164,7 @@ public:
     Queue& queue();
     Result<Drawable> nextDrawable();
     void setDrawableSize(int width, int height);
+    int presentRotationDegrees() const;
     Result<FrameTarget> createFrameTarget(const FrameTargetDesc&);
     Result<Buffer> createBuffer(const BufferDesc&);
     void writeBuffer(Buffer&, const void* data, std::uint64_t size);

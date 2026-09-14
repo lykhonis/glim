@@ -128,28 +128,28 @@ using glim::shell::Window;
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    (void)event;
+    [super touchesBegan:touches withEvent:event];
     for (UITouch* touch in touches) {
         [self emitPointer:EventType::PointerDown touch:touch];
     }
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    (void)event;
+    [super touchesMoved:touches withEvent:event];
     for (UITouch* touch in touches) {
         [self emitPointer:EventType::PointerMove touch:touch];
     }
 }
 
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    (void)event;
+    [super touchesEnded:touches withEvent:event];
     for (UITouch* touch in touches) {
         [self emitPointer:EventType::PointerUp touch:touch];
     }
 }
 
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    (void)event;
+    [super touchesCancelled:touches withEvent:event];
     for (UITouch* touch in touches) {
         [self emitPointer:EventType::PointerUp touch:touch];
     }
@@ -317,9 +317,60 @@ Window::~Window() {
     }
 }
 
-void Window::show() {
-    UIWindow* window = (__bridge UIWindow*)window_;
+static UIWindowScene* glimActiveWindowScene() {
+    UIApplication* app = UIApplication.sharedApplication;
+    if (!app) {
+        return nil;
+    }
+    UIWindowScene* fallback = nil;
+    for (UIScene* connected in app.connectedScenes) {
+        if (![connected isKindOfClass:[UIWindowScene class]]) {
+            continue;
+        }
+        UIWindowScene* scene = (UIWindowScene*)connected;
+        if (scene.activationState == UISceneActivationStateForegroundActive) {
+            return scene;
+        }
+        if (!fallback) {
+            fallback = scene;
+        }
+    }
+    return fallback;
+}
+
+void Window::attachToScene(void* scenePtr) {
+    UIWindowScene* scene = scenePtr ? (__bridge UIWindowScene*)scenePtr : glimActiveWindowScene();
+    if (!scene) {
+        return;
+    }
+    UIWindow* window = window_ ? (__bridge UIWindow*)window_ : nil;
+    if (window && window.windowScene == scene) {
+        window.frame = scene.coordinateSpace.bounds;
+        [window makeKeyAndVisible];
+        return;
+    }
+
+    UIViewController* vc = window ? window.rootViewController : nil;
+    if (!vc) {
+        return;
+    }
+    if (window_) {
+        window.rootViewController = nil;
+        window.hidden = YES;
+        CFRelease(window_);
+        window_ = nullptr;
+    }
+
+    window = [[UIWindow alloc] initWithWindowScene:scene];
+    window.backgroundColor = [UIColor blackColor];
+    window.rootViewController = vc;
+    window.frame = scene.coordinateSpace.bounds;
+    window_ = (__bridge_retained void*)window;
     [window makeKeyAndVisible];
+}
+
+void Window::show() {
+    attachToScene(nullptr);
     if (!shown_) {
         shown_ = true;
         detail::registerShownWindow(this);

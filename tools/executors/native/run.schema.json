@@ -23,11 +23,11 @@
     },
     "device": {
       "type": "string",
-      "description": "Optional simulator name substring (e.g. iPhone 17, Apple TV)"
+      "description": "Optional iOS simulator name, Android AVD name, or adb serial"
     },
     "android": {
       "type": "boolean",
-      "description": "If true, adb install and launch the APK (NativeActivity)"
+      "description": "If true, boot an emulator if needed, then adb install and launch the APK"
     },
     "packageName": {
       "type": "string",

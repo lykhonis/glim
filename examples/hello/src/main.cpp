@@ -22,7 +22,7 @@ int main() {
 #endif
     glim::shell::Application app;
     glim::shell::Window window;
-    window.setTitle("Glim");
+    window.setTitle("Glim Hello");
     window.setSize(720, 480);
     window.center();
 

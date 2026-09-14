@@ -127,6 +127,7 @@ struct Device::Impl {
     VkExtent2D extent{1, 1};
     uint32_t wantedWidth = 0;
     uint32_t wantedHeight = 0;
+    VkSurfaceTransformFlagBitsKHR preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     std::vector<GpuImage> swapImages;
     uint32_t imageIndex = 0;
@@ -143,6 +144,7 @@ struct Device::Impl {
     GpuBuffer ring{};
     VkDeviceSize ringAlign = 256;
     VkCommandPool cmdPool = VK_NULL_HANDLE;
+    VkCommandPool uploadPool = VK_NULL_HANDLE;
     Frame frames[kFrames]{};
 
     std::vector<ShaderRec> shaders;
@@ -298,6 +300,9 @@ struct Device::Impl {
             if (cmdPool) {
                 vkDestroyCommandPool(device, cmdPool, nullptr);
             }
+            if (uploadPool) {
+                vkDestroyCommandPool(device, uploadPool, nullptr);
+            }
             vkDestroyDevice(device, nullptr);
         }
         if (instance && surface) {
@@ -312,6 +317,7 @@ struct Device::Impl {
         physical = VK_NULL_HANDLE;
         queue = VK_NULL_HANDLE;
         cmdPool = VK_NULL_HANDLE;
+        uploadPool = VK_NULL_HANDLE;
         sampler = VK_NULL_HANDLE;
         pipelineLayout = VK_NULL_HANDLE;
         setLayout = VK_NULL_HANDLE;
@@ -383,6 +389,9 @@ struct Device::Impl {
         ai.allocationSize = req.size;
         ai.memoryTypeIndex =
             findMemoryType(physical, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (ai.memoryTypeIndex == UINT32_MAX) {
+            ai.memoryTypeIndex = findMemoryType(physical, req.memoryTypeBits, 0);
+        }
         if (ai.memoryTypeIndex == UINT32_MAX) {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
@@ -490,20 +499,49 @@ struct Device::Impl {
         return format != VK_FORMAT_UNDEFINED;
     }
 
+    VkExtent2D chooseSwapchainExtent(const VkSurfaceCapabilitiesKHR& caps) const {
+        uint32_t w = 1;
+        uint32_t h = 1;
+        if (caps.currentExtent.width != UINT32_MAX) {
+            w = caps.currentExtent.width;
+            h = caps.currentExtent.height;
+        } else {
+            w = wantedWidth != 0 ? wantedWidth : extent.width;
+            h = wantedHeight != 0 ? wantedHeight : extent.height;
+            w = std::clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
+            h = std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height);
+        }
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        if (androidWindow) {
+            const int aw = ANativeWindow_getWidth(androidWindow);
+            const int ah = ANativeWindow_getHeight(androidWindow);
+            if (aw > 0 && ah > 0) {
+                w = std::clamp(static_cast<uint32_t>(aw), caps.minImageExtent.width, caps.maxImageExtent.width);
+                h = std::clamp(static_cast<uint32_t>(ah), caps.minImageExtent.height, caps.maxImageExtent.height);
+            }
+        }
+        if (caps.currentTransform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
+            caps.currentTransform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) {
+            std::swap(w, h);
+        }
+#endif
+        if (w == 0) {
+            w = 1;
+        }
+        if (h == 0) {
+            h = 1;
+        }
+        return {w, h};
+    }
+
     VkResult recreateSwapchain() {
         VkSurfaceCapabilitiesKHR caps{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical, surface, &caps);
         if (caps.currentExtent.width == 0 || caps.currentExtent.height == 0) {
             return VK_NOT_READY;
         }
-        if (caps.currentExtent.width != UINT32_MAX) {
-            extent = caps.currentExtent;
-        } else {
-            uint32_t w = wantedWidth != 0 ? wantedWidth : extent.width;
-            uint32_t h = wantedHeight != 0 ? wantedHeight : extent.height;
-            extent.width = std::clamp(w, caps.minImageExtent.width, caps.maxImageExtent.width);
-            extent.height = std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height);
-        }
+        preTransform = caps.currentTransform;
+        extent = chooseSwapchainExtent(caps);
         uint32_t modeCount = 0;
         vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &modeCount, nullptr);
         std::vector<VkPresentModeKHR> modes(modeCount);
@@ -533,7 +571,7 @@ struct Device::Impl {
         ci.imageArrayLayers = 1;
         ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        ci.preTransform = caps.currentTransform;
+        ci.preTransform = preTransform;
         ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         if (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR) {
             ci.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
@@ -1212,6 +1250,10 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     if (vkCreateCommandPool(d.device, &cp, nullptr, &d.cmdPool) != VK_SUCCESS) {
         return Result<Device>::fail("vkCreateCommandPool failed");
     }
+    cp.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    if (vkCreateCommandPool(d.device, &cp, nullptr, &d.uploadPool) != VK_SUCCESS) {
+        return Result<Device>::fail("vkCreateCommandPool failed");
+    }
 
     VkCommandBufferAllocateInfo cba{};
     cba.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1282,6 +1324,22 @@ void Device::setDrawableSize(int width, int height) {
     impl_->wantedHeight = static_cast<uint32_t>(height);
 }
 
+int Device::presentRotationDegrees() const {
+    if (!impl_) {
+        return 0;
+    }
+    switch (impl_->preTransform) {
+        case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
+            return 270;
+        case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
+            return 180;
+        case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
+            return 90;
+        default:
+            return 0;
+    }
+}
+
 Result<Drawable> Device::nextDrawable() {
     for (GpuImage& t : impl_->targets) {
         t.inUse = false;
@@ -1303,12 +1361,9 @@ Result<Drawable> Device::nextDrawable() {
         VkSurfaceCapabilitiesKHR caps{};
         if (impl_->surface &&
             vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl_->physical, impl_->surface, &caps) == VK_SUCCESS) {
-            const bool concrete = caps.currentExtent.width != UINT32_MAX;
-            const uint32_t wantW = concrete ? caps.currentExtent.width
-                                            : (impl_->wantedWidth != 0 ? impl_->wantedWidth : impl_->extent.width);
-            const uint32_t wantH = concrete ? caps.currentExtent.height
-                                            : (impl_->wantedHeight != 0 ? impl_->wantedHeight : impl_->extent.height);
-            if (!impl_->haveSwapchain || wantW != impl_->extent.width || wantH != impl_->extent.height) {
+            const VkExtent2D want = impl_->chooseSwapchainExtent(caps);
+            if (!impl_->haveSwapchain || want.width != impl_->extent.width || want.height != impl_->extent.height ||
+                caps.currentTransform != impl_->preTransform) {
                 const VkResult rebuilt = impl_->recreateSwapchain();
                 if (rebuilt != VK_SUCCESS && rebuilt != VK_NOT_READY) {
                     return Result<Drawable>::fail("swapchain recreate failed");
@@ -1331,7 +1386,7 @@ Result<Drawable> Device::nextDrawable() {
     uint32_t index = 0;
     VkResult r = vkAcquireNextImageKHR(impl_->device, impl_->swapchain, UINT64_MAX, frame.imageAvailable,
                                        VK_NULL_HANDLE, &index);
-    if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR) {
         if (impl_->recreateSwapchain() != VK_SUCCESS) {
             return Result<Drawable>::fail("swapchain recreate failed");
         }
@@ -1462,7 +1517,7 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
 
     VkCommandBufferAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool = impl_->cmdPool;
+    ai.commandPool = impl_->uploadPool ? impl_->uploadPool : impl_->cmdPool;
     ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = 1;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -1490,9 +1545,13 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
     si.pCommandBuffers = &cmd;
-    vkQueueSubmit(impl_->queue, 1, &si, VK_NULL_HANDLE);
+    if (vkQueueSubmit(impl_->queue, 1, &si, VK_NULL_HANDLE) != VK_SUCCESS) {
+        vkFreeCommandBuffers(impl_->device, ai.commandPool, 1, &cmd);
+        impl_->destroyBuffer(staging);
+        return;
+    }
     vkQueueWaitIdle(impl_->queue);
-    vkFreeCommandBuffers(impl_->device, impl_->cmdPool, 1, &cmd);
+    vkFreeCommandBuffers(impl_->device, ai.commandPool, 1, &cmd);
     impl_->destroyBuffer(staging);
     img.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }

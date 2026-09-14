@@ -224,6 +224,10 @@ void Device::setDrawableSize(int width, int height) {
     [CATransaction commit];
 }
 
+int Device::presentRotationDegrees() const {
+    return 0;
+}
+
 Result<Drawable> Device::nextDrawable() {
     impl_->currentDrawable = [impl_->layer nextDrawable];
     if (!impl_->currentDrawable) {

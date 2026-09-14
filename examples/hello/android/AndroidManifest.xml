@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.lykhonis.glim.hello"
+    package="com.glim.hello"
     android:versionCode="1"
     android:versionName="1.0">
 
@@ -11,7 +11,7 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <application
-        android:label="Glim"
+        android:label="Glim Hello"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/banner"
         android:hasCode="false"
@@ -20,7 +20,7 @@
         <activity
             android:name="android.app.NativeActivity"
             android:exported="true"
-            android:label="Glim"
+            android:label="Glim Hello"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
             android:launchMode="singleTask">

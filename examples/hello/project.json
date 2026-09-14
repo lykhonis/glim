@@ -63,7 +63,7 @@
         "preset": "ios-sim-metal-debug",
         "binary": "examples/hello/glim-hello.app",
         "simulator": "ios",
-        "bundleId": "com.lykhonis.glim.hello"
+        "bundleId": "com.glim.hello"
       }
     },
     "build-tvos-sim": {
@@ -81,7 +81,7 @@
         "preset": "tvos-sim-metal-debug",
         "binary": "examples/hello/glim-hello.app",
         "simulator": "tvos",
-        "bundleId": "com.lykhonis.glim.hello"
+        "bundleId": "com.glim.hello"
       }
     },
     "build-android": {
@@ -99,7 +99,7 @@
         "preset": "android-arm64-vulkan-debug",
         "binary": "examples/hello/glim-hello.apk",
         "android": true,
-        "packageName": "com.lykhonis.glim.hello"
+        "packageName": "com.glim.hello"
       }
     }
   }

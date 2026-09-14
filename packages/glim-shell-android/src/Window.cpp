@@ -24,6 +24,8 @@ Window::~Window() {
     view_ = nullptr;
 }
 
+void Window::attachToScene(void*) {}
+
 void Window::show() {
     view_ = detail::nativeWindow();
     if (!shown_) {

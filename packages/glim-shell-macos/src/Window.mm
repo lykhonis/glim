@@ -165,6 +165,8 @@ Window::~Window() {
     }
 }
 
+void Window::attachToScene(void*) {}
+
 void Window::show() {
     NSWindow* window = (__bridge NSWindow*)window_;
     [window makeKeyAndOrderFront:nil];

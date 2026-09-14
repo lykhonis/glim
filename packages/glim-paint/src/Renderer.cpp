@@ -27,7 +27,33 @@ struct Uniforms {
     float projection[16];
 };
 
-
+Mat4 presentProjection(const Mat4& ortho, int degrees) {
+    if (degrees == 0) {
+        return ortho;
+    }
+    Mat4 r = Mat4::identity();
+    switch (degrees) {
+        case 90:
+            r.m[0] = 0.f;
+            r.m[1] = 1.f;
+            r.m[4] = -1.f;
+            r.m[5] = 0.f;
+            break;
+        case 180:
+            r.m[0] = -1.f;
+            r.m[5] = -1.f;
+            break;
+        case 270:
+            r.m[0] = 0.f;
+            r.m[1] = -1.f;
+            r.m[4] = 1.f;
+            r.m[5] = 0.f;
+            break;
+        default:
+            return ortho;
+    }
+    return r * ortho;
+}
 
 #if !GLIM_GPU_VULKAN
 std::string loadShader(const char* name) {
@@ -287,8 +313,12 @@ void Renderer::submit(const FramePacket& packet) {
         return;
     }
     images_ = &packet.images;
+    for (const BlitQuad& q : packet.blits) {
+        gpuTexture(q.imageId);
+    }
     gpu::CommandEncoder encoder = device_.encoder();
-    const Mat4 proj = Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y);
+    const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y),
+                                        device_.presentRotationDegrees());
     submitLayer(encoder, packet.quads, packet.blits, packet.isolates, proj, drawable->width(),
                 drawable->height(), nullptr, gpu::LoadOp::Clear);
     encoder.present(drawable.value());
@@ -442,8 +472,22 @@ void Renderer::draw(const Scene& scene) {
     }
     images_ = &scene.images;
     Group root = merge(scene.root, &stats_);
+    const auto prefetch = [this](auto& self, const Group& g) -> void {
+        for (const Shape& s : g.shapes) {
+            if (const auto* b = std::get_if<Blit>(&s)) {
+                gpuTexture(b->matter.imageId);
+            }
+        }
+        for (const auto& child : g.children) {
+            if (child) {
+                self(self, *child);
+            }
+        }
+    };
+    prefetch(prefetch, root);
     gpu::CommandEncoder encoder = device_.encoder();
-    const Mat4 proj = Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y);
+    const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y),
+                                        device_.presentRotationDegrees());
     encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());

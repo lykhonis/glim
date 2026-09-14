@@ -34,17 +34,8 @@ void GlimBindWindowsToScene(UIWindowScene* scene) {
     if (!scene) {
         return;
     }
-    const auto& shown = glim::shell::detail::shownWindows();
-    for (Window* w : shown) {
-        UIView* view = (__bridge UIView*)w->nativeView();
-        UIWindow* window = view.window;
-        if (!window) {
-            continue;
-        }
-        window.windowScene = scene;
-        window.frame = scene.coordinateSpace.bounds;
-        [window makeKeyAndVisible];
-        [window layoutIfNeeded];
+    for (Window* w : glim::shell::detail::shownWindows()) {
+        w->attachToScene((__bridge void*)scene);
     }
 }
 

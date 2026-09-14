@@ -30,6 +30,7 @@ public:
     void show();
     void hide();
     void setEventCallback(EventCallback);
+    void attachToScene(void* scene);
 
     Vec2 size() const;
     Vec2 drawableSize() const;
