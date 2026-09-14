@@ -56,7 +56,7 @@ int main() {
         const float t = std::chrono::duration<float>(now - start).count();
         context.setSize(size);
         context.beginFrame();
-        recordHello(context, size, t);
+        recordHello(context, size, t, window.safeArea());
         if (overlay.enabled()) {
             overlay.tick(dt);
 #if GLIM_SOFTWARE

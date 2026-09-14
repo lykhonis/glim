@@ -31,67 +31,162 @@ std::uint32_t helloBadge(glim::paint::Context& context) {
     return id;
 }
 
+float minDim(glim::Vec2 a) {
+    return std::min(a.x, a.y);
+}
+
+void recordMainCard(glim::paint::Context& context, glim::Rect card, float timeSeconds,
+                    std::uint32_t badge) {
+    using glim::Radius;
+    using glim::Rect;
+    using glim::paint::GroupParams;
+
+    const float w = card.size.x;
+    const float h = card.size.y;
+    const float m = minDim(card.size);
+    const float radius = std::clamp(m * 0.08f, 16.f, 32.f);
+    const float inner = std::clamp(m * 0.055f, 12.f, 22.f);
+
+    context.save();
+    context.translate(card.origin);
+    context.setFillColor(0xac6363ff);
+    context.fillRounded(Rect::fromSize(card.size), Radius{radius});
+
+    const float badgeW = std::clamp(w * 0.24f, 72.f, 112.f);
+    const float badgeH = std::clamp(h * 0.22f, 48.f, 72.f);
+    const Rect badgeCard{{inner * 1.15f, inner}, {badgeW, badgeH}};
+    context.setFillColor(0xf0d5a8ff);
+    context.fillRounded(badgeCard, Radius{12.f});
+    if (badge != 0) {
+        const float icon = std::min(32.f, std::min(badgeW, badgeH) - 16.f);
+        context.blit(Rect{{badgeCard.origin.x + (badgeW - icon) * 0.5f,
+                           badgeCard.origin.y + (badgeH - icon) * 0.5f},
+                          {icon, icon}},
+                     badge);
+    }
+    context.setFillColor(0x2a9d8fff);
+    context.strokeRect(badgeCard, Radius{12.f}, 3.f);
+
+    const float clipH = std::clamp(h * 0.26f, 52.f, 88.f);
+    const float clipY = h - inner - clipH;
+    const float clipW = std::max(8.f, w - inner * 2.f);
+    const float fontPx = std::clamp(m * 0.085f, 20.f, 36.f);
+    const glim::paint::TextSize hello = context.measureText("hello", fontPx);
+    const float textX = inner * 1.15f;
+    const float gapTop = badgeCard.origin.y + badgeH + inner * 0.45f;
+    const float gapBot = clipY - inner * 0.2f;
+    float baseline = gapTop + hello.ascent;
+    if (baseline + hello.descent > gapBot) {
+        baseline = std::max(hello.ascent, gapBot - hello.descent);
+    }
+    context.setFillColor(0xf0d5a8ff);
+    context.text({textX, baseline}, "hello", fontPx);
+
+    GroupParams scroll;
+    scroll.clip = Rect{{inner, clipY}, {clipW, clipH}};
+    context.pushGroup(scroll);
+    const float pillH = std::max(36.f, clipH - 16.f);
+    const float pillW = pillH * 0.86f;
+    const float pillGap = pillW * 0.18f;
+    const float scrollX = std::fmod(timeSeconds * (pillW + 8.f), pillW * 4.f + 8.f);
+    context.translate({inner - scrollX, clipY + (clipH - pillH) * 0.5f});
+    const std::uint32_t pills[] = {0xf4a261ff, 0xe9c46aff, 0x2a9d8fff, 0x264653ff,
+                                  0xe76f51ff, 0x8ab17dff, 0x3d7ea6ff, 0xd4a373ff};
+    for (int i = 0; i < 8; ++i) {
+        context.setFillColor(pills[i]);
+        context.fillRounded(Rect{{static_cast<float>(i) * (pillW + pillGap), 0.f}, {pillW, pillH}},
+                            Radius{pillH * 0.25f});
+    }
+    context.popGroup();
+    context.restore();
+}
+
+void recordSideCard(glim::paint::Context& context, glim::Rect card) {
+    using glim::Radius;
+    using glim::Rect;
+
+    const float m = minDim(card.size);
+    const float radius = std::clamp(m * 0.1f, 16.f, 28.f);
+    const float inset = std::clamp(m * 0.07f, 10.f, 16.f);
+    const float strokeR = std::max(8.f, radius - 6.f);
+
+    context.save();
+    context.translate(card.origin);
+    context.setFillColor(0x3d7ea6ff);
+    context.fillRounded(Rect::fromSize(card.size), Radius{radius});
+    context.setFillColor(0xf0d5a8ff);
+    context.strokeRect(Rect{{inset, inset}, {card.size.x - inset * 2.f, card.size.y - inset * 2.f}},
+                       Radius{strokeR}, 3.f);
+    context.restore();
+}
+
 }  // namespace
 
-void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSeconds) {
+void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSeconds,
+                 glim::Rect safeArea) {
     using glim::Mat4;
     using glim::Radius;
     using glim::Rect;
     using glim::paint::GroupParams;
+
+    if (size.x < 1.f || size.y < 1.f) {
+        return;
+    }
+    if (safeArea.size.x <= 0.f || safeArea.size.y <= 0.f) {
+        safeArea = Rect::fromSize(size);
+    }
 
     const std::uint32_t badge = helloBadge(context);
 
     context.setFillColor(0x243038ff);
     context.fill(Rect::fromSize(size));
 
-    context.save();
-    context.translate({100.f, 50.f});
-    context.setFillColor(0xac6363ff);
-    context.fillRounded(Rect::fromSize({400.f, 300.f}), Radius{28.f});
+    const float minSide = minDim(safeArea.size);
+    const float pad = std::clamp(minSide * 0.045f, 12.f, 28.f);
+    const float gap = std::clamp(minSide * 0.03f, 10.f, 20.f);
+    const float barH = std::clamp(safeArea.size.y * 0.14f, 72.f, 104.f);
 
-    GroupParams scroll;
-    scroll.clip = Rect{{16.f, 204.f}, {368.f, 80.f}};
-    context.pushGroup(scroll);
-    const float scrollX = std::fmod(timeSeconds * 48.f, 200.f);
-    context.translate({16.f - scrollX, 216.f});
-    const std::uint32_t pills[] = {0xf4a261ff, 0xe9c46aff, 0x2a9d8fff, 0x264653ff,
-                                  0xe76f51ff, 0x8ab17dff, 0x3d7ea6ff, 0xd4a373ff};
-    for (int i = 0; i < 8; ++i) {
-        context.setFillColor(pills[i]);
-        context.fillRounded(Rect{{static_cast<float>(i) * 56.f, 0.f}, {48.f, 56.f}}, Radius{14.f});
+    const float workX = safeArea.origin.x + pad;
+    const float workY = safeArea.origin.y + pad;
+    const float workW = std::max(1.f, safeArea.size.x - pad * 2.f);
+    const float workH = std::max(1.f, safeArea.size.y - pad * 2.f - barH - gap);
+    const bool portrait = safeArea.size.y > safeArea.size.x;
+
+    Rect main;
+    Rect side;
+    if (portrait) {
+        const float mainH = std::max(120.f, workH * 0.58f);
+        main = {{workX, workY}, {workW, mainH}};
+        const float sideH = std::max(96.f, workH - mainH - gap);
+        side = {{workX, workY + mainH + gap}, {workW, sideH}};
+    } else {
+        const float mainW = std::max(160.f, workW * 0.62f);
+        const float sideW = std::max(96.f, workW - mainW - gap);
+        main = {{workX, workY}, {mainW, workH}};
+        side = {{workX + mainW + gap, workY}, {sideW, workH}};
     }
-    context.popGroup();
-    context.restore();
 
-    const float bob = std::sin(timeSeconds * 1.4f) * 10.f;
-    const float sideX = std::max(520.f, size.x - 220.f);
-    context.save();
-    context.translate({sideX, 70.f + bob});
-    context.setFillColor(0x3d7ea6ff);
-    context.fillRounded(Rect::fromSize({180.f, 200.f}), Radius{20.f});
-    context.setFillColor(0xf0d5a8ff);
-    context.strokeRect(Rect{{12.f, 12.f}, {156.f, 176.f}}, Radius{14.f}, 3.f);
-    context.restore();
+    const float bob = std::sin(timeSeconds * 1.4f) * std::min(10.f, side.size.y * 0.045f);
+    side.origin.y += bob;
 
-    const Rect card{{140.f, 80.f}, {96.f, 64.f}};
-    context.setFillColor(0xf0d5a8ff);
-    context.fillRounded(card, Radius{12.f});
-    if (badge != 0) {
-        context.blit(Rect{{156.f, 96.f}, {32.f, 32.f}}, badge);
-    }
-    context.setFillColor(0x2a9d8fff);
-    context.strokeRect(card, Radius{12.f}, 3.f);
+    recordMainCard(context, main, timeSeconds, badge);
+    recordSideCard(context, side);
 
+    const float barY = safeArea.origin.y + safeArea.size.y - barH;
     GroupParams glass;
     glass.opacity = 0.42f;
-    glass.bounds = Rect{{0, 0}, {size.x, 96.f}};
-    glass.transform = Mat4::translate(0, size.y - 96.f);
+    glass.bounds = Rect{{0.f, 0.f}, {size.x, barH}};
+    glass.transform = Mat4::translate(0.f, barY);
     context.pushGroup(glass);
     context.setFillColor(0xe8eef4ff);
-    context.fill(Rect::fromSize({size.x, 96.f}));
+    context.fill(Rect::fromSize({size.x, barH}));
+    const float chipH = std::clamp(barH - 32.f, 36.f, 48.f);
+    const float chipW = std::clamp(safeArea.size.x * 0.38f, 120.f, 200.f);
+    const float chipX = safeArea.origin.x + pad;
+    const float chipY = (barH - chipH) * 0.5f;
     context.setFillColor(0x2a9d8fff);
-    context.fillRounded(Rect{{24.f, 24.f}, {160.f, 48.f}}, Radius{16.f});
+    context.fillRounded(Rect{{chipX, chipY}, {chipW, chipH}}, Radius{chipH * 0.35f});
     context.setFillColor(0x243038ff);
-    context.strokeRect(Rect{{24.f, 24.f}, {160.f, 48.f}}, Radius{16.f}, 2.f);
+    context.strokeRect(Rect{{chipX, chipY}, {chipW, chipH}}, Radius{chipH * 0.35f}, 2.f);
     context.popGroup();
 }

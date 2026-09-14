@@ -1,6 +1,9 @@
 #include <glim/paint/Context.h>
 
+#include "Font.h"
+
 #include <algorithm>
+#include <cstdint>
 
 namespace glim::paint {
 
@@ -108,6 +111,72 @@ void Context::blit(const Rect& dst, Matter matter) {
         matter.kind = MatterKind::Sampled;
     }
     current()->shapes.emplace_back(transformBlit(state_.model, Blit{dst, matter}));
+}
+
+TextSize Context::measureText(const char* latin, float sizePx) const {
+    TextSize out;
+    const FontAtlas& atlas = latinAtlas();
+    if (sizePx <= 0.f || atlas.bakePx <= 0.f) {
+        return out;
+    }
+    const float s = sizePx / atlas.bakePx;
+    out.ascent = atlas.ascent * s;
+    out.descent = -atlas.descent * s;
+    out.height = atlas.lineHeight * s;
+    if (!latin) {
+        return out;
+    }
+    float w = 0.f;
+    for (const char* p = latin; *p; ++p) {
+        const unsigned char c = static_cast<unsigned char>(*p);
+        if (c >= 128 || !atlas.glyphs[c].present) {
+            continue;
+        }
+        w += atlas.glyphs[c].advance * s;
+    }
+    out.width = w;
+    return out;
+}
+
+void Context::text(Vec2 origin, const char* latin, float sizePx) {
+    if (!recording_ || !latin || sizePx <= 0.f) {
+        return;
+    }
+    const FontAtlas& atlas = latinAtlas();
+    if (atlas.width <= 0 || atlas.rgba.empty() || atlas.bakePx <= 0.f) {
+        return;
+    }
+    if (fontAtlasId_ == 0) {
+        fontAtlasId_ = images_.add(atlas.width, atlas.height, atlas.rgba.data());
+        if (fontAtlasId_ == 0) {
+            return;
+        }
+    }
+    GlyphRun run;
+    run.origin = origin;
+    run.sizePx = sizePx;
+    run.color = state_.fill.color;
+    run.imageId = fontAtlasId_;
+    const float s = sizePx / atlas.bakePx;
+    float pen = origin.x;
+    for (const char* p = latin; *p; ++p) {
+        const unsigned char c = static_cast<unsigned char>(*p);
+        if (c >= 128 || !atlas.glyphs[c].present) {
+            continue;
+        }
+        const FontGlyph& g = atlas.glyphs[c];
+        if (g.w > 0.f && g.h > 0.f) {
+            GlyphQuad q;
+            q.dest = {{pen + g.xoff * s, origin.y + g.yoff * s}, {g.w * s, g.h * s}};
+            q.uv = g.uv;
+            run.glyphs.push_back(q);
+        }
+        pen += g.advance * s;
+    }
+    if (run.glyphs.empty()) {
+        return;
+    }
+    current()->shapes.emplace_back(transformGlyphs(state_.model, run));
 }
 
 void Context::translate(Vec2 offset) {

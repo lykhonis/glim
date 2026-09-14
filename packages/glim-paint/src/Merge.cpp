@@ -109,6 +109,17 @@ Blit transformBlit(const Mat4& t, const Blit& src) {
     return out;
 }
 
+GlyphRun transformGlyphs(const Mat4& t, const GlyphRun& src) {
+    GlyphRun out = src;
+    out.origin = transformRect(t, Rect{src.origin, {1.f, 1.f}}).origin;
+    const float s = transformScale(t, Rect{src.origin, {std::max(1.f, src.sizePx), 1.f}});
+    out.sizePx = src.sizePx * s;
+    for (GlyphQuad& g : out.glyphs) {
+        g.dest = transformRect(t, g.dest);
+    }
+    return out;
+}
+
 Shape transformShape(const Mat4& t, const Shape& s) {
     if (const auto* f = std::get_if<FillRect>(&s)) {
         return transformFill(t, *f);
@@ -121,6 +132,9 @@ Shape transformShape(const Mat4& t, const Shape& s) {
     }
     if (const auto* b = std::get_if<Blit>(&s)) {
         return transformBlit(t, *b);
+    }
+    if (const auto* g = std::get_if<GlyphRun>(&s)) {
+        return transformGlyphs(t, *g);
     }
     return s;
 }
@@ -162,6 +176,10 @@ Rect contentBounds(const Group& g) {
                               {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}});
         } else if (const auto* blit = std::get_if<Blit>(&s)) {
             b = unionRect(b, blit->rect);
+        } else if (const auto* run = std::get_if<GlyphRun>(&s)) {
+            for (const GlyphQuad& g : run->glyphs) {
+                b = unionRect(b, g.dest);
+            }
         }
     }
     for (const auto& child : g.children) {

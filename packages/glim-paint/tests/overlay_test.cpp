@@ -56,11 +56,11 @@ int main() {
     expect(ctx.scene().root.children.empty(), "overlay does not push groups");
     expect(!glim::paint::needsIsolate(ctx.scene().root), "overlay does not isolate");
 
-    bool hasBlit = false;
+    bool hasGlyphs = false;
     bool hasFill = false;
     for (const glim::paint::Shape& s : ctx.scene().root.shapes) {
-        if (std::holds_alternative<glim::paint::Blit>(s)) {
-            hasBlit = true;
+        if (std::holds_alternative<glim::paint::GlyphRun>(s)) {
+            hasGlyphs = true;
         }
         if (std::holds_alternative<glim::paint::FillRect>(s) ||
             std::holds_alternative<glim::paint::FillRounded>(s)) {
@@ -68,7 +68,7 @@ int main() {
         }
     }
     expect(hasFill, "panel fill");
-    expect(hasBlit, "digit blits");
+    expect(hasGlyphs, "latin glyph runs");
 
     if (failures != 0) {
         std::cerr << failures << " overlay tests failed\n";

@@ -33,6 +33,7 @@ struct BlitQuad {
     float b = 1;
     float a = 1;
     std::uint32_t imageId = 0;
+    std::uint8_t sdf = 0;
 };
 
 struct Isolate {

@@ -92,7 +92,20 @@ struct Blit {
     Matter matter;
 };
 
-using Shape = std::variant<FillRect, FillRounded, Stroke, Blit>;
+struct GlyphQuad {
+    Rect dest;
+    Rect uv;
+};
+
+struct GlyphRun {
+    Vec2 origin{};
+    float sizePx = 16.f;
+    Color color{};
+    std::uint32_t imageId = 0;
+    std::vector<GlyphQuad> glyphs;
+};
+
+using Shape = std::variant<FillRect, FillRounded, Stroke, Blit, GlyphRun>;
 
 inline bool hasClip(const GroupParams& p) noexcept {
     return p.clip.size.x > 0.f && p.clip.size.y > 0.f;
@@ -134,6 +147,7 @@ FillRect transformFill(const Mat4&, const FillRect&);
 FillRounded transformRounded(const Mat4&, const FillRounded&);
 Stroke transformStroke(const Mat4&, const Stroke&);
 Blit transformBlit(const Mat4&, const Blit&);
+GlyphRun transformGlyphs(const Mat4&, const GlyphRun&);
 Rect contentBounds(const Group&);
 void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
 Shape transformShape(const Mat4&, const Shape&);

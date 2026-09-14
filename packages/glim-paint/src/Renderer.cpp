@@ -79,6 +79,9 @@ std::string loadShader(const char* name) {
     if (std::strcmp(name, "rounded.metal") == 0) {
         return glim::metal_shaders::rounded;
     }
+    if (std::strcmp(name, "glyph.metal") == 0) {
+        return glim::metal_shaders::glyph;
+    }
     return {};
 }
 #endif
@@ -106,7 +109,8 @@ bool Renderer::ensurePipelines() {
     const std::string solidSrc = loadShader("solid.metal");
     const std::string blitSrc = loadShader("blit.metal");
     const std::string roundedSrc = loadShader("rounded.metal");
-    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty()) {
+    const std::string glyphSrc = loadShader("glyph.metal");
+    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty()) {
         return false;
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
@@ -170,6 +174,30 @@ bool Renderer::ensurePipelines() {
             rounded_ = std::move(rounded.value());
         }
     }
+
+#if GLIM_GPU_VULKAN
+    auto gvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::glyph_vert),
+        sizeof(glim::vulkan_shaders::glyph_vert));
+    auto gfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::glyph_frag),
+        sizeof(glim::vulkan_shaders::glyph_frag));
+#else
+    auto gvs = device_.createShader(gpu::ShaderStage::Vertex, glyphSrc.data(), glyphSrc.size());
+    auto gfs = device_.createShader(gpu::ShaderStage::Fragment, glyphSrc.data(), glyphSrc.size());
+#endif
+    if (!gvs.ok() || !gfs.ok()) {
+        return false;
+    }
+    pd.vertexShader = gvs->handle();
+    pd.fragmentShader = gfs->handle();
+    auto glyph = device_.createPipeline(pd);
+    if (!glyph.ok()) {
+        return false;
+    }
+    glyph_ = std::move(glyph.value());
     ready_ = true;
     return true;
 }
@@ -239,6 +267,29 @@ void Renderer::flushBlit(gpu::Pass& pass) {
     pendingBlitTex_ = nullptr;
 }
 
+void Renderer::flushGlyph(gpu::Pass& pass) {
+    if (pendingGlyph_.empty() || !pendingGlyphTex_) {
+        pendingGlyph_.clear();
+        pendingGlyphTex_ = nullptr;
+        return;
+    }
+    pass.setPipeline(glyph_);
+    pass.setFragmentTexture(0, pendingGlyphTex_);
+    pass.setFragmentSampler(0, device_.nativeSampler());
+    constexpr std::size_t kMax = 4096 / sizeof(BlitInstance);
+    std::size_t i = 0;
+    while (i < pendingGlyph_.size()) {
+        const std::size_t n = std::min(kMax, pendingGlyph_.size() - i);
+        pass.setBytes(0, pendingGlyph_.data() + i, sizeof(BlitInstance) * n);
+        pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
+        stats_.draws += 1;
+        stats_.instances += static_cast<unsigned>(n);
+        i += n;
+    }
+    pendingGlyph_.clear();
+    pendingGlyphTex_ = nullptr;
+}
+
 void* Renderer::gpuTexture(std::uint32_t imageId) {
     if (!images_ || imageId == 0) {
         return nullptr;
@@ -297,15 +348,13 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
 
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
-    for (const BlitQuad& q : blits) {
+    pendingGlyph_.clear();
+    pendingGlyphTex_ = nullptr;
+    auto pushSampled = [this, &pass](const BlitQuad& q) {
         void* tex = gpuTexture(q.imageId);
         if (!tex) {
-            continue;
+            return;
         }
-        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
-            flushBlit(pass);
-        }
-        pendingBlitTex_ = tex;
         BlitInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -319,9 +368,27 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         inst.extra[1] = q.g;
         inst.extra[2] = q.b;
         inst.extra[3] = q.a;
+        if (q.sdf) {
+            flushBlit(pass);
+            if (pendingGlyphTex_ && pendingGlyphTex_ != tex) {
+                flushGlyph(pass);
+            }
+            pendingGlyphTex_ = tex;
+            pendingGlyph_.push_back(inst);
+            return;
+        }
+        flushGlyph(pass);
+        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
+            flushBlit(pass);
+        }
+        pendingBlitTex_ = tex;
         pendingBlit_.push_back(inst);
+    };
+    for (const BlitQuad& q : blits) {
+        pushSampled(q);
     }
     flushBlit(pass);
+    flushGlyph(pass);
 
     for (const Isolate& iso : isolates) {
         auto ft = device_.createFrameTarget({iso.contentW, iso.contentH});
@@ -407,6 +474,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
     pendingRounded_.clear();
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
+    pendingGlyph_.clear();
+    pendingGlyphTex_ = nullptr;
 
     const auto scissorFor = [&](const ClipState& clip) {
         const int vw = std::max(0, viewportW);
@@ -470,10 +539,6 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         }
         flushSolid(pass);
         flushRounded(pass);
-        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
-            flushBlit(pass);
-        }
-        pendingBlitTex_ = tex;
         BlitInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -487,6 +552,20 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         inst.extra[1] = q.g;
         inst.extra[2] = q.b;
         inst.extra[3] = q.a;
+        if (q.sdf) {
+            flushBlit(pass);
+            if (pendingGlyphTex_ && pendingGlyphTex_ != tex) {
+                flushGlyph(pass);
+            }
+            pendingGlyphTex_ = tex;
+            pendingGlyph_.push_back(inst);
+            return;
+        }
+        flushGlyph(pass);
+        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
+            flushBlit(pass);
+        }
+        pendingBlitTex_ = tex;
         pendingBlit_.push_back(inst);
     };
 
@@ -502,9 +581,11 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         flushSolid(pass);
         flushRounded(pass);
         flushBlit(pass);
+        flushGlyph(pass);
         scissorFor(clip);
         const auto addRounded = [this, &pass, &clip, &addQuad](const Shape& xf) {
             flushBlit(pass);
+            flushGlyph(pass);
             if (rounded_.native()) {
                 RoundedInstance inst{};
                 const Rect* rect = nullptr;
@@ -557,6 +638,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 appendShape(quads, unused, xf, clip);
                 if (!quads.empty()) {
                     flushBlit(pass);
+                    flushGlyph(pass);
                     flushRounded(pass);
                     for (const Quad& q : quads) {
                         addQuad(q);
@@ -564,7 +646,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 }
             } else if (std::get_if<FillRounded>(&xf) || std::get_if<Stroke>(&xf)) {
                 addRounded(xf);
-            } else if (std::get_if<Blit>(&xf)) {
+            } else if (std::get_if<Blit>(&xf) || std::get_if<GlyphRun>(&xf)) {
                 std::vector<Quad> unused;
                 std::vector<BlitQuad> blits;
                 appendShape(unused, blits, xf, clip);
@@ -586,6 +668,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         flushSolid(pass);
         flushRounded(pass);
         flushBlit(pass);
+        flushGlyph(pass);
         scissorFor(parentClip);
     };
     emitTree(emitTree, group, Mat4::identity(), {});

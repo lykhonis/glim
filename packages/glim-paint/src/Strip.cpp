@@ -140,7 +140,30 @@ BlitQuad toBlitQuad(const Blit& b) {
     q.b = p.z;
     q.a = p.w;
     q.imageId = b.matter.imageId;
+    q.sdf = 0;
     return q;
+}
+
+void appendGlyphs(std::vector<BlitQuad>& blits, const GlyphRun& run) {
+    const Vec4 p = run.color.premul();
+    for (const GlyphQuad& g : run.glyphs) {
+        BlitQuad q;
+        q.x = g.dest.origin.x;
+        q.y = g.dest.origin.y;
+        q.w = g.dest.size.x;
+        q.h = g.dest.size.y;
+        q.u0 = g.uv.origin.x;
+        q.v0 = g.uv.origin.y;
+        q.u1 = g.uv.origin.x + g.uv.size.x;
+        q.v1 = g.uv.origin.y + g.uv.size.y;
+        q.r = p.x;
+        q.g = p.y;
+        q.b = p.z;
+        q.a = p.w;
+        q.imageId = run.imageId;
+        q.sdf = 1;
+        blits.push_back(q);
+    }
 }
 
 }  // namespace
@@ -474,6 +497,11 @@ void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const S
             return;
         }
         blits.push_back(toBlitQuad(*b));
+    } else if (const auto* run = std::get_if<GlyphRun>(&shape)) {
+        if (clip.active && (clip.rect.size.x <= 0.f || clip.rect.size.y <= 0.f)) {
+            return;
+        }
+        appendGlyphs(blits, *run);
     }
 }
 

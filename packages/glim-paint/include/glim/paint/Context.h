@@ -8,6 +8,13 @@
 
 namespace glim::paint {
 
+struct TextSize {
+    float width = 0;
+    float ascent = 0;
+    float descent = 0;
+    float height = 0;
+};
+
 class Context {
 public:
     void setSize(Vec2 size);
@@ -30,6 +37,8 @@ public:
     const ImageStore& images() const { return images_; }
     void blit(const Rect& dst, Matter matter);
     void blit(const Rect& dst, std::uint32_t imageId) { blit(dst, Matter::sampled(imageId)); }
+    void text(Vec2 origin, const char* latin, float sizePx);
+    TextSize measureText(const char* latin, float sizePx) const;
     void translate(Vec2);
     void save();
     void restore();
@@ -54,6 +63,7 @@ private:
     std::vector<Group*> groupStack_;
     Scene scene_{};
     ImageStore images_{};
+    std::uint32_t fontAtlasId_ = 0;
     bool recording_ = false;
 };
 

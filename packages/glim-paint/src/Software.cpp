@@ -1,5 +1,6 @@
 #include <glim/paint/Software.h>
 
+#include "Font.h"
 #include "Strip.h"
 
 #include <algorithm>
@@ -88,8 +89,27 @@ void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixe
     }
 }
 
+float sampleChannel(const StoredImage& img, float u, float v, int channel) {
+    const float x = std::clamp(u, 0.f, 1.f) * static_cast<float>(std::max(1, img.width) - 1);
+    const float y = std::clamp(v, 0.f, 1.f) * static_cast<float>(std::max(1, img.height) - 1);
+    const int x0 = static_cast<int>(std::floor(x));
+    const int y0 = static_cast<int>(std::floor(y));
+    const int x1 = std::min(img.width - 1, x0 + 1);
+    const int y1 = std::min(img.height - 1, y0 + 1);
+    const float fx = x - static_cast<float>(x0);
+    const float fy = y - static_cast<float>(y0);
+    auto at = [&](int px, int py) {
+        return img.rgba[static_cast<std::size_t>((py * img.width + px) * 4 + channel)] / 255.f;
+    };
+    const float a = at(x0, y0);
+    const float b = at(x1, y0);
+    const float c = at(x0, y1);
+    const float d = at(x1, y1);
+    return (a * (1.f - fx) + b * fx) * (1.f - fy) + (c * (1.f - fx) + d * fx) * fy;
+}
+
 void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const ImageStore& images,
-               Vec4 tint, const ClipState& clip) {
+               Vec4 tint, const ClipState& clip, bool sdf) {
     const StoredImage* img = images.get(b.matter.imageId);
     if (!img) {
         return;
@@ -104,27 +124,44 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
     const float dv = b.matter.uv.size.y;
     const float iw = static_cast<float>(img->width);
     const float ih = static_cast<float>(img->height);
+    const float texelsPerPx =
+        b.rect.size.x > 1e-6f ? (std::fabs(du) * iw) / b.rect.size.x : 1.f;
+    const float aa = std::max(0.03f, 0.6f * texelsPerPx * (static_cast<float>(kSdfOnEdge) / 255.f) /
+                                          static_cast<float>(kSdfPad));
     for (int y = y0; y < y1; ++y) {
         const float fy = b.rect.size.y <= 0 ? 0.f
                                             : (static_cast<float>(y) + 0.5f - b.rect.origin.y) / b.rect.size.y;
         const float v = v0 + fy * dv;
-        const int sy = std::min(img->height - 1, std::max(0, static_cast<int>(v * ih)));
         for (int x = x0; x < x1; ++x) {
             const float fx = b.rect.size.x <= 0 ? 0.f
                                                 : (static_cast<float>(x) + 0.5f - b.rect.origin.x) / b.rect.size.x;
             const float u = u0 + fx * du;
-            const int sx = std::min(img->width - 1, std::max(0, static_cast<int>(u * iw)));
-            const std::uint8_t* px = img->rgba.data() + static_cast<std::size_t>((sy * img->width + sx) * 4);
-            Pixel src{px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f};
+            Pixel src;
+            if (sdf) {
+                const float d = sampleChannel(*img, u, v, 0);
+                const float t = (d - (0.5f - aa)) / std::max(1e-6f, 2.f * aa);
+                const float a = std::clamp(t, 0.f, 1.f);
+                src = {tint.x * a, tint.y * a, tint.z * a, tint.w * a};
+            } else {
+                const int sy = std::min(img->height - 1, std::max(0, static_cast<int>(v * ih)));
+                const int sx = std::min(img->width - 1, std::max(0, static_cast<int>(u * iw)));
+                const std::uint8_t* px =
+                    img->rgba.data() + static_cast<std::size_t>((sy * img->width + sx) * 4);
+                src = {px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f};
+                src.r *= src.a * tint.x;
+                src.g *= src.a * tint.y;
+                src.b *= src.a * tint.z;
+                src.a *= tint.w;
+            }
             const float cov = clipCoverageAt(clip, static_cast<float>(x) + 0.5f,
                                              static_cast<float>(y) + 0.5f);
             if (cov <= 0.f) {
                 continue;
             }
-            src.r *= src.a * tint.x * cov;
-            src.g *= src.a * tint.y * cov;
-            src.b *= src.a * tint.z * cov;
-            src.a *= tint.w * cov;
+            src.r *= cov;
+            src.g *= cov;
+            src.b *= cov;
+            src.a *= cov;
             srcOver(dest[static_cast<std::size_t>(y * w + x)], src);
         }
     }
@@ -138,7 +175,21 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     for (const Shape& s : g.shapes) {
         const Shape xf = transformShape(world, s);
         if (const auto* blit = std::get_if<Blit>(&xf)) {
-            blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip);
+            blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip, false);
+            continue;
+        }
+        if (std::get_if<GlyphRun>(&xf)) {
+            std::vector<Quad> unused;
+            std::vector<BlitQuad> blits;
+            appendShape(unused, blits, xf, clip);
+            for (const BlitQuad& q : blits) {
+                Blit b;
+                b.rect = {{q.x, q.y}, {q.w, q.h}};
+                b.matter.kind = MatterKind::Sampled;
+                b.matter.imageId = q.imageId;
+                b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
+                blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0);
+            }
             continue;
         }
         std::vector<Quad> quads;
@@ -187,7 +238,7 @@ void paintBlits(std::vector<Pixel>& dest, int w, int h, const std::vector<BlitQu
         b.matter.kind = MatterKind::Sampled;
         b.matter.imageId = q.imageId;
         b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, {});
+        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, {}, q.sdf != 0);
     }
 }
 

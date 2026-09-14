@@ -1,0 +1,10 @@
+#pragma once
+
+#include <cstddef>
+
+namespace glim::paint {
+
+inline constexpr unsigned char kInterLatinTtf[] = {@GLIM_INTER_LATIN_TTF@};
+inline constexpr std::size_t kInterLatinTtfSize = sizeof(kInterLatinTtf);
+
+}  // namespace glim::paint

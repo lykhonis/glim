@@ -11,6 +11,8 @@ inline constexpr unsigned char blit_vert[] = {@GLIM_BLIT_VERT_SPV@};
 inline constexpr unsigned char blit_frag[] = {@GLIM_BLIT_FRAG_SPV@};
 inline constexpr unsigned char rounded_vert[] = {@GLIM_ROUNDED_VERT_SPV@};
 inline constexpr unsigned char rounded_frag[] = {@GLIM_ROUNDED_FRAG_SPV@};
+inline constexpr unsigned char glyph_vert[] = {@GLIM_GLYPH_VERT_SPV@};
+inline constexpr unsigned char glyph_frag[] = {@GLIM_GLYPH_FRAG_SPV@};
 
 }  // namespace vulkan_shaders
 }  // namespace glim

@@ -19,8 +19,7 @@ public:
     void record(Context& context, Rect safeArea);
 
 private:
-    void ensureAtlas(Context& context);
-    void drawText(Context& context, Vec2 origin, const char* text, float scale, Color color);
+    void drawText(Context& context, Vec2 origin, const char* text, float sizePx, Color color);
 
     bool enabled_ = false;
     bool started_ = false;
@@ -33,7 +32,6 @@ private:
     float spark_[kSpark]{};
     int sparkCount_ = 0;
     int sparkHead_ = 0;
-    std::uint32_t atlasId_ = 0;
 };
 
 }  // namespace glim::paint

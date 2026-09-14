@@ -46,6 +46,7 @@ private:
     void flushSolid(gpu::Pass& pass);
     void flushRounded(gpu::Pass& pass);
     void flushBlit(gpu::Pass& pass);
+    void flushGlyph(gpu::Pass& pass);
     void* gpuTexture(std::uint32_t imageId);
 #if GLIM_EMBED
     void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
@@ -60,6 +61,7 @@ private:
     gpu::Pipeline solid_{};
     gpu::Pipeline rounded_{};
     gpu::Pipeline blit_{};
+    gpu::Pipeline glyph_{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];
@@ -80,6 +82,8 @@ private:
     std::vector<RoundedInstance> pendingRounded_;
     std::vector<BlitInstance> pendingBlit_;
     void* pendingBlitTex_ = nullptr;
+    std::vector<BlitInstance> pendingGlyph_;
+    void* pendingGlyphTex_ = nullptr;
     std::vector<gpu::Texture> gpuImages_;
     const ImageStore* images_ = nullptr;
 #else
