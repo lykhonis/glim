@@ -17,6 +17,8 @@ enum class StoreOp { Store, DontCare };
 
 enum class IndexType { U16, U32 };
 
+enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
+
 struct ColorClear {
     float rgba[4]{0, 0, 0, 0};
 };

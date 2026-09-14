@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+#include <android/hardware_buffer.h>
 #include <android/native_window.h>
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
 #include <wayland-client.h>
@@ -80,6 +81,7 @@ struct GpuImage {
     int height = 0;
     bool swapchain = false;
     bool inUse = false;
+    bool borrowed = false;
 };
 
 struct GpuBuffer {
@@ -121,6 +123,7 @@ struct Device::Impl {
     uint32_t queueFamily = 0;
     Queue queueWrapper;
     bool vsync = true;
+    bool haveAhb = false;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
     VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -160,6 +163,10 @@ struct Device::Impl {
 
     void destroyImage(GpuImage& img) {
         if (!device) {
+            return;
+        }
+        if (img.borrowed) {
+            img = {};
             return;
         }
         if (img.framebuffer) {
@@ -1163,13 +1170,35 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     qci.queueFamilyIndex = d.queueFamily;
     qci.queueCount = 1;
     qci.pQueuePriorities = &prio;
-    const char* devExts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    uint32_t extN = 0;
+    vkEnumerateDeviceExtensionProperties(d.physical, nullptr, &extN, nullptr);
+    std::vector<VkExtensionProperties> dext(extN);
+    vkEnumerateDeviceExtensionProperties(d.physical, nullptr, &extN, dext.data());
+    std::vector<const char*> devExts = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    const char* ahbExts[] = {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+                             VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
+                             VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME};
+    d.haveAhb = true;
+    for (const char* e : ahbExts) {
+        if (!hasExtension(dext, e)) {
+            d.haveAhb = false;
+            break;
+        }
+        devExts.push_back(e);
+    }
+    if (!d.haveAhb) {
+        devExts.resize(1);
+    }
+#else
+    (void)dext;
+#endif
     VkDeviceCreateInfo dci{};
     dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dci.queueCreateInfoCount = 1;
     dci.pQueueCreateInfos = &qci;
-    dci.enabledExtensionCount = 1;
-    dci.ppEnabledExtensionNames = devExts;
+    dci.enabledExtensionCount = static_cast<uint32_t>(devExts.size());
+    dci.ppEnabledExtensionNames = devExts.data();
     if (vkCreateDevice(d.physical, &dci, nullptr, &d.device) != VK_SUCCESS) {
         return Result<Device>::fail("vkCreateDevice failed");
     }
@@ -1554,6 +1583,161 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
     vkFreeCommandBuffers(impl_->device, ai.commandPool, 1, &cmd);
     impl_->destroyBuffer(staging);
     img.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
+
+Result<Texture> Device::wrapNativeTexture(void* native, int width, int height) {
+    if (!impl_ || !native || width <= 0 || height <= 0) {
+        return Result<Texture>::fail("wrapNativeTexture: null or empty");
+    }
+    GpuImage img{};
+    img.view = reinterpret_cast<VkImageView>(native);
+    img.width = width;
+    img.height = height;
+    img.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    img.borrowed = true;
+    Texture t;
+    t.handle_ = impl_->next++;
+    t.width_ = width;
+    t.height_ = height;
+    if (t.handle_ >= impl_->sampled.size()) {
+        impl_->sampled.resize(t.handle_ + 1);
+    }
+    impl_->sampled[t.handle_] = img;
+    t.native_ = impl_->sampled[t.handle_].view;
+    return Result<Texture>::ok(t);
+}
+
+Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat format) {
+#if !defined(VK_USE_PLATFORM_ANDROID_KHR)
+    (void)surface;
+    (void)width;
+    (void)height;
+    (void)format;
+    return Result<Texture>::fail("importSurface: wrap a VkImageView");
+#else
+    if (!impl_ || !surface || width <= 0 || height <= 0) {
+        return Result<Texture>::fail("importSurface: null or empty");
+    }
+    if (!impl_->haveAhb) {
+        return Result<Texture>::fail("VK_ANDROID_external_memory_android_hardware_buffer missing");
+    }
+    auto* ahb = static_cast<AHardwareBuffer*>(surface);
+    VkAndroidHardwareBufferFormatPropertiesANDROID fmtProps{};
+    fmtProps.sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID;
+    VkAndroidHardwareBufferPropertiesANDROID props{};
+    props.sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID;
+    props.pNext = &fmtProps;
+    if (vkGetAndroidHardwareBufferPropertiesANDROID(impl_->device, ahb, &props) != VK_SUCCESS) {
+        return Result<Texture>::fail("vkGetAndroidHardwareBufferPropertiesANDROID failed");
+    }
+    if (fmtProps.format == VK_FORMAT_UNDEFINED) {
+        return Result<Texture>::fail("YUV / external-format AHardwareBuffer is not in v1");
+    }
+
+    VkExternalMemoryImageCreateInfo extImg{};
+    extImg.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+    extImg.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+
+    VkImageCreateInfo ici{};
+    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.pNext = &extImg;
+    ici.imageType = VK_IMAGE_TYPE_2D;
+    ici.format = fmtProps.format;
+    ici.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    ici.mipLevels = 1;
+    ici.arrayLayers = 1;
+    ici.samples = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+    ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    GpuImage img{};
+    img.width = width;
+    img.height = height;
+    if (vkCreateImage(impl_->device, &ici, nullptr, &img.image) != VK_SUCCESS) {
+        return Result<Texture>::fail("AHB vkCreateImage failed");
+    }
+
+    VkImportAndroidHardwareBufferInfoANDROID importInfo{};
+    importInfo.sType = VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID;
+    importInfo.buffer = ahb;
+
+    VkMemoryDedicatedAllocateInfo dedicated{};
+    dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
+    dedicated.pNext = &importInfo;
+    dedicated.image = img.image;
+
+    VkMemoryAllocateInfo mai{};
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.pNext = &dedicated;
+    mai.allocationSize = props.allocationSize;
+    mai.memoryTypeIndex = findMemoryType(impl_->physical, props.memoryTypeBits, 0);
+    if (mai.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(impl_->device, &mai, nullptr, &img.memory) != VK_SUCCESS) {
+        impl_->destroyImage(img);
+        return Result<Texture>::fail("AHB vkAllocateMemory failed");
+    }
+    if (vkBindImageMemory(impl_->device, img.image, img.memory, 0) != VK_SUCCESS) {
+        impl_->destroyImage(img);
+        return Result<Texture>::fail("AHB vkBindImageMemory failed");
+    }
+
+    VkImageViewCreateInfo vci{};
+    vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.image = img.image;
+    vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vci.format = ici.format;
+    vci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vci.subresourceRange.levelCount = 1;
+    vci.subresourceRange.layerCount = 1;
+    if (format == SampleFormat::Bgra8Unorm && ici.format == VK_FORMAT_B8G8R8A8_UNORM) {
+        vci.components.r = VK_COMPONENT_SWIZZLE_B;
+        vci.components.b = VK_COMPONENT_SWIZZLE_R;
+    }
+    if (vkCreateImageView(impl_->device, &vci, nullptr, &img.view) != VK_SUCCESS) {
+        impl_->destroyImage(img);
+        return Result<Texture>::fail("AHB vkCreateImageView failed");
+    }
+    VkCommandPool pool = impl_->uploadPool ? impl_->uploadPool : impl_->cmdPool;
+    if (pool) {
+        VkCommandBufferAllocateInfo ai{};
+        ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        ai.commandPool = pool;
+        ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        ai.commandBufferCount = 1;
+        VkCommandBuffer cmd = VK_NULL_HANDLE;
+        if (vkAllocateCommandBuffers(impl_->device, &ai, &cmd) == VK_SUCCESS) {
+            VkCommandBufferBeginInfo bi{};
+            bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            vkBeginCommandBuffer(cmd, &bi);
+            imageBarrier(cmd, img.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                         0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+            vkEndCommandBuffer(cmd);
+            VkSubmitInfo si{};
+            si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            si.commandBufferCount = 1;
+            si.pCommandBuffers = &cmd;
+            vkQueueSubmit(impl_->queue, 1, &si, VK_NULL_HANDLE);
+            vkQueueWaitIdle(impl_->queue);
+            vkFreeCommandBuffers(impl_->device, pool, 1, &cmd);
+        }
+    }
+    img.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    Texture t;
+    t.handle_ = impl_->next++;
+    t.width_ = width;
+    t.height_ = height;
+    if (t.handle_ >= impl_->sampled.size()) {
+        impl_->sampled.resize(t.handle_ + 1);
+    }
+    impl_->sampled[t.handle_] = img;
+    t.native_ = impl_->sampled[t.handle_].view;
+    return Result<Texture>::ok(t);
+#endif
 }
 
 Result<Shader> Device::createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size) {

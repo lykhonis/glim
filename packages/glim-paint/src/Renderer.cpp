@@ -305,6 +305,12 @@ void* Renderer::gpuTexture(std::uint32_t imageId) {
     if (!img) {
         return nullptr;
     }
+    if (img->native) {
+        return img->native;
+    }
+    if (img->rgba.empty()) {
+        return nullptr;
+    }
     auto created = device_.createTexture({img->width, img->height});
     if (!created.ok()) {
         return nullptr;

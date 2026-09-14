@@ -3,6 +3,7 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <QuartzCore/CATransaction.h>
+#import <IOSurface/IOSurfaceRef.h>
 
 #include <algorithm>
 #include <cstring>
@@ -329,6 +330,46 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
     MTLRegion region = MTLRegionMake2D(0, 0, static_cast<NSUInteger>(texture.width()),
                                        static_cast<NSUInteger>(texture.height()));
     [tex replaceRegion:region mipmapLevel:0 withBytes:rgba8 bytesPerRow:bpr];
+}
+
+Result<Texture> Device::wrapNativeTexture(void* native, int width, int height) {
+    if (!native || width <= 0 || height <= 0) {
+        return Result<Texture>::fail("wrapNativeTexture: null or empty");
+    }
+    Texture t;
+    t.handle_ = 0;
+    t.width_ = width;
+    t.height_ = height;
+    t.native_ = native;
+    return Result<Texture>::ok(t);
+}
+
+Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat format) {
+    if (!impl_ || !surface || width <= 0 || height <= 0) {
+        return Result<Texture>::fail("importSurface: null or empty");
+    }
+    IOSurfaceRef surf = static_cast<IOSurfaceRef>(surface);
+    const MTLPixelFormat pf =
+        format == SampleFormat::Bgra8Unorm ? MTLPixelFormatBGRA8Unorm : MTLPixelFormatRGBA8Unorm;
+    MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pf
+                                                                                  width:static_cast<NSUInteger>(width)
+                                                                                 height:static_cast<NSUInteger>(height)
+                                                                              mipmapped:NO];
+    td.usage = MTLTextureUsageShaderRead;
+    id<MTLTexture> tex = [impl_->device newTextureWithDescriptor:td iosurface:surf plane:0];
+    if (!tex) {
+        return Result<Texture>::fail("Metal IOSurface texture failed");
+    }
+    Texture t;
+    t.handle_ = impl_->next++;
+    t.width_ = width;
+    t.height_ = height;
+    if (t.handle_ >= impl_->textures.size()) {
+        impl_->textures.resize(t.handle_ + 1);
+    }
+    impl_->textures[t.handle_] = tex;
+    t.native_ = (__bridge void*)tex;
+    return Result<Texture>::ok(t);
 }
 
 Result<Shader> Device::createShader(ShaderStage stage, const char* sourceUtf8, std::uint64_t size) {

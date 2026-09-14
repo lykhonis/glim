@@ -170,6 +170,8 @@ public:
     void writeBuffer(Buffer&, const void* data, std::uint64_t size);
     Result<Texture> createTexture(const TextureDesc&);
     void writeTexture(Texture&, const void* rgba8, std::uint64_t bytes);
+    Result<Texture> wrapNativeTexture(void* native, int width, int height);
+    Result<Texture> importSurface(void* surface, int width, int height, SampleFormat);
     Result<Shader> createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size);
     Result<Pipeline> createPipeline(const PipelineDesc&);
     Result<Bindings> createBindings(const BindingsDesc&);

@@ -28,6 +28,23 @@ std::uint32_t ImageStore::add(int width, int height, const std::uint8_t* rgba) {
     return static_cast<std::uint32_t>(data_->slots.size() - 1);
 }
 
+std::uint32_t ImageStore::wrap(void* native, int width, int height, SampleFormat format) {
+    if (!data_ || !native || width <= 0 || height <= 0) {
+        return 0;
+    }
+    if (width > kMaxImageSide || height > kMaxImageSide) {
+        return 0;
+    }
+    StoredImage img;
+    img.width = width;
+    img.height = height;
+    img.native = native;
+    img.format = format;
+    img.foreign = true;
+    data_->slots.push_back(std::move(img));
+    return static_cast<std::uint32_t>(data_->slots.size() - 1);
+}
+
 void ImageStore::release(std::uint32_t id) {
     if (!data_ || id == 0 || id >= data_->slots.size()) {
         return;
@@ -40,7 +57,10 @@ const StoredImage* ImageStore::get(std::uint32_t id) const {
         return nullptr;
     }
     const StoredImage& img = data_->slots[id];
-    if (img.width <= 0 || img.height <= 0 || img.rgba.empty()) {
+    if (img.width <= 0 || img.height <= 0) {
+        return nullptr;
+    }
+    if (img.rgba.empty() && !img.native) {
         return nullptr;
     }
     return &img;

@@ -111,7 +111,7 @@ float sampleChannel(const StoredImage& img, float u, float v, int channel) {
 void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const ImageStore& images,
                Vec4 tint, const ClipState& clip, bool sdf) {
     const StoredImage* img = images.get(b.matter.imageId);
-    if (!img) {
+    if (!img || img->rgba.empty()) {
         return;
     }
     const int x0 = std::max(0, static_cast<int>(std::floor(b.rect.origin.x)));

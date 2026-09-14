@@ -101,6 +101,10 @@ std::uint32_t Context::addImage(int width, int height, const std::uint8_t* rgba)
     return images_.add(width, height, rgba);
 }
 
+std::uint32_t Context::wrapNativeTexture(void* native, int width, int height, SampleFormat format) {
+    return images_.wrap(native, width, height, format);
+}
+
 void Context::releaseImage(std::uint32_t id) {
     images_.release(id);
 }
@@ -110,7 +114,8 @@ void Context::blit(const Rect& dst, Matter matter) {
         return;
     }
     if (matter.kind == MatterKind::Solid) {
-        matter.kind = MatterKind::Sampled;
+        const StoredImage* img = images_.get(matter.imageId);
+        matter.kind = (img && img->foreign) ? MatterKind::Foreign : MatterKind::Sampled;
     }
     current()->shapes.emplace_back(transformBlit(state_.model, Blit{dst, matter}));
 }

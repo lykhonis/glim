@@ -11,7 +11,9 @@ namespace glim::paint {
 
 enum class Blend { SrcOver, Plus };
 
-enum class MatterKind { Solid, Sampled };
+enum class MatterKind { Solid, Sampled, Foreign };
+
+enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
 
 constexpr int kMaxImageSide = 4096;
 constexpr std::uint64_t kMaxImageBytes = 16ull * 1024ull * 1024ull;
@@ -20,12 +22,16 @@ struct StoredImage {
     int width = 0;
     int height = 0;
     std::vector<std::uint8_t> rgba;
+    void* native = nullptr;
+    SampleFormat format = SampleFormat::Rgba8Unorm;
+    bool foreign = false;
 };
 
 // CPU pixels keyed by paint-level id. No gpu::Handle. Shared across Context/Scene copies.
 struct ImageStore {
     ImageStore();
     std::uint32_t add(int width, int height, const std::uint8_t* rgba);
+    std::uint32_t wrap(void* native, int width, int height, SampleFormat format);
     void release(std::uint32_t id);
     const StoredImage* get(std::uint32_t id) const;
 
@@ -36,7 +42,7 @@ private:
     std::shared_ptr<Data> data_;
 };
 
-// Pigment for a Shape. Solid or sampled (imageId). Foreign later.
+// Pigment for a Shape. Solid, sampled, or foreign (imageId).
 struct Matter {
     MatterKind kind = MatterKind::Solid;
     Color color{};
@@ -53,6 +59,14 @@ struct Matter {
     static Matter sampled(std::uint32_t imageId, Color tint = Color{255, 255, 255, 255}) {
         Matter m;
         m.kind = MatterKind::Sampled;
+        m.color = tint;
+        m.imageId = imageId;
+        return m;
+    }
+
+    static Matter foreign(std::uint32_t imageId, Color tint = Color{255, 255, 255, 255}) {
+        Matter m;
+        m.kind = MatterKind::Foreign;
         m.color = tint;
         m.imageId = imageId;
         return m;
