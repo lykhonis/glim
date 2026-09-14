@@ -11,7 +11,7 @@
     },
     "install": {
       "type": "boolean",
-      "description": "If true, cmake --install the build tree into dist/{projectName}. Off by default so test targets do not require every installable binary to exist."
+      "description": "If true, cmake --install only this target's component into dist/{projectName}. Off by default so test targets do not require every installable binary to exist."
     }
   },
   "required": ["target"]

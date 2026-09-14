@@ -1,0 +1,32 @@
+{
+  "name": "examples",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples",
+  "targets": {
+    "build": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build", "projects": "tag:example" }]
+    },
+    "build-software": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build-software", "projects": "tag:example" }]
+    },
+    "build-ios-sim": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build-ios-sim", "projects": "tag:example" }]
+    },
+    "build-tvos-sim": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build-tvos-sim", "projects": "tag:example" }]
+    },
+    "build-android": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build-android", "projects": "tag:example" }]
+    }
+  }
+}

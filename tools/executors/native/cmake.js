@@ -77,7 +77,11 @@ exports.default = async function cmakeExecutor(options, context) {
       if (!ok) return { success: false };
       if (options.install && fs.existsSync(path.join(buildDir, "cmake_install.cmake"))) {
         fs.mkdirSync(dist, { recursive: true });
-        ok = run("cmake", ["--install", buildDir, "--prefix", dist], root);
+        ok = run(
+          "cmake",
+          ["--install", buildDir, "--prefix", dist, "--component", target],
+          root,
+        );
         if (!ok) return { success: false };
       }
     } else {

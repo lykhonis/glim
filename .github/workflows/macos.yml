@@ -11,6 +11,5 @@ jobs:
       runs-on: macos-14
       nx: |
         pnpm exec nx run-many -t test --output-style=stream
-        pnpm exec nx build hello
-        pnpm exec nx build-software hello
-        pnpm exec nx build foreign
+        pnpm exec nx run examples:build
+        pnpm exec nx run examples:build-software

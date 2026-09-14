@@ -10,5 +10,4 @@ jobs:
     with:
       runs-on: macos-14
       nx: |
-        pnpm exec nx build-tvos-sim hello
-        pnpm exec nx build-tvos-sim foreign
+        pnpm exec nx run examples:build-tvos-sim
