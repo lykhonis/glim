@@ -3,10 +3,12 @@
 #include "WindowRegistry.h"
 
 #import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/CATransaction.h>
 #import <UIKit/UIKit.h>
 
 #include <TargetConditionals.h>
 #include <algorithm>
+#include <cmath>
 
 using glim::shell::Event;
 using glim::shell::EventType;
@@ -24,7 +26,7 @@ using glim::shell::Window;
 
 @implementation GlimView {
     Window::EventCallback eventCallback_;
-    CGSize lastLogicalSize_;
+    CGSize lastBackingSize_;
 }
 
 + (Class)layerClass {
@@ -38,7 +40,7 @@ using glim::shell::Window;
 #if !TARGET_OS_TV
         self.multipleTouchEnabled = YES;
 #endif
-        lastLogicalSize_ = CGSizeMake(-1, -1);
+        lastBackingSize_ = CGSizeMake(-1, -1);
         const CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 1.0;
         self.contentScaleFactor = scale;
     }
@@ -65,26 +67,40 @@ using glim::shell::Window;
     [self notifyResizedIfNeeded];
 }
 
+- (CGSize)backingPixelSize {
+    const CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 1.0;
+    const CGSize bounds = self.bounds.size;
+    return CGSizeMake(std::max(1.0, std::round(bounds.width * scale)),
+                      std::max(1.0, std::round(bounds.height * scale)));
+}
+
 - (void)syncMetalDrawableSize {
     CAMetalLayer* layer = (CAMetalLayer*)self.layer;
     const CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 1.0;
     self.contentScaleFactor = scale;
+    const CGSize backing = [self backingPixelSize];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
     layer.contentsScale = scale;
-    layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+    layer.contentsGravity = kCAGravityResize;
+    layer.drawableSize = backing;
+    [CATransaction commit];
 }
 
 - (void)notifyResizedIfNeeded {
     [self syncMetalDrawableSize];
-    const CGSize size = self.bounds.size;
-    if (CGSizeEqualToSize(size, lastLogicalSize_)) {
+    const CGSize backing = [self backingPixelSize];
+    if (CGSizeEqualToSize(backing, lastBackingSize_)) {
         return;
     }
-    lastLogicalSize_ = size;
+    lastBackingSize_ = backing;
     if (!eventCallback_) {
         return;
     }
+    const CGFloat scale = self.contentScaleFactor > 0 ? self.contentScaleFactor : 1.0;
     Event resized(EventType::WindowResized);
-    resized.setSize(static_cast<int>(size.width), static_cast<int>(size.height));
+    resized.setSize(static_cast<int>(std::lround(backing.width / scale)),
+                    static_cast<int>(std::lround(backing.height / scale)));
     eventCallback_(resized);
 }
 
@@ -163,6 +179,23 @@ using glim::shell::Window;
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     [(GlimView*)self.view notifyResizedIfNeeded];
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+       withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    GlimView* view = (GlimView*)self.view;
+    CAMetalLayer* layer = (CAMetalLayer*)view.layer;
+    if (![layer isKindOfClass:[CAMetalLayer class]]) {
+        return;
+    }
+    layer.presentsWithTransaction = YES;
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext>) {
+        [view notifyResizedIfNeeded];
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext>) {
+        layer.presentsWithTransaction = NO;
+        [view notifyResizedIfNeeded];
+    }];
 }
 
 - (void)viewSafeAreaInsetsDidChange {
@@ -315,9 +348,15 @@ void Window::setEventCallback(EventCallback callback) {
     [(__bridge GlimView*)view_ setEventCallback:std::move(callback)];
 }
 
-Vec2 Window::size() const {
-    const CGSize s = ((__bridge GlimView*)view_).bounds.size;
-    return {static_cast<float>(s.width), static_cast<float>(s.height)};
+Vec2 Window::drawableSize() const {
+    UIView* view = (__bridge UIView*)view_;
+    if ([view.layer isKindOfClass:[CAMetalLayer class]]) {
+        const CGSize s = ((CAMetalLayer*)view.layer).drawableSize;
+        return {static_cast<float>(s.width), static_cast<float>(s.height)};
+    }
+    const CGFloat scale = view.traitCollection.displayScale > 0 ? view.traitCollection.displayScale : 1.0;
+    return {static_cast<float>(std::max(1.0, std::round(view.bounds.size.width * scale))),
+            static_cast<float>(std::max(1.0, std::round(view.bounds.size.height * scale)))};
 }
 
 float Window::pixelRatio() const {
@@ -326,10 +365,13 @@ float Window::pixelRatio() const {
     return static_cast<float>(scale);
 }
 
-Vec2 Window::drawableSize() const {
-    const Vec2 logical = size();
+Vec2 Window::size() const {
     const float r = pixelRatio();
-    return {logical.x * r, logical.y * r};
+    const Vec2 drawable = drawableSize();
+    if (r <= 0.f) {
+        return drawable;
+    }
+    return {drawable.x / r, drawable.y / r};
 }
 
 Rect Window::safeArea() const {

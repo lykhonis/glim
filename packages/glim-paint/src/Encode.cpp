@@ -20,10 +20,32 @@ Quad toQuad(const FillRect& f) {
     return q;
 }
 
-void appendShapes(std::vector<Quad>& out, const Group& g, const Mat4& extra) {
+BlitQuad toBlitQuad(const Blit& b) {
+    const Vec4 p = b.matter.color.premul();
+    BlitQuad q;
+    q.x = b.rect.origin.x;
+    q.y = b.rect.origin.y;
+    q.w = b.rect.size.x;
+    q.h = b.rect.size.y;
+    q.u0 = b.matter.uv.origin.x;
+    q.v0 = b.matter.uv.origin.y;
+    q.u1 = b.matter.uv.origin.x + b.matter.uv.size.x;
+    q.v1 = b.matter.uv.origin.y + b.matter.uv.size.y;
+    q.r = p.x;
+    q.g = p.y;
+    q.b = p.z;
+    q.a = p.w;
+    q.imageId = b.matter.imageId;
+    return q;
+}
+
+void appendShapes(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const Group& g,
+                  const Mat4& extra) {
     for (const Shape& s : g.shapes) {
         if (const auto* f = std::get_if<FillRect>(&s)) {
-            out.push_back(toQuad(transformFill(extra, *f)));
+            quads.push_back(toQuad(transformFill(extra, *f)));
+        } else if (const auto* b = std::get_if<Blit>(&s)) {
+            blits.push_back(toBlitQuad(transformBlit(extra, *b)));
         }
     }
 }
@@ -39,7 +61,7 @@ Isolate encodeIsolate(const Group& g) {
     iso.destY = dest.origin.y;
     iso.destW = dest.size.x;
     iso.destH = dest.size.y;
-    appendShapes(iso.quads, g, Mat4::identity());
+    appendShapes(iso.quads, iso.blits, g, Mat4::identity());
     for (const auto& child : g.children) {
         if (!child) {
             continue;
@@ -47,14 +69,14 @@ Isolate encodeIsolate(const Group& g) {
         if (needsIsolate(*child)) {
             iso.isolates.push_back(encodeIsolate(*child));
         } else {
-            appendShapes(iso.quads, *child, child->params.transform);
+            appendShapes(iso.quads, iso.blits, *child, child->params.transform);
         }
     }
     return iso;
 }
 
 void encodeMerged(FramePacket& packet, const Group& g) {
-    appendShapes(packet.quads, g, Mat4::identity());
+    appendShapes(packet.quads, packet.blits, g, Mat4::identity());
     for (const auto& child : g.children) {
         if (!child) {
             continue;
@@ -63,7 +85,7 @@ void encodeMerged(FramePacket& packet, const Group& g) {
             packet.isolates.push_back(encodeIsolate(*child));
             ++packet.stats.isolateCount;
         } else {
-            appendShapes(packet.quads, *child, child->params.transform);
+            appendShapes(packet.quads, packet.blits, *child, child->params.transform);
         }
     }
 }
@@ -73,9 +95,11 @@ void encodeMerged(FramePacket& packet, const Group& g) {
 FramePacket encode(const Scene& scene, float pixelRatio) {
     FramePacket packet;
     packet.logicalSize = scene.logicalSize;
+    packet.images = scene.images;
     Group root = merge(scene.root, &packet.stats);
     encodeMerged(packet, root);
-    packet.stats.instances = static_cast<unsigned>(packet.quads.size());
+    packet.stats.instances =
+        static_cast<unsigned>(packet.quads.size() + packet.blits.size());
     packet.stats.tileCount = static_cast<unsigned>(coarseTileCount(scene.logicalSize, pixelRatio));
     return packet;
 }

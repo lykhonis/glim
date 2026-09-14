@@ -2,7 +2,8 @@ add_library(glim-paint STATIC
     src/Context.cpp
     src/Merge.cpp
     src/Encode.cpp
-    src/Software.cpp)
+    src/Software.cpp
+    src/ImageStore.cpp)
 add_library(glim::paint ALIAS glim-paint)
 target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(glim-paint PUBLIC glim::core)

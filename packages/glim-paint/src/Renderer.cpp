@@ -27,10 +27,7 @@ struct Uniforms {
     float projection[16];
 };
 
-struct BlitInstance {
-    float rect[4];
-    float extra[4];
-};
+
 
 #if !GLIM_GPU_VULKAN
 std::string loadShader(const char* name) {
@@ -137,11 +134,53 @@ void Renderer::flushSolid(gpu::Pass& pass) {
     pending_.clear();
 }
 
+void Renderer::flushBlit(gpu::Pass& pass) {
+    if (pendingBlit_.empty() || !pendingBlitTex_) {
+        pendingBlit_.clear();
+        pendingBlitTex_ = nullptr;
+        return;
+    }
+    pass.setPipeline(blit_);
+    pass.setBytes(0, pendingBlit_.data(), sizeof(BlitInstance) * pendingBlit_.size());
+    pass.setFragmentTexture(0, pendingBlitTex_);
+    pass.setFragmentSampler(0, device_.nativeSampler());
+    pass.draw(6, static_cast<std::uint32_t>(pendingBlit_.size()), 0, 0);
+    stats_.draws += 1;
+    stats_.instances += static_cast<unsigned>(pendingBlit_.size());
+    pendingBlit_.clear();
+    pendingBlitTex_ = nullptr;
+}
+
+void* Renderer::gpuTexture(std::uint32_t imageId) {
+    if (!images_ || imageId == 0) {
+        return nullptr;
+    }
+    if (imageId >= gpuImages_.size()) {
+        gpuImages_.resize(imageId + 1);
+    }
+    gpu::Texture& tex = gpuImages_[imageId];
+    if (tex.native()) {
+        return tex.native();
+    }
+    const StoredImage* img = images_->get(imageId);
+    if (!img) {
+        return nullptr;
+    }
+    auto created = device_.createTexture({img->width, img->height});
+    if (!created.ok()) {
+        return nullptr;
+    }
+    tex = std::move(created.value());
+    device_.writeTexture(tex, img->rgba.data(), img->rgba.size());
+    return tex.native();
+}
+
 #if GLIM_EMBED
 
 void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
-                           const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
-                           int viewportH, void* nativeColor, gpu::LoadOp load) {
+                           const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
+                           const Mat4& projection, int viewportW, int viewportH, void* nativeColor,
+                           gpu::LoadOp load) {
     gpu::PassDesc passDesc;
     passDesc.nativeColor = nativeColor;
     passDesc.load = load;
@@ -168,6 +207,34 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     }
     flushSolid(pass);
 
+    pendingBlit_.clear();
+    pendingBlitTex_ = nullptr;
+    for (const BlitQuad& q : blits) {
+        void* tex = gpuTexture(q.imageId);
+        if (!tex) {
+            continue;
+        }
+        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
+            flushBlit(pass);
+        }
+        pendingBlitTex_ = tex;
+        BlitInstance inst{};
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.uv[0] = q.u0;
+        inst.uv[1] = q.v0;
+        inst.uv[2] = q.u1;
+        inst.uv[3] = q.v1;
+        inst.extra[0] = q.r;
+        inst.extra[1] = q.g;
+        inst.extra[2] = q.b;
+        inst.extra[3] = q.a;
+        pendingBlit_.push_back(inst);
+    }
+    flushBlit(pass);
+
     for (const Isolate& iso : isolates) {
         auto ft = device_.createFrameTarget({iso.contentW, iso.contentH});
         if (!ft.ok()) {
@@ -176,8 +243,8 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         pass.end();
         const Mat4 localProj =
             Mat4::orthoYDown(0, 0, static_cast<float>(iso.contentW), static_cast<float>(iso.contentH));
-        submitLayer(encoder, iso.quads, iso.isolates, localProj, iso.contentW, iso.contentH, ft->native(),
-                    gpu::LoadOp::Clear);
+        submitLayer(encoder, iso.quads, iso.blits, iso.isolates, localProj, iso.contentW, iso.contentH,
+                    ft->native(), gpu::LoadOp::Clear);
 
         passDesc.load = gpu::LoadOp::Load;
         passDesc.nativeColor = nativeColor;
@@ -190,7 +257,14 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         blit.rect[1] = iso.destY;
         blit.rect[2] = iso.destW;
         blit.rect[3] = iso.destH;
+        blit.uv[0] = 0.f;
+        blit.uv[1] = 0.f;
+        blit.uv[2] = 1.f;
+        blit.uv[3] = 1.f;
         blit.extra[0] = iso.opacity;
+        blit.extra[1] = iso.opacity;
+        blit.extra[2] = iso.opacity;
+        blit.extra[3] = iso.opacity;
         pass.setPipeline(blit_);
         pass.setBytes(0, &blit, sizeof(blit));
         pass.setFragmentTexture(0, ft->native());
@@ -212,10 +286,11 @@ void Renderer::submit(const FramePacket& packet) {
     if (!drawable.ok()) {
         return;
     }
+    images_ = &packet.images;
     gpu::CommandEncoder encoder = device_.encoder();
     const Mat4 proj = Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y);
-    submitLayer(encoder, packet.quads, packet.isolates, proj, drawable->width(), drawable->height(), nullptr,
-                gpu::LoadOp::Clear);
+    submitLayer(encoder, packet.quads, packet.blits, packet.isolates, proj, drawable->width(),
+                drawable->height(), nullptr, gpu::LoadOp::Clear);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
@@ -237,6 +312,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
     pass.setBytes(1, &u, sizeof(u));
 
     pending_.clear();
+    pendingBlit_.clear();
+    pendingBlitTex_ = nullptr;
     auto addFill = [this](const FillRect& f) {
         SolidInstance inst{};
         inst.rect[0] = f.rect.origin.x;
@@ -250,10 +327,42 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         inst.color[3] = premul.w;
         pending_.push_back(inst);
     };
-    for (const Shape& s : group.shapes) {
-        if (const auto* f = std::get_if<FillRect>(&s)) {
-            addFill(*f);
+    auto addBlit = [this, &pass](const Blit& b) {
+        void* tex = gpuTexture(b.matter.imageId);
+        if (!tex) {
+            return;
         }
+        flushSolid(pass);
+        if (pendingBlitTex_ && pendingBlitTex_ != tex) {
+            flushBlit(pass);
+        }
+        pendingBlitTex_ = tex;
+        const Vec4 tint = b.matter.color.premul();
+        BlitInstance inst{};
+        inst.rect[0] = b.rect.origin.x;
+        inst.rect[1] = b.rect.origin.y;
+        inst.rect[2] = b.rect.size.x;
+        inst.rect[3] = b.rect.size.y;
+        inst.uv[0] = b.matter.uv.origin.x;
+        inst.uv[1] = b.matter.uv.origin.y;
+        inst.uv[2] = b.matter.uv.origin.x + b.matter.uv.size.x;
+        inst.uv[3] = b.matter.uv.origin.y + b.matter.uv.size.y;
+        inst.extra[0] = tint.x;
+        inst.extra[1] = tint.y;
+        inst.extra[2] = tint.z;
+        inst.extra[3] = tint.w;
+        pendingBlit_.push_back(inst);
+    };
+    auto emit = [&](const Shape& s) {
+        if (const auto* f = std::get_if<FillRect>(&s)) {
+            flushBlit(pass);
+            addFill(*f);
+        } else if (const auto* b = std::get_if<Blit>(&s)) {
+            addBlit(*b);
+        }
+    };
+    for (const Shape& s : group.shapes) {
+        emit(s);
     }
     for (const auto& child : group.children) {
         if (!child || needsIsolate(*child)) {
@@ -261,11 +370,14 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         }
         for (const Shape& s : child->shapes) {
             if (const auto* f = std::get_if<FillRect>(&s)) {
-                addFill(transformFill(child->params.transform, *f));
+                emit(transformFill(child->params.transform, *f));
+            } else if (const auto* b = std::get_if<Blit>(&s)) {
+                emit(transformBlit(child->params.transform, *b));
             }
         }
     }
     flushSolid(pass);
+    flushBlit(pass);
 
     for (const auto& child : group.children) {
         if (!child || !needsIsolate(*child)) {
@@ -299,7 +411,14 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         blit.rect[1] = dest.origin.y;
         blit.rect[2] = dest.size.x;
         blit.rect[3] = dest.size.y;
+        blit.uv[0] = 0.f;
+        blit.uv[1] = 0.f;
+        blit.uv[2] = 1.f;
+        blit.uv[3] = 1.f;
         blit.extra[0] = child->params.opacity;
+        blit.extra[1] = child->params.opacity;
+        blit.extra[2] = child->params.opacity;
+        blit.extra[3] = child->params.opacity;
         pass.setPipeline(blit_);
         pass.setBytes(0, &blit, sizeof(blit));
         pass.setFragmentTexture(0, ft->native());
@@ -321,6 +440,7 @@ void Renderer::draw(const Scene& scene) {
     if (!drawable.ok()) {
         return;
     }
+    images_ = &scene.images;
     Group root = merge(scene.root, &stats_);
     gpu::CommandEncoder encoder = device_.encoder();
     const Mat4 proj = Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y);

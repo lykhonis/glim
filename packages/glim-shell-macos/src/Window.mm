@@ -2,10 +2,12 @@
 
 #include "WindowRegistry.h"
 
+#include <algorithm>
 #include <vector>
 
 #import <AppKit/AppKit.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/CATransaction.h>
 
 using glim::shell::Event;
 using glim::shell::EventType;
@@ -58,6 +60,21 @@ using glim::shell::Window;
     [self notifyResized];
 }
 
+- (void)viewWillStartLiveResize {
+    [super viewWillStartLiveResize];
+    if ([self.layer isKindOfClass:[CAMetalLayer class]]) {
+        ((CAMetalLayer*)self.layer).presentsWithTransaction = YES;
+    }
+}
+
+- (void)viewDidEndLiveResize {
+    [super viewDidEndLiveResize];
+    if ([self.layer isKindOfClass:[CAMetalLayer class]]) {
+        ((CAMetalLayer*)self.layer).presentsWithTransaction = NO;
+    }
+    [self notifyResized];
+}
+
 - (void)windowWillClose:(NSNotification*)notification {
     (void)notification;
     if (eventCallback_) {
@@ -71,8 +88,13 @@ using glim::shell::Window;
     }
     CAMetalLayer* layer = (CAMetalLayer*)self.layer;
     const CGFloat scale = self.window ? self.window.backingScaleFactor : 1.0;
+    const NSSize backing = [self convertSizeToBacking:self.bounds.size];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
     layer.contentsScale = scale;
-    layer.drawableSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
+    layer.contentsGravity = kCAGravityResize;
+    layer.drawableSize = CGSizeMake(std::max(1.0, backing.width), std::max(1.0, backing.height));
+    [CATransaction commit];
 }
 
 - (void)notifyResized {
@@ -111,6 +133,7 @@ Window::Window() {
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     view.postsFrameChangedNotifications = YES;
     view.wantsLayer = YES;
+    view.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
     window.delegate = view;
     window.releasedWhenClosed = NO;
     window.colorSpace = [NSColorSpace sRGBColorSpace];
@@ -176,9 +199,14 @@ void Window::setEventCallback(EventCallback callback) {
     [(__bridge GlimView*)view_ setEventCallback:std::move(callback)];
 }
 
-Vec2 Window::size() const {
-    const NSSize s = ((__bridge GlimView*)view_).bounds.size;
-    return {static_cast<float>(s.width), static_cast<float>(s.height)};
+Vec2 Window::drawableSize() const {
+    NSView* view = (__bridge NSView*)view_;
+    if ([view.layer isKindOfClass:[CAMetalLayer class]]) {
+        const CGSize s = ((CAMetalLayer*)view.layer).drawableSize;
+        return {static_cast<float>(s.width), static_cast<float>(s.height)};
+    }
+    const NSSize backing = [view convertSizeToBacking:view.bounds.size];
+    return {static_cast<float>(backing.width), static_cast<float>(backing.height)};
 }
 
 float Window::pixelRatio() const {
@@ -187,10 +215,13 @@ float Window::pixelRatio() const {
     return static_cast<float>(scale);
 }
 
-Vec2 Window::drawableSize() const {
-    const Vec2 logical = size();
+Vec2 Window::size() const {
     const float r = pixelRatio();
-    return {logical.x * r, logical.y * r};
+    const Vec2 drawable = drawableSize();
+    if (r <= 0.f) {
+        return drawable;
+    }
+    return {drawable.x / r, drawable.y / r};
 }
 
 Rect Window::safeArea() const {

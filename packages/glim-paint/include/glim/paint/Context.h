@@ -20,6 +20,11 @@ public:
     void setFillColor(Color color) { setFill(Matter::solid(color)); }
     void setFillColor(std::uint32_t rgba) { setFillColor(Color{rgba}); }
     void fill(const Rect&);
+    std::uint32_t addImage(int width, int height, const std::uint8_t* rgba);
+    void releaseImage(std::uint32_t id);
+    const ImageStore& images() const { return images_; }
+    void blit(const Rect& dst, Matter matter);
+    void blit(const Rect& dst, std::uint32_t imageId) { blit(dst, Matter::sampled(imageId)); }
     void translate(Vec2);
     void save();
     void restore();
@@ -43,6 +48,7 @@ private:
     std::vector<State> stack_;
     std::vector<Group*> groupStack_;
     Scene scene_{};
+    ImageStore images_{};
     bool recording_ = false;
 };
 

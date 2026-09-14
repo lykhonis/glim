@@ -46,7 +46,7 @@ void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
     }
 }
 
-void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g);
+void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images);
 
 void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixel>& src, int sw, int sh,
                 Rect dstRect, float opacity) {
@@ -70,20 +70,59 @@ void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixe
     }
 }
 
-void paintMerged(std::vector<Pixel>& dest, int w, int h, const Group& g) {
-    for (const Shape& s : g.shapes) {
-        if (const auto* f = std::get_if<FillRect>(&s)) {
-            fillRect(dest, w, h, *f);
-        }
+void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const ImageStore& images,
+               Vec4 tint) {
+    const StoredImage* img = images.get(b.matter.imageId);
+    if (!img) {
+        return;
     }
-    for (const auto& child : g.children) {
-        if (child) {
-            rasterGroup(dest, w, h, *child);
+    const int x0 = std::max(0, static_cast<int>(std::floor(b.rect.origin.x)));
+    const int y0 = std::max(0, static_cast<int>(std::floor(b.rect.origin.y)));
+    const int x1 = std::min(w, static_cast<int>(std::ceil(b.rect.origin.x + b.rect.size.x)));
+    const int y1 = std::min(h, static_cast<int>(std::ceil(b.rect.origin.y + b.rect.size.y)));
+    const float u0 = b.matter.uv.origin.x;
+    const float v0 = b.matter.uv.origin.y;
+    const float du = b.matter.uv.size.x;
+    const float dv = b.matter.uv.size.y;
+    const float iw = static_cast<float>(img->width);
+    const float ih = static_cast<float>(img->height);
+    for (int y = y0; y < y1; ++y) {
+        const float fy = b.rect.size.y <= 0 ? 0.f
+                                            : (static_cast<float>(y) + 0.5f - b.rect.origin.y) / b.rect.size.y;
+        const float v = v0 + fy * dv;
+        const int sy = std::min(img->height - 1, std::max(0, static_cast<int>(v * ih)));
+        for (int x = x0; x < x1; ++x) {
+            const float fx = b.rect.size.x <= 0 ? 0.f
+                                                : (static_cast<float>(x) + 0.5f - b.rect.origin.x) / b.rect.size.x;
+            const float u = u0 + fx * du;
+            const int sx = std::min(img->width - 1, std::max(0, static_cast<int>(u * iw)));
+            const std::uint8_t* px = img->rgba.data() + static_cast<std::size_t>((sy * img->width + sx) * 4);
+            Pixel src{px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f};
+            src.r *= src.a * tint.x;
+            src.g *= src.a * tint.y;
+            src.b *= src.a * tint.z;
+            src.a *= tint.w;
+            srcOver(dest[static_cast<std::size_t>(y * w + x)], src);
         }
     }
 }
 
-void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g) {
+void paintMerged(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images) {
+    for (const Shape& s : g.shapes) {
+        if (const auto* f = std::get_if<FillRect>(&s)) {
+            fillRect(dest, w, h, *f);
+        } else if (const auto* blit = std::get_if<Blit>(&s)) {
+            blitImage(dest, w, h, *blit, images, blit->matter.color.premul());
+        }
+    }
+    for (const auto& child : g.children) {
+        if (child) {
+            rasterGroup(dest, w, h, *child, images);
+        }
+    }
+}
+
+void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images) {
     if (needsIsolate(g)) {
         Rect b = g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g);
         const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
@@ -93,29 +132,43 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g) {
         local->params.opacity = 1.0f;
         local->params.isolate = false;
         local->params.transform = Mat4::identity();
-        paintMerged(tmp, iw, ih, *local);
+        paintMerged(tmp, iw, ih, *local, images);
         const Rect xf = transformRect(g.params.transform, Rect{{0, 0}, b.size});
         blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
         return;
     }
-    paintMerged(dest, w, h, g);
+    paintMerged(dest, w, h, g, images);
 }
 
-void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso);
+void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, const ImageStore& images);
+
+void paintBlits(std::vector<Pixel>& dest, int w, int h, const std::vector<BlitQuad>& blits,
+                const ImageStore& images) {
+    for (const BlitQuad& q : blits) {
+        Blit b;
+        b.rect = {{q.x, q.y}, {q.w, q.h}};
+        b.matter.kind = MatterKind::Sampled;
+        b.matter.imageId = q.imageId;
+        b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
+        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a});
+    }
+}
 
 void paintQuads(std::vector<Pixel>& dest, int w, int h, const std::vector<Quad>& quads,
-                const std::vector<Isolate>& isolates) {
+                const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
+                const ImageStore& images) {
     for (const Quad& q : quads) {
         fillQuad(dest, w, h, q);
     }
+    paintBlits(dest, w, h, blits, images);
     for (const Isolate& iso : isolates) {
-        rasterIsolate(dest, w, h, iso);
+        rasterIsolate(dest, w, h, iso, images);
     }
 }
 
-void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso) {
+void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, const ImageStore& images) {
     std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
-    paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.isolates);
+    paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.isolates, images);
     blitBuffer(dest, w, h, tmp, iso.contentW, iso.contentH,
                Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}}, iso.opacity);
 }
@@ -135,14 +188,14 @@ void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba) 
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     Group root = merge(scene.root, nullptr);
-    rasterGroup(buf, width, height, root);
+    rasterGroup(buf, width, height, root, scene.images);
     toRgba(buf, rgba);
 }
 
 void rasterPacket(const FramePacket& packet, int width, int height, std::uint8_t* rgba) {
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
-    paintQuads(buf, width, height, packet.quads, packet.isolates);
+    paintQuads(buf, width, height, packet.quads, packet.blits, packet.isolates, packet.images);
     toRgba(buf, rgba);
 }
 

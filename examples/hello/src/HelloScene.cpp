@@ -2,6 +2,36 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <vector>
+
+namespace {
+
+std::uint32_t helloBadge(glim::paint::Context& context) {
+    static std::uint32_t id = 0;
+    if (id != 0) {
+        return id;
+    }
+    constexpr int k = 32;
+    std::vector<std::uint8_t> px(static_cast<std::size_t>(k * k * 4));
+    for (int y = 0; y < k; ++y) {
+        for (int x = 0; x < k; ++x) {
+            const bool cell = ((x / 8) + (y / 8)) % 2 == 0;
+            const std::uint8_t r = cell ? 0x2a : 0xf0;
+            const std::uint8_t g = cell ? 0x9d : 0xd5;
+            const std::uint8_t b = cell ? 0x8f : 0xa8;
+            const std::size_t i = static_cast<std::size_t>((y * k + x) * 4);
+            px[i + 0] = r;
+            px[i + 1] = g;
+            px[i + 2] = b;
+            px[i + 3] = 0xff;
+        }
+    }
+    id = context.addImage(k, k, px.data());
+    return id;
+}
+
+}  // namespace
 
 void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSeconds) {
     using glim::Mat4;
@@ -10,6 +40,7 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
 
     context.setSize(size);
     context.beginFrame();
+    const std::uint32_t badge = helloBadge(context);
 
     context.setFillColor(0x243038ff);
     context.fill(Rect::fromSize(size));
@@ -32,6 +63,9 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     context.translate({140.f, 80.f});
     context.setFillColor(0xf0d5a8ff);
     context.fill(Rect::fromSize({80.f, 48.f}));
+    if (badge != 0) {
+        context.blit(Rect{{8.f, 8.f}, {32.f, 32.f}}, badge);
+    }
     context.restore();
 
     GroupParams glass;

@@ -24,7 +24,7 @@ void Surface::attach(Window& window) {
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     layer.framebufferOnly = YES;
     layer.opaque = YES;
-    layer.contentsGravity = kCAGravityTopLeft;
+    layer.contentsGravity = kCAGravityResize;
     static CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     layer.colorspace = srgb;
     layer.wantsExtendedDynamicRangeContent = NO;

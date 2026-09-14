@@ -44,10 +44,13 @@ private:
 #if !GLIM_SOFTWARE
     bool ensurePipelines();
     void flushSolid(gpu::Pass& pass);
+    void flushBlit(gpu::Pass& pass);
+    void* gpuTexture(std::uint32_t imageId);
 #if GLIM_EMBED
     void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
-                     const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
-                     int viewportH, void* nativeColor, gpu::LoadOp load);
+                     const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
+                     const Mat4& projection, int viewportW, int viewportH, void* nativeColor,
+                     gpu::LoadOp load);
 #else
     void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
                      int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load);
@@ -60,7 +63,16 @@ private:
         float rect[4];
         float color[4];
     };
+    struct BlitInstance {
+        float rect[4];
+        float uv[4];
+        float extra[4];
+    };
     std::vector<SolidInstance> pending_;
+    std::vector<BlitInstance> pendingBlit_;
+    void* pendingBlitTex_ = nullptr;
+    std::vector<gpu::Texture> gpuImages_;
+    const ImageStore* images_ = nullptr;
 #else
     std::uint8_t* rgba_ = nullptr;
     int width_ = 0;

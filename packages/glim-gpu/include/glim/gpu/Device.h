@@ -67,8 +67,14 @@ class Texture {
 public:
     Texture() = default;
     Handle handle() const { return handle_; }
+    void* native() const { return native_; }
+    int width() const { return width_; }
+    int height() const { return height_; }
 
     Handle handle_ = 0;
+    void* native_ = nullptr;
+    int width_ = 0;
+    int height_ = 0;
 };
 
 class Shader {
@@ -157,10 +163,12 @@ public:
 
     Queue& queue();
     Result<Drawable> nextDrawable();
+    void setDrawableSize(int width, int height);
     Result<FrameTarget> createFrameTarget(const FrameTargetDesc&);
     Result<Buffer> createBuffer(const BufferDesc&);
     void writeBuffer(Buffer&, const void* data, std::uint64_t size);
     Result<Texture> createTexture(const TextureDesc&);
+    void writeTexture(Texture&, const void* rgba8, std::uint64_t bytes);
     Result<Shader> createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size);
     Result<Pipeline> createPipeline(const PipelineDesc&);
     Result<Bindings> createBindings(const BindingsDesc&);

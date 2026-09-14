@@ -3,6 +3,7 @@ using namespace metal;
 
 struct Instance {
     float4 rect;
+    float4 uv;
     float4 extra;
 };
 
@@ -13,7 +14,7 @@ struct Uniforms {
 struct VSOut {
     float4 position [[position]];
     float2 uv;
-    float opacity;
+    float4 tint;
 };
 
 vertex VSOut vs_main(uint vid [[vertex_id]],
@@ -28,13 +29,13 @@ vertex VSOut vs_main(uint vid [[vertex_id]],
     const Instance inst = instances[iid];
     VSOut out;
     out.position = uniforms.projection * float4(inst.rect.xy + p * inst.rect.zw, 0.0, 1.0);
-    out.uv = p;
-    out.opacity = inst.extra.x;
+    out.uv = mix(inst.uv.xy, inst.uv.zw, p);
+    out.tint = inst.extra;
     return out;
 }
 
 fragment float4 fs_main(VSOut in [[stage_in]],
                         texture2d<float> tex [[texture(0)]],
                         sampler samp [[sampler(0)]]) {
-    return tex.sample(samp, in.uv) * in.opacity;
+    return tex.sample(samp, in.uv) * in.tint;
 }

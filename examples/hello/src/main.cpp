@@ -60,6 +60,8 @@ int main() {
         renderer->draw(context.scene());
         window.presentSoftware();
 #else
+        const glim::Vec2 drawable = window.drawableSize();
+        device.setDrawableSize(static_cast<int>(drawable.x), static_cast<int>(drawable.y));
         renderer.draw(context.scene());
 #endif
     };

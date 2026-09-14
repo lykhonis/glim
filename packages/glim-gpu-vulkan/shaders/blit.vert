@@ -2,6 +2,7 @@
 
 struct Instance {
     vec4 rect;
+    vec4 uv;
     vec4 extra;
 };
 
@@ -14,7 +15,7 @@ layout(std140, set = 0, binding = 1) uniform Uniforms {
 };
 
 layout(location = 0) out vec2 v_uv;
-layout(location = 1) out float v_opacity;
+layout(location = 1) out vec4 v_tint;
 
 void main() {
     const vec2 unit[6] = vec2[](
@@ -23,6 +24,6 @@ void main() {
     const vec2 p = unit[gl_VertexIndex];
     const Instance inst = instances[gl_InstanceIndex];
     gl_Position = projection * vec4(inst.rect.xy + p * inst.rect.zw, 0.0, 1.0);
-    v_uv = p;
-    v_opacity = inst.extra.x;
+    v_uv = mix(inst.uv.xy, inst.uv.zw, p);
+    v_tint = inst.extra;
 }

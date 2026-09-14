@@ -64,6 +64,20 @@ FillRect transformFill(const Mat4& t, const FillRect& src) {
     return out;
 }
 
+Blit transformBlit(const Mat4& t, const Blit& src) {
+    Blit out = src;
+    out.rect = transformRect(t, src.rect);
+    return out;
+}
+
+void appendTransformed(std::vector<Shape>& dst, const Mat4& t, const Shape& s) {
+    if (const auto* f = std::get_if<FillRect>(&s)) {
+        dst.emplace_back(transformFill(t, *f));
+    } else if (const auto* b = std::get_if<Blit>(&s)) {
+        dst.emplace_back(transformBlit(t, *b));
+    }
+}
+
 bool needsIsolate(const Group& g) {
     if (g.params.isolate) {
         return true;
@@ -89,6 +103,8 @@ Rect contentBounds(const Group& g) {
     for (const Shape& s : g.shapes) {
         if (const auto* f = std::get_if<FillRect>(&s)) {
             b = unionRect(b, f->rect);
+        } else if (const auto* blit = std::get_if<Blit>(&s)) {
+            b = unionRect(b, blit->rect);
         }
     }
     for (const auto& child : g.children) {
@@ -112,9 +128,7 @@ Group merge(Group g, Stats* stats) {
                 ++stats->mergedGroupCount;
             }
             for (const Shape& s : child.shapes) {
-                if (const auto* f = std::get_if<FillRect>(&s)) {
-                    g.shapes.emplace_back(transformFill(child.params.transform, *f));
-                }
+                appendTransformed(g.shapes, child.params.transform, s);
             }
             for (auto& grand : child.children) {
                 if (!grand) {

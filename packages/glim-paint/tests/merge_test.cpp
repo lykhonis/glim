@@ -1,6 +1,7 @@
 #include <glim/paint/Context.h>
 #include <glim/paint/Scene.h>
 
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 
@@ -80,6 +81,22 @@ int main() {
     merged = glim::paint::merge(std::move(glass.scene().root), &stats);
     expect(merged.children.size() == 1, "translucent group stays isolated");
     expect(glim::paint::needsIsolate(*merged.children[0]), "opacity isolates");
+
+    glim::paint::Context blitCtx;
+    blitCtx.setSize({100, 100});
+    blitCtx.beginFrame();
+    blitCtx.setFillColor(0x0000ffff);
+    blitCtx.fill(glim::Rect::fromSize({100, 100}));
+    const std::uint8_t px[4] = {255, 0, 0, 255};
+    const std::uint32_t imageId = blitCtx.addImage(1, 1, px);
+    expect(imageId != 0, "addImage returns id");
+    blitCtx.blit(glim::Rect{{10, 10}, {20, 20}}, imageId);
+    blitCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(blitCtx.scene().root), &stats);
+    expect(merged.shapes.size() == 2, "fill + blit after merge");
+    expect(std::get_if<glim::paint::Blit>(&merged.shapes[1]) != nullptr, "second shape is Blit");
+    expect(blitCtx.addImage(5000, 1, px) == 0, "reject oversize side");
 
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";

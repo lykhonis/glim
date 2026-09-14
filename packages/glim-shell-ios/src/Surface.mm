@@ -5,6 +5,8 @@
 #import <UIKit/UIKit.h>
 
 #include <TargetConditionals.h>
+#include <algorithm>
+#include <cmath>
 
 namespace glim::shell {
 
@@ -35,7 +37,9 @@ void Surface::attach(Window& window) {
     const CGFloat scale = view.traitCollection.displayScale > 0 ? view.traitCollection.displayScale : 1.0;
     view.contentScaleFactor = scale;
     layer.contentsScale = scale;
-    layer.drawableSize = CGSizeMake(view.bounds.size.width * scale, view.bounds.size.height * scale);
+    layer.drawableSize =
+        CGSizeMake(std::max(1.0, std::round(view.bounds.size.width * scale)),
+                   std::max(1.0, std::round(view.bounds.size.height * scale)));
     view_ = (__bridge void*)view;
     layer_ = (__bridge void*)layer;
 }

@@ -2,6 +2,7 @@
 
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/CATransaction.h>
 
 #include <algorithm>
 #include <cstring>
@@ -150,13 +151,21 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
 }
 
 void CommandEncoder::present(const Drawable& drawable) {
-    id<CAMetalDrawable> d = (__bridge id<CAMetalDrawable>)drawable.native();
-    if (d) {
-        [impl_->commandBuffer presentDrawable:d];
-    }
+    impl_->drawable = (__bridge id<CAMetalDrawable>)drawable.native();
 }
 
 void CommandEncoder::submit(Queue&) {
+    const bool synced = impl_->device && impl_->device->impl_ && impl_->device->impl_->layer &&
+                        impl_->device->impl_->layer.presentsWithTransaction;
+    if (synced && impl_->drawable) {
+        [impl_->commandBuffer commit];
+        [impl_->commandBuffer waitUntilScheduled];
+        [impl_->drawable present];
+        return;
+    }
+    if (impl_->drawable) {
+        [impl_->commandBuffer presentDrawable:impl_->drawable];
+    }
     [impl_->commandBuffer commit];
 }
 
@@ -203,6 +212,16 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
 
 Queue& Device::queue() {
     return impl_->queueWrapper;
+}
+
+void Device::setDrawableSize(int width, int height) {
+    if (!impl_ || !impl_->layer || width <= 0 || height <= 0) {
+        return;
+    }
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    impl_->layer.drawableSize = CGSizeMake(static_cast<CGFloat>(width), static_cast<CGFloat>(height));
+    [CATransaction commit];
 }
 
 Result<Drawable> Device::nextDrawable() {
@@ -268,10 +287,44 @@ void Device::writeBuffer(Buffer& buffer, const void* data, std::uint64_t size) {
     std::memcpy(buf.contents, data, static_cast<size_t>(std::min<std::uint64_t>(size, buffer.size())));
 }
 
-Result<Texture> Device::createTexture(const TextureDesc&) {
+Result<Texture> Device::createTexture(const TextureDesc& desc) {
+    const int w = std::max(desc.width, 1);
+    const int h = std::max(desc.height, 1);
+    MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                  width:static_cast<NSUInteger>(w)
+                                                                                 height:static_cast<NSUInteger>(h)
+                                                                              mipmapped:NO];
+    td.usage = MTLTextureUsageShaderRead;
+    td.storageMode = MTLStorageModeShared;
+    id<MTLTexture> tex = [impl_->device newTextureWithDescriptor:td];
+    if (!tex) {
+        return Result<Texture>::fail("Metal texture failed");
+    }
     Texture t;
     t.handle_ = impl_->next++;
+    t.width_ = w;
+    t.height_ = h;
+    if (t.handle_ >= impl_->textures.size()) {
+        impl_->textures.resize(t.handle_ + 1);
+    }
+    impl_->textures[t.handle_] = tex;
+    t.native_ = (__bridge void*)tex;
     return Result<Texture>::ok(t);
+}
+
+void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t bytes) {
+    id<MTLTexture> tex = (__bridge id<MTLTexture>)texture.native();
+    if (!tex || !rgba8 || texture.width() <= 0 || texture.height() <= 0) {
+        return;
+    }
+    const NSUInteger bpr = static_cast<NSUInteger>(texture.width()) * 4;
+    const std::uint64_t need = static_cast<std::uint64_t>(bpr) * static_cast<std::uint64_t>(texture.height());
+    if (bytes < need) {
+        return;
+    }
+    MTLRegion region = MTLRegionMake2D(0, 0, static_cast<NSUInteger>(texture.width()),
+                                       static_cast<NSUInteger>(texture.height()));
+    [tex replaceRegion:region mipmapLevel:0 withBytes:rgba8 bytesPerRow:bpr];
 }
 
 Result<Shader> Device::createShader(ShaderStage stage, const char* sourceUtf8, std::uint64_t size) {

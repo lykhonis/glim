@@ -17,11 +17,13 @@ void Context::beginFrame() {
     groupStack_.clear();
     scene_.logicalSize = size_;
     scene_.root = Group{};
+    scene_.images = images_;
 }
 
 void Context::finish() {
     recording_ = false;
     groupStack_.clear();
+    scene_.images = images_;
 }
 
 void Context::setFill(Matter matter) {
@@ -32,7 +34,26 @@ void Context::fill(const Rect& rect) {
     if (!recording_) {
         return;
     }
-    current()->shapes.emplace_back(transformFill(state_.model, FillRect{rect, state_.fill}));
+    current()->shapes.emplace_back(
+        transformFill(state_.model, FillRect{rect, Matter::solid(state_.fill.color)}));
+}
+
+std::uint32_t Context::addImage(int width, int height, const std::uint8_t* rgba) {
+    return images_.add(width, height, rgba);
+}
+
+void Context::releaseImage(std::uint32_t id) {
+    images_.release(id);
+}
+
+void Context::blit(const Rect& dst, Matter matter) {
+    if (!recording_) {
+        return;
+    }
+    if (matter.kind == MatterKind::Solid) {
+        matter.kind = MatterKind::Sampled;
+    }
+    current()->shapes.emplace_back(transformBlit(state_.model, Blit{dst, matter}));
 }
 
 void Context::translate(Vec2 offset) {
