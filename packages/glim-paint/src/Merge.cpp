@@ -22,7 +22,7 @@ Rect unionRect(Rect a, Rect b) {
 
 }  // namespace
 
-Group::Group(const Group& o) : params(o.params), shapes(o.shapes) {
+Group::Group(const Group& o) : params(o.params), shapes(o.shapes), order(o.order) {
     children.reserve(o.children.size());
     for (const auto& child : o.children) {
         if (child) {
@@ -43,6 +43,7 @@ std::unique_ptr<Group> cloneGroup(const Group& g) {
     auto out = std::make_unique<Group>();
     out->params = g.params;
     out->shapes = g.shapes;
+    out->order = g.order;
     out->children.reserve(g.children.size());
     for (const auto& child : g.children) {
         if (child) {
@@ -152,6 +153,28 @@ void appendTransformed(std::vector<Shape>& dst, const Mat4& t, const Shape& s) {
     dst.push_back(transformShape(t, s));
 }
 
+float snapBackdropSigma(float sigma) {
+    if (sigma <= 0.f) {
+        return 0.f;
+    }
+    if (sigma < 6.f) {
+        return 4.f;
+    }
+    if (sigma < 12.f) {
+        return 8.f;
+    }
+    return 16.f;
+}
+
+int isolatePixelSize(float logical, float pixelRatio) {
+    const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
+    return std::max(1, static_cast<int>(std::ceil(logical * pr)));
+}
+
+bool hasBackdrop(const Group& g) {
+    return snapBackdropSigma(g.params.backdropBlur) > 0.f || g.params.backdropBend > 0.f;
+}
+
 bool needsIsolate(const Group& g) {
     if (g.params.isolate) {
         return true;
@@ -160,6 +183,9 @@ bool needsIsolate(const Group& g) {
         return true;
     }
     if (g.params.transform.is3D()) {
+        return true;
+    }
+    if (hasBackdrop(g)) {
         return true;
     }
     return false;
@@ -211,36 +237,57 @@ Rect contentBounds(const Group& g) {
 }
 
 Group merge(Group g, Stats* stats) {
-    std::vector<std::unique_ptr<Group>> kept;
-    kept.reserve(g.children.size());
-    for (auto& childPtr : g.children) {
-        if (!childPtr) {
-            continue;
-        }
-        Group child = merge(std::move(*childPtr), stats);
-        if (canMerge(child)) {
+    Group out;
+    out.params = g.params;
+    bool lock = false;
+    auto takeChild = [&](Group child) {
+        if (canMerge(child) && !lock) {
             if (stats) {
                 ++stats->mergedGroupCount;
             }
             for (const Shape& s : child.shapes) {
-                appendTransformed(g.shapes, child.params.transform, s);
+                appendTransformed(out.shapes, child.params.transform, s);
+                out.order.push_back({GroupItem::Shape, static_cast<std::uint32_t>(out.shapes.size() - 1)});
             }
             for (auto& grand : child.children) {
                 if (!grand) {
                     continue;
                 }
                 grand->params.transform = child.params.transform * grand->params.transform;
-                kept.push_back(std::move(grand));
+                out.order.push_back({GroupItem::Child, static_cast<std::uint32_t>(out.children.size())});
+                out.children.push_back(std::move(grand));
+                lock = true;
             }
-        } else {
-            kept.push_back(std::make_unique<Group>(std::move(child)));
+            return;
+        }
+        lock = true;
+        out.order.push_back({GroupItem::Child, static_cast<std::uint32_t>(out.children.size())});
+        out.children.push_back(std::make_unique<Group>(std::move(child)));
+    };
+
+    if (g.order.empty()) {
+        for (std::size_t i = 0; i < g.shapes.size(); ++i) {
+            g.order.push_back({GroupItem::Shape, static_cast<std::uint32_t>(i)});
+        }
+        for (std::size_t i = 0; i < g.children.size(); ++i) {
+            g.order.push_back({GroupItem::Child, static_cast<std::uint32_t>(i)});
         }
     }
-    g.children = std::move(kept);
-    if (g.params.bounds.size.x <= 0 || g.params.bounds.size.y <= 0) {
-        g.params.bounds = contentBounds(g);
+    for (const GroupItem& item : g.order) {
+        if (item.kind == GroupItem::Shape) {
+            if (item.index >= g.shapes.size()) {
+                continue;
+            }
+            out.shapes.push_back(g.shapes[item.index]);
+            out.order.push_back({GroupItem::Shape, static_cast<std::uint32_t>(out.shapes.size() - 1)});
+        } else if (item.index < g.children.size() && g.children[item.index]) {
+            takeChild(merge(std::move(*g.children[item.index]), stats));
+        }
     }
-    return g;
+    if (out.params.bounds.size.x <= 0 || out.params.bounds.size.y <= 0) {
+        out.params.bounds = contentBounds(out);
+    }
+    return out;
 }
 
 namespace {

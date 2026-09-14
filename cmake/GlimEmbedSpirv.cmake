@@ -26,5 +26,7 @@ glim_spv_bytes("${GLIM_SPV_DIR}/rounded.vert.spv" GLIM_ROUNDED_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/rounded.frag.spv" GLIM_ROUNDED_FRAG_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/glyph.vert.spv" GLIM_GLYPH_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/glyph.frag.spv" GLIM_GLYPH_FRAG_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/blur.vert.spv" GLIM_BLUR_VERT_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/blur.frag.spv" GLIM_BLUR_FRAG_SPV)
 
 configure_file("${GLIM_HEADER_IN}" "${GLIM_HEADER_OUT}" @ONLY)

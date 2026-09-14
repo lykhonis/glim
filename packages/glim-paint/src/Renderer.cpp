@@ -3,6 +3,7 @@
 #if GLIM_SOFTWARE
 #include <glim/paint/Software.h>
 #else
+#include <glim/assert.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -82,6 +83,9 @@ std::string loadShader(const char* name) {
     if (std::strcmp(name, "glyph.metal") == 0) {
         return glim::metal_shaders::glyph;
     }
+    if (std::strcmp(name, "blur.metal") == 0) {
+        return glim::metal_shaders::blur;
+    }
     return {};
 }
 #endif
@@ -110,7 +114,8 @@ bool Renderer::ensurePipelines() {
     const std::string blitSrc = loadShader("blit.metal");
     const std::string roundedSrc = loadShader("rounded.metal");
     const std::string glyphSrc = loadShader("glyph.metal");
-    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty()) {
+    const std::string blurSrc = loadShader("blur.metal");
+    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty() || blurSrc.empty()) {
         return false;
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
@@ -198,6 +203,30 @@ bool Renderer::ensurePipelines() {
         return false;
     }
     glyph_ = std::move(glyph.value());
+
+#if GLIM_GPU_VULKAN
+    auto blvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blur_vert),
+        sizeof(glim::vulkan_shaders::blur_vert));
+    auto blfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blur_frag),
+        sizeof(glim::vulkan_shaders::blur_frag));
+#else
+    auto blvs = device_.createShader(gpu::ShaderStage::Vertex, blurSrc.data(), blurSrc.size());
+    auto blfs = device_.createShader(gpu::ShaderStage::Fragment, blurSrc.data(), blurSrc.size());
+#endif
+    if (!blvs.ok() || !blfs.ok()) {
+        return false;
+    }
+    pd.vertexShader = blvs->handle();
+    pd.fragmentShader = blfs->handle();
+    auto blur = device_.createPipeline(pd);
+    if (!blur.ok()) {
+        return false;
+    }
+    blur_ = std::move(blur.value());
     ready_ = true;
     return true;
 }
@@ -402,10 +431,85 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
             continue;
         }
         pass.end();
+        gpu::LoadOp plateLoad = gpu::LoadOp::Clear;
+        if (iso.backdropSigma > 0.f) {
+            const int hw = std::max(1, viewportW / 2);
+            const int hh = std::max(1, viewportH / 2);
+            if (!backdrop_.native() || backdrop_.width() != hw || backdrop_.height() != hh) {
+                auto bg = device_.createFrameTarget({hw, hh});
+                if (bg.ok()) {
+                    backdrop_ = std::move(bg.value());
+                }
+            }
+            if (backdrop_.native()) {
+                if (!encoder.copyColorTo(backdrop_)) {
+                    void* src = nativeColor ? nativeColor : device_.colorNative();
+                    if (src) {
+                        gpu::PassDesc down;
+                        down.nativeColor = backdrop_.native();
+                        down.load = gpu::LoadOp::DontCare;
+                        down.viewportW = hw;
+                        down.viewportH = hh;
+                        gpu::Pass dp = encoder.beginPass(down);
+                        Uniforms du{};
+                        const Mat4 dproj =
+                            Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
+                        std::memcpy(du.projection, dproj.m, sizeof(du.projection));
+                        dp.setBytes(1, &du, sizeof(du));
+                        BlitInstance blit{};
+                        blit.rect[0] = 0.f;
+                        blit.rect[1] = 0.f;
+                        blit.rect[2] = static_cast<float>(hw);
+                        blit.rect[3] = static_cast<float>(hh);
+                        blit.uv[2] = 1.f;
+                        blit.uv[3] = 1.f;
+                        blit.extra[0] = blit.extra[1] = blit.extra[2] = blit.extra[3] = 1.f;
+                        dp.setPipeline(blit_);
+                        dp.setBytes(0, &blit, sizeof(blit));
+                        dp.setFragmentTexture(0, src);
+                        dp.setFragmentSampler(0, device_.nativeSampler());
+                        dp.draw(6, 1, 0, 0);
+                        dp.end();
+                    }
+                }
+                gpu::PassDesc plate;
+                plate.nativeColor = ft->native();
+                plate.load = gpu::LoadOp::Clear;
+                plate.clear = {0, 0, 0, 0};
+                plate.viewportW = iso.contentW;
+                plate.viewportH = iso.contentH;
+                gpu::Pass gp = encoder.beginPass(plate);
+                Uniforms gu{};
+                const Mat4 localProj =
+                    Mat4::orthoYDown(0, 0, iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+                                     iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
+                std::memcpy(gu.projection, localProj.m, sizeof(gu.projection));
+                gp.setBytes(1, &gu, sizeof(gu));
+                BlitInstance back{};
+                back.rect[2] = iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW);
+                back.rect[3] = iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH);
+                back.uv[0] = iso.backdropU0;
+                back.uv[1] = iso.backdropV0;
+                back.uv[2] = iso.backdropU1;
+                back.uv[3] = iso.backdropV1;
+                back.extra[0] = iso.backdropSigma * 0.5f;
+                back.extra[1] = iso.backdropBend;
+                back.extra[2] = 1.f / static_cast<float>(std::max(1, backdrop_.width()));
+                back.extra[3] = 1.f / static_cast<float>(std::max(1, backdrop_.height()));
+                gp.setPipeline(blur_.native() ? blur_ : blit_);
+                gp.setBytes(0, &back, sizeof(back));
+                gp.setFragmentTexture(0, backdrop_.native());
+                gp.setFragmentSampler(0, device_.nativeSampler());
+                gp.draw(6, 1, 0, 0);
+                gp.end();
+                plateLoad = gpu::LoadOp::Load;
+            }
+        }
         const Mat4 localProj =
-            Mat4::orthoYDown(0, 0, static_cast<float>(iso.contentW), static_cast<float>(iso.contentH));
+            Mat4::orthoYDown(0, 0, iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+                             iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
         submitLayer(encoder, iso.quads, iso.blits, iso.isolates, localProj, iso.contentW, iso.contentH,
-                    ft->native(), gpu::LoadOp::Clear);
+                    ft->native(), plateLoad);
 
         passDesc.load = gpu::LoadOp::Load;
         passDesc.nativeColor = nativeColor;
@@ -464,7 +568,8 @@ void Renderer::submit(const FramePacket& packet) {
 #else
 
 void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
-                           int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load) {
+                           int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
+                           float pixelRatio, Vec2 logicalSize, const Mat4& extraRoot) {
     gpu::PassDesc passDesc;
     passDesc.nativeColor = nativeColor;
     passDesc.load = load;
@@ -575,11 +680,68 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         pendingBlit_.push_back(inst);
     };
 
-    struct PendingIso {
-        const Group* group = nullptr;
-        Mat4 extra = Mat4::identity();
+    bool seenBackdrop = false;
+    bool afterBackdrop = false;
+    bool snapshotted = false;
+
+    const auto resumePass = [&]() {
+        passDesc.load = gpu::LoadOp::Load;
+        passDesc.nativeColor = nativeColor;
+        pass = encoder.beginPass(passDesc);
+        Uniforms parentU{};
+        std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
+        pass.setBytes(1, &parentU, sizeof(parentU));
     };
-    std::vector<PendingIso> pendingIso;
+
+    const auto snapshotBackdrop = [&]() -> void* {
+        const int hw = std::max(1, viewportW / 2);
+        const int hh = std::max(1, viewportH / 2);
+        if (!backdrop_.native() || backdrop_.width() != hw || backdrop_.height() != hh) {
+            auto ft = device_.createFrameTarget({hw, hh});
+            if (!ft.ok()) {
+                return nullptr;
+            }
+            backdrop_ = std::move(ft.value());
+        }
+        if (encoder.copyColorTo(backdrop_)) {
+            return backdrop_.native();
+        }
+        void* src = nativeColor ? nativeColor : device_.colorNative();
+        if (!src) {
+            return nullptr;
+        }
+        gpu::PassDesc down;
+        down.nativeColor = backdrop_.native();
+        down.load = gpu::LoadOp::DontCare;
+        down.viewportW = hw;
+        down.viewportH = hh;
+        gpu::Pass dp = encoder.beginPass(down);
+        Uniforms du{};
+        const Mat4 dproj = Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
+        std::memcpy(du.projection, dproj.m, sizeof(du.projection));
+        dp.setBytes(1, &du, sizeof(du));
+        BlitInstance blit{};
+        blit.rect[0] = 0.f;
+        blit.rect[1] = 0.f;
+        blit.rect[2] = static_cast<float>(hw);
+        blit.rect[3] = static_cast<float>(hh);
+        blit.uv[0] = 0.f;
+        blit.uv[1] = 0.f;
+        blit.uv[2] = 1.f;
+        blit.uv[3] = 1.f;
+        blit.extra[0] = 1.f;
+        blit.extra[1] = 1.f;
+        blit.extra[2] = 1.f;
+        blit.extra[3] = 1.f;
+        dp.setPipeline(blit_);
+        dp.setBytes(0, &blit, sizeof(blit));
+        dp.setFragmentTexture(0, src);
+        dp.setFragmentSampler(0, device_.nativeSampler());
+        dp.draw(6, 1, 0, 0);
+        stats_.draws += 1;
+        dp.end();
+        return backdrop_.native();
+    };
 
     const auto emitTree = [&](auto& self, const Group& g, const Mat4& extra,
                              const ClipState& parentClip) -> void {
@@ -636,7 +798,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 addQuad(q);
             }
         };
-        for (const Shape& s : g.shapes) {
+        const auto emitShape = [&](const Shape& s) {
             const Shape xf = transformShape(extra, s);
             if (std::get_if<FillRect>(&xf)) {
                 std::vector<Quad> quads;
@@ -659,77 +821,135 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 for (const BlitQuad& q : blits) {
                     addBlit(q);
                 }
-            } else if (std::get_if<SlotHole>(&xf)) {
-                // Skip paint. Hole is a Host native sibling, not dest-out.
             }
-        }
-        for (const auto& child : g.children) {
-            if (!child) {
-                continue;
+        };
+        visitGroup(
+            g, emitShape,
+            [&](const Group& childRef) {
+            const Group* child = &childRef;
+            const bool backdrop = hasBackdrop(*child);
+            if (backdrop) {
+                GLIM_ASSERT(!afterBackdrop,
+                            "backdrop Groups must be consecutive ([under*][backdrop*][overlay*])");
+                seenBackdrop = true;
+            } else if (seenBackdrop) {
+                afterBackdrop = true;
             }
             if (needsIsolate(*child)) {
-                pendingIso.push_back({child.get(), extra});
-                continue;
+                flushSolid(pass);
+                flushRounded(pass);
+                flushBlit(pass);
+                flushGlyph(pass);
+                pass.end();
+                void* backdropTex = nullptr;
+                if (backdrop) {
+                    if (!snapshotted) {
+                        backdropTex = snapshotBackdrop();
+                        snapshotted = true;
+                        stats_.backdropCount = 1;
+                    } else {
+                        backdropTex = backdrop_.native();
+                    }
+                }
+                Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
+                const int iw = isolatePixelSize(b.size.x, pixelRatio);
+                const int ih = isolatePixelSize(b.size.y, pixelRatio);
+                auto ft = device_.createFrameTarget({iw, ih});
+                if (ft.ok()) {
+                    auto content = cloneGroup(*child);
+                    content->params.opacity = 1.0f;
+                    content->params.isolate = false;
+                    content->params.backdropBlur = 0.f;
+                    content->params.backdropBend = 0.f;
+                    content->params.transform = Mat4::identity();
+                    if (!hasClip(content->params) && b.size.x > 0.f && b.size.y > 0.f) {
+                        content->params.clip = Rect{{0, 0}, b.size};
+                    }
+                    const Mat4 localProj = Mat4::orthoYDown(0, 0, b.size.x, b.size.y);
+                    const float localPr = b.size.x > 0.f ? static_cast<float>(iw) / b.size.x : 1.f;
+                    if (backdrop && backdropTex) {
+                        gpu::PassDesc plate;
+                        plate.nativeColor = ft->native();
+                        plate.load = gpu::LoadOp::Clear;
+                        plate.clear = {0, 0, 0, 0};
+                        plate.viewportW = iw;
+                        plate.viewportH = ih;
+                        gpu::Pass gp = encoder.beginPass(plate);
+                        Uniforms gu{};
+                        std::memcpy(gu.projection, localProj.m, sizeof(gu.projection));
+                        gp.setBytes(1, &gu, sizeof(gu));
+                        const Rect dest = transformRect(extra * child->params.transform, b);
+                        BlitInstance back{};
+                        back.rect[0] = 0.f;
+                        back.rect[1] = 0.f;
+                        back.rect[2] = b.size.x;
+                        back.rect[3] = b.size.y;
+                        if (logicalSize.x > 0.f && logicalSize.y > 0.f) {
+                            back.uv[0] = dest.origin.x / logicalSize.x;
+                            back.uv[1] = dest.origin.y / logicalSize.y;
+                            back.uv[2] = (dest.origin.x + dest.size.x) / logicalSize.x;
+                            back.uv[3] = (dest.origin.y + dest.size.y) / logicalSize.y;
+                        } else {
+                            back.uv[0] = 0.f;
+                            back.uv[1] = 0.f;
+                            back.uv[2] = 1.f;
+                            back.uv[3] = 1.f;
+                        }
+                        const float sigma = snapBackdropSigma(child->params.backdropBlur);
+                        back.extra[0] = sigma * 0.5f;
+                        back.extra[1] = child->params.backdropBend;
+                        back.extra[2] = 1.f / static_cast<float>(std::max(1, backdrop_.width()));
+                        back.extra[3] = 1.f / static_cast<float>(std::max(1, backdrop_.height()));
+                        gp.setPipeline(blur_.native() ? blur_ : blit_);
+                        gp.setBytes(0, &back, sizeof(back));
+                        gp.setFragmentTexture(0, backdropTex);
+                        gp.setFragmentSampler(0, device_.nativeSampler());
+                        gp.draw(6, 1, 0, 0);
+                        stats_.draws += 1;
+                        gp.end();
+                        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Load,
+                                    localPr, b.size, Mat4::translate(-b.origin.x, -b.origin.y));
+                    } else {
+                        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear,
+                                    localPr, b.size, Mat4::translate(-b.origin.x, -b.origin.y));
+                    }
+                    ++stats_.isolateCount;
+                    resumePass();
+                    const Rect dest = transformRect(extra * child->params.transform, b);
+                    BlitInstance blit{};
+                    blit.rect[0] = dest.origin.x;
+                    blit.rect[1] = dest.origin.y;
+                    blit.rect[2] = dest.size.x;
+                    blit.rect[3] = dest.size.y;
+                    blit.uv[0] = 0.f;
+                    blit.uv[1] = 0.f;
+                    blit.uv[2] = 1.f;
+                    blit.uv[3] = 1.f;
+                    blit.extra[0] = child->params.opacity;
+                    blit.extra[1] = child->params.opacity;
+                    blit.extra[2] = child->params.opacity;
+                    blit.extra[3] = child->params.opacity;
+                    pass.setPipeline(blit_);
+                    pass.setBytes(0, &blit, sizeof(blit));
+                    pass.setFragmentTexture(0, ft->native());
+                    pass.setFragmentSampler(0, device_.nativeSampler());
+                    pass.draw(6, 1, 0, 0);
+                    stats_.draws += 1;
+                    stats_.instances += 1;
+                } else {
+                    resumePass();
+                }
+                return;
             }
             self(self, *child, extra * child->params.transform, clip);
-        }
+            });
         flushSolid(pass);
         flushRounded(pass);
         flushBlit(pass);
         flushGlyph(pass);
         scissorFor(parentClip);
     };
-    emitTree(emitTree, group, Mat4::identity(), {});
-
-    for (const PendingIso& item : pendingIso) {
-        const Group* child = item.group;
-        Rect b = child->params.bounds.size.x > 0 ? child->params.bounds : contentBounds(*child);
-        const int iw = std::max(1, static_cast<int>(std::ceil(b.size.x)));
-        const int ih = std::max(1, static_cast<int>(std::ceil(b.size.y)));
-        auto ft = device_.createFrameTarget({iw, ih});
-        if (!ft.ok()) {
-            continue;
-        }
-        pass.end();
-        auto content = cloneGroup(*child);
-        content->params.opacity = 1.0f;
-        content->params.isolate = false;
-        content->params.transform = Mat4::identity();
-        if (!hasClip(content->params) && b.size.x > 0.f && b.size.y > 0.f) {
-            content->params.clip = Rect{{0, 0}, b.size};
-        }
-        const Mat4 localProj = Mat4::orthoYDown(0, 0, static_cast<float>(iw), static_cast<float>(ih));
-        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(), gpu::LoadOp::Clear);
-        ++stats_.isolateCount;
-
-        passDesc.load = gpu::LoadOp::Load;
-        passDesc.nativeColor = nativeColor;
-        pass = encoder.beginPass(passDesc);
-        Uniforms parentU{};
-        std::memcpy(parentU.projection, projection.m, sizeof(parentU.projection));
-        pass.setBytes(1, &parentU, sizeof(parentU));
-        const Rect dest = transformRect(item.extra * child->params.transform, Rect{{0, 0}, b.size});
-        BlitInstance blit{};
-        blit.rect[0] = dest.origin.x;
-        blit.rect[1] = dest.origin.y;
-        blit.rect[2] = dest.size.x;
-        blit.rect[3] = dest.size.y;
-        blit.uv[0] = 0.f;
-        blit.uv[1] = 0.f;
-        blit.uv[2] = 1.f;
-        blit.uv[3] = 1.f;
-        blit.extra[0] = child->params.opacity;
-        blit.extra[1] = child->params.opacity;
-        blit.extra[2] = child->params.opacity;
-        blit.extra[3] = child->params.opacity;
-        pass.setPipeline(blit_);
-        pass.setBytes(0, &blit, sizeof(blit));
-        pass.setFragmentTexture(0, ft->native());
-        pass.setFragmentSampler(0, device_.nativeSampler());
-        pass.draw(6, 1, 0, 0);
-        stats_.draws += 1;
-        stats_.instances += 1;
-    }
+    emitTree(emitTree, group, extraRoot, {});
     pass.end();
 }
 
@@ -761,7 +981,11 @@ void Renderer::draw(const Scene& scene) {
     gpu::CommandEncoder encoder = device_.encoder();
     const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y),
                                         device_.presentRotationDegrees());
-    encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear);
+    const float pr = scene.logicalSize.x > 0.f
+                         ? static_cast<float>(drawable->width()) / scene.logicalSize.x
+                         : 1.f;
+    encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear,
+                pr, scene.logicalSize);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();

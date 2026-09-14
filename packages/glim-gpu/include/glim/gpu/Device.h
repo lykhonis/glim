@@ -143,6 +143,7 @@ public:
     CommandEncoder& operator=(const CommandEncoder&) = delete;
 
     Pass beginPass(const PassDesc&);
+    bool copyColorTo(const FrameTarget& dst);
     void present(const Drawable&);
     void submit(Queue&);
 
@@ -180,6 +181,7 @@ public:
     void* nativeDevice() const;
     void* nativeLayer() const;
     void* nativeSampler() const;
+    void* colorNative() const;
 
     struct Impl;
     std::unique_ptr<Impl> impl_;

@@ -577,6 +577,9 @@ struct Device::Impl {
         ci.imageExtent = extent;
         ci.imageArrayLayers = 1;
         ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        if (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
+            ci.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
         ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         ci.preTransform = preTransform;
         ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -935,6 +938,65 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
     pass.setViewport(0, 0, static_cast<float>(vw), static_cast<float>(vh), 0, 1);
     pass.setScissor(0, 0, static_cast<uint32_t>(vw), static_cast<uint32_t>(vh));
     return pass;
+}
+
+bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
+    Device::Impl* d = impl_->device;
+    if (!d || !impl_->cmd || !dst.native()) {
+        return false;
+    }
+    GpuImage* src = d->imageFromView(nullptr);
+    GpuImage* dest = d->imageFromView(dst.native());
+    if (!src || !src->image || !dest || !dest->image) {
+        return false;
+    }
+    auto barrier = [&](GpuImage* img, VkImageLayout neu, VkAccessFlags srcAccess, VkAccessFlags dstAccess,
+                       VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage) {
+        imageBarrier(impl_->cmd, img->image, img->layout, neu, srcAccess, dstAccess, srcStage, dstStage);
+        img->layout = neu;
+    };
+    if (src->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+        VkAccessFlags sa = 0;
+        VkPipelineStageFlags ss = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if (src->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            sa = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            ss = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        } else if (src->layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            sa = VK_ACCESS_SHADER_READ_BIT;
+            ss = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        barrier(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sa, VK_ACCESS_TRANSFER_READ_BIT, ss,
+                VK_PIPELINE_STAGE_TRANSFER_BIT);
+    }
+    if (dest->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        VkAccessFlags sa = 0;
+        VkPipelineStageFlags ss = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if (dest->layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            sa = VK_ACCESS_SHADER_READ_BIT;
+            ss = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else if (dest->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            sa = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            ss = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
+        barrier(dest, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, sa, VK_ACCESS_TRANSFER_WRITE_BIT, ss,
+                VK_PIPELINE_STAGE_TRANSFER_BIT);
+    }
+    VkImageBlit region{};
+    region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.srcSubresource.layerCount = 1;
+    region.srcOffsets[1] = {src->width, src->height, 1};
+    region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.dstSubresource.layerCount = 1;
+    region.dstOffsets[1] = {dest->width, dest->height, 1};
+    vkCmdBlitImage(impl_->cmd, src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dest->image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR);
+    barrier(dest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    barrier(src, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+    return true;
 }
 
 void CommandEncoder::present(const Drawable&) {
@@ -1453,7 +1515,8 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
         }
         GpuImage& img = impl_->targets[handle];
         if (impl_->makeImage(w, h,
-                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                              img, true) != VK_SUCCESS) {
             return Result<FrameTarget>::fail("Vulkan FrameTarget image failed");
         }
@@ -1894,6 +1957,13 @@ void setAndroidNativeWindow(void* native) {
 
 void* Device::nativeSampler() const {
     return impl_ ? impl_->sampler : nullptr;
+}
+
+void* Device::colorNative() const {
+    if (!impl_ || impl_->imageIndex >= impl_->swapImages.size()) {
+        return nullptr;
+    }
+    return impl_->swapImages[impl_->imageIndex].view;
 }
 
 }  // namespace glim::gpu

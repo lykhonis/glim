@@ -66,21 +66,45 @@ int main() {
     expect(childFill && childFill->matter.kind == glim::paint::MatterKind::Solid, "merged fill is solid matter");
     expect(childFill && childFill->matter.color.rgba == 0x00ff00ff, "merged fill keeps color");
 
-    glim::paint::Context glass;
-    glass.setSize({100, 100});
-    glass.beginFrame();
+    glim::paint::Context fade;
+    fade.setSize({100, 100});
+    fade.beginFrame();
     glim::paint::GroupParams g;
     g.opacity = 0.5f;
     g.bounds = glim::Rect::fromSize({100, 20});
-    glass.pushGroup(g);
-    glass.setFillColor(0xffffffff);
-    glass.fill(glim::Rect::fromSize({100, 20}));
-    glass.popGroup();
-    glass.finish();
+    fade.pushGroup(g);
+    fade.setFillColor(0xffffffff);
+    fade.fill(glim::Rect::fromSize({100, 20}));
+    fade.popGroup();
+    fade.finish();
     stats = {};
-    merged = glim::paint::merge(std::move(glass.scene().root), &stats);
+    merged = glim::paint::merge(std::move(fade.scene().root), &stats);
     expect(merged.children.size() == 1, "translucent group stays isolated");
     expect(glim::paint::needsIsolate(*merged.children[0]), "opacity isolates");
+
+    glim::paint::Context frost;
+    frost.setSize({100, 100});
+    frost.beginFrame();
+    frost.setFillColor(0xff0000ff);
+    frost.fill(glim::Rect::fromSize({100, 100}));
+    glim::paint::GroupParams blur;
+    blur.backdropBlur = 8.f;
+    blur.bounds = glim::Rect{{10, 10}, {40, 20}};
+    frost.pushGroup(blur);
+    frost.setFillColor(0xffffff88);
+    frost.fill(glim::Rect{{10, 10}, {40, 20}});
+    frost.popGroup();
+    frost.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(frost.scene().root), &stats);
+    expect(merged.children.size() == 1, "backdrop group stays isolated");
+    expect(merged.children.size() == 1 && glim::paint::hasBackdrop(*merged.children[0]),
+           "backdropBlur marks backdrop");
+    expect(merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
+           "backdrop isolates");
+    expect(!glim::paint::canMerge(*merged.children[0]), "canMerge refuses backdrop");
+    expect(glim::nearlyEqual(glim::paint::snapBackdropSigma(7.f), 8.f), "sigma snaps to 8");
+    expect(glim::paint::isolatePixelSize(100.f, 2.f) == 200, "isolate size uses pixelRatio");
 
     glim::paint::Context blitCtx;
     blitCtx.setSize({100, 100});

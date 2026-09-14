@@ -55,13 +55,16 @@ private:
                      gpu::LoadOp load);
 #else
     void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
-                     int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load);
+                     int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
+                     float pixelRatio, Vec2 logicalSize, const Mat4& extra = Mat4::identity());
 #endif
     gpu::Device& device_;
     gpu::Pipeline solid_{};
     gpu::Pipeline rounded_{};
     gpu::Pipeline blit_{};
     gpu::Pipeline glyph_{};
+    gpu::Pipeline blur_{};
+    gpu::FrameTarget backdrop_{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];

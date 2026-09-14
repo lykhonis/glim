@@ -2,6 +2,7 @@
 #include <glim/paint/Renderer.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -103,6 +104,38 @@ int main() {
     }
     if (buf[outside] < 200 || buf[outside + 2] > 40) {
         std::cerr << "clip must not cover parent background\n";
+        return EXIT_FAILURE;
+    }
+
+    std::fill(buf.begin(), buf.end(), 0);
+    ctx.beginFrame();
+    for (int x = 0; x < w; ++x) {
+        ctx.setFillColor((x / 8) % 2 == 0 ? 0xff0000ff : 0x0000ffff);
+        ctx.fill(glim::Rect{{static_cast<float>(x), 0.f}, {1.f, static_cast<float>(h)}});
+    }
+    glim::paint::GroupParams frost;
+    frost.backdropBlur = 8.f;
+    frost.bounds = glim::Rect{{16.f, 8.f}, {32.f, 24.f}};
+    ctx.pushGroup(frost);
+    ctx.setFillColor(0xffffff40);
+    ctx.fill(glim::Rect{{16.f, 8.f}, {32.f, 24.f}});
+    ctx.popGroup();
+    ctx.setFillColor(0x00ff00ff);
+    ctx.fill(glim::Rect{{20.f, 12.f}, {8.f, 8.f}});
+    ctx.finish();
+    renderer.draw(ctx.scene());
+    const std::size_t frostPx = static_cast<std::size_t>((20 * w + 24) * 4);
+    if (buf[frostPx] < 20 || buf[frostPx + 2] < 20) {
+        std::cerr << "backdrop should mix dest stripes, not a hard color\n";
+        return EXIT_FAILURE;
+    }
+    if (std::abs(static_cast<int>(buf[frostPx]) - static_cast<int>(buf[frostPx + 2])) > 220) {
+        std::cerr << "backdrop blur should not keep a pure stripe\n";
+        return EXIT_FAILURE;
+    }
+    const std::size_t overPx = static_cast<std::size_t>((16 * w + 24) * 4);
+    if (buf[overPx + 1] < 200) {
+        std::cerr << "overlay after backdrop should paint on top\n";
         return EXIT_FAILURE;
     }
 

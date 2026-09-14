@@ -1,5 +1,6 @@
 add_subdirectory(common)
 add_subdirectory(hello)
+add_subdirectory(glass)
 if(NOT GLIM_SOFTWARE)
     add_subdirectory(foreign)
 endif()

@@ -151,6 +151,10 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
     return pass;
 }
 
+bool CommandEncoder::copyColorTo(const FrameTarget&) {
+    return false;
+}
+
 void CommandEncoder::present(const Drawable& drawable) {
     impl_->drawable = (__bridge id<CAMetalDrawable>)drawable.native();
 }
@@ -456,6 +460,10 @@ void* Device::nativeLayer() const {
 
 void* Device::nativeSampler() const {
     return impl_ ? (__bridge void*)impl_->sampler : nullptr;
+}
+
+void* Device::colorNative() const {
+    return impl_ && impl_->currentDrawable ? (__bridge void*)impl_->currentDrawable.texture : nullptr;
 }
 
 }  // namespace glim::gpu

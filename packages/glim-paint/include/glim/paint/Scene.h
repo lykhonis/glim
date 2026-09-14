@@ -81,6 +81,8 @@ struct GroupParams {
     Blend blend = Blend::SrcOver;
     Rect clip{};
     Radius clipRadius{};
+    float backdropBlur = 0.f;
+    float backdropBend = 0.f;
 };
 
 struct FillRect {
@@ -136,10 +138,16 @@ inline bool hasClip(const GroupParams& p) noexcept {
     return p.clip.size.x > 0.f && p.clip.size.y > 0.f;
 }
 
+struct GroupItem {
+    enum Kind : std::uint8_t { Shape, Child } kind = Shape;
+    std::uint32_t index = 0;
+};
+
 struct Group {
     GroupParams params;
     std::vector<Shape> shapes;
     std::vector<std::unique_ptr<Group>> children;
+    std::vector<GroupItem> order;
 
     Group() = default;
     Group(Group&&) noexcept = default;
@@ -161,10 +169,38 @@ struct Stats {
     unsigned isolateCount = 0;
     unsigned mergedGroupCount = 0;
     unsigned tileCount = 0;
+    unsigned backdropCount = 0;
 };
 
+float snapBackdropSigma(float sigma);
+int isolatePixelSize(float logical, float pixelRatio);
+bool hasBackdrop(const Group&);
 bool needsIsolate(const Group&);
 bool canMerge(const Group&);
+
+template <typename ShapeFn, typename ChildFn>
+void visitGroup(const Group& g, ShapeFn&& onShape, ChildFn&& onChild) {
+    if (g.order.empty()) {
+        for (const Shape& s : g.shapes) {
+            onShape(s);
+        }
+        for (const auto& child : g.children) {
+            if (child) {
+                onChild(*child);
+            }
+        }
+        return;
+    }
+    for (const GroupItem& item : g.order) {
+        if (item.kind == GroupItem::Shape) {
+            if (item.index < g.shapes.size()) {
+                onShape(g.shapes[item.index]);
+            }
+        } else if (item.index < g.children.size() && g.children[item.index]) {
+            onChild(*g.children[item.index]);
+        }
+    }
+}
 std::unique_ptr<Group> cloneGroup(const Group&);
 Group merge(Group, Stats* stats = nullptr);
 Rect transformRect(const Mat4&, Rect);

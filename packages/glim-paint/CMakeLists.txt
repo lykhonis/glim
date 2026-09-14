@@ -31,11 +31,13 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/blit.metal"
     "${_glim_shader_dir}/rounded.metal"
     "${_glim_shader_dir}/glyph.metal"
+    "${_glim_shader_dir}/blur.metal"
     "${CMAKE_SOURCE_DIR}/vendor/inter/Inter-Latin.ttf")
 file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
 file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
 file(READ "${_glim_shader_dir}/rounded.metal" GLIM_ROUNDED_METAL)
 file(READ "${_glim_shader_dir}/glyph.metal" GLIM_GLYPH_METAL)
+file(READ "${_glim_shader_dir}/blur.metal" GLIM_BLUR_METAL)
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/glim_metal_shaders.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h"

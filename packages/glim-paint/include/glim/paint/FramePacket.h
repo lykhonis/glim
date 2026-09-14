@@ -44,6 +44,12 @@ struct Isolate {
     float opacity = 1;
     int contentW = 1;
     int contentH = 1;
+    float backdropSigma = 0;
+    float backdropBend = 0;
+    float backdropU0 = 0;
+    float backdropV0 = 0;
+    float backdropU1 = 1;
+    float backdropV1 = 1;
     std::vector<Quad> quads;
     std::vector<BlitQuad> blits;
     std::vector<Isolate> isolates;

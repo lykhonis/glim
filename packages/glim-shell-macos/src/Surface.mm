@@ -22,7 +22,7 @@ void Surface::attach(Window& window) {
     CAMetalLayer* layer = [CAMetalLayer layer];
     layer.device = MTLCreateSystemDefaultDevice();
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    layer.framebufferOnly = YES;
+    layer.framebufferOnly = NO;
     layer.opaque = YES;
     layer.contentsGravity = kCAGravityResize;
     static CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);

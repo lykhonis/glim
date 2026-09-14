@@ -178,11 +178,11 @@ void recordHello(glim::paint::Context& context, glim::Vec2 size, float timeSecon
     recordSideCard(context, side);
 
     const float barY = safeArea.origin.y + safeArea.size.y - barH;
-    GroupParams glass;
-    glass.opacity = 0.42f;
-    glass.bounds = Rect{{0.f, 0.f}, {size.x, barH}};
-    glass.transform = Mat4::translate(0.f, barY);
-    context.pushGroup(glass);
+    GroupParams bar;
+    bar.opacity = 0.42f;
+    bar.bounds = Rect{{0.f, 0.f}, {size.x, barH}};
+    bar.transform = Mat4::translate(0.f, barY);
+    context.pushGroup(bar);
     context.setFillColor(0xe8eef4ff);
     context.fill(Rect::fromSize({size.x, barH}));
     const float chipH = std::clamp(barH - 32.f, 36.f, 48.f);

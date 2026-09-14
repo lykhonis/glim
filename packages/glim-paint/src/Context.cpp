@@ -8,6 +8,14 @@
 #include <cstdint>
 
 namespace glim::paint {
+namespace {
+
+void recordShape(Group* g, Shape s) {
+    g->shapes.push_back(std::move(s));
+    g->order.push_back({GroupItem::Shape, static_cast<std::uint32_t>(g->shapes.size() - 1)});
+}
+
+}  // namespace
 
 void Context::setSize(Vec2 size) {
     size_ = size;
@@ -41,15 +49,14 @@ void Context::fill(const Rect& rect) {
     if (!recording_) {
         return;
     }
-    current()->shapes.emplace_back(
-        transformFill(state_.model, FillRect{rect, Matter::solid(state_.fill.color)}));
+    recordShape(current(), transformFill(state_.model, FillRect{rect, Matter::solid(state_.fill.color)}));
 }
 
 void Context::fillRounded(const Rect& rect, Radius radius) {
     if (!recording_) {
         return;
     }
-    current()->shapes.emplace_back(transformRounded(
+    recordShape(current(), transformRounded(
         state_.model, FillRounded{rect, radius, Matter::solid(state_.fill.color)}));
 }
 
@@ -61,7 +68,7 @@ void Context::strokeRect(const Rect& rect, Radius radius, float width) {
     if (!recording_ || width <= 0.f) {
         return;
     }
-    current()->shapes.emplace_back(transformStroke(
+    recordShape(current(), transformStroke(
         state_.model, Stroke{rect, radius, width, Matter::solid(state_.fill.color)}));
 }
 
@@ -117,7 +124,7 @@ void Context::blit(const Rect& dst, Matter matter) {
         const StoredImage* img = images_.get(matter.imageId);
         matter.kind = (img && img->foreign) ? MatterKind::Foreign : MatterKind::Sampled;
     }
-    current()->shapes.emplace_back(transformBlit(state_.model, Blit{dst, matter}));
+    recordShape(current(), transformBlit(state_.model, Blit{dst, matter}));
 }
 
 TextSize Context::measureText(const char* latin, float sizePx) const {
@@ -183,7 +190,7 @@ void Context::text(Vec2 origin, const char* latin, float sizePx) {
     if (run.glyphs.empty()) {
         return;
     }
-    current()->shapes.emplace_back(transformGlyphs(state_.model, run));
+    recordShape(current(), transformGlyphs(state_.model, run));
 }
 
 void Context::slot(const Rect& rect, std::uint32_t id) {
@@ -194,7 +201,7 @@ void Context::slot(const Rect& rect, std::uint32_t id) {
     for (const Group* g : groupStack_) {
         GLIM_ASSERT(g && !needsIsolate(*g), "SlotHole illegal under needsIsolate");
     }
-    current()->shapes.emplace_back(transformSlot(state_.model, SlotHole{rect, id}));
+    recordShape(current(), transformSlot(state_.model, SlotHole{rect, id}));
 }
 
 void Context::translate(Vec2 offset) {
@@ -220,8 +227,10 @@ void Context::pushGroup(const GroupParams& params) {
     Group child;
     child.params = params;
     child.params.transform = state_.model * params.transform;
-    current()->children.push_back(std::make_unique<Group>(std::move(child)));
-    groupStack_.push_back(current()->children.back().get());
+    Group* parent = current();
+    parent->order.push_back({GroupItem::Child, static_cast<std::uint32_t>(parent->children.size())});
+    parent->children.push_back(std::make_unique<Group>(std::move(child)));
+    groupStack_.push_back(parent->children.back().get());
     save();
     state_.model = Mat4::identity();
 }

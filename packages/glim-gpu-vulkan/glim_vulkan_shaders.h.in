@@ -13,6 +13,8 @@ inline constexpr unsigned char rounded_vert[] = {@GLIM_ROUNDED_VERT_SPV@};
 inline constexpr unsigned char rounded_frag[] = {@GLIM_ROUNDED_FRAG_SPV@};
 inline constexpr unsigned char glyph_vert[] = {@GLIM_GLYPH_VERT_SPV@};
 inline constexpr unsigned char glyph_frag[] = {@GLIM_GLYPH_FRAG_SPV@};
+inline constexpr unsigned char blur_vert[] = {@GLIM_BLUR_VERT_SPV@};
+inline constexpr unsigned char blur_frag[] = {@GLIM_BLUR_FRAG_SPV@};
 
 }  // namespace vulkan_shaders
 }  // namespace glim

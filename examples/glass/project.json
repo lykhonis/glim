@@ -1,0 +1,98 @@
+{
+  "name": "glass",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/glass",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["core"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "dependsOn": ["gpu-vulkan:shaders"],
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-glass",
+        "install": true
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/glass/glim-glass"
+      }
+    },
+    "build-software": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-glass-software"
+      }
+    },
+    "run-software": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-software"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/glass/glim-glass-software"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-glass"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/glass/glim-glass.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.glass"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-glass"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-tvos-sim"],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/glass/glim-glass.app",
+        "simulator": "tvos",
+        "bundleId": "com.glim.glass"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-glass"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/glass/glim-glass.apk",
+        "android": true,
+        "packageName": "com.glim.glass"
+      }
+    }
+  }
+}

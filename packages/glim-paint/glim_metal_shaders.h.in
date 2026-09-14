@@ -7,6 +7,7 @@ inline constexpr const char solid[] = R"GLIMMSL(@GLIM_SOLID_METAL@)GLIMMSL";
 inline constexpr const char blit[] = R"GLIMMSL(@GLIM_BLIT_METAL@)GLIMMSL";
 inline constexpr const char rounded[] = R"GLIMMSL(@GLIM_ROUNDED_METAL@)GLIMMSL";
 inline constexpr const char glyph[] = R"GLIMMSL(@GLIM_GLYPH_METAL@)GLIMMSL";
+inline constexpr const char blur[] = R"GLIMMSL(@GLIM_BLUR_METAL@)GLIMMSL";
 
 }  // namespace metal_shaders
 }  // namespace glim

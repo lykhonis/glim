@@ -25,20 +25,48 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    glim::paint::Context glass;
-    glass.setSize({100, 100});
-    glass.beginFrame();
+    glim::paint::Context fade;
+    fade.setSize({100, 100});
+    fade.beginFrame();
     glim::paint::GroupParams g;
     g.opacity = 0.5f;
     g.bounds = glim::Rect::fromSize({100, 20});
-    glass.pushGroup(g);
-    glass.setFillColor(0xffffffff);
-    glass.fill(glim::Rect::fromSize({100, 20}));
-    glass.popGroup();
-    glass.finish();
-    const glim::paint::FramePacket iso = glim::paint::encode(glass.scene());
+    fade.pushGroup(g);
+    fade.setFillColor(0xffffffff);
+    fade.fill(glim::Rect::fromSize({100, 20}));
+    fade.popGroup();
+    fade.finish();
+    const glim::paint::FramePacket iso = glim::paint::encode(fade.scene());
     if (iso.isolates.size() != 1) {
         std::cerr << "expected 1 isolate\n";
+        return EXIT_FAILURE;
+    }
+    const glim::paint::FramePacket iso2 = glim::paint::encode(fade.scene(), 2.f);
+    if (iso2.isolates.size() != 1 || iso2.isolates[0].contentW != 200 || iso2.isolates[0].contentH != 40) {
+        std::cerr << "isolate size should be ceil(bounds * pixelRatio)\n";
+        return EXIT_FAILURE;
+    }
+
+    glim::paint::Context frost;
+    frost.setSize({80, 40});
+    frost.beginFrame();
+    frost.setFillColor(0xff0000ff);
+    frost.fill(glim::Rect::fromSize({80, 40}));
+    glim::paint::GroupParams blur;
+    blur.backdropBlur = 16.f;
+    blur.bounds = glim::Rect{{8, 4}, {32, 16}};
+    frost.pushGroup(blur);
+    frost.setFillColor(0xffffff66);
+    frost.fill(glim::Rect{{8, 4}, {32, 16}});
+    frost.popGroup();
+    frost.finish();
+    const glim::paint::FramePacket frostPkt = glim::paint::encode(frost.scene(), 1.f);
+    if (frostPkt.isolates.size() != 1 || frostPkt.isolates[0].backdropSigma != 16.f) {
+        std::cerr << "backdrop isolate should carry snapped sigma\n";
+        return EXIT_FAILURE;
+    }
+    if (frostPkt.stats.backdropCount != 1) {
+        std::cerr << "expected one backdrop pyramid\n";
         return EXIT_FAILURE;
     }
 
