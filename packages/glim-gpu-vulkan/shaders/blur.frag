@@ -23,11 +23,10 @@ layout(location = 0) out vec4 out_color;
 
 layout(set = 0, binding = 2) uniform sampler2D tex;
 
-float sdSquircle(vec2 p, vec2 b, float r) {
+float sdRoundBox(vec2 p, vec2 b, float r) {
     r = min(r, min(b.x, b.y));
     const vec2 q = abs(p) - b + vec2(r);
-    const vec2 m = max(q, vec2(0.0));
-    return pow(pow(m.x, 4.0) + pow(m.y, 4.0), 0.25) + min(max(q.x, q.y), 0.0) - r;
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
 float smin(float a, float b, float k) {
@@ -74,7 +73,7 @@ float fieldSdf(Instance inst, vec2 p) {
         }
         const vec4 pill = pillAt(inst, i);
         const vec2 c = pill.xy + 0.5 * pill.zw;
-        const float d = sdSquircle(p - c, 0.5 * pill.zw, radiusAt(inst, i));
+        const float d = sdRoundBox(p - c, 0.5 * pill.zw, radiusAt(inst, i));
         sdf = (i == 0) ? d : smin(sdf, d, k);
     }
     sdf += inst.light.w * 0.035 * min(inst.rect.z, inst.rect.w);
@@ -91,7 +90,7 @@ vec3 sampleBlur(vec2 uv, float sigma, vec2 texel) {
         const float y = float(j - 2) * s.y;
         for (int i = 0; i < 5; ++i) {
             const vec2 p = uv + vec2(float(i - 2) * s.x, y);
-            c += texture(tex, clamp(p, 0.0, 1.0)).rgb * (w[i] * w[j]);
+            c += textureLod(tex, clamp(p, 0.0, 1.0), 0.0).rgb * (w[i] * w[j]);
         }
     }
     return c;

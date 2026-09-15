@@ -42,11 +42,10 @@ vertex VSOut vs_main(uint vid [[vertex_id]],
     return out;
 }
 
-float sdSquircle(float2 p, float2 b, float r) {
+float sdRoundBox(float2 p, float2 b, float r) {
     r = min(r, min(b.x, b.y));
     const float2 q = abs(p) - b + float2(r, r);
-    const float2 m = max(q, float2(0.0));
-    return pow(pow(m.x, 4.0) + pow(m.y, 4.0), 0.25) + min(max(q.x, q.y), 0.0) - r;
+    return length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
 float smin(float a, float b, float k) {
@@ -93,7 +92,7 @@ float fieldSdf(Instance inst, float2 p) {
         }
         const float4 pill = pillAt(inst, i);
         const float2 c = pill.xy + 0.5 * pill.zw;
-        const float d = sdSquircle(p - c, 0.5 * pill.zw, radiusAt(inst, i));
+        const float d = sdRoundBox(p - c, 0.5 * pill.zw, radiusAt(inst, i));
         sdf = (i == 0) ? d : smin(sdf, d, k);
     }
     sdf += inst.light.w * 0.035 * min(inst.rect.z, inst.rect.w);
@@ -110,7 +109,7 @@ float3 sampleBlur(texture2d<float> tex, sampler samp, float2 uv, float sigma, fl
         const float y = float(j - 2) * s.y;
         for (int i = 0; i < 5; ++i) {
             const float2 p = uv + float2(float(i - 2) * s.x, y);
-            c += tex.sample(samp, saturate(p)).rgb * (w[i] * w[j]);
+            c += tex.sample(samp, saturate(p), level(0.0)).rgb * (w[i] * w[j]);
         }
     }
     return c;
