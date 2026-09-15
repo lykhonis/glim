@@ -58,6 +58,14 @@ struct Isolate {
     float backdropV1 = 1;
     bool backdropFlat = false;
     std::vector<BackdropPill> backdropPills;
+    bool hasGlass = false;
+    bool glassContainer = false;
+    Glass glass{};
+    std::vector<GlassPill> glassPills;
+    float glassU0 = 0;
+    float glassV0 = 0;
+    float glassU1 = 1;
+    float glassV1 = 1;
     std::vector<Quad> quads;
     std::vector<BlitQuad> blits;
     std::vector<Isolate> isolates;

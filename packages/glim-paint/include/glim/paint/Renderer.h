@@ -64,7 +64,24 @@ private:
     gpu::Pipeline blit_{};
     gpu::Pipeline glyph_{};
     gpu::Pipeline blur_{};
+    gpu::Pipeline blur1d_{};
+    gpu::Pipeline glass_{};
     gpu::FrameTarget backdrop_{};
+    gpu::FrameTarget glassSrc_{};
+    gpu::FrameTarget glassBackdrop_{};
+    gpu::FrameTarget glassBlurTmp_{};
+    gpu::FrameTarget glassBlur_{};
+    gpu::FrameTarget glassLumaCur_{};
+    struct GlassLumaSlot {
+        float destX = 0;
+        float destY = 0;
+        float destW = 0;
+        float destH = 0;
+        gpu::FrameTarget prev{};
+        bool used = false;
+    };
+    static constexpr int kMaxGlassLumaSlots = 8;
+    GlassLumaSlot glassLumaSlots_[kMaxGlassLumaSlots]{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];

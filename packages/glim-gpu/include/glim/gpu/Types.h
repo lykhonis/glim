@@ -8,6 +8,8 @@ enum class Backend { Metal, Vulkan, WebGpu };
 
 using Handle = std::uint32_t;
 
+constexpr int kMaxFragmentTextures = 4;
+
 enum class ShaderStage { Vertex, Fragment };
 
 enum class Blend { SrcOver, Plus };

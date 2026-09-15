@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <vector>
 #if !GLIM_GPU_VULKAN
 #include <fstream>
 #include <sstream>
@@ -46,6 +47,119 @@ void packPill(float* dst, const BackdropPill& pill) {
     dst[1] = pill.rect.origin.y;
     dst[2] = pill.rect.size.x;
     dst[3] = pill.rect.size.y;
+}
+
+struct GlassShapeU {
+    float center[2];
+    float halfExtent[2];
+    float corner;
+    float n;
+    float mergeK;
+    float _pad;
+};
+
+struct GlassUniforms {
+    float resolution[2];
+    float dpr;
+    float shapeCount;
+    GlassShapeU shapes[8];
+    float thickness;
+    float ior;
+    float refDistance;
+    float dispersion;
+    float fresnelRange;
+    float fresnelHardness;
+    float fresnelIntensity;
+    float glareAngle;
+    float glareRange;
+    float glareHardness;
+    float glareConvergence;
+    float glareIntensity;
+    float tint[4];
+    float blurEdge;
+    float lumaLift;
+    float lumaShadow;
+    float lumaOn;
+    float dimmer;
+    float interactive;
+    float flatten;
+    float _pad1;
+    float lightDir[2];
+    float _pad2[2];
+};
+
+static_assert(sizeof(GlassUniforms) == 384, "GlassUniforms packed std430");
+
+float glassBlurRadius(const Glass& g) {
+    if (g.flatten || g.variant == GlassVariant::Identity) {
+        return 0.f;
+    }
+    return g.variant == GlassVariant::Clear ? 6.f : 20.f;
+}
+
+GlassUniforms makeGlassUniforms(const Glass& g, const GlassPill* pills, int n, int iw, int ih,
+                                float pixelRatio) {
+    GlassUniforms u{};
+    u.resolution[0] = static_cast<float>(iw);
+    u.resolution[1] = static_cast<float>(ih);
+    u.dpr = pixelRatio > 0.f ? pixelRatio : 1.f;
+    const int count = std::max(1, std::min(kMaxGlassPills, n));
+    u.shapeCount = static_cast<float>(count);
+    for (int i = 0; i < count; ++i) {
+        const GlassPill& p = (pills && n > 0) ? pills[i] : GlassPill{};
+        Rect r = p.rect;
+        if (n <= 0) {
+            r = Rect::fromSize({static_cast<float>(iw) / u.dpr, static_cast<float>(ih) / u.dpr});
+        }
+        u.shapes[i].center[0] = r.origin.x + r.size.x * 0.5f;
+        u.shapes[i].center[1] = r.origin.y + r.size.y * 0.5f;
+        u.shapes[i].halfExtent[0] = r.size.x * 0.5f;
+        u.shapes[i].halfExtent[1] = r.size.y * 0.5f;
+        u.shapes[i].corner = p.radius;
+        u.shapes[i].n = p.superellipseN > 0.f ? p.superellipseN : 4.f;
+        u.shapes[i].mergeK = g.mergeKPx;
+    }
+    const bool ident = g.variant == GlassVariant::Identity;
+    u.thickness = ident ? 0.f : (g.variant == GlassVariant::Clear && g.thicknessPx == 24.f ? 16.f : g.thicknessPx);
+    u.ior = g.variant == GlassVariant::Clear && g.ior == 1.45f ? 1.33f : g.ior;
+    u.refDistance = g.refDistance;
+    u.dispersion = ident || g.flatten ? 0.f
+                                      : (g.variant == GlassVariant::Clear && g.dispersion == 0.12f ? 0.08f
+                                                                                                 : g.dispersion);
+    u.fresnelRange = 18.f;
+    u.fresnelHardness = 0.0f;
+    u.fresnelIntensity = ident || g.flatten ? (g.flatten ? 0.05f : 0.f)
+                                            : (g.variant == GlassVariant::Clear ? 0.16f : 0.22f);
+    u.glareAngle = 0.f;
+    u.glareRange = 14.f;
+    u.glareHardness = 0.0f;
+    u.glareConvergence = 0.7f;
+    u.glareIntensity = ident || g.flatten ? 0.f : 0.9f;
+    u.tint[0] = g.tint.red();
+    u.tint[1] = g.tint.green();
+    u.tint[2] = g.tint.blue();
+    u.tint[3] = g.tint.alpha();
+    u.blurEdge = g.variant == GlassVariant::Regular ? 1.f : 0.f;
+    u.lumaLift = 0.55f;
+    u.lumaShadow = 0.06f;
+    u.lumaOn = (!ident && !g.flatten && g.variant == GlassVariant::Regular) ? 1.f : 0.f;
+    u.dimmer = (!ident && !g.flatten && g.variant == GlassVariant::Clear) ? 0.12f : 0.f;
+    u.interactive = g.interactive ? 1.f : 0.f;
+    u.flatten = g.flatten ? 1.f : 0.f;
+    u.lightDir[0] = 0.28f;
+    u.lightDir[1] = 0.85f;
+    return u;
+}
+
+void ensureRt(gpu::Device& device, gpu::FrameTarget& ft, int w, int h) {
+    w = std::max(1, w);
+    h = std::max(1, h);
+    if (!ft.native() || ft.width() != w || ft.height() != h) {
+        auto created = device.createFrameTarget({w, h});
+        if (created.ok()) {
+            ft = std::move(created.value());
+        }
+    }
 }
 
 PlateInstance makePlate(float x, float y, float w, float h, float u0, float v0, float u1, float v1,
@@ -149,6 +263,12 @@ std::string loadShader(const char* name) {
     if (std::strcmp(name, "blur.metal") == 0) {
         return glim::metal_shaders::blur;
     }
+    if (std::strcmp(name, "blur1d.metal") == 0) {
+        return glim::metal_shaders::blur1d;
+    }
+    if (std::strcmp(name, "glass.metal") == 0) {
+        return glim::metal_shaders::glass;
+    }
     return {};
 }
 #endif
@@ -178,7 +298,10 @@ bool Renderer::ensurePipelines() {
     const std::string roundedSrc = loadShader("rounded.metal");
     const std::string glyphSrc = loadShader("glyph.metal");
     const std::string blurSrc = loadShader("blur.metal");
-    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty() || blurSrc.empty()) {
+    const std::string blur1dSrc = loadShader("blur1d.metal");
+    const std::string glassSrc = loadShader("glass.metal");
+    if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty() || blurSrc.empty() ||
+        blur1dSrc.empty() || glassSrc.empty()) {
         return false;
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
@@ -290,6 +413,54 @@ bool Renderer::ensurePipelines() {
         return false;
     }
     blur_ = std::move(blur.value());
+
+#if GLIM_GPU_VULKAN
+    auto b1vs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blur1d_vert),
+        sizeof(glim::vulkan_shaders::blur1d_vert));
+    auto b1fs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blur1d_frag),
+        sizeof(glim::vulkan_shaders::blur1d_frag));
+#else
+    auto b1vs = device_.createShader(gpu::ShaderStage::Vertex, blur1dSrc.data(), blur1dSrc.size());
+    auto b1fs = device_.createShader(gpu::ShaderStage::Fragment, blur1dSrc.data(), blur1dSrc.size());
+#endif
+    if (!b1vs.ok() || !b1fs.ok()) {
+        return false;
+    }
+    pd.vertexShader = b1vs->handle();
+    pd.fragmentShader = b1fs->handle();
+    auto blur1d = device_.createPipeline(pd);
+    if (!blur1d.ok()) {
+        return false;
+    }
+    blur1d_ = std::move(blur1d.value());
+
+#if GLIM_GPU_VULKAN
+    auto glvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::glass_vert),
+        sizeof(glim::vulkan_shaders::glass_vert));
+    auto glfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::glass_frag),
+        sizeof(glim::vulkan_shaders::glass_frag));
+#else
+    auto glvs = device_.createShader(gpu::ShaderStage::Vertex, glassSrc.data(), glassSrc.size());
+    auto glfs = device_.createShader(gpu::ShaderStage::Fragment, glassSrc.data(), glassSrc.size());
+#endif
+    if (!glvs.ok() || !glfs.ok()) {
+        return false;
+    }
+    pd.vertexShader = glvs->handle();
+    pd.fragmentShader = glfs->handle();
+    auto glass = device_.createPipeline(pd);
+    if (!glass.ok()) {
+        return false;
+    }
+    glass_ = std::move(glass.value());
     ready_ = true;
     return true;
 }
@@ -488,6 +659,7 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     flushBlit(pass);
     flushGlyph(pass);
 
+    bool glassFrozen = false;
     for (const Isolate& iso : isolates) {
         auto ft = device_.createFrameTarget({iso.contentW, iso.contentH});
         if (!ft.ok()) {
@@ -495,7 +667,154 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         }
         pass.end();
         gpu::LoadOp plateLoad = gpu::LoadOp::Clear;
-        if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
+        const auto blitTex = [&](void* dst, int dw, int dh, void* src, float u0, float v0, float u1,
+                                 float v1, float r, float g, float b, float a) {
+            if (!dst || !src || dw <= 0 || dh <= 0) {
+                return;
+            }
+            gpu::PassDesc d;
+            d.nativeColor = dst;
+            d.load = gpu::LoadOp::Clear;
+            d.clear = {0, 0, 0, 0};
+            d.viewportW = dw;
+            d.viewportH = dh;
+            gpu::Pass p = encoder.beginPass(d);
+            Uniforms uu{};
+            const Mat4 proj = Mat4::orthoYDown(0, 0, static_cast<float>(dw), static_cast<float>(dh));
+            std::memcpy(uu.projection, proj.m, sizeof(uu.projection));
+            p.setBytes(1, &uu, sizeof(uu));
+            BlitInstance blit{};
+            blit.rect[2] = static_cast<float>(dw);
+            blit.rect[3] = static_cast<float>(dh);
+            blit.uv[0] = u0;
+            blit.uv[1] = v0;
+            blit.uv[2] = u1;
+            blit.uv[3] = v1;
+            blit.extra[0] = r;
+            blit.extra[1] = g;
+            blit.extra[2] = b;
+            blit.extra[3] = a;
+            p.setPipeline(blit_);
+            p.setBytes(0, &blit, sizeof(blit));
+            p.setFragmentTexture(0, src);
+            p.setFragmentSampler(0, device_.nativeSampler());
+            p.draw(6, 1, 0, 0);
+            stats_.draws += 1;
+            p.end();
+        };
+        if (iso.hasGlass) {
+            const int hw = std::max(1, viewportW / 2);
+            const int hh = std::max(1, viewportH / 2);
+            if (!glassFrozen) {
+                if (!glassSrc_.native() || glassSrc_.width() != hw || glassSrc_.height() != hh) {
+                    auto bg = device_.createFrameTarget({hw, hh});
+                    if (bg.ok()) {
+                        glassSrc_ = std::move(bg.value());
+                    }
+                }
+                void* src = nativeColor ? nativeColor : device_.colorNative();
+                if (glassSrc_.native() && src) {
+                    blitTex(glassSrc_.native(), hw, hh, src, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+                    glassFrozen = true;
+                }
+            }
+            if (glassSrc_.native()) {
+                if (!glassBackdrop_.native() || glassBackdrop_.width() != iso.contentW ||
+                    glassBackdrop_.height() != iso.contentH) {
+                    auto gb = device_.createFrameTarget({iso.contentW, iso.contentH});
+                    if (gb.ok()) {
+                        glassBackdrop_ = std::move(gb.value());
+                    }
+                }
+                if (glassBackdrop_.native()) {
+                    blitTex(glassBackdrop_.native(), iso.contentW, iso.contentH, glassSrc_.native(),
+                            iso.glassU0, iso.glassV0, iso.glassU1, iso.glassV1, 1.f, 1.f, 1.f, 1.f);
+                    const GlassUniforms gu = makeGlassUniforms(
+                        iso.glass, iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
+                        static_cast<int>(iso.glassPills.size()), iso.contentW, iso.contentH,
+                        iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f);
+                    void* sharp = glassBackdrop_.native();
+                    void* blur = sharp;
+                    const float blurR = glassBlurRadius(iso.glass);
+                    if (blurR > 0.f && blur1d_.native() && !iso.glass.flatten) {
+                        const int bw = std::max(1, iso.contentW / 2);
+                        const int bh = std::max(1, iso.contentH / 2);
+                        ensureRt(device_, glassBlurTmp_, bw, bh);
+                        ensureRt(device_, glassBlur_, bw, bh);
+                        const float sigma = blurR * (iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f) *
+                                            0.5f;
+                        auto pass1d = [&](void* dst, int dw, int dh, void* src, float dx, float dy) {
+                            gpu::PassDesc d;
+                            d.nativeColor = dst;
+                            d.load = gpu::LoadOp::Clear;
+                            d.clear = {0, 0, 0, 0};
+                            d.viewportW = dw;
+                            d.viewportH = dh;
+                            gpu::Pass p = encoder.beginPass(d);
+                            Uniforms uu{};
+                            const Mat4 proj =
+                                Mat4::orthoYDown(0, 0, static_cast<float>(dw), static_cast<float>(dh));
+                            std::memcpy(uu.projection, proj.m, sizeof(uu.projection));
+                            p.setBytes(1, &uu, sizeof(uu));
+                            BlitInstance inst{};
+                            inst.rect[2] = static_cast<float>(dw);
+                            inst.rect[3] = static_cast<float>(dh);
+                            inst.uv[2] = 1.f;
+                            inst.uv[3] = 1.f;
+                            inst.extra[0] = sigma;
+                            inst.extra[1] = dx;
+                            inst.extra[2] = dy;
+                            p.setPipeline(blur1d_);
+                            p.setBytes(0, &inst, sizeof(inst));
+                            p.setFragmentBytes(0, &inst, sizeof(inst));
+                            p.setFragmentTexture(0, src);
+                            p.setFragmentSampler(0, device_.nativeSampler());
+                            p.draw(6, 1, 0, 0);
+                            p.end();
+                        };
+                        if (glassBlurTmp_.native() && glassBlur_.native()) {
+                            pass1d(glassBlurTmp_.native(), bw, bh, sharp, 0.f, 1.f);
+                            pass1d(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f);
+                            blur = glassBlur_.native();
+                        }
+                    }
+                    if (glass_.native()) {
+                        gpu::PassDesc plate;
+                        plate.nativeColor = ft->native();
+                        plate.load = gpu::LoadOp::Clear;
+                        plate.clear = {0, 0, 0, 0};
+                        plate.viewportW = iso.contentW;
+                        plate.viewportH = iso.contentH;
+                        gpu::Pass gp = encoder.beginPass(plate);
+                        Uniforms uu{};
+                        const Mat4 localProj = Mat4::orthoYDown(
+                            0, 0, iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+                            iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
+                        std::memcpy(uu.projection, localProj.m, sizeof(uu.projection));
+                        gp.setBytes(1, &uu, sizeof(uu));
+                        gp.setPipeline(glass_);
+                        gp.setBytes(0, &gu, sizeof(gu));
+                        gp.setFragmentBytes(0, &gu, sizeof(gu));
+                        gp.setFragmentTexture(0, sharp);
+                        gp.setFragmentTexture(1, blur);
+                        gp.setFragmentTexture(2, sharp);
+                        gp.setFragmentTexture(3, sharp);
+                        gp.setFragmentSampler(0, device_.nativeSampler());
+                        gp.setFragmentSampler(1, device_.nativeSampler());
+                        gp.setFragmentSampler(2, device_.nativeSampler());
+                        gp.setFragmentSampler(3, device_.nativeSampler());
+                        gp.draw(6, 1, 0, 0);
+                        gp.end();
+                    } else {
+                        blitTex(ft->native(), iso.contentW, iso.contentH, sharp, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f,
+                                1.f, 1.f);
+                    }
+                    plateLoad = gpu::LoadOp::Load;
+                }
+            }
+            ++stats_.glassPassCount;
+            stats_.glassPillCount += static_cast<unsigned>(iso.glassPills.size());
+        } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
             const int hw = std::max(1, viewportW / 2);
             const int hh = std::max(1, viewportH / 2);
             if (!backdrop_.native() || backdrop_.width() != hw || backdrop_.height() != hh) {
@@ -748,7 +1067,10 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
 
     bool seenBackdrop = false;
     bool afterBackdrop = false;
+    bool seenGlass = false;
+    bool afterGlass = false;
     bool snapshotted = false;
+    bool glassFrozen = false;
 
     const auto resumePass = [&]() {
         passDesc.load = gpu::LoadOp::Load;
@@ -813,6 +1135,89 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         dp.end();
         encoder.generateMips(backdrop_);
         return backdrop_.native();
+    };
+
+    const auto blitTex = [&](void* dst, int dw, int dh, void* src, float x, float y, float w, float h,
+                             float u0, float v0, float u1, float v1, float r, float g, float b, float a) {
+        if (!dst || !src || dw <= 0 || dh <= 0) {
+            return;
+        }
+        gpu::PassDesc d;
+        d.nativeColor = dst;
+        d.load = gpu::LoadOp::Clear;
+        d.clear = {0, 0, 0, 0};
+        d.viewportW = dw;
+        d.viewportH = dh;
+        gpu::Pass p = encoder.beginPass(d);
+        Uniforms uu{};
+        const Mat4 proj = Mat4::orthoYDown(0, 0, static_cast<float>(dw), static_cast<float>(dh));
+        std::memcpy(uu.projection, proj.m, sizeof(uu.projection));
+        p.setBytes(1, &uu, sizeof(uu));
+        BlitInstance blit{};
+        blit.rect[0] = x;
+        blit.rect[1] = y;
+        blit.rect[2] = w;
+        blit.rect[3] = h;
+        blit.uv[0] = u0;
+        blit.uv[1] = v0;
+        blit.uv[2] = u1;
+        blit.uv[3] = v1;
+        blit.extra[0] = r;
+        blit.extra[1] = g;
+        blit.extra[2] = b;
+        blit.extra[3] = a;
+        p.setPipeline(blit_);
+        p.setBytes(0, &blit, sizeof(blit));
+        p.setFragmentTexture(0, src);
+        p.setFragmentSampler(0, device_.nativeSampler());
+        p.draw(6, 1, 0, 0);
+        stats_.draws += 1;
+        p.end();
+    };
+
+    const auto freezeGlassSrc = [&]() -> void* {
+        const int hw = std::max(1, viewportW / 2);
+        const int hh = std::max(1, viewportH / 2);
+        if (!glassSrc_.native() || glassSrc_.width() != hw || glassSrc_.height() != hh) {
+            auto ft = device_.createFrameTarget({hw, hh});
+            if (!ft.ok()) {
+                return nullptr;
+            }
+            glassSrc_ = std::move(ft.value());
+        }
+        void* src = nativeColor ? nativeColor : device_.colorNative();
+        if (!src) {
+            return nullptr;
+        }
+        blitTex(glassSrc_.native(), hw, hh, src, 0.f, 0.f, static_cast<float>(hw), static_cast<float>(hh), 0.f,
+                0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+        return glassSrc_.native();
+    };
+
+    const auto snapshotGlass = [&](int iw, int ih, const Rect& dest) -> void* {
+        if (!glassSrc_.native() || iw <= 0 || ih <= 0) {
+            return nullptr;
+        }
+        if (!glassBackdrop_.native() || glassBackdrop_.width() != iw || glassBackdrop_.height() != ih) {
+            auto ft = device_.createFrameTarget({iw, ih});
+            if (!ft.ok()) {
+                return nullptr;
+            }
+            glassBackdrop_ = std::move(ft.value());
+        }
+        float u0 = 0.f;
+        float v0 = 0.f;
+        float u1 = 1.f;
+        float v1 = 1.f;
+        if (logicalSize.x > 0.f && logicalSize.y > 0.f) {
+            u0 = dest.origin.x / logicalSize.x;
+            v0 = dest.origin.y / logicalSize.y;
+            u1 = (dest.origin.x + dest.size.x) / logicalSize.x;
+            v1 = (dest.origin.y + dest.size.y) / logicalSize.y;
+        }
+        blitTex(glassBackdrop_.native(), iw, ih, glassSrc_.native(), 0.f, 0.f, static_cast<float>(iw),
+                static_cast<float>(ih), u0, v0, u1, v1, 1.f, 1.f, 1.f, 1.f);
+        return glassBackdrop_.native();
     };
 
     const auto emitTree = [&](auto& self, const Group& g, const Mat4& extra,
@@ -900,10 +1305,20 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
             [&](const Group& childRef) {
             const Group* child = &childRef;
             const bool backdrop = hasBackdrop(*child);
+            const bool glassWork = hasGlassWork(*child);
             if (backdrop) {
-                GLIM_ASSERT(!afterBackdrop,
-                            "backdrop Groups must be consecutive ([under*][backdrop*][overlay*])");
+                GLIM_ASSERT(!afterBackdrop && !seenGlass,
+                            "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])");
                 seenBackdrop = true;
+            } else if (glassWork) {
+                GLIM_ASSERT(!afterGlass,
+                            "glass Groups must be consecutive ([under*][backdrop*][glass*][overlay*])");
+                if (seenBackdrop) {
+                    afterBackdrop = true;
+                }
+                seenGlass = true;
+            } else if (seenGlass) {
+                afterGlass = true;
             } else if (seenBackdrop) {
                 afterBackdrop = true;
             }
@@ -923,9 +1338,20 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         backdropTex = backdrop_.native();
                     }
                 }
-                const Rect surface = backdrop ? backdropSurface(*child)
-                                              : (child->params.bounds.size.x > 0 ? child->params.bounds
-                                                                                : contentBounds(*child));
+                void* glassTex = nullptr;
+                if (glassWork) {
+                    if (!glassFrozen) {
+                        if (freezeGlassSrc()) {
+                            glassFrozen = true;
+                        }
+                    }
+                    ++stats_.glassPassCount;
+                }
+                const Rect surface = glassWork ? glassSurface(*child)
+                                               : (backdrop ? backdropSurface(*child)
+                                                          : (child->params.bounds.size.x > 0
+                                                                 ? child->params.bounds
+                                                                 : contentBounds(*child)));
                 const int iw = isolatePixelSize(surface.size.x, pixelRatio);
                 const int ih = isolatePixelSize(surface.size.y, pixelRatio);
                 auto ft = device_.createFrameTarget({iw, ih});
@@ -938,13 +1364,190 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                     if (backdrop) {
                         dropBackdropPills(*content);
                     }
+                    if (glassWork) {
+                        GlassPill pills[kMaxGlassPills];
+                        const int n = collectGlassPills(*child, pills);
+                        stats_.glassPillCount += static_cast<unsigned>(n);
+                        stripGlassForIsolate(*content);
+                    }
                     if (!hasClip(content->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
                         content->params.clip = Rect{{0, 0}, surface.size};
                     }
                     const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
                     const float localPr =
                         surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
-                    if (backdrop && backdropTex) {
+                    if (glassWork) {
+                        const Rect dest = transformRect(extra * child->params.transform, surface);
+                        glassTex = snapshotGlass(iw, ih, dest);
+                        Glass mat{};
+                        if (child->params.glass.has_value()) {
+                            mat = *child->params.glass;
+                        } else {
+                            for (const auto& gc : child->children) {
+                                if (gc && gc->params.glass.has_value()) {
+                                    mat = *gc->params.glass;
+                                    break;
+                                }
+                            }
+                        }
+                        GlassPill gpills[kMaxGlassPills];
+                        int gn = collectGlassPills(*child, gpills);
+                        for (int i = 0; i < gn; ++i) {
+                            gpills[i].rect.origin.x -= surface.origin.x;
+                            gpills[i].rect.origin.y -= surface.origin.y;
+                        }
+                        const GlassUniforms gu =
+                            makeGlassUniforms(mat, gpills, gn, iw, ih, localPr);
+                        void* sharpTex = glassTex;
+                        void* blurTex = glassTex;
+                        void* lumaTex = glassTex;
+                        void* lumaPrevTex = glassTex;
+                        GlassLumaSlot* lumaSlot = nullptr;
+                        const float blurR = glassBlurRadius(mat);
+                        if (sharpTex && blurR > 0.f && blur1d_.native() && !mat.flatten) {
+                            const int bw = std::max(1, iw / 2);
+                            const int bh = std::max(1, ih / 2);
+                            ensureRt(device_, glassBlurTmp_, bw, bh);
+                            ensureRt(device_, glassBlur_, bw, bh);
+                            const float sigma = blurR * localPr * 0.5f;
+                            auto blur1dPass = [&](void* dst, int dw, int dh, void* src, float dx, float dy,
+                                                  float u1, float v1) {
+                                gpu::PassDesc d;
+                                d.nativeColor = dst;
+                                d.load = gpu::LoadOp::Clear;
+                                d.clear = {0, 0, 0, 0};
+                                d.viewportW = dw;
+                                d.viewportH = dh;
+                                gpu::Pass p = encoder.beginPass(d);
+                                Uniforms uu{};
+                                const Mat4 proj =
+                                    Mat4::orthoYDown(0, 0, static_cast<float>(dw), static_cast<float>(dh));
+                                std::memcpy(uu.projection, proj.m, sizeof(uu.projection));
+                                p.setBytes(1, &uu, sizeof(uu));
+                                BlitInstance inst{};
+                                inst.rect[2] = static_cast<float>(dw);
+                                inst.rect[3] = static_cast<float>(dh);
+                                inst.uv[2] = u1;
+                                inst.uv[3] = v1;
+                                inst.extra[0] = sigma;
+                                inst.extra[1] = dx;
+                                inst.extra[2] = dy;
+                                inst.extra[3] = 0.f;
+                                p.setPipeline(blur1d_);
+                                p.setBytes(0, &inst, sizeof(inst));
+                                p.setFragmentBytes(0, &inst, sizeof(inst));
+                                p.setFragmentTexture(0, src);
+                                p.setFragmentSampler(0, device_.nativeSampler());
+                                p.draw(6, 1, 0, 0);
+                                stats_.draws += 1;
+                                p.end();
+                            };
+                            if (glassBlurTmp_.native() && glassBlur_.native()) {
+                                blur1dPass(glassBlurTmp_.native(), bw, bh, sharpTex, 0.f, 1.f, 1.f, 1.f);
+                                blur1dPass(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f, 1.f,
+                                           1.f);
+                                blurTex = glassBlur_.native();
+                                int srcW = bw;
+                                int srcH = bh;
+                                float ru = static_cast<float>(bw) / static_cast<float>(std::max(1, glassBlur_.width()));
+                                float rv = static_cast<float>(bh) / static_cast<float>(std::max(1, glassBlur_.height()));
+                                void* srcTex = blurTex;
+                                std::vector<gpu::FrameTarget> reduceKeep;
+                                while (srcW > 1 || srcH > 1) {
+                                    const int nw = std::max(1, srcW / 2);
+                                    const int nh = std::max(1, srcH / 2);
+                                    void* dstNative = nullptr;
+                                    if (nw == 1 && nh == 1) {
+                                        ensureRt(device_, glassLumaCur_, 1, 1);
+                                        dstNative = glassLumaCur_.native();
+                                    } else {
+                                        auto created = device_.createFrameTarget({nw, nh});
+                                        if (created.ok()) {
+                                            reduceKeep.push_back(std::move(created.value()));
+                                            dstNative = reduceKeep.back().native();
+                                        }
+                                    }
+                                    if (!dstNative) {
+                                        break;
+                                    }
+                                    blitTex(dstNative, nw, nh, srcTex, 0.f, 0.f, static_cast<float>(nw),
+                                            static_cast<float>(nh), 0.f, 0.f, ru, rv, 1.f, 1.f, 1.f, 1.f);
+                                    srcTex = dstNative;
+                                    srcW = nw;
+                                    srcH = nh;
+                                    ru = 1.f;
+                                    rv = 1.f;
+                                    if (nw == 1 && nh == 1) {
+                                        lumaTex = srcTex;
+                                        break;
+                                    }
+                                }
+                                GlassLumaSlot* slot = nullptr;
+                                for (int i = 0; i < kMaxGlassLumaSlots; ++i) {
+                                    auto& s = glassLumaSlots_[i];
+                                    if (s.used && std::fabs(s.destX - dest.origin.x) < 0.5f &&
+                                        std::fabs(s.destY - dest.origin.y) < 0.5f &&
+                                        std::fabs(s.destW - dest.size.x) < 0.5f &&
+                                        std::fabs(s.destH - dest.size.y) < 0.5f) {
+                                        slot = &s;
+                                        break;
+                                    }
+                                    if (!slot && !s.used) {
+                                        slot = &s;
+                                    }
+                                }
+                                if (slot) {
+                                    if (!slot->used) {
+                                        slot->destX = dest.origin.x;
+                                        slot->destY = dest.origin.y;
+                                        slot->destW = dest.size.x;
+                                        slot->destH = dest.size.y;
+                                        slot->used = true;
+                                        ensureRt(device_, slot->prev, 1, 1);
+                                    }
+                                    lumaPrevTex = slot->prev.native() ? slot->prev.native() : lumaTex;
+                                    lumaSlot = slot;
+                                }
+                            }
+                        }
+                        if (sharpTex && glass_.native()) {
+                            gpu::PassDesc plate;
+                            plate.nativeColor = ft->native();
+                            plate.load = gpu::LoadOp::Clear;
+                            plate.clear = {0, 0, 0, 0};
+                            plate.viewportW = iw;
+                            plate.viewportH = ih;
+                            gpu::Pass gp = encoder.beginPass(plate);
+                            Uniforms uu{};
+                            std::memcpy(uu.projection, localProj.m, sizeof(uu.projection));
+                            gp.setBytes(1, &uu, sizeof(uu));
+                            gp.setPipeline(glass_);
+                            gp.setBytes(0, &gu, sizeof(gu));
+                            gp.setFragmentBytes(0, &gu, sizeof(gu));
+                            gp.setFragmentTexture(0, sharpTex);
+                            gp.setFragmentTexture(1, blurTex ? blurTex : sharpTex);
+                            gp.setFragmentTexture(2, lumaTex ? lumaTex : sharpTex);
+                            gp.setFragmentTexture(3, lumaPrevTex ? lumaPrevTex : sharpTex);
+                            gp.setFragmentSampler(0, device_.nativeSampler());
+                            gp.setFragmentSampler(1, device_.nativeSampler());
+                            gp.setFragmentSampler(2, device_.nativeSampler());
+                            gp.setFragmentSampler(3, device_.nativeSampler());
+                            gp.draw(6, 1, 0, 0);
+                            stats_.draws += 1;
+                            gp.end();
+                            glassTex = ft->native();
+                            if (lumaSlot && lumaTex && lumaSlot->prev.native()) {
+                                blitTex(lumaSlot->prev.native(), 1, 1, lumaTex, 0.f, 0.f, 1.f, 1.f, 0.f, 0.f,
+                                        1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+                            }
+                        } else if (glassTex) {
+                            blitTex(ft->native(), iw, ih, glassTex, 0.f, 0.f, static_cast<float>(iw),
+                                    static_cast<float>(ih), 0.f, 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+                        }
+                        encodeGroup(encoder, *content, localProj, iw, ih, ft->native(),
+                                    glassTex ? gpu::LoadOp::Load : gpu::LoadOp::Clear, localPr,
+                                    surface.size, Mat4::translate(-surface.origin.x, -surface.origin.y));
+                    } else if (backdrop && backdropTex) {
                         gpu::PassDesc plate;
                         plate.nativeColor = ft->native();
                         plate.load = gpu::LoadOp::Clear;

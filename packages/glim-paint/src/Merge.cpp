@@ -243,6 +243,34 @@ bool hasBackdrop(const Group& g) {
     return snapBackdropSigma(g.params.backdropBlur) > 0.f || g.params.backdropBend > 0.f;
 }
 
+bool hasGlass(const Group& g) noexcept {
+    return g.params.glass.has_value();
+}
+
+bool isGlassContainer(const Group& g) noexcept {
+    return g.params.glassContainer;
+}
+
+bool hasGlassWork(const Group& g) noexcept {
+    if (hasGlass(g)) {
+        return true;
+    }
+    if (!g.params.glassContainer) {
+        return false;
+    }
+    for (const auto& c : g.children) {
+        if (c && hasGlass(*c)) {
+            return true;
+        }
+    }
+    for (const Shape& s : g.shapes) {
+        if (std::get_if<FillRounded>(&s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool needsIsolate(const Group& g) {
     if (g.params.isolate) {
         return true;
@@ -254,6 +282,9 @@ bool needsIsolate(const Group& g) {
         return true;
     }
     if (hasBackdrop(g)) {
+        return true;
+    }
+    if (hasGlassWork(g)) {
         return true;
     }
     return false;

@@ -693,7 +693,7 @@ struct Pass::Impl {
     GpuImage* target = nullptr;
     std::vector<uint8_t> bytes0;
     std::vector<uint8_t> bytes1;
-    void* fragmentView = nullptr;
+    void* fragmentViews[glim::gpu::kMaxFragmentTextures]{};
     void* fragmentSampler = nullptr;
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
@@ -750,8 +750,10 @@ void Pass::setBytes(std::uint32_t index, const void* data, std::uint64_t size) {
 
 void Pass::setFragmentBytes(std::uint32_t, const void*, std::uint64_t) {}
 
-void Pass::setFragmentTexture(std::uint32_t, void* nativeTexture) {
-    impl_->fragmentView = nativeTexture;
+void Pass::setFragmentTexture(std::uint32_t index, void* nativeTexture) {
+    if (index < static_cast<std::uint32_t>(kMaxFragmentTextures)) {
+        impl_->fragmentViews[index] = nativeTexture;
+    }
 }
 
 void Pass::setFragmentSampler(std::uint32_t, void* nativeSampler) {
@@ -820,14 +822,18 @@ void Pass::draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uin
     ubo.buffer = d->ring.buffer;
     ubo.offset = impl_->bytes1.empty() ? 0 : off1;
     ubo.range = impl_->bytes1.empty() ? 64 : impl_->bytes1.size();
-    VkDescriptorImageInfo image{};
-    image.sampler =
+    VkDescriptorImageInfo images[kMaxFragmentTextures]{};
+    VkSampler samp =
         impl_->fragmentSampler ? reinterpret_cast<VkSampler>(impl_->fragmentSampler) : d->sampler;
-    image.imageView =
-        impl_->fragmentView ? reinterpret_cast<VkImageView>(impl_->fragmentView) : d->dummyImage.view;
-    image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    for (int i = 0; i < kMaxFragmentTextures; ++i) {
+        images[i].sampler = samp;
+        images[i].imageView = impl_->fragmentViews[i]
+                                  ? reinterpret_cast<VkImageView>(impl_->fragmentViews[i])
+                                  : d->dummyImage.view;
+        images[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
 
-    VkWriteDescriptorSet writes[3]{};
+    VkWriteDescriptorSet writes[2 + kMaxFragmentTextures]{};
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[0].dstSet = set;
     writes[0].dstBinding = 0;
@@ -840,13 +846,15 @@ void Pass::draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uin
     writes[1].descriptorCount = 1;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     writes[1].pBufferInfo = &ubo;
-    writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[2].dstSet = set;
-    writes[2].dstBinding = 2;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].pImageInfo = &image;
-    vkUpdateDescriptorSets(d->device, 3, writes, 0, nullptr);
+    for (int i = 0; i < kMaxFragmentTextures; ++i) {
+        writes[2 + i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[2 + i].dstSet = set;
+        writes[2 + i].dstBinding = static_cast<uint32_t>(2 + i);
+        writes[2 + i].descriptorCount = 1;
+        writes[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[2 + i].pImageInfo = &images[i];
+    }
+    vkUpdateDescriptorSets(d->device, 2 + kMaxFragmentTextures, writes, 0, nullptr);
     vkCmdBindDescriptorSets(impl_->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d->pipelineLayout, 0, 1, &set,
                             0, nullptr);
     vkCmdDraw(impl_->cmd, vertexCount, instanceCount, firstVertex, firstInstance);
@@ -883,6 +891,9 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
     pass.impl_->device = d;
     pass.impl_->cmd = impl_->cmd;
     pass.impl_->target = img;
+    for (int i = 0; i < kMaxFragmentTextures; ++i) {
+        pass.impl_->fragmentViews[i] = nullptr;
+    }
     if (!img || !impl_->cmd) {
         pass.impl_->ended = true;
         return pass;
@@ -1283,7 +1294,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         return Result<Device>::fail("vkCreateRenderPass failed");
     }
 
-    VkDescriptorSetLayoutBinding binds[3]{};
+    VkDescriptorSetLayoutBinding binds[2 + kMaxFragmentTextures]{};
     binds[0].binding = 0;
     binds[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     binds[0].descriptorCount = 1;
@@ -1292,13 +1303,15 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     binds[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binds[1].descriptorCount = 1;
     binds[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    binds[2].binding = 2;
-    binds[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    binds[2].descriptorCount = 1;
-    binds[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    for (int i = 0; i < kMaxFragmentTextures; ++i) {
+        binds[2 + i].binding = static_cast<uint32_t>(2 + i);
+        binds[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binds[2 + i].descriptorCount = 1;
+        binds[2 + i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
     VkDescriptorSetLayoutCreateInfo sl{};
     sl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    sl.bindingCount = 3;
+    sl.bindingCount = 2 + kMaxFragmentTextures;
     sl.pBindings = binds;
     if (vkCreateDescriptorSetLayout(d.device, &sl, nullptr, &d.setLayout) != VK_SUCCESS) {
         return Result<Device>::fail("vkCreateDescriptorSetLayout failed");
@@ -1363,7 +1376,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[1].descriptorCount = 256;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[2].descriptorCount = 256;
+    poolSizes[2].descriptorCount = 256 * kMaxFragmentTextures;
     VkDescriptorPoolCreateInfo dpi{};
     dpi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     dpi.maxSets = 256;

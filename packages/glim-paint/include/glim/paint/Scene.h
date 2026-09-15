@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -40,6 +41,20 @@ private:
         std::vector<StoredImage> slots{StoredImage{}};
     };
     std::shared_ptr<Data> data_;
+};
+
+enum class GlassVariant { Regular, Clear, Identity };
+
+struct Glass {
+    GlassVariant variant = GlassVariant::Regular;
+    Color tint{};
+    bool interactive = false;
+    float ior = 1.45f;
+    float thicknessPx = 24.f;
+    float mergeKPx = 28.f;
+    float refDistance = 0.35f;
+    float dispersion = 0.12f;
+    bool flatten = false;
 };
 
 // Pigment for a Shape. Solid, sampled, or foreign (imageId).
@@ -89,6 +104,8 @@ struct GroupParams {
     float backdropLightY = 0.8f;
     float backdropLightZ = 0.5f;
     bool backdropFlat = false;
+    std::optional<Glass> glass;
+    bool glassContainer = false;
 };
 
 struct FillRect {
@@ -165,6 +182,17 @@ struct BackdropPill {
     float radius = 0.f;
 };
 
+constexpr int kMaxGlassPills = 8;
+
+enum class GlassPillKind : std::uint8_t { Capsule, Rounded };
+
+struct GlassPill {
+    Rect rect{};
+    float radius = 0.f;
+    float superellipseN = 4.f;
+    GlassPillKind kind = GlassPillKind::Capsule;
+};
+
 
 
 struct GroupItem {
@@ -199,6 +227,8 @@ struct Stats {
     unsigned mergedGroupCount = 0;
     unsigned tileCount = 0;
     unsigned backdropCount = 0;
+    unsigned glassPassCount = 0;
+    unsigned glassPillCount = 0;
 };
 
 float snapBackdropSigma(float sigma);
@@ -208,6 +238,14 @@ int collectBackdropPills(const Group&, BackdropPill* out);
 void dropBackdropPills(Group&);
 void clearBackdropParams(GroupParams&);
 bool hasBackdrop(const Group&);
+bool hasGlass(const Group&) noexcept;
+bool isGlassContainer(const Group&) noexcept;
+bool hasGlassWork(const Group&) noexcept;
+Rect glassSurface(const Group&);
+int collectGlassPills(const Group&, GlassPill* out);
+void dropGlassPills(Group&);
+void clearGlassParams(GroupParams&);
+void stripGlassForIsolate(Group&);
 bool needsIsolate(const Group&);
 bool canMerge(const Group&);
 

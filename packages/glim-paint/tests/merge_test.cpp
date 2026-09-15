@@ -106,6 +106,26 @@ int main() {
     expect(glim::nearlyEqual(glim::paint::snapBackdropSigma(7.f), 8.f), "sigma snaps to 8");
     expect(glim::paint::isolatePixelSize(100.f, 2.f) == 200, "isolate size uses pixelRatio");
 
+    glim::paint::Context lens;
+    lens.setSize({100, 100});
+    lens.beginFrame();
+    lens.setFillColor(0xff0000ff);
+    lens.fill(glim::Rect::fromSize({100, 100}));
+    glim::paint::GroupParams glass;
+    glass.glass = glim::paint::Glass{};
+    glass.bounds = glim::Rect{{10, 10}, {40, 20}};
+    lens.pushGroup(glass);
+    lens.popGroup();
+    lens.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(lens.scene().root), &stats);
+    expect(merged.children.size() == 1, "glass group stays isolated");
+    expect(merged.children.size() == 1 && glim::paint::hasGlass(*merged.children[0]), "Glass marks glass");
+    expect(merged.children.size() == 1 && !glim::paint::hasBackdrop(*merged.children[0]),
+           "glass is independent of backdrop");
+    expect(merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]), "glass isolates");
+    expect(!glim::paint::canMerge(*merged.children[0]), "canMerge refuses glass");
+
     glim::paint::Context blitCtx;
     blitCtx.setSize({100, 100});
     blitCtx.beginFrame();

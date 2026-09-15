@@ -428,10 +428,60 @@ void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
     blurAxis(false);
 }
 
+void sampleGlassPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw,
+                      int dh, Rect src, Color tint, float radiusPx) {
+    if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
+        return;
+    }
+    const float plateW = static_cast<float>(iw);
+    const float plateH = static_cast<float>(ih);
+    const float hx = plateW * 0.5f;
+    const float hy = plateH * 0.5f;
+    const float r = std::min(radiusPx, std::min(hx, hy));
+    const float ta = tint.alpha() * 0.2f;
+    const float tr = tint.red();
+    const float tg = tint.green();
+    const float tb = tint.blue();
+    for (int y = 0; y < ih; ++y) {
+        const float v = (static_cast<float>(y) + 0.5f) / plateH;
+        const float py = static_cast<float>(y) + 0.5f - hy;
+        for (int x = 0; x < iw; ++x) {
+            const float u = (static_cast<float>(x) + 0.5f) / plateW;
+            const float px = static_cast<float>(x) + 0.5f - hx;
+            const float qx = std::fabs(px) - hx + r;
+            const float qy = std::fabs(py) - hy + r;
+            const float sdf =
+                std::min(std::max(qx, qy), 0.f) + std::hypot(std::max(qx, 0.f), std::max(qy, 0.f)) - r;
+            const float mask = std::clamp(0.5f - sdf, 0.f, 1.f);
+            if (mask < 0.001f) {
+                plate[static_cast<std::size_t>(y * iw + x)] = Pixel{0, 0, 0, 0};
+                continue;
+            }
+            const float sx = src.origin.x + u * src.size.x;
+            const float sy = src.origin.y + v * src.size.y;
+            Pixel p = sampleDest(dest, dw, dh, sx, sy);
+            p.r = p.r + (tr - p.r) * ta;
+            p.g = p.g + (tg - p.g) * ta;
+            p.b = p.b + (tb - p.b) * ta;
+            const float rim = std::clamp(1.f - std::fabs(sdf), 0.f, 1.f);
+            p.r = p.r + (1.f - p.r) * rim * 0.45f;
+            p.g = p.g + (1.f - p.g) * rim * 0.45f;
+            p.b = p.b + (1.f - p.b) * rim * 0.45f;
+            p.r *= mask;
+            p.g *= mask;
+            p.b *= mask;
+            p.a *= mask;
+            plate[static_cast<std::size_t>(y * iw + x)] = p;
+        }
+    }
+}
+
 void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
                  const Mat4& world, const ClipState& clip, float pixelRatio) {
     bool seenBackdrop = false;
     bool afterBackdrop = false;
+    bool seenGlass = false;
+    bool afterGlass = false;
     visitGroup(
         g,
         [&](const Shape& s) {
@@ -464,10 +514,20 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         },
         [&](const Group& child) {
             const bool backdrop = hasBackdrop(child);
+            const bool glassWork = hasGlassWork(child);
             if (backdrop) {
-                GLIM_ASSERT(!afterBackdrop,
-                            "backdrop Groups must be consecutive ([under*][backdrop*][overlay*])");
+                GLIM_ASSERT(!afterBackdrop && !seenGlass,
+                            "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])");
                 seenBackdrop = true;
+            } else if (glassWork) {
+                GLIM_ASSERT(!afterGlass,
+                            "glass Groups must be consecutive ([under*][backdrop*][glass*][overlay*])");
+                if (seenBackdrop) {
+                    afterBackdrop = true;
+                }
+                seenGlass = true;
+            } else if (seenGlass) {
+                afterGlass = true;
             } else if (seenBackdrop) {
                 afterBackdrop = true;
             }
@@ -481,25 +541,42 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     const ClipState clip = intersectClip(parentClip, clipOf(g.params, world));
     if (needsIsolate(g)) {
         const bool backdrop = hasBackdrop(g);
-        const Rect surface =
-            backdrop ? backdropSurface(g)
-                     : (g.params.bounds.size.x > 0 ? g.params.bounds : contentBounds(g));
+        const bool glassWork = hasGlassWork(g);
+        const Rect surface = glassWork ? glassSurface(g)
+                                       : (backdrop ? backdropSurface(g)
+                                                  : (g.params.bounds.size.x > 0 ? g.params.bounds
+                                                                                : contentBounds(g)));
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
         const int iw = isolatePixelSize(surface.size.x, pr);
         const int ih = isolatePixelSize(surface.size.y, pr);
         std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
         const Rect xf = transformRect(world, surface);
-        const float sigma = snapBackdropSigma(g.params.backdropBlur);
-        if (sigma > 0.f || g.params.backdropBend > 0.f) {
-            if (g.params.backdropBend > 0.f) {
-                samplePlate(tmp, iw, ih, dest, w, h, xf, specFromGroup(g, surface, pr));
+        if (glassWork) {
+            Color tint{};
+            bool flatten = false;
+            if (g.params.glass.has_value()) {
+                tint = g.params.glass->tint;
+                flatten = g.params.glass->flatten;
+            }
+            if (flatten) {
+                sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, Color{240, 240, 240, 240},
+                                 plateRadius(g.params.clipRadius) * pr);
             } else {
-                PlateSpec copy = specFromGroup(g, surface, pr);
-                copy.bend = 0.f;
-                copy.sigma = 0.f;
-                samplePlate(tmp, iw, ih, dest, w, h, xf, copy);
-                if (sigma > 0.f) {
-                    blurSeparable(tmp, iw, ih, sigma * pr * 0.5f);
+                sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, tint, plateRadius(g.params.clipRadius) * pr);
+            }
+        } else {
+            const float sigma = snapBackdropSigma(g.params.backdropBlur);
+            if (sigma > 0.f || g.params.backdropBend > 0.f) {
+                if (g.params.backdropBend > 0.f) {
+                    samplePlate(tmp, iw, ih, dest, w, h, xf, specFromGroup(g, surface, pr));
+                } else {
+                    PlateSpec copy = specFromGroup(g, surface, pr);
+                    copy.bend = 0.f;
+                    copy.sigma = 0.f;
+                    samplePlate(tmp, iw, ih, dest, w, h, xf, copy);
+                    if (sigma > 0.f) {
+                        blurSeparable(tmp, iw, ih, sigma * pr * 0.5f);
+                    }
                 }
             }
         }
@@ -510,6 +587,9 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         local->params.transform = Mat4::identity();
         if (backdrop) {
             dropBackdropPills(*local);
+        }
+        if (glassWork) {
+            stripGlassForIsolate(*local);
         }
         if (!hasClip(local->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
             local->params.clip = Rect{{0, 0}, surface.size};
@@ -552,7 +632,12 @@ void paintQuads(std::vector<Pixel>& dest, int w, int h, const std::vector<Quad>&
 void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, const ImageStore& images,
                    float pixelRatio) {
     std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
-    if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
+    if (iso.hasGlass) {
+        const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
+        const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
+        sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass.tint,
+                         iso.backdropRadius * pr);
+    } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
         const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
         const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
         if (iso.backdropBend > 0.f) {

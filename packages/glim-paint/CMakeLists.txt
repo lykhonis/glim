@@ -1,6 +1,7 @@
 add_library(glim-paint STATIC
     src/Context.cpp
     src/Merge.cpp
+    src/Glass.cpp
     src/Encode.cpp
     src/Software.cpp
     src/ImageStore.cpp
@@ -32,12 +33,16 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/rounded.metal"
     "${_glim_shader_dir}/glyph.metal"
     "${_glim_shader_dir}/blur.metal"
+    "${_glim_shader_dir}/blur1d.metal"
+    "${_glim_shader_dir}/glass.metal"
     "${CMAKE_SOURCE_DIR}/vendor/inter/Inter-Latin.ttf")
 file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
 file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
 file(READ "${_glim_shader_dir}/rounded.metal" GLIM_ROUNDED_METAL)
 file(READ "${_glim_shader_dir}/glyph.metal" GLIM_GLYPH_METAL)
 file(READ "${_glim_shader_dir}/blur.metal" GLIM_BLUR_METAL)
+file(READ "${_glim_shader_dir}/blur1d.metal" GLIM_BLUR1D_METAL)
+file(READ "${_glim_shader_dir}/glass.metal" GLIM_GLASS_METAL)
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/glim_metal_shaders.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h"
@@ -123,6 +128,12 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-foreign-test)
     add_test(NAME glim-foreign-test COMMAND glim-foreign-test)
 
+    add_executable(glim-glass-test tests/glass_test.cpp)
+    target_link_libraries(glim-glass-test PRIVATE glim::paint glim::paint-cpu)
+    glim_target_defaults(glim-glass-test)
+    add_test(NAME glim-glass-test COMMAND glim-glass-test)
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
-                      glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test)
+                      glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
+                      glim-glass-test)
 endif()
