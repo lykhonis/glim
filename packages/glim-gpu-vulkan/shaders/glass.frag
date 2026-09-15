@@ -17,8 +17,8 @@ struct GlassUniforms {
     vec4 tint;
     float blurEdge, lumaLift, lumaShadow, lumaOn;
     float dimmer, interactive, flatten, _pad1;
-    vec2 lightDir;
-    vec2 _pad2;
+    vec2 destUv0;
+    vec2 destUv1;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {
@@ -101,6 +101,8 @@ void main() {
     const GlassUniforms u = instances[0];
     const vec2 p = v_uv * u.resolution;
     float d = shapeSdf(u, p);
+    vec2 n2 = vec2(dFdx(d), dFdy(d));
+    n2 /= max(length(n2), 1e-5);
     const float alphaShape = smoothstep(0.75, -0.75, d);
     if (alphaShape <= 0.001) {
         out_color = vec4(0.0);
@@ -114,12 +116,6 @@ void main() {
         out_color = vec4(color * alphaShape, alphaShape);
         return;
     }
-
-    const vec2 e = vec2(1.0, 0.0);
-    vec2 n2 = vec2(shapeSdf(u, p + e.xy) - shapeSdf(u, p - e.xy),
-                   shapeSdf(u, p + e.yx) - shapeSdf(u, p - e.yx));
-    const float nlen = max(length(n2), 1e-5);
-    n2 /= nlen;
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
     const float wrapT = min(T, 16.0 * max(u.dpr, 1.0));
@@ -138,20 +134,25 @@ void main() {
         offset = n2 * magPx / max(u.resolution, vec2(1.0));
     }
 
-    const vec2 uvL = clamp(v_uv, vec2(0.001), vec2(0.999));
+    const vec2 uvIso = clamp(v_uv, vec2(0.001), vec2(0.999));
+    const vec2 uvL = mix(u.destUv0, u.destUv1, uvIso);
     const float frost = (u.blurEdge > 0.5) ? 0.88 : 0.32;
-    const vec3 pane = mix(texture(u_sharp, uvL).rgb, texture(u_blur, uvL).rgb, frost);
+    const vec3 pane = mix(textureLod(u_sharp, uvL, 0.0).rgb, textureLod(u_blur, uvIso, 0.0).rgb, frost);
     const float gamma = u.dispersion;
     vec3 wrapRgb;
-    const vec2 uvW = clamp(v_uv + offset, vec2(0.001), vec2(0.999));
+    const vec2 uvIsoW = clamp(v_uv + offset, vec2(0.001), vec2(0.999));
+    const vec2 uvW = mix(u.destUv0, u.destUv1, uvIsoW);
     if (gamma > 0.0 && wrapX > 0.08) {
-        const vec2 uvR = clamp(v_uv + offset * (1.0 - (0.98 - 1.0) * gamma), vec2(0.001), vec2(0.999));
-        const vec2 uvB = clamp(v_uv + offset * (1.0 - (1.02 - 1.0) * gamma), vec2(0.001), vec2(0.999));
-        wrapRgb = vec3(texture(u_sharp, uvR).r, texture(u_sharp, uvW).g, texture(u_sharp, uvB).b);
+        const vec2 uvIsoR = clamp(v_uv + offset * (1.0 - (0.98 - 1.0) * gamma), vec2(0.001), vec2(0.999));
+        const vec2 uvIsoB = clamp(v_uv + offset * (1.0 - (1.02 - 1.0) * gamma), vec2(0.001), vec2(0.999));
+        const vec2 uvR = mix(u.destUv0, u.destUv1, uvIsoR);
+        const vec2 uvB = mix(u.destUv0, u.destUv1, uvIsoB);
+        wrapRgb = vec3(textureLod(u_sharp, uvR, 0.0).r, textureLod(u_sharp, uvW, 0.0).g,
+                       textureLod(u_sharp, uvB, 0.0).b);
     } else {
-        wrapRgb = texture(u_sharp, uvW).rgb;
+        wrapRgb = textureLod(u_sharp, uvW, 0.0).rgb;
     }
-    wrapRgb = mix(wrapRgb, texture(u_blur, uvW).rgb, frost);
+    wrapRgb = mix(wrapRgb, textureLod(u_blur, uvIsoW, 0.0).rgb, frost);
     const float wrapMix = pow(clamp(wrapX, 0.0, 1.0), (u.blurEdge > 0.5) ? 1.25 : 0.95);
     const vec3 sampleRgb = mix(pane, wrapRgb, wrapMix);
 

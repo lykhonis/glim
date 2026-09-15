@@ -8,15 +8,18 @@ layout(set = 0, binding = 2) uniform sampler2D tex;
 
 void main() {
     const float sigma = max(v_extra.x, 0.001);
-    const int radius = clamp(int(ceil(3.0 * sigma)), 1, 16);
+    const int radius = clamp(int(ceil(3.0 * sigma)), 1, 8);
     const ivec2 ts = textureSize(tex, 0);
     const vec2 texel = vec2(v_extra.y / max(float(ts.x), 1.0), v_extra.z / max(float(ts.y), 1.0));
     vec4 acc = vec4(0.0);
     float wt = 0.0;
-    for (int k = -radius; k <= radius; ++k) {
+    for (int k = -8; k <= 8; ++k) {
+        if (abs(k) > radius) {
+            continue;
+        }
         const float d = float(k) / sigma;
         const float w = exp(-0.5 * d * d);
-        acc += texture(tex, v_uv + texel * float(k)) * w;
+        acc += textureLod(tex, v_uv + texel * float(k), 0.0) * w;
         wt += w;
     }
     out_color = acc / max(wt, 1e-5);

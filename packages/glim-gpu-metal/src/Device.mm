@@ -33,6 +33,12 @@ struct Device::Impl {
     std::vector<id<MTLRenderPipelineState>> pipelines;
     std::vector<id<MTLBuffer>> buffers;
     std::vector<id<MTLTexture>> textures;
+    struct PooledTarget {
+        id<MTLTexture> tex = nil;
+        bool inUse = false;
+        bool mipmaps = false;
+    };
+    std::vector<PooledTarget> targetPool;
     id<MTLSamplerState> sampler = nil;
 };
 
@@ -245,6 +251,9 @@ int Device::presentRotationDegrees() const {
 }
 
 Result<Drawable> Device::nextDrawable() {
+    for (Impl::PooledTarget& t : impl_->targetPool) {
+        t.inUse = false;
+    }
     impl_->currentDrawable = [impl_->layer nextDrawable];
     if (!impl_->currentDrawable) {
         return Result<Drawable>::fail("nextDrawable returned nil");
@@ -260,24 +269,34 @@ Result<Drawable> Device::nextDrawable() {
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     const int w = std::max(desc.width, 1);
     const int h = std::max(desc.height, 1);
-    MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                                                  width:static_cast<NSUInteger>(w)
-                                                                                 height:static_cast<NSUInteger>(h)
-                                                                              mipmapped:desc.mipmaps ? YES : NO];
-    td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-    td.storageMode = MTLStorageModePrivate;
-    id<MTLTexture> tex = [impl_->device newTextureWithDescriptor:td];
+    const bool mips = desc.mipmaps;
+    id<MTLTexture> tex = nil;
+    for (Impl::PooledTarget& slot : impl_->targetPool) {
+        if (!slot.inUse && slot.tex && slot.mipmaps == mips &&
+            static_cast<int>(slot.tex.width) == w && static_cast<int>(slot.tex.height) == h) {
+            slot.inUse = true;
+            tex = slot.tex;
+            break;
+        }
+    }
     if (!tex) {
-        return Result<FrameTarget>::fail("Metal FrameTarget texture failed");
+        MTLTextureDescriptor* td =
+            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                               width:static_cast<NSUInteger>(w)
+                                                              height:static_cast<NSUInteger>(h)
+                                                           mipmapped:mips ? YES : NO];
+        td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        td.storageMode = MTLStorageModePrivate;
+        tex = [impl_->device newTextureWithDescriptor:td];
+        if (!tex) {
+            return Result<FrameTarget>::fail("Metal FrameTarget texture failed");
+        }
+        impl_->targetPool.push_back({tex, true, mips});
     }
     FrameTarget t;
     t.handle_ = impl_->next++;
     t.width_ = w;
     t.height_ = h;
-    if (t.handle_ >= impl_->textures.size()) {
-        impl_->textures.resize(t.handle_ + 1);
-    }
-    impl_->textures[t.handle_] = tex;
     t.native_ = (__bridge void*)tex;
     return Result<FrameTarget>::ok(t);
 }

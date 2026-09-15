@@ -36,8 +36,8 @@ struct GlassUniforms {
     float interactive;
     float flatten;
     float _pad1;
-    float2 lightDir;
-    float2 _pad2;
+    float2 destUv0;
+    float2 destUv1;
 };
 
 struct Uniforms {
@@ -138,6 +138,8 @@ fragment float4 fs_main(VSOut in [[stage_in]],
     const GlassUniforms u = instances[0];
     const float2 p = in.uv * u.resolution;
     float d = shapeSdf(u, p);
+    float2 n2 = float2(dfdx(d), dfdy(d));
+    n2 /= max(length(n2), 1e-5);
     const float alphaShape = smoothstep(0.75, -0.75, d);
     if (alphaShape <= 0.001) {
         return float4(0.0);
@@ -150,12 +152,6 @@ fragment float4 fs_main(VSOut in [[stage_in]],
         color = mix(color, float3(1.0), rim * 0.05);
         return float4(color * alphaShape, alphaShape);
     }
-
-    const float2 e = float2(1.0, 0.0);
-    float2 n2 = float2(shapeSdf(u, p + e.xy) - shapeSdf(u, p - e.xy),
-                       shapeSdf(u, p + e.yx) - shapeSdf(u, p - e.yx));
-    const float nlen = max(length(n2), 1e-5);
-    n2 /= nlen;
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
     const float wrapT = min(T, 16.0 * max(u.dpr, 1.0));
@@ -174,20 +170,27 @@ fragment float4 fs_main(VSOut in [[stage_in]],
         offset = n2 * magPx / max(u.resolution, float2(1.0));
     }
 
-    const float2 uvL = clamp(in.uv, float2(0.001), float2(0.999));
+    const float2 uvIso = clamp(in.uv, float2(0.001), float2(0.999));
+    const float2 uvL = mix(u.destUv0, u.destUv1, uvIso);
     const float frost = (u.blurEdge > 0.5) ? 0.88 : 0.32;
-    const float3 pane = mix(u_sharp.sample(samp, uvL).rgb, u_blur.sample(samp, uvL).rgb, frost);
+    const float3 pane = mix(u_sharp.sample(samp, uvL, level(0.0)).rgb,
+                            u_blur.sample(samp, uvIso, level(0.0)).rgb, frost);
     const float gamma = u.dispersion;
     float3 wrapRgb;
-    const float2 uvW = clamp(in.uv + offset, float2(0.001), float2(0.999));
+    const float2 uvIsoW = clamp(in.uv + offset, float2(0.001), float2(0.999));
+    const float2 uvW = mix(u.destUv0, u.destUv1, uvIsoW);
     if (gamma > 0.0 && wrapX > 0.08) {
-        const float2 uvR = clamp(in.uv + offset * (1.0 - (0.98 - 1.0) * gamma), float2(0.001), float2(0.999));
-        const float2 uvB = clamp(in.uv + offset * (1.0 - (1.02 - 1.0) * gamma), float2(0.001), float2(0.999));
-        wrapRgb = float3(u_sharp.sample(samp, uvR).r, u_sharp.sample(samp, uvW).g, u_sharp.sample(samp, uvB).b);
+        const float2 uvIsoR = clamp(in.uv + offset * (1.0 - (0.98 - 1.0) * gamma), float2(0.001), float2(0.999));
+        const float2 uvIsoB = clamp(in.uv + offset * (1.0 - (1.02 - 1.0) * gamma), float2(0.001), float2(0.999));
+        const float2 uvR = mix(u.destUv0, u.destUv1, uvIsoR);
+        const float2 uvB = mix(u.destUv0, u.destUv1, uvIsoB);
+        wrapRgb = float3(u_sharp.sample(samp, uvR, level(0.0)).r,
+                         u_sharp.sample(samp, uvW, level(0.0)).g,
+                         u_sharp.sample(samp, uvB, level(0.0)).b);
     } else {
-        wrapRgb = u_sharp.sample(samp, uvW).rgb;
+        wrapRgb = u_sharp.sample(samp, uvW, level(0.0)).rgb;
     }
-    wrapRgb = mix(wrapRgb, u_blur.sample(samp, uvW).rgb, frost);
+    wrapRgb = mix(wrapRgb, u_blur.sample(samp, uvIsoW, level(0.0)).rgb, frost);
     const float wrapMix = pow(saturate(wrapX), (u.blurEdge > 0.5) ? 1.25 : 0.95);
     const float3 sampleRgb = mix(pane, wrapRgb, wrapMix);
 

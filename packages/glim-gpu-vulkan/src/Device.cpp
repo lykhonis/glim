@@ -1372,14 +1372,14 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
 
     VkDescriptorPoolSize poolSizes[3]{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[0].descriptorCount = 256;
+    poolSizes[0].descriptorCount = 1024;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 256;
+    poolSizes[1].descriptorCount = 1024;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[2].descriptorCount = 256 * kMaxFragmentTextures;
+    poolSizes[2].descriptorCount = 1024 * kMaxFragmentTextures;
     VkDescriptorPoolCreateInfo dpi{};
     dpi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    dpi.maxSets = 256;
+    dpi.maxSets = 1024;
     dpi.poolSizeCount = 3;
     dpi.pPoolSizes = poolSizes;
 

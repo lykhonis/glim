@@ -68,9 +68,16 @@ private:
     gpu::Pipeline glass_{};
     gpu::FrameTarget backdrop_{};
     gpu::FrameTarget glassSrc_{};
-    gpu::FrameTarget glassBackdrop_{};
     gpu::FrameTarget glassBlurTmp_{};
     gpu::FrameTarget glassBlur_{};
+    struct ScratchRt {
+        gpu::FrameTarget ft;
+        int w = 0;
+        int h = 0;
+    };
+    std::vector<ScratchRt> scratch_;
+    int scratchUsed_ = 0;
+    gpu::FrameTarget* acquireScratch(int w, int h);
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];

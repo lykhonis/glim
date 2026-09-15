@@ -84,8 +84,8 @@ struct GlassUniforms {
     float interactive;
     float flatten;
     float _pad1;
-    float lightDir[2];
-    float _pad2[2];
+    float destUv0[2];
+    float destUv1[2];
 };
 
 static_assert(sizeof(GlassUniforms) == 384, "GlassUniforms packed std430");
@@ -98,7 +98,8 @@ float glassBlurRadius(const Glass& g) {
 }
 
 GlassUniforms makeGlassUniforms(const Glass& g, const GlassPill* pills, int n, int iw, int ih,
-                                float pixelRatio) {
+                                float pixelRatio, float u0 = 0.f, float v0 = 0.f, float u1 = 1.f,
+                                float v1 = 1.f) {
     GlassUniforms u{};
     u.resolution[0] = static_cast<float>(iw);
     u.resolution[1] = static_cast<float>(ih);
@@ -146,9 +147,16 @@ GlassUniforms makeGlassUniforms(const Glass& g, const GlassPill* pills, int n, i
     u.dimmer = (!ident && !g.flatten && g.variant == GlassVariant::Clear) ? 0.12f : 0.f;
     u.interactive = g.interactive ? 1.f : 0.f;
     u.flatten = g.flatten ? 1.f : 0.f;
-    u.lightDir[0] = 0.28f;
-    u.lightDir[1] = 0.85f;
+    u.destUv0[0] = u0;
+    u.destUv0[1] = v0;
+    u.destUv1[0] = u1;
+    u.destUv1[1] = v1;
     return u;
+}
+
+int bucketSize(int n) {
+    constexpr int k = 32;
+    return std::max(k, (n + k - 1) / k * k);
 }
 
 void ensureRt(gpu::Device& device, gpu::FrameTarget& ft, int w, int h) {
@@ -276,6 +284,31 @@ std::string loadShader(const char* name) {
 }  // namespace
 
 Renderer::Renderer(gpu::Device& device) : device_(device) {}
+
+gpu::FrameTarget* Renderer::acquireScratch(int w, int h) {
+    w = bucketSize(std::max(1, w));
+    h = bucketSize(std::max(1, h));
+    for (int i = scratchUsed_; i < static_cast<int>(scratch_.size()); ++i) {
+        if (scratch_[i].w == w && scratch_[i].h == h && scratch_[i].ft.native()) {
+            if (i != scratchUsed_) {
+                std::swap(scratch_[i], scratch_[scratchUsed_]);
+            }
+            return &scratch_[scratchUsed_++].ft;
+        }
+    }
+    if (scratchUsed_ < static_cast<int>(scratch_.size())) {
+        ensureRt(device_, scratch_[scratchUsed_].ft, w, h);
+        scratch_[scratchUsed_].w = w;
+        scratch_[scratchUsed_].h = h;
+        return &scratch_[scratchUsed_++].ft;
+    }
+    ScratchRt s;
+    ensureRt(device_, s.ft, w, h);
+    s.w = w;
+    s.h = h;
+    scratch_.push_back(std::move(s));
+    return &scratch_[scratchUsed_++].ft;
+}
 
 Renderer::~Renderer() = default;
 
@@ -661,10 +694,14 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
 
     bool glassFrozen = false;
     for (const Isolate& iso : isolates) {
-        auto ft = device_.createFrameTarget({iso.contentW, iso.contentH});
-        if (!ft.ok()) {
+        gpu::FrameTarget* ft = acquireScratch(iso.contentW, iso.contentH);
+        if (!ft || !ft->native()) {
             continue;
         }
+        const float isoU1 =
+            static_cast<float>(iso.contentW) / static_cast<float>(std::max(1, ft->width()));
+        const float isoV1 =
+            static_cast<float>(iso.contentH) / static_cast<float>(std::max(1, ft->height()));
         pass.end();
         gpu::LoadOp plateLoad = gpu::LoadOp::Clear;
         const auto blitTex = [&](void* dst, int dw, int dh, void* src, float u0, float v0, float u1,
@@ -719,21 +756,12 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                 }
             }
             if (glassSrc_.native()) {
-                if (!glassBackdrop_.native() || glassBackdrop_.width() != iso.contentW ||
-                    glassBackdrop_.height() != iso.contentH) {
-                    auto gb = device_.createFrameTarget({iso.contentW, iso.contentH});
-                    if (gb.ok()) {
-                        glassBackdrop_ = std::move(gb.value());
-                    }
-                }
-                if (glassBackdrop_.native()) {
-                    blitTex(glassBackdrop_.native(), iso.contentW, iso.contentH, glassSrc_.native(),
-                            iso.glassU0, iso.glassV0, iso.glassU1, iso.glassV1, 1.f, 1.f, 1.f, 1.f);
                     const GlassUniforms gu = makeGlassUniforms(
                         iso.glass, iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
                         static_cast<int>(iso.glassPills.size()), iso.contentW, iso.contentH,
-                        iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f);
-                    void* sharp = glassBackdrop_.native();
+                        iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f,
+                        iso.glassU0, iso.glassV0, iso.glassU1, iso.glassV1);
+                    void* sharp = glassSrc_.native();
                     void* blur = sharp;
                     const float blurR = glassBlurRadius(iso.glass);
                     if (blurR > 0.f && blur1d_.native() && !iso.glass.flatten) {
@@ -743,7 +771,8 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                         ensureRt(device_, glassBlur_, bw, bh);
                         const float sigma = blurR * (iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f) *
                                             0.5f;
-                        auto pass1d = [&](void* dst, int dw, int dh, void* src, float dx, float dy) {
+                        auto pass1d = [&](void* dst, int dw, int dh, void* src, float dx, float dy,
+                                          float su0, float sv0, float su1, float sv1) {
                             gpu::PassDesc d;
                             d.nativeColor = dst;
                             d.load = gpu::LoadOp::Clear;
@@ -759,8 +788,10 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                             BlitInstance inst{};
                             inst.rect[2] = static_cast<float>(dw);
                             inst.rect[3] = static_cast<float>(dh);
-                            inst.uv[2] = 1.f;
-                            inst.uv[3] = 1.f;
+                            inst.uv[0] = su0;
+                            inst.uv[1] = sv0;
+                            inst.uv[2] = su1;
+                            inst.uv[3] = sv1;
                             inst.extra[0] = sigma;
                             inst.extra[1] = dx;
                             inst.extra[2] = dy;
@@ -773,8 +804,10 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                             p.end();
                         };
                         if (glassBlurTmp_.native() && glassBlur_.native()) {
-                            pass1d(glassBlurTmp_.native(), bw, bh, sharp, 0.f, 1.f);
-                            pass1d(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f);
+                            pass1d(glassBlurTmp_.native(), bw, bh, sharp, 0.f, 1.f, iso.glassU0,
+                                   iso.glassV0, iso.glassU1, iso.glassV1);
+                            pass1d(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f, 0.f,
+                                   0.f, 1.f, 1.f);
                             blur = glassBlur_.native();
                         }
                     }
@@ -806,11 +839,10 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                         gp.draw(6, 1, 0, 0);
                         gp.end();
                     } else {
-                        blitTex(ft->native(), iso.contentW, iso.contentH, sharp, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f,
-                                1.f, 1.f);
+                        blitTex(ft->native(), iso.contentW, iso.contentH, sharp, iso.glassU0,
+                                iso.glassV0, iso.glassU1, iso.glassV1, 1.f, 1.f, 1.f, 1.f);
                     }
                     plateLoad = gpu::LoadOp::Load;
-                }
             }
             ++stats_.glassPassCount;
             stats_.glassPillCount += static_cast<unsigned>(iso.glassPills.size());
@@ -909,8 +941,8 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         blit.rect[3] = iso.destH;
         blit.uv[0] = 0.f;
         blit.uv[1] = 0.f;
-        blit.uv[2] = 1.f;
-        blit.uv[3] = 1.f;
+        blit.uv[2] = isoU1;
+        blit.uv[3] = isoV1;
         blit.extra[0] = iso.opacity;
         blit.extra[1] = iso.opacity;
         blit.extra[2] = iso.opacity;
@@ -937,6 +969,7 @@ void Renderer::submit(const FramePacket& packet) {
         return;
     }
     images_ = &packet.images;
+    scratchUsed_ = 0;
     for (const BlitQuad& q : packet.blits) {
         gpuTexture(q.imageId);
     }
@@ -1185,6 +1218,9 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
             }
             glassSrc_ = std::move(ft.value());
         }
+        if (!nativeColor && encoder.copyColorTo(glassSrc_)) {
+            return glassSrc_.native();
+        }
         void* src = nativeColor ? nativeColor : device_.colorNative();
         if (!src) {
             return nullptr;
@@ -1192,32 +1228,6 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         blitTex(glassSrc_.native(), hw, hh, src, 0.f, 0.f, static_cast<float>(hw), static_cast<float>(hh), 0.f,
                 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
         return glassSrc_.native();
-    };
-
-    const auto snapshotGlass = [&](int iw, int ih, const Rect& dest) -> void* {
-        if (!glassSrc_.native() || iw <= 0 || ih <= 0) {
-            return nullptr;
-        }
-        if (!glassBackdrop_.native() || glassBackdrop_.width() != iw || glassBackdrop_.height() != ih) {
-            auto ft = device_.createFrameTarget({iw, ih});
-            if (!ft.ok()) {
-                return nullptr;
-            }
-            glassBackdrop_ = std::move(ft.value());
-        }
-        float u0 = 0.f;
-        float v0 = 0.f;
-        float u1 = 1.f;
-        float v1 = 1.f;
-        if (logicalSize.x > 0.f && logicalSize.y > 0.f) {
-            u0 = dest.origin.x / logicalSize.x;
-            v0 = dest.origin.y / logicalSize.y;
-            u1 = (dest.origin.x + dest.size.x) / logicalSize.x;
-            v1 = (dest.origin.y + dest.size.y) / logicalSize.y;
-        }
-        blitTex(glassBackdrop_.native(), iw, ih, glassSrc_.native(), 0.f, 0.f, static_cast<float>(iw),
-                static_cast<float>(ih), u0, v0, u1, v1, 1.f, 1.f, 1.f, 1.f);
-        return glassBackdrop_.native();
     };
 
     const auto emitTree = [&](auto& self, const Group& g, const Mat4& extra,
@@ -1277,14 +1287,26 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         };
         const auto emitShape = [&](const Shape& s) {
             const Shape xf = transformShape(extra, s);
-            if (std::get_if<FillRect>(&xf)) {
-                std::vector<Quad> quads;
-                std::vector<BlitQuad> unused;
-                appendShape(quads, unused, xf, clip);
-                if (!quads.empty()) {
-                    flushBlit(pass);
-                    flushGlyph(pass);
-                    flushRounded(pass);
+            if (const auto* fill = std::get_if<FillRect>(&xf)) {
+                flushBlit(pass);
+                flushGlyph(pass);
+                flushRounded(pass);
+                if (!clip.active) {
+                    const Vec4 p = fill->matter.color.premul();
+                    Quad q;
+                    q.x = fill->rect.origin.x;
+                    q.y = fill->rect.origin.y;
+                    q.w = fill->rect.size.x;
+                    q.h = fill->rect.size.y;
+                    q.r = p.x;
+                    q.g = p.y;
+                    q.b = p.z;
+                    q.a = p.w;
+                    addQuad(q);
+                } else {
+                    std::vector<Quad> quads;
+                    std::vector<BlitQuad> unused;
+                    appendShape(quads, unused, xf, clip);
                     for (const Quad& q : quads) {
                         addQuad(q);
                     }
@@ -1354,8 +1376,12 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                                                                  : contentBounds(*child)));
                 const int iw = isolatePixelSize(surface.size.x, pixelRatio);
                 const int ih = isolatePixelSize(surface.size.y, pixelRatio);
-                auto ft = device_.createFrameTarget({iw, ih});
-                if (ft.ok()) {
+                gpu::FrameTarget* ft = acquireScratch(iw, ih);
+                if (ft && ft->native()) {
+                    const float isoU1 =
+                        static_cast<float>(iw) / static_cast<float>(std::max(1, ft->width()));
+                    const float isoV1 =
+                        static_cast<float>(ih) / static_cast<float>(std::max(1, ft->height()));
                     auto content = cloneGroup(*child);
                     content->params.opacity = 1.0f;
                     content->params.isolate = false;
@@ -1378,7 +1404,17 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
                     if (glassWork) {
                         const Rect dest = transformRect(extra * child->params.transform, surface);
-                        glassTex = snapshotGlass(iw, ih, dest);
+                        float du0 = 0.f;
+                        float dv0 = 0.f;
+                        float du1 = 1.f;
+                        float dv1 = 1.f;
+                        if (logicalSize.x > 0.f && logicalSize.y > 0.f) {
+                            du0 = dest.origin.x / logicalSize.x;
+                            dv0 = dest.origin.y / logicalSize.y;
+                            du1 = (dest.origin.x + dest.size.x) / logicalSize.x;
+                            dv1 = (dest.origin.y + dest.size.y) / logicalSize.y;
+                        }
+                        glassTex = glassSrc_.native();
                         Glass mat{};
                         if (child->params.glass.has_value()) {
                             mat = *child->params.glass;
@@ -1397,7 +1433,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             gpills[i].rect.origin.y -= surface.origin.y;
                         }
                         const GlassUniforms gu =
-                            makeGlassUniforms(mat, gpills, gn, iw, ih, localPr);
+                            makeGlassUniforms(mat, gpills, gn, iw, ih, localPr, du0, dv0, du1, dv1);
                         void* sharpTex = glassTex;
                         void* blurTex = glassTex;
                         const float blurR = glassBlurRadius(mat);
@@ -1408,7 +1444,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             ensureRt(device_, glassBlur_, bw, bh);
                             const float sigma = blurR * localPr * 0.5f;
                             auto blur1dPass = [&](void* dst, int dw, int dh, void* src, float dx, float dy,
-                                                  float u1, float v1) {
+                                                  float su0, float sv0, float su1, float sv1) {
                                 gpu::PassDesc d;
                                 d.nativeColor = dst;
                                 d.load = gpu::LoadOp::Clear;
@@ -1424,8 +1460,10 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                                 BlitInstance inst{};
                                 inst.rect[2] = static_cast<float>(dw);
                                 inst.rect[3] = static_cast<float>(dh);
-                                inst.uv[2] = u1;
-                                inst.uv[3] = v1;
+                                inst.uv[0] = su0;
+                                inst.uv[1] = sv0;
+                                inst.uv[2] = su1;
+                                inst.uv[3] = sv1;
                                 inst.extra[0] = sigma;
                                 inst.extra[1] = dx;
                                 inst.extra[2] = dy;
@@ -1440,9 +1478,10 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                                 p.end();
                             };
                             if (glassBlurTmp_.native() && glassBlur_.native()) {
-                                blur1dPass(glassBlurTmp_.native(), bw, bh, sharpTex, 0.f, 1.f, 1.f, 1.f);
-                                blur1dPass(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f, 1.f,
-                                           1.f);
+                                blur1dPass(glassBlurTmp_.native(), bw, bh, sharpTex, 0.f, 1.f, du0, dv0,
+                                           du1, dv1);
+                                blur1dPass(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f,
+                                           0.f, 0.f, 1.f, 1.f);
                                 blurTex = glassBlur_.native();
                             }
                         }
@@ -1474,7 +1513,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             glassTex = ft->native();
                         } else if (glassTex) {
                             blitTex(ft->native(), iw, ih, glassTex, 0.f, 0.f, static_cast<float>(iw),
-                                    static_cast<float>(ih), 0.f, 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+                                    static_cast<float>(ih), du0, dv0, du1, dv1, 1.f, 1.f, 1.f, 1.f);
                         }
                         encodeGroup(encoder, *content, localProj, iw, ih, ft->native(),
                                     glassTex ? gpu::LoadOp::Load : gpu::LoadOp::Clear, localPr,
@@ -1540,8 +1579,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                     blit.rect[3] = dest.size.y;
                     blit.uv[0] = 0.f;
                     blit.uv[1] = 0.f;
-                    blit.uv[2] = 1.f;
-                    blit.uv[3] = 1.f;
+                    blit.uv[2] = isoU1;
+                    blit.uv[3] = isoV1;
                     blit.extra[0] = child->params.opacity;
                     blit.extra[1] = child->params.opacity;
                     blit.extra[2] = child->params.opacity;
@@ -1581,6 +1620,7 @@ void Renderer::draw(const Scene& scene) {
         return;
     }
     images_ = &scene.images;
+    scratchUsed_ = 0;
     Group root = merge(scene.root, &stats_);
     const auto prefetch = [this](auto& self, const Group& g) -> void {
         for (const Shape& s : g.shapes) {
