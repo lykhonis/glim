@@ -390,8 +390,9 @@ void samplePlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pi
 }
 
 void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
-    const int radius = std::max(1, static_cast<int>(std::ceil(sigma)));
-    std::vector<Pixel> tmp = img;
+    const int radius = std::max(1, std::min(3, static_cast<int>(std::ceil(sigma))));
+    thread_local std::vector<Pixel> tmp;
+    tmp = img;
     auto blurAxis = [&](bool horiz) {
         const int n = horiz ? w : h;
         const int m = horiz ? h : w;
@@ -428,52 +429,190 @@ void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
     blurAxis(false);
 }
 
-void sampleGlassPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw,
-                      int dh, Rect src, Color tint, float radiusPx) {
-    if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
+void blurCheap(std::vector<Pixel>& img, int w, int h, float sigma) {
+    if (sigma < 0.45f || w < 2 || h < 2 || img.empty()) {
         return;
     }
+    const int scale = sigma >= 8.f ? 4 : (sigma >= 3.f ? 2 : 1);
+    if (scale == 1) {
+        blurSeparable(img, w, h, sigma);
+        return;
+    }
+    const int dw = std::max(1, w / scale);
+    const int dh = std::max(1, h / scale);
+    thread_local std::vector<Pixel> small;
+    small.assign(static_cast<std::size_t>(dw * dh), Pixel{0, 0, 0, 0});
+    for (int y = 0; y < dh; ++y) {
+        const int y0 = y * scale;
+        const int y1 = std::min(h, y0 + scale);
+        for (int x = 0; x < dw; ++x) {
+            const int x0 = x * scale;
+            const int x1 = std::min(w, x0 + scale);
+            Pixel acc{0, 0, 0, 0};
+            int n = 0;
+            for (int yy = y0; yy < y1; ++yy) {
+                for (int xx = x0; xx < x1; ++xx) {
+                    const Pixel s = img[static_cast<std::size_t>(yy * w + xx)];
+                    acc.r += s.r;
+                    acc.g += s.g;
+                    acc.b += s.b;
+                    acc.a += s.a;
+                    ++n;
+                }
+            }
+            if (n > 0) {
+                const float inv = 1.f / static_cast<float>(n);
+                acc.r *= inv;
+                acc.g *= inv;
+                acc.b *= inv;
+                acc.a *= inv;
+            }
+            small[static_cast<std::size_t>(y * dw + x)] = acc;
+        }
+    }
+    blurSeparable(small, dw, dh, sigma / static_cast<float>(scale));
+    const float sx = static_cast<float>(dw) / static_cast<float>(w);
+    const float sy = static_cast<float>(dh) / static_cast<float>(h);
+    for (int y = 0; y < h; ++y) {
+        const int iy = std::min(dh - 1, std::max(0, static_cast<int>((static_cast<float>(y) + 0.5f) * sy)));
+        for (int x = 0; x < w; ++x) {
+            const int ix = std::min(dw - 1, std::max(0, static_cast<int>((static_cast<float>(x) + 0.5f) * sx)));
+            img[static_cast<std::size_t>(y * w + x)] = small[static_cast<std::size_t>(iy * dw + ix)];
+        }
+    }
+}
+
+void copyDestPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw, int dh,
+                   Rect src) {
     const float plateW = static_cast<float>(iw);
     const float plateH = static_cast<float>(ih);
-    const float hx = plateW * 0.5f;
-    const float hy = plateH * 0.5f;
-    const float r = std::min(radiusPx, std::min(hx, hy));
-    const float ta = tint.alpha() * 0.2f;
-    const float tr = tint.red();
-    const float tg = tint.green();
-    const float tb = tint.blue();
     for (int y = 0; y < ih; ++y) {
         const float v = (static_cast<float>(y) + 0.5f) / plateH;
-        const float py = static_cast<float>(y) + 0.5f - hy;
+        const float sy = src.origin.y + v * src.size.y;
         for (int x = 0; x < iw; ++x) {
             const float u = (static_cast<float>(x) + 0.5f) / plateW;
-            const float px = static_cast<float>(x) + 0.5f - hx;
-            const float qx = std::fabs(px) - hx + r;
-            const float qy = std::fabs(py) - hy + r;
-            const float sdf =
-                std::min(std::max(qx, qy), 0.f) + std::hypot(std::max(qx, 0.f), std::max(qy, 0.f)) - r;
+            const float sx = src.origin.x + u * src.size.x;
+            plate[static_cast<std::size_t>(y * iw + x)] = sampleDest(dest, dw, dh, sx, sy);
+        }
+    }
+}
+
+float sdRoundBox(float px, float py, float hx, float hy, float r) {
+    r = std::min(r, std::min(hx, hy));
+    const float qx = std::fabs(px) - hx + r;
+    const float qy = std::fabs(py) - hy + r;
+    return std::hypot(std::max(qx, 0.f), std::max(qy, 0.f)) + std::min(std::max(qx, qy), 0.f) - r;
+}
+
+float glassFieldSdf(const PlateSpec& spec, float px, float py) {
+    float sdf = 1e6f;
+    const int n = spec.n > 0 ? spec.n : 1;
+    for (int i = 0; i < n; ++i) {
+        const BackdropPill& pill = spec.pills[i];
+        const float cx = pill.rect.origin.x + pill.rect.size.x * 0.5f;
+        const float cy = pill.rect.origin.y + pill.rect.size.y * 0.5f;
+        const float d = sdRoundBox(px - cx, py - cy, pill.rect.size.x * 0.5f, pill.rect.size.y * 0.5f,
+                                   pill.radius);
+        sdf = (i == 0) ? d : smin(sdf, d, spec.mergeK);
+    }
+    return sdf;
+}
+
+void applyGlassChrome(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Glass& mat) {
+    const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
+    const float milk = flatten ? 0.f : (mat.variant == GlassVariant::Regular ? 0.10f : 0.04f);
+    const float ta = mat.tint.alpha() * 0.12f;
+    const float tr = mat.tint.red();
+    const float tg = mat.tint.green();
+    const float tb = mat.tint.blue();
+    for (int y = 0; y < ih; ++y) {
+        const float py = static_cast<float>(y) + 0.5f;
+        for (int x = 0; x < iw; ++x) {
+            const float px = static_cast<float>(x) + 0.5f;
+            const float sdf = glassFieldSdf(field, px, py);
             const float mask = std::clamp(0.5f - sdf, 0.f, 1.f);
+            const std::size_t i = static_cast<std::size_t>(y * iw + x);
             if (mask < 0.001f) {
-                plate[static_cast<std::size_t>(y * iw + x)] = Pixel{0, 0, 0, 0};
+                plate[i] = Pixel{0, 0, 0, 0};
                 continue;
             }
-            const float sx = src.origin.x + u * src.size.x;
-            const float sy = src.origin.y + v * src.size.y;
-            Pixel p = sampleDest(dest, dw, dh, sx, sy);
-            p.r = p.r + (tr - p.r) * ta;
-            p.g = p.g + (tg - p.g) * ta;
-            p.b = p.b + (tb - p.b) * ta;
-            const float rim = std::clamp(1.f - std::fabs(sdf), 0.f, 1.f);
-            p.r = p.r + (1.f - p.r) * rim * 0.45f;
-            p.g = p.g + (1.f - p.g) * rim * 0.45f;
-            p.b = p.b + (1.f - p.b) * rim * 0.45f;
+            Pixel p = plate[i];
+            if (flatten) {
+                p.r = 0.94f;
+                p.g = 0.94f;
+                p.b = 0.94f;
+                p.a = 1.f;
+                const float rim = std::clamp(1.6f - std::fabs(sdf), 0.f, 1.f) * 0.05f;
+                p.r = p.r + (1.f - p.r) * rim;
+                p.g = p.g + (1.f - p.g) * rim;
+                p.b = p.b + (1.f - p.b) * rim;
+            } else {
+                p.r = p.r + (1.f - p.r) * milk;
+                p.g = p.g + (1.f - p.g) * milk;
+                p.b = p.b + (1.f - p.b) * milk;
+                p.r = p.r + (tr - p.r) * ta;
+                p.g = p.g + (tg - p.g) * ta;
+                p.b = p.b + (tb - p.b) * ta;
+                if (sdf > -4.f) {
+                    const float gx = glassFieldSdf(field, px + 1.f, py) - glassFieldSdf(field, px - 1.f, py);
+                    const float gy = glassFieldSdf(field, px, py + 1.f) - glassFieldSdf(field, px, py - 1.f);
+                    const float glen = std::max(1e-4f, std::hypot(gx, gy));
+                    const float nx = gx / glen;
+                    const float ny = gy / glen;
+                    const float inside = std::max(-sdf, 0.f);
+                    const float hair = std::pow(std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f), 5.f);
+                    const float horiz = nx * nx;
+                    p.r *= 1.f - horiz * hair * 0.42f;
+                    p.g *= 1.f - horiz * hair * 0.42f;
+                    p.b *= 1.f - horiz * hair * 0.42f;
+                    const float top = std::clamp(-ny, 0.f, 1.f);
+                    const float bot = std::clamp(ny, 0.f, 1.f);
+                    const float hi = hair * (top + bot * 0.62f);
+                    p.r = p.r + (1.f - p.r) * hi;
+                    p.g = p.g + (1.f - p.g) * hi;
+                    p.b = p.b + (1.f - p.b) * hi;
+                }
+            }
             p.r *= mask;
             p.g *= mask;
             p.b *= mask;
             p.a *= mask;
-            plate[static_cast<std::size_t>(y * iw + x)] = p;
+            plate[i] = p;
         }
     }
+}
+
+PlateSpec glassPillsToField(const GlassPill* pills, int n, float mergeKPx, float pr, const Rect& surface) {
+    PlateSpec spec;
+    spec.mergeK = mergeKPx * pr;
+    if (n <= 0) {
+        spec.n = 1;
+        spec.pills[0].rect = Rect::fromSize({surface.size.x * pr, surface.size.y * pr});
+        spec.pills[0].radius = std::min(spec.pills[0].rect.size.x, spec.pills[0].rect.size.y) * 0.5f;
+        return spec;
+    }
+    spec.n = std::min(kMaxBackdropPills, n);
+    for (int i = 0; i < spec.n; ++i) {
+        spec.pills[i].rect.origin.x = (pills[i].rect.origin.x - surface.origin.x) * pr;
+        spec.pills[i].rect.origin.y = (pills[i].rect.origin.y - surface.origin.y) * pr;
+        spec.pills[i].rect.size.x = pills[i].rect.size.x * pr;
+        spec.pills[i].rect.size.y = pills[i].rect.size.y * pr;
+        spec.pills[i].radius = pills[i].radius * pr;
+    }
+    return spec;
+}
+
+void sampleGlassPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw,
+                      int dh, Rect src, const Glass& mat, const PlateSpec& field) {
+    if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
+        return;
+    }
+    copyDestPlate(plate, iw, ih, dest, dw, dh, src);
+    if (!mat.flatten && mat.variant != GlassVariant::Identity) {
+        const float sigma = mat.variant == GlassVariant::Clear ? 2.5f : 6.f;
+        blurCheap(plate, iw, ih, sigma);
+    }
+    applyGlassChrome(plate, iw, ih, field, mat);
 }
 
 void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
@@ -542,28 +681,28 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     if (needsIsolate(g)) {
         const bool backdrop = hasBackdrop(g);
         const bool glassWork = hasGlassWork(g);
-        const Rect surface = glassWork ? glassSurface(g)
-                                       : (backdrop ? backdropSurface(g)
-                                                  : (g.params.bounds.size.x > 0 ? g.params.bounds
-                                                                                : contentBounds(g)));
+        const Rect surface = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
         const int iw = isolatePixelSize(surface.size.x, pr);
         const int ih = isolatePixelSize(surface.size.y, pr);
         std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
         const Rect xf = transformRect(world, surface);
         if (glassWork) {
-            Color tint{};
-            bool flatten = false;
+            Glass mat{};
             if (g.params.glass.has_value()) {
-                tint = g.params.glass->tint;
-                flatten = g.params.glass->flatten;
-            }
-            if (flatten) {
-                sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, Color{240, 240, 240, 240},
-                                 plateRadius(g.params.clipRadius) * pr);
+                mat = *g.params.glass;
             } else {
-                sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, tint, plateRadius(g.params.clipRadius) * pr);
+                for (const auto& c : g.children) {
+                    if (c && c->params.glass.has_value()) {
+                        mat = *c->params.glass;
+                        break;
+                    }
+                }
             }
+            GlassPill pills[kMaxGlassPills];
+            const int n = collectGlassPills(g, pills);
+            const PlateSpec field = glassPillsToField(pills, n, mat.mergeKPx, pr, surface);
+            sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, mat, field);
         } else {
             const float sigma = snapBackdropSigma(g.params.backdropBlur);
             if (sigma > 0.f || g.params.backdropBend > 0.f) {
@@ -575,7 +714,7 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
                     copy.sigma = 0.f;
                     samplePlate(tmp, iw, ih, dest, w, h, xf, copy);
                     if (sigma > 0.f) {
-                        blurSeparable(tmp, iw, ih, sigma * pr * 0.5f);
+                        blurCheap(tmp, iw, ih, sigma * pr * 0.5f);
                     }
                 }
             }
@@ -635,8 +774,11 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
     if (iso.hasGlass) {
         const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
         const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
-        sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass.tint,
-                         iso.backdropRadius * pr);
+        const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
+        const PlateSpec field = glassPillsToField(
+            iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
+            static_cast<int>(iso.glassPills.size()), iso.glass.mergeKPx, pr, local);
+        sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass, field);
     } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
         const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
         const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
@@ -648,7 +790,7 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
             copy.sigma = 0.f;
             samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, copy);
             if (iso.backdropSigma > 0.f) {
-                blurSeparable(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
+                blurCheap(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
             }
         }
     }
