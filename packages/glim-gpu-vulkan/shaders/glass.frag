@@ -156,10 +156,7 @@ void main() {
     const vec3 sampleRgb = mix(pane, wrapRgb, wrapMix);
 
     vec3 color = sampleRgb;
-    float L = mix(rec709(texture(u_lumaPrev, vec2(0.5)).rgb), rec709(texture(u_luma, vec2(0.5)).rgb), 0.2);
-    if (L < 0.001) {
-        L = rec709(sampleRgb);
-    }
+    const float L = rec709(pane);
     const float milkPull = (u.blurEdge > 0.5) ? 0.2 : 0.7;
     const float milk = (u.lumaOn > 0.5 ? 0.22 : 0.08) * (1.0 - wrapX * milkPull);
     color = mix(color, vec3(1.0), milk);

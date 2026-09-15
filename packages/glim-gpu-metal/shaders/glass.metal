@@ -192,12 +192,7 @@ fragment float4 fs_main(VSOut in [[stage_in]],
     const float3 sampleRgb = mix(pane, wrapRgb, wrapMix);
 
     float3 color = sampleRgb;
-    const float4 lumaCur = u_luma.sample(samp, float2(0.5));
-    const float4 lumaPrev = u_lumaPrev.sample(samp, float2(0.5));
-    float L = mix(rec709(lumaPrev.rgb), rec709(lumaCur.rgb), 0.2);
-    if (L < 0.001) {
-        L = rec709(sampleRgb);
-    }
+    const float L = rec709(pane);
     const float milkPull = (u.blurEdge > 0.5) ? 0.2 : 0.7;
     const float milk = (u.lumaOn > 0.5 ? 0.22 : 0.08) * (1.0 - wrapX * milkPull);
     color = mix(color, float3(1.0), milk);

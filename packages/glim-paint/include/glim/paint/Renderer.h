@@ -71,17 +71,6 @@ private:
     gpu::FrameTarget glassBackdrop_{};
     gpu::FrameTarget glassBlurTmp_{};
     gpu::FrameTarget glassBlur_{};
-    gpu::FrameTarget glassLumaCur_{};
-    struct GlassLumaSlot {
-        float destX = 0;
-        float destY = 0;
-        float destW = 0;
-        float destH = 0;
-        gpu::FrameTarget prev{};
-        bool used = false;
-    };
-    static constexpr int kMaxGlassLumaSlots = 8;
-    GlassLumaSlot glassLumaSlots_[kMaxGlassLumaSlots]{};
     bool ready_ = false;
     struct SolidInstance {
         float rect[4];

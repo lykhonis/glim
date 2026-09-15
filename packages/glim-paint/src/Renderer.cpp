@@ -1400,9 +1400,6 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             makeGlassUniforms(mat, gpills, gn, iw, ih, localPr);
                         void* sharpTex = glassTex;
                         void* blurTex = glassTex;
-                        void* lumaTex = glassTex;
-                        void* lumaPrevTex = glassTex;
-                        GlassLumaSlot* lumaSlot = nullptr;
                         const float blurR = glassBlurRadius(mat);
                         if (sharpTex && blurR > 0.f && blur1d_.native() && !mat.flatten) {
                             const int bw = std::max(1, iw / 2);
@@ -1447,67 +1444,6 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                                 blur1dPass(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f, 1.f,
                                            1.f);
                                 blurTex = glassBlur_.native();
-                                int srcW = bw;
-                                int srcH = bh;
-                                float ru = static_cast<float>(bw) / static_cast<float>(std::max(1, glassBlur_.width()));
-                                float rv = static_cast<float>(bh) / static_cast<float>(std::max(1, glassBlur_.height()));
-                                void* srcTex = blurTex;
-                                std::vector<gpu::FrameTarget> reduceKeep;
-                                while (srcW > 1 || srcH > 1) {
-                                    const int nw = std::max(1, srcW / 2);
-                                    const int nh = std::max(1, srcH / 2);
-                                    void* dstNative = nullptr;
-                                    if (nw == 1 && nh == 1) {
-                                        ensureRt(device_, glassLumaCur_, 1, 1);
-                                        dstNative = glassLumaCur_.native();
-                                    } else {
-                                        auto created = device_.createFrameTarget({nw, nh});
-                                        if (created.ok()) {
-                                            reduceKeep.push_back(std::move(created.value()));
-                                            dstNative = reduceKeep.back().native();
-                                        }
-                                    }
-                                    if (!dstNative) {
-                                        break;
-                                    }
-                                    blitTex(dstNative, nw, nh, srcTex, 0.f, 0.f, static_cast<float>(nw),
-                                            static_cast<float>(nh), 0.f, 0.f, ru, rv, 1.f, 1.f, 1.f, 1.f);
-                                    srcTex = dstNative;
-                                    srcW = nw;
-                                    srcH = nh;
-                                    ru = 1.f;
-                                    rv = 1.f;
-                                    if (nw == 1 && nh == 1) {
-                                        lumaTex = srcTex;
-                                        break;
-                                    }
-                                }
-                                GlassLumaSlot* slot = nullptr;
-                                for (int i = 0; i < kMaxGlassLumaSlots; ++i) {
-                                    auto& s = glassLumaSlots_[i];
-                                    if (s.used && std::fabs(s.destX - dest.origin.x) < 0.5f &&
-                                        std::fabs(s.destY - dest.origin.y) < 0.5f &&
-                                        std::fabs(s.destW - dest.size.x) < 0.5f &&
-                                        std::fabs(s.destH - dest.size.y) < 0.5f) {
-                                        slot = &s;
-                                        break;
-                                    }
-                                    if (!slot && !s.used) {
-                                        slot = &s;
-                                    }
-                                }
-                                if (slot) {
-                                    if (!slot->used) {
-                                        slot->destX = dest.origin.x;
-                                        slot->destY = dest.origin.y;
-                                        slot->destW = dest.size.x;
-                                        slot->destH = dest.size.y;
-                                        slot->used = true;
-                                        ensureRt(device_, slot->prev, 1, 1);
-                                    }
-                                    lumaPrevTex = slot->prev.native() ? slot->prev.native() : lumaTex;
-                                    lumaSlot = slot;
-                                }
                             }
                         }
                         if (sharpTex && glass_.native()) {
@@ -1526,8 +1462,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             gp.setFragmentBytes(0, &gu, sizeof(gu));
                             gp.setFragmentTexture(0, sharpTex);
                             gp.setFragmentTexture(1, blurTex ? blurTex : sharpTex);
-                            gp.setFragmentTexture(2, lumaTex ? lumaTex : sharpTex);
-                            gp.setFragmentTexture(3, lumaPrevTex ? lumaPrevTex : sharpTex);
+                            gp.setFragmentTexture(2, sharpTex);
+                            gp.setFragmentTexture(3, sharpTex);
                             gp.setFragmentSampler(0, device_.nativeSampler());
                             gp.setFragmentSampler(1, device_.nativeSampler());
                             gp.setFragmentSampler(2, device_.nativeSampler());
@@ -1536,10 +1472,6 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             stats_.draws += 1;
                             gp.end();
                             glassTex = ft->native();
-                            if (lumaSlot && lumaTex && lumaSlot->prev.native()) {
-                                blitTex(lumaSlot->prev.native(), 1, 1, lumaTex, 0.f, 0.f, 1.f, 1.f, 0.f, 0.f,
-                                        1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
-                            }
                         } else if (glassTex) {
                             blitTex(ft->native(), iw, ih, glassTex, 0.f, 0.f, static_cast<float>(iw),
                                     static_cast<float>(ih), 0.f, 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
