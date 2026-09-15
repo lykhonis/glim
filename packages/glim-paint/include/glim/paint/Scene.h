@@ -51,7 +51,7 @@ struct Glass {
     bool interactive = false;
     float ior = 1.45f;
     float thicknessPx = 24.f;
-    float mergeKPx = 28.f;
+    float mergeKPx = 16.f;
     float refDistance = 0.35f;
     float dispersion = 0.12f;
     bool flatten = false;

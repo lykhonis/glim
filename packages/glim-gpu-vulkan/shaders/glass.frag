@@ -35,12 +35,14 @@ layout(location = 0) out vec4 out_color;
 
 const float kPi = 3.14159265359;
 
-float sminPoly(float a, float b, float k) {
+float sminCirc(float a, float b, float k) {
     if (k <= 0.001) {
         return min(a, b);
     }
-    const float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    return mix(b, a, h) - k * h * (1.0 - h);
+    k *= 1.0 / (1.0 - sqrt(0.5));
+    const float h = max(k - abs(a - b), 0.0) / k;
+    const float t = max(1.0 - h * (h - 2.0), 0.0);
+    return min(a, b) - k * 0.5 * (1.0 + h - sqrt(t));
 }
 
 float sdCapsulePx(vec2 p, vec2 c, vec2 he, float r) {
@@ -72,14 +74,14 @@ float shapeSdf(GlassUniforms u, vec2 p) {
         const vec2 c = s.center * u.dpr;
         const vec2 he = s.halfExtent * u.dpr;
         const float r = min(s.corner * u.dpr, min(he.x, he.y));
-        const float k = s.mergeK * u.dpr;
+        const float k = min(s.mergeK * u.dpr, min(he.x, he.y) * 0.42);
         float sd;
         if (r >= min(he.x, he.y) - 0.5) {
             sd = sdCapsulePx(p, c, he, r);
         } else {
             sd = sdRoundedPx(p, c, he, r, s.n);
         }
-        d = (i == 0) ? sd : sminPoly(d, sd, k);
+        d = (i == 0) ? sd : sminCirc(d, sd, k);
     }
     if (u.interactive > 0.5) {
         d -= 0.03 * min(u.resolution.x, u.resolution.y);
@@ -120,44 +122,46 @@ void main() {
     n2 /= nlen;
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
-    const float lensEdge = 1.0 - clamp(delta / T, 0.0, 1.0);
-    float edgeFactor = 0.0;
-    if (delta < T && u.thickness > 0.001) {
-        const float x = lensEdge;
-        const float thetaI = safeAsin(x * x);
+    const float wrapT = min(T, 16.0 * max(u.dpr, 1.0));
+    float wrapX = 0.0;
+    float wrapE = 0.0;
+    if (delta < wrapT && u.thickness > 0.001) {
+        wrapX = 1.0 - clamp(delta / wrapT, 0.0, 1.0);
+        const float thetaI = safeAsin(pow(wrapX, 1.25));
         const float eta = max(u.ior, 1.01);
         const float thetaT = safeAsin(sin(thetaI) / eta);
-        edgeFactor = -tan(thetaT - thetaI);
+        wrapE = -tan(thetaT - thetaI);
     }
-    const float minSide = min(u.resolution.x, u.resolution.y);
-    const float magPx = pow(lensEdge, 4.0) * min(52.0, minSide * 0.30) * (u.refDistance / 0.35);
-    vec2 offset = -n2 * magPx / max(u.resolution, vec2(1.0));
-    if (abs(edgeFactor) > 1e-4) {
-        offset *= clamp(abs(edgeFactor), 0.0, 1.0);
-    } else if (u.thickness <= 0.001) {
-        offset = vec2(0.0);
+    vec2 offset = vec2(0.0);
+    if (abs(wrapE) > 1e-5) {
+        const float magPx = wrapE * (u.refDistance / 0.35) * 28.0 * max(u.dpr, 1.0);
+        offset = n2 * magPx / max(u.resolution, vec2(1.0));
     }
 
+    const vec2 uvL = clamp(v_uv, vec2(0.001), vec2(0.999));
+    const float frost = (u.blurEdge > 0.5) ? 0.88 : 0.32;
+    const vec3 pane = mix(texture(u_sharp, uvL).rgb, texture(u_blur, uvL).rgb, frost);
     const float gamma = u.dispersion;
-    const float mixBlur = (u.blurEdge > 0.5) ? 1.0 : mix(0.2, 0.75, lensEdge);
-    vec3 sampleRgb;
-    const vec2 uv0 = clamp(v_uv + offset, vec2(0.001), vec2(0.999));
-    if (gamma > 0.0 && lensEdge > 0.08) {
+    vec3 wrapRgb;
+    const vec2 uvW = clamp(v_uv + offset, vec2(0.001), vec2(0.999));
+    if (gamma > 0.0 && wrapX > 0.08) {
         const vec2 uvR = clamp(v_uv + offset * (1.0 - (0.98 - 1.0) * gamma), vec2(0.001), vec2(0.999));
         const vec2 uvB = clamp(v_uv + offset * (1.0 - (1.02 - 1.0) * gamma), vec2(0.001), vec2(0.999));
-        sampleRgb.r = mix(texture(u_sharp, uvR).r, texture(u_blur, uvR).r, mixBlur);
-        sampleRgb.g = mix(texture(u_sharp, uv0).g, texture(u_blur, uv0).g, mixBlur);
-        sampleRgb.b = mix(texture(u_sharp, uvB).b, texture(u_blur, uvB).b, mixBlur);
+        wrapRgb = vec3(texture(u_sharp, uvR).r, texture(u_sharp, uvW).g, texture(u_sharp, uvB).b);
     } else {
-        sampleRgb = mix(texture(u_sharp, uv0).rgb, texture(u_blur, uv0).rgb, mixBlur);
+        wrapRgb = texture(u_sharp, uvW).rgb;
     }
+    wrapRgb = mix(wrapRgb, texture(u_blur, uvW).rgb, frost);
+    const float wrapMix = pow(clamp(wrapX, 0.0, 1.0), (u.blurEdge > 0.5) ? 1.25 : 0.95);
+    const vec3 sampleRgb = mix(pane, wrapRgb, wrapMix);
 
     vec3 color = sampleRgb;
     float L = mix(rec709(texture(u_lumaPrev, vec2(0.5)).rgb), rec709(texture(u_luma, vec2(0.5)).rgb), 0.2);
     if (L < 0.001) {
         L = rec709(sampleRgb);
     }
-    const float milk = u.lumaOn > 0.5 ? 0.22 : 0.08;
+    const float milkPull = (u.blurEdge > 0.5) ? 0.2 : 0.7;
+    const float milk = (u.lumaOn > 0.5 ? 0.22 : 0.08) * (1.0 - wrapX * milkPull);
     color = mix(color, vec3(1.0), milk);
     if (u.lumaOn > 0.5) {
         const float high = clamp((L - 0.72) / 0.28, 0.0, 1.0);
@@ -170,16 +174,17 @@ void main() {
         color = mix(color, color * 0.82, u.dimmer);
     }
 
-    const float rimW = 2.6 * max(u.dpr, 1.0);
-    const float rim = pow(clamp(1.0 - abs(d) / rimW, 0.0, 1.0), 7.0);
+    const float dprN = max(u.dpr, 1.0);
+    const float inside = max(-d, 0.0);
+    const float hair = pow(clamp(1.0 - abs(inside - 1.2 * dprN) / (1.8 * dprN), 0.0, 1.0), 5.0);
     const float horiz = n2.x * n2.x;
-    color *= 1.0 - horiz * rim * 0.48;
+    color *= 1.0 - horiz * hair * 0.42;
     const float top = clamp(-n2.y, 0.0, 1.0);
     const float bot = clamp(n2.y, 0.0, 1.0);
-    const float hi = rim * (top * 1.0 + bot * 0.55) * max(u.glareIntensity, 0.7);
+    const float hi = hair * (top * 1.0 + bot * 0.62) * max(u.glareIntensity, 0.7);
     color = mix(color, vec3(1.0), clamp(hi, 0.0, 1.0));
     if (u.interactive > 0.5) {
-        color = mix(color, vec3(1.0), top * rim * 0.2);
+        color = mix(color, vec3(1.0), top * hair * 0.18);
     }
 
     out_color = vec4(color * alphaShape, alphaShape);

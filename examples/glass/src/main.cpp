@@ -22,7 +22,7 @@ void recordExample(ExampleFrame &frame)
 
     const float stripe = std::clamp(m * 0.22f, 96.f, 140.f);
     const float period = stripe * 4.f;
-    const float scroll = std::fmod(frame.time * 10.f, period);
+    const float scroll = std::fmod(frame.time * 13.f, period);
     const float origin = -scroll;
     const int first = static_cast<int>(std::floor(-origin / stripe)) - 1;
     const int last = static_cast<int>(std::ceil((win.size.x - origin) / stripe)) + 1;
@@ -109,7 +109,7 @@ void recordExample(ExampleFrame &frame)
 
     Glass mergeG;
     mergeG.variant = GlassVariant::Regular;
-    mergeG.mergeKPx = 36.f;
+    mergeG.mergeKPx = 16.f;
     mergeG.flatten = frame.reduceTransparency;
     GroupParams box;
     box.bounds = mergeBox;
