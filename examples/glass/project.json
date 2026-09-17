@@ -40,6 +40,14 @@
         "binary": "examples/glass/glim-glass-software"
       }
     },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-glass-golden",
+        "ctestRegex": "glim-glass-golden"
+      }
+    },
     "build-ios-sim": {
       "executor": "@glim/native:cmake",
       "options": {

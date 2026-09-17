@@ -10,6 +10,9 @@
 #include <vector>
 
 namespace glim::paint {
+
+thread_local RasterOptions tlsRaster{};
+
 namespace {
 
 struct Pixel {
@@ -33,6 +36,22 @@ void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
     const int y0 = std::max(0, static_cast<int>(std::floor(qy0)));
     const int x1 = std::min(w, static_cast<int>(std::ceil(qx1)));
     const int y1 = std::min(h, static_cast<int>(std::ceil(qy1)));
+    if (x0 >= x1 || y0 >= y1) {
+        return;
+    }
+    const bool opaque = q.a >= 0.999f;
+    const bool aligned = qx0 == static_cast<float>(x0) && qy0 == static_cast<float>(y0) &&
+                         qx1 == static_cast<float>(x1) && qy1 == static_cast<float>(y1);
+    if (opaque && aligned) {
+        const Pixel src{q.r, q.g, q.b, 1.f};
+        for (int y = y0; y < y1; ++y) {
+            Pixel* row = buf.data() + static_cast<std::size_t>(y * w + x0);
+            for (int x = 0; x < x1 - x0; ++x) {
+                row[x] = src;
+            }
+        }
+        return;
+    }
     for (int y = y0; y < y1; ++y) {
         const float cy0 = std::max(static_cast<float>(y), qy0);
         const float cy1 = std::min(static_cast<float>(y + 1), qy1);
@@ -69,19 +88,43 @@ float clipCoverageAt(const ClipState& clip, float px, float py) {
     return roundedCoverage(clip.rect, clip.radius, px, py);
 }
 
+Pixel samplePixel(const std::vector<Pixel>& img, int w, int h, float px, float py);
+
 void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixel>& src, int sw, int sh,
                 Rect dstRect, float opacity) {
     const int x0 = std::max(0, static_cast<int>(std::floor(dstRect.origin.x)));
     const int y0 = std::max(0, static_cast<int>(std::floor(dstRect.origin.y)));
     const int x1 = std::min(dw, static_cast<int>(std::ceil(dstRect.origin.x + dstRect.size.x)));
     const int y1 = std::min(dh, static_cast<int>(std::ceil(dstRect.origin.y + dstRect.size.y)));
+    const bool aligned = dstRect.origin.x == static_cast<float>(static_cast<int>(dstRect.origin.x)) &&
+                         dstRect.origin.y == static_cast<float>(static_cast<int>(dstRect.origin.y)) &&
+                         dstRect.size.x == static_cast<float>(sw) &&
+                         dstRect.size.y == static_cast<float>(sh);
+    const int ox = static_cast<int>(dstRect.origin.x);
+    const int oy = static_cast<int>(dstRect.origin.y);
     for (int y = y0; y < y1; ++y) {
-        const float v = sh <= 1 ? 0.f : (static_cast<float>(y) + 0.5f - dstRect.origin.y) / dstRect.size.y;
-        const int sy = std::min(sh - 1, std::max(0, static_cast<int>(v * static_cast<float>(sh))));
+        if (aligned) {
+            const int sy = std::min(sh - 1, std::max(0, y - oy));
+            const Pixel* row = src.data() + static_cast<std::size_t>(sy * sw);
+            for (int x = x0; x < x1; ++x) {
+                const int sx = std::min(sw - 1, std::max(0, x - ox));
+                Pixel p = row[sx];
+                p.r *= opacity;
+                p.g *= opacity;
+                p.b *= opacity;
+                p.a *= opacity;
+                srcOver(dest[static_cast<std::size_t>(y * dw + x)], p);
+            }
+            continue;
+        }
+        const float py = sh <= 1 ? 0.5f
+                                 : (static_cast<float>(y) + 0.5f - dstRect.origin.y) / dstRect.size.y *
+                                       static_cast<float>(sh);
         for (int x = x0; x < x1; ++x) {
-            const float u = sw <= 1 ? 0.f : (static_cast<float>(x) + 0.5f - dstRect.origin.x) / dstRect.size.x;
-            const int sx = std::min(sw - 1, std::max(0, static_cast<int>(u * static_cast<float>(sw))));
-            Pixel p = src[static_cast<std::size_t>(sy * sw + sx)];
+            const float px = sw <= 1 ? 0.5f
+                                     : (static_cast<float>(x) + 0.5f - dstRect.origin.x) / dstRect.size.x *
+                                           static_cast<float>(sw);
+            Pixel p = samplePixel(src, sw, sh, px, py);
             p.r *= opacity;
             p.g *= opacity;
             p.b *= opacity;
@@ -217,10 +260,38 @@ float fieldSdf(const PlateSpec& spec, float px, float py, float plateW, float pl
     return sdf;
 }
 
+Pixel samplePixel(const std::vector<Pixel>& img, int w, int h, float px, float py) {
+    if (w <= 0 || h <= 0 || img.empty()) {
+        return Pixel{0, 0, 0, 0};
+    }
+    const float x = std::clamp(px - 0.5f, 0.f, static_cast<float>(w - 1));
+    const float y = std::clamp(py - 0.5f, 0.f, static_cast<float>(h - 1));
+    const int x0 = static_cast<int>(x);
+    const int y0 = static_cast<int>(y);
+    const int x1 = std::min(w - 1, x0 + 1);
+    const int y1 = std::min(h - 1, y0 + 1);
+    const float fx = x - static_cast<float>(x0);
+    const float fy = y - static_cast<float>(y0);
+    const Pixel a = img[static_cast<std::size_t>(y0 * w + x0)];
+    const Pixel b = img[static_cast<std::size_t>(y0 * w + x1)];
+    const Pixel c = img[static_cast<std::size_t>(y1 * w + x0)];
+    const Pixel d = img[static_cast<std::size_t>(y1 * w + x1)];
+    const float ia = 1.f - fx;
+    const float ib = 1.f - fy;
+    return Pixel{(a.r * ia + b.r * fx) * ib + (c.r * ia + d.r * fx) * fy,
+                 (a.g * ia + b.g * fx) * ib + (c.g * ia + d.g * fx) * fy,
+                 (a.b * ia + b.b * fx) * ib + (c.b * ia + d.b * fx) * fy,
+                 (a.a * ia + b.a * fx) * ib + (c.a * ia + d.a * fx) * fy};
+}
+
 Pixel sampleDest(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy) {
     const int ix = std::min(dw - 1, std::max(0, static_cast<int>(sx)));
     const int iy = std::min(dh - 1, std::max(0, static_cast<int>(sy)));
     return dest[static_cast<std::size_t>(iy * dw + ix)];
+}
+
+Pixel sampleDestBilinear(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy) {
+    return samplePixel(dest, dw, dh, sx, sy);
 }
 
 Pixel sampleDestBlur(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float sigma) {
@@ -433,7 +504,7 @@ void blurCheap(std::vector<Pixel>& img, int w, int h, float sigma) {
     if (sigma < 0.45f || w < 2 || h < 2 || img.empty()) {
         return;
     }
-    const int scale = sigma >= 8.f ? 4 : (sigma >= 3.f ? 2 : 1);
+    const int scale = sigma >= 18.f ? 4 : (sigma >= 3.f ? 2 : 1);
     if (scale == 1) {
         blurSeparable(img, w, h, sigma);
         return;
@@ -471,13 +542,11 @@ void blurCheap(std::vector<Pixel>& img, int w, int h, float sigma) {
         }
     }
     blurSeparable(small, dw, dh, sigma / static_cast<float>(scale));
-    const float sx = static_cast<float>(dw) / static_cast<float>(w);
-    const float sy = static_cast<float>(dh) / static_cast<float>(h);
     for (int y = 0; y < h; ++y) {
-        const int iy = std::min(dh - 1, std::max(0, static_cast<int>((static_cast<float>(y) + 0.5f) * sy)));
+        const float py = (static_cast<float>(y) + 0.5f) * static_cast<float>(dh) / static_cast<float>(h);
         for (int x = 0; x < w; ++x) {
-            const int ix = std::min(dw - 1, std::max(0, static_cast<int>((static_cast<float>(x) + 0.5f) * sx)));
-            img[static_cast<std::size_t>(y * w + x)] = small[static_cast<std::size_t>(iy * dw + ix)];
+            const float px = (static_cast<float>(x) + 0.5f) * static_cast<float>(dw) / static_cast<float>(w);
+            img[static_cast<std::size_t>(y * w + x)] = samplePixel(small, dw, dh, px, py);
         }
     }
 }
@@ -486,92 +555,177 @@ void copyDestPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<
                    Rect src) {
     const float plateW = static_cast<float>(iw);
     const float plateH = static_cast<float>(ih);
+    const bool aligned = src.origin.x == static_cast<float>(static_cast<int>(src.origin.x)) &&
+                         src.origin.y == static_cast<float>(static_cast<int>(src.origin.y)) &&
+                         src.size.x == plateW && src.size.y == plateH;
+    if (aligned) {
+        const int ox = static_cast<int>(src.origin.x);
+        const int oy = static_cast<int>(src.origin.y);
+        for (int y = 0; y < ih; ++y) {
+            const int dy = std::min(dh - 1, std::max(0, oy + y));
+            const Pixel* row = dest.data() + static_cast<std::size_t>(dy * dw);
+            Pixel* out = plate.data() + static_cast<std::size_t>(y * iw);
+            for (int x = 0; x < iw; ++x) {
+                const int dx = std::min(dw - 1, std::max(0, ox + x));
+                out[x] = row[dx];
+            }
+        }
+        return;
+    }
     for (int y = 0; y < ih; ++y) {
         const float v = (static_cast<float>(y) + 0.5f) / plateH;
         const float sy = src.origin.y + v * src.size.y;
         for (int x = 0; x < iw; ++x) {
             const float u = (static_cast<float>(x) + 0.5f) / plateW;
             const float sx = src.origin.x + u * src.size.x;
-            plate[static_cast<std::size_t>(y * iw + x)] = sampleDest(dest, dw, dh, sx, sy);
+            plate[static_cast<std::size_t>(y * iw + x)] = sampleDestBilinear(dest, dw, dh, sx, sy);
         }
     }
 }
 
-float sdRoundBox(float px, float py, float hx, float hy, float r) {
+struct GlassSdf {
+    float d = 1e6f;
+    float nx = 0.f;
+    float ny = 1.f;
+};
+
+GlassSdf sdRoundBoxN(float px, float py, float hx, float hy, float r) {
     r = std::min(r, std::min(hx, hy));
-    const float qx = std::fabs(px) - hx + r;
-    const float qy = std::fabs(py) - hy + r;
-    return std::hypot(std::max(qx, 0.f), std::max(qy, 0.f)) + std::min(std::max(qx, qy), 0.f) - r;
+    const float ax = std::fabs(px);
+    const float ay = std::fabs(py);
+    const float qx = ax - hx + r;
+    const float qy = ay - hy + r;
+    const float sx = px < 0.f ? -1.f : 1.f;
+    const float sy = py < 0.f ? -1.f : 1.f;
+    GlassSdf o;
+    if (qx > 0.f && qy > 0.f) {
+        const float len = std::sqrt(qx * qx + qy * qy);
+        o.d = len - r;
+        const float inv = 1.f / std::max(len, 1e-4f);
+        o.nx = qx * inv * sx;
+        o.ny = qy * inv * sy;
+    } else if (qx > qy) {
+        o.d = qx - r;
+        o.nx = sx;
+        o.ny = 0.f;
+    } else {
+        o.d = qy - r;
+        o.nx = 0.f;
+        o.ny = sy;
+    }
+    return o;
 }
 
-float glassFieldSdf(const PlateSpec& spec, float px, float py) {
-    float sdf = 1e6f;
+GlassSdf glassFieldEval(const PlateSpec& spec, float px, float py) {
+    GlassSdf best;
     const int n = spec.n > 0 ? spec.n : 1;
     for (int i = 0; i < n; ++i) {
         const BackdropPill& pill = spec.pills[i];
-        const float cx = pill.rect.origin.x + pill.rect.size.x * 0.5f;
-        const float cy = pill.rect.origin.y + pill.rect.size.y * 0.5f;
-        const float d = sdRoundBox(px - cx, py - cy, pill.rect.size.x * 0.5f, pill.rect.size.y * 0.5f,
-                                   pill.radius);
-        sdf = (i == 0) ? d : smin(sdf, d, spec.mergeK);
+        const float hx = pill.rect.size.x * 0.5f;
+        const float hy = pill.rect.size.y * 0.5f;
+        const float cx = pill.rect.origin.x + hx;
+        const float cy = pill.rect.origin.y + hy;
+        const float bx = std::fabs(px - cx) - hx;
+        const float by = std::fabs(py - cy) - hy;
+        if (bx > 1.4f || by > 1.4f) {
+            const float outside = bx > by ? bx : by;
+            if (i == 0 || outside < best.d) {
+                best.d = outside;
+                best.nx = 0.f;
+                best.ny = 1.f;
+            }
+            continue;
+        }
+        GlassSdf s = sdRoundBoxN(px - cx, py - cy, hx, hy, pill.radius);
+        if (spec.mergeK > 0.001f && i > 0) {
+            s.d = smin(best.d, s.d, spec.mergeK);
+        }
+        if (i == 0 || s.d < best.d) {
+            best = s;
+        }
     }
-    return sdf;
+    return best;
 }
 
-void applyGlassChrome(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Glass& mat) {
+Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
     const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
-    const float milk = flatten ? 0.f : (mat.variant == GlassVariant::Regular ? 0.10f : 0.04f);
-    const float ta = mat.tint.alpha() * 0.12f;
-    const float tr = mat.tint.red();
-    const float tg = mat.tint.green();
-    const float tb = mat.tint.blue();
+    if (flatten) {
+        p.r = 0.94f;
+        p.g = 0.94f;
+        p.b = 0.94f;
+        p.a = 1.f;
+        const float rim = std::clamp(1.6f - std::fabs(f.d), 0.f, 1.f) * 0.05f;
+        p.r = p.r + (1.f - p.r) * rim;
+        p.g = p.g + (1.f - p.g) * rim;
+        p.b = p.b + (1.f - p.b) * rim;
+    } else {
+        const bool regular = mat.variant == GlassVariant::Regular;
+        const float milk = regular ? 0.12f : 0.05f;
+        p.r = p.r + (1.f - p.r) * milk;
+        p.g = p.g + (1.f - p.g) * milk;
+        p.b = p.b + (1.f - p.b) * milk;
+        const float ta = mat.tint.alpha() * 0.12f;
+        p.r = p.r + (mat.tint.red() - p.r) * ta;
+        p.g = p.g + (mat.tint.green() - p.g) * ta;
+        p.b = p.b + (mat.tint.blue() - p.b) * ta;
+        if (mask > 0.85f && f.d > -5.f) {
+            const float inside = std::max(-f.d, 0.f);
+            const float hair = std::clamp(1.f - std::fabs(inside - 1.3f) / 2.3f, 0.f, 1.f);
+            const float hair2 = hair * hair * hair;
+            const float horiz = f.nx * f.nx;
+            p.r *= 1.f - horiz * hair2 * 0.38f;
+            p.g *= 1.f - horiz * hair2 * 0.38f;
+            p.b *= 1.f - horiz * hair2 * 0.38f;
+            const float top = std::clamp(-f.ny, 0.f, 1.f);
+            const float bot = std::clamp(f.ny, 0.f, 1.f);
+            const float hi = hair2 * (top + bot * 0.62f);
+            p.r = p.r + (1.f - p.r) * hi;
+            p.g = p.g + (1.f - p.g) * hi;
+            p.b = p.b + (1.f - p.b) * hi;
+            const float rim = std::clamp(1.f - std::fabs(f.d + 0.4f) / 2.4f, 0.f, 1.f);
+            const float rimA = rim * rim * 0.12f;
+            p.r = p.r + (1.f - p.r) * rimA;
+            p.g = p.g + (1.f - p.g) * rimA;
+            p.b = p.b + (1.f - p.b) * rimA;
+        }
+    }
+    p.r *= mask;
+    p.g *= mask;
+    p.b *= mask;
+    p.a *= mask;
+    return p;
+}
+
+void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& spec) {
+    const float frost = spec.flat ? 0.f : 0.07f + 0.12f * std::clamp(spec.sigma / 16.f, 0.f, 1.f);
+    PlateSpec field = spec;
+    if (field.n <= 0) {
+        field.n = 1;
+        field.pills[0].rect = Rect::fromSize({static_cast<float>(iw), static_cast<float>(ih)});
+    }
     for (int y = 0; y < ih; ++y) {
         const float py = static_cast<float>(y) + 0.5f;
         for (int x = 0; x < iw; ++x) {
             const float px = static_cast<float>(x) + 0.5f;
-            const float sdf = glassFieldSdf(field, px, py);
-            const float mask = std::clamp(0.5f - sdf, 0.f, 1.f);
+            const GlassSdf f = glassFieldEval(field, px, py);
+            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
             const std::size_t i = static_cast<std::size_t>(y * iw + x);
             if (mask < 0.001f) {
                 plate[i] = Pixel{0, 0, 0, 0};
                 continue;
             }
             Pixel p = plate[i];
-            if (flatten) {
-                p.r = 0.94f;
-                p.g = 0.94f;
-                p.b = 0.94f;
+            if (spec.flat) {
+                const float lum = p.r * 0.2126f + p.g * 0.7152f + p.b * 0.0722f;
+                const float tint = lum >= 0.45f ? 0.92f : 0.16f;
+                p.r = tint;
+                p.g = tint;
+                p.b = tint;
                 p.a = 1.f;
-                const float rim = std::clamp(1.6f - std::fabs(sdf), 0.f, 1.f) * 0.05f;
-                p.r = p.r + (1.f - p.r) * rim;
-                p.g = p.g + (1.f - p.g) * rim;
-                p.b = p.b + (1.f - p.b) * rim;
-            } else {
-                p.r = p.r + (1.f - p.r) * milk;
-                p.g = p.g + (1.f - p.g) * milk;
-                p.b = p.b + (1.f - p.b) * milk;
-                p.r = p.r + (tr - p.r) * ta;
-                p.g = p.g + (tg - p.g) * ta;
-                p.b = p.b + (tb - p.b) * ta;
-                if (sdf > -4.f) {
-                    const float gx = glassFieldSdf(field, px + 1.f, py) - glassFieldSdf(field, px - 1.f, py);
-                    const float gy = glassFieldSdf(field, px, py + 1.f) - glassFieldSdf(field, px, py - 1.f);
-                    const float glen = std::max(1e-4f, std::hypot(gx, gy));
-                    const float nx = gx / glen;
-                    const float ny = gy / glen;
-                    const float inside = std::max(-sdf, 0.f);
-                    const float hair = std::pow(std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f), 5.f);
-                    const float horiz = nx * nx;
-                    p.r *= 1.f - horiz * hair * 0.42f;
-                    p.g *= 1.f - horiz * hair * 0.42f;
-                    p.b *= 1.f - horiz * hair * 0.42f;
-                    const float top = std::clamp(-ny, 0.f, 1.f);
-                    const float bot = std::clamp(ny, 0.f, 1.f);
-                    const float hi = hair * (top + bot * 0.62f);
-                    p.r = p.r + (1.f - p.r) * hi;
-                    p.g = p.g + (1.f - p.g) * hi;
-                    p.b = p.b + (1.f - p.b) * hi;
-                }
+            } else if (frost > 0.f) {
+                p.r = p.r + (1.f - p.r) * frost;
+                p.g = p.g + (1.f - p.g) * frost;
+                p.b = p.b + (1.f - p.b) * frost;
             }
             p.r *= mask;
             p.g *= mask;
@@ -582,9 +736,26 @@ void applyGlassChrome(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec
     }
 }
 
+void applyGlassChrome(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Glass& mat) {
+    for (int y = 0; y < ih; ++y) {
+        const float py = static_cast<float>(y) + 0.5f;
+        for (int x = 0; x < iw; ++x) {
+            const float px = static_cast<float>(x) + 0.5f;
+            const GlassSdf f = glassFieldEval(field, px, py);
+            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
+            const std::size_t i = static_cast<std::size_t>(y * iw + x);
+            if (mask < 0.001f) {
+                plate[i] = Pixel{0, 0, 0, 0};
+                continue;
+            }
+            plate[i] = shadeGlass(plate[i], f, mat, mask);
+        }
+    }
+}
+
 PlateSpec glassPillsToField(const GlassPill* pills, int n, float mergeKPx, float pr, const Rect& surface) {
     PlateSpec spec;
-    spec.mergeK = mergeKPx * pr;
+    spec.mergeK = tlsRaster.glassMerge ? mergeKPx * pr : 0.f;
     if (n <= 0) {
         spec.n = 1;
         spec.pills[0].rect = Rect::fromSize({surface.size.x * pr, surface.size.y * pr});
@@ -602,17 +773,71 @@ PlateSpec glassPillsToField(const GlassPill* pills, int n, float mergeKPx, float
     return spec;
 }
 
+Pixel sampleCheapFrost(const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float radius) {
+    if (radius < 0.45f) {
+        return sampleDestBilinear(dest, dw, dh, sx, sy);
+    }
+    Pixel acc{0, 0, 0, 0};
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const Pixel s = sampleDest(dest, dw, dh, sx + static_cast<float>(dx) * radius,
+                                       sy + static_cast<float>(dy) * radius);
+            acc.r += s.r;
+            acc.g += s.g;
+            acc.b += s.b;
+            acc.a += s.a;
+        }
+    }
+    const float inv = 1.f / 9.f;
+    return Pixel{acc.r * inv, acc.g * inv, acc.b * inv, acc.a * inv};
+}
+
 void sampleGlassPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pixel>& dest, int dw,
                       int dh, Rect src, const Glass& mat, const PlateSpec& field) {
     if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
         return;
     }
-    copyDestPlate(plate, iw, ih, dest, dw, dh, src);
-    if (!mat.flatten && mat.variant != GlassVariant::Identity) {
-        const float sigma = mat.variant == GlassVariant::Clear ? 2.5f : 6.f;
-        blurCheap(plate, iw, ih, sigma);
+    const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
+    if (tlsRaster.glassBlur && !flatten) {
+        copyDestPlate(plate, iw, ih, dest, dw, dh, src);
+        blurCheap(plate, iw, ih, mat.variant == GlassVariant::Clear ? 2.5f : 6.f);
+        applyGlassChrome(plate, iw, ih, field, mat);
+        return;
     }
-    applyGlassChrome(plate, iw, ih, field, mat);
+    const float plateW = static_cast<float>(iw);
+    const float plateH = static_cast<float>(ih);
+    const float frostR = flatten ? 0.f : (mat.variant == GlassVariant::Regular ? 3.25f : 0.f);
+    const bool aligned = src.origin.x == static_cast<float>(static_cast<int>(src.origin.x)) &&
+                         src.origin.y == static_cast<float>(static_cast<int>(src.origin.y)) &&
+                         src.size.x == plateW && src.size.y == plateH;
+    const int ox = static_cast<int>(src.origin.x);
+    const int oy = static_cast<int>(src.origin.y);
+    for (int y = 0; y < ih; ++y) {
+        const float py = static_cast<float>(y) + 0.5f;
+        const float sy = aligned ? 0.f : src.origin.y + py / plateH * src.size.y;
+        for (int x = 0; x < iw; ++x) {
+            const float px = static_cast<float>(x) + 0.5f;
+            const GlassSdf f = glassFieldEval(field, px, py);
+            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
+            const std::size_t i = static_cast<std::size_t>(y * iw + x);
+            if (mask < 0.001f) {
+                plate[i] = Pixel{0, 0, 0, 0};
+                continue;
+            }
+            Pixel p;
+            if (aligned) {
+                const float sx = static_cast<float>(ox + x) + 0.5f;
+                const float syc = static_cast<float>(oy + y) + 0.5f;
+                p = frostR > 0.f ? sampleCheapFrost(dest, dw, dh, sx, syc, frostR)
+                                 : sampleDest(dest, dw, dh, sx, syc);
+            } else {
+                const float sx = src.origin.x + px / plateW * src.size.x;
+                p = frostR > 0.f ? sampleCheapFrost(dest, dw, dh, sx, sy, frostR)
+                                 : sampleDestBilinear(dest, dw, dh, sx, sy);
+            }
+            plate[i] = shadeGlass(p, f, mat, mask);
+        }
+    }
 }
 
 void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const ImageStore& images,
@@ -710,12 +935,11 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
                     samplePlate(tmp, iw, ih, dest, w, h, xf, specFromGroup(g, surface, pr));
                 } else {
                     PlateSpec copy = specFromGroup(g, surface, pr);
-                    copy.bend = 0.f;
-                    copy.sigma = 0.f;
-                    samplePlate(tmp, iw, ih, dest, w, h, xf, copy);
+                    copyDestPlate(tmp, iw, ih, dest, w, h, xf);
                     if (sigma > 0.f) {
                         blurCheap(tmp, iw, ih, sigma * pr * 0.5f);
                     }
+                    maskFrostPlate(tmp, iw, ih, copy);
                 }
             }
         }
@@ -786,12 +1010,11 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
             samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, specFromIsolate(iso, pr));
         } else {
             PlateSpec copy = specFromIsolate(iso, pr);
-            copy.bend = 0.f;
-            copy.sigma = 0.f;
-            samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, copy);
+            copyDestPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR);
             if (iso.backdropSigma > 0.f) {
                 blurCheap(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
             }
+            maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
         }
     }
     paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.isolates, images, pixelRatio);
@@ -810,7 +1033,8 @@ void toRgba(const std::vector<Pixel>& buf, std::uint8_t* rgba) {
 
 }  // namespace
 
-void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba) {
+void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba, RasterOptions options) {
+    tlsRaster = options;
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     Group root = merge(scene.root, nullptr);
@@ -819,7 +1043,9 @@ void rasterScene(const Scene& scene, int width, int height, std::uint8_t* rgba) 
     toRgba(buf, rgba);
 }
 
-void rasterPacket(const FramePacket& packet, int width, int height, std::uint8_t* rgba) {
+void rasterPacket(const FramePacket& packet, int width, int height, std::uint8_t* rgba,
+                  RasterOptions options) {
+    tlsRaster = options;
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     const float pr = packet.logicalSize.x > 0.f ? static_cast<float>(width) / packet.logicalSize.x : 1.f;

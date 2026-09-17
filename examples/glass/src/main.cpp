@@ -1,41 +1,49 @@
-#include "run.h"
+#include <glim/math.h>
+#include <glim/paint/Context.h>
+#include <glim/paint/Scene.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 
-void recordExample(ExampleFrame &frame)
-{
+#ifndef GLIM_GOLDEN
+#include "run.h"
+#endif
+
+void recordGlass(glim::paint::Context& context, glim::Vec2 size, float timeSeconds,
+                 glim::Rect safeArea = {}, bool reduceTransparency = false) {
     using glim::Radius;
     using glim::Rect;
     using glim::paint::Glass;
     using glim::paint::GlassVariant;
     using glim::paint::GroupParams;
 
-    const Rect win = Rect::fromSize(frame.size);
-    const Rect area = frame.safeArea.size.x > 0.f ? frame.safeArea : win;
+    if (size.x < 1.f || size.y < 1.f) {
+        return;
+    }
+    const Rect win = Rect::fromSize(size);
+    const Rect area = safeArea.size.x > 0.f ? safeArea : win;
     const float m = std::min(area.size.x, area.size.y);
     const float pad = std::clamp(m * 0.055f, 14.f, 26.f);
 
-    frame.context.setFillColor(0x1a2228ff);
-    frame.context.fill(win);
+    context.setFillColor(0x1a2228ff);
+    context.fill(win);
 
     const float stripe = std::clamp(m * 0.22f, 96.f, 140.f);
     const float period = stripe * 4.f;
-    const float scroll = std::fmod(frame.time * 13.f, period);
+    const float scroll = std::fmod(timeSeconds * 13.f, period);
     const float origin = -scroll;
     const int first = static_cast<int>(std::floor(-origin / stripe)) - 1;
     const int last = static_cast<int>(std::ceil((win.size.x - origin) / stripe)) + 1;
-    for (int i = first; i <= last; ++i)
-    {
+    for (int i = first; i <= last; ++i) {
         const float x = origin + static_cast<float>(i) * stripe;
         const int k = ((i % 4) + 4) % 4;
         const std::uint32_t c = k == 0   ? 0xd97b6bff
                                 : k == 1 ? 0x2a9d8fff
                                 : k == 2 ? 0xe9c46aff
                                          : 0x3d5a80ff;
-        frame.context.setFillColor(c);
-        frame.context.fill(Rect{{x, 0.f}, {stripe, win.size.y}});
+        context.setFillColor(c);
+        context.fill(Rect{{x, 0.f}, {stripe, win.size.y}});
     }
 
     const float gap = pad * 0.65f;
@@ -51,7 +59,7 @@ void recordExample(ExampleFrame &frame)
     const float mergeH = std::clamp(m * 0.18f, 72.f, 108.f);
     const float circleS = mergeH;
     const float rectW = std::clamp(circleS * 1.55f, 100.f, 180.f);
-    const float mergeT = 0.5f + 0.5f * std::sin(frame.time * 0.35f);
+    const float mergeT = 0.5f + 0.5f * std::sin(timeSeconds * 0.35f);
     const float mergeGap = -circleS * 0.22f + (pad * 2.4f + circleS * 0.22f) * mergeT;
     const float mergeInner = circleS + mergeGap + rectW;
     const float mergeX = area.origin.x + pad + std::max(0.f, (inner - mergeInner) * 0.5f);
@@ -65,72 +73,72 @@ void recordExample(ExampleFrame &frame)
     const Rect mergeBox{{unionX0, unionY0}, {unionX1 - unionX0, unionY1 - unionY0}};
 
     const float orbR = pillH * 0.54f;
-    const float orbU = 0.5f + 0.5f * std::sin(frame.time * 0.25f);
+    const float orbU = 0.5f + 0.5f * std::sin(timeSeconds * 0.25f);
     const float orbX0 = frostR.origin.x - orbR * 0.2f;
     const float orbX1 = frostedR.origin.x + frostedR.size.x - orbR * 1.8f;
     const float orbX = orbX0 + (orbX1 - orbX0) * orbU;
-    const float orbY = pillsY + pillH * 0.87 - orbR;
-    frame.context.setFillColor(0xf8fafcff);
-    frame.context.fillRounded({{orbX, orbY}, {orbR * 2.f, orbR * 2.f}}, Radius{orbR});
+    const float orbY = pillsY + pillH * 0.87f - orbR;
+    context.setFillColor(0xf8fafcff);
+    context.fillRounded({{orbX, orbY}, {orbR * 2.f, orbR * 2.f}}, Radius{orbR});
 
     GroupParams frostP;
     frostP.bounds = frostR;
     frostP.clip = frostR;
     frostP.clipRadius = Radius{pillH * 0.5f};
     frostP.backdropBlur = 28.f;
-    frostP.backdropFlat = frame.reduceTransparency;
-    frame.context.pushGroup(frostP);
-    frame.context.popGroup();
+    frostP.backdropFlat = reduceTransparency;
+    context.pushGroup(frostP);
+    context.popGroup();
 
     Glass clear;
     clear.variant = GlassVariant::Clear;
     clear.thicknessPx = 16.f;
     clear.ior = 1.33f;
     clear.dispersion = 0.08f;
-    clear.flatten = frame.reduceTransparency;
+    clear.flatten = reduceTransparency;
     GroupParams clearP;
     clearP.bounds = clearR;
     clearP.clip = clearR;
     clearP.clipRadius = Radius{pillH * 0.5f};
     clearP.glass = clear;
-    frame.context.pushGroup(clearP);
-    frame.context.popGroup();
+    context.pushGroup(clearP);
+    context.popGroup();
 
     Glass frosted;
     frosted.variant = GlassVariant::Regular;
-    frosted.flatten = frame.reduceTransparency;
+    frosted.flatten = reduceTransparency;
     GroupParams frostedP;
     frostedP.bounds = frostedR;
     frostedP.clip = frostedR;
     frostedP.clipRadius = Radius{pillH * 0.5f};
     frostedP.glass = frosted;
-    frame.context.pushGroup(frostedP);
-    frame.context.popGroup();
+    context.pushGroup(frostedP);
+    context.popGroup();
 
     Glass mergeG;
     mergeG.variant = GlassVariant::Regular;
     mergeG.mergeKPx = 16.f;
-    mergeG.flatten = frame.reduceTransparency;
+    mergeG.flatten = reduceTransparency;
     GroupParams box;
     box.bounds = mergeBox;
     box.glassContainer = true;
     box.glass = mergeG;
-    frame.context.pushGroup(box);
+    context.pushGroup(box);
     GroupParams circ;
     circ.bounds = circleR;
     circ.clip = circleR;
     circ.clipRadius = Radius{circleS * 0.5f};
     circ.glass = mergeG;
-    frame.context.pushGroup(circ);
-    frame.context.popGroup();
+    context.pushGroup(circ);
+    context.popGroup();
     GroupParams rnd;
     rnd.bounds = rectR;
     rnd.clip = rectR;
     rnd.clipRadius = Radius{16.f};
     rnd.glass = mergeG;
-    frame.context.pushGroup(rnd);
-    frame.context.popGroup();
-    frame.context.popGroup();
+    context.pushGroup(rnd);
+    context.popGroup();
+    context.popGroup();
 
     const float dockH = std::clamp(m * 0.12f, 52.f, 72.f);
     const float dockW = std::min(inner, std::max(280.f, inner * 0.92f));
@@ -142,21 +150,27 @@ void recordExample(ExampleFrame &frame)
     dockG.thicknessPx = 20.f;
     dockG.ior = 1.33f;
     dockG.dispersion = 0.08f;
-    dockG.flatten = frame.reduceTransparency;
+    dockG.flatten = reduceTransparency;
     GroupParams dockP;
     dockP.bounds = dockR;
     dockP.clip = dockR;
     dockP.clipRadius = Radius{dockH * 0.5f};
     dockP.glass = dockG;
-    frame.context.pushGroup(dockP);
-    frame.context.popGroup();
+    context.pushGroup(dockP);
+    context.popGroup();
 
     const float label = 17.f;
-    const std::uint32_t ink = frame.reduceTransparency ? 0xf8fafcff : 0x1a2228ff;
-    frame.context.setFillColor(ink);
+    const std::uint32_t ink = reduceTransparency ? 0xf8fafcff : 0x1a2228ff;
+    context.setFillColor(ink);
     const float ly = pillsY + pillH * 0.5f - 7.f;
-    frame.context.text({frostR.origin.x + pad * 0.35f, ly}, "frost", label);
-    frame.context.text({clearR.origin.x + pad * 0.35f, ly}, "clear", label);
-    frame.context.text({frostedR.origin.x + pad * 0.35f, ly}, "frosted", label);
-    frame.context.text({circleR.origin.x + 8.f, circleR.origin.y + circleS * 0.5f - 8.f}, "merge", label);
+    context.text({frostR.origin.x + pad * 0.35f, ly}, "frost", label);
+    context.text({clearR.origin.x + pad * 0.35f, ly}, "clear", label);
+    context.text({frostedR.origin.x + pad * 0.35f, ly}, "frosted", label);
+    context.text({circleR.origin.x + 8.f, circleR.origin.y + circleS * 0.5f - 8.f}, "merge", label);
 }
+
+#ifndef GLIM_GOLDEN
+void recordExample(ExampleFrame& frame) {
+    recordGlass(frame.context, frame.size, frame.time, frame.safeArea, frame.reduceTransparency);
+}
+#endif
