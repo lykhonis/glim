@@ -68,7 +68,7 @@ Rect glassSurface(const Group& g) {
     const Glass& mat = glassMaterial(g);
     const float T = mat.thicknessPx * sizeScaleFor(aabb);
     const float blur = blurRadiusLogical(mat);
-    const float slack = mat.dispersion > 0.f ? 8.f : 0.f;
+    const float slack = mat.dispersion > 0.f ? 16.f : 12.f;
     const float gutter = std::ceil(T + blur + slack);
     aabb.origin.x -= gutter;
     aabb.origin.y -= gutter;

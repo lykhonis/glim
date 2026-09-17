@@ -132,6 +132,25 @@ void recordExample(ExampleFrame &frame)
     frame.context.popGroup();
     frame.context.popGroup();
 
+    const float dockH = std::clamp(m * 0.12f, 52.f, 72.f);
+    const float dockW = std::min(inner, std::max(280.f, inner * 0.92f));
+    const float dockX = area.origin.x + pad + (inner - dockW) * 0.5f;
+    const float dockY = area.origin.y + area.size.y - pad - dockH;
+    const Rect dockR{{dockX, dockY}, {dockW, dockH}};
+    Glass dockG;
+    dockG.variant = GlassVariant::Clear;
+    dockG.thicknessPx = 20.f;
+    dockG.ior = 1.33f;
+    dockG.dispersion = 0.08f;
+    dockG.flatten = frame.reduceTransparency;
+    GroupParams dockP;
+    dockP.bounds = dockR;
+    dockP.clip = dockR;
+    dockP.clipRadius = Radius{dockH * 0.5f};
+    dockP.glass = dockG;
+    frame.context.pushGroup(dockP);
+    frame.context.popGroup();
+
     const float label = 17.f;
     const std::uint32_t ink = frame.reduceTransparency ? 0xf8fafcff : 0x1a2228ff;
     frame.context.setFillColor(ink);

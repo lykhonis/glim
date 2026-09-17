@@ -54,11 +54,19 @@ float sdCapsulePx(vec2 p, vec2 c, vec2 he, float r) {
     return length(pa - ba * h) - r;
 }
 
+float smax(float a, float b, float k) {
+    const float h = clamp(0.5 + 0.5 * (b - a) / max(k, 1e-3), 0.0, 1.0);
+    return mix(a, b, h) + k * h * (1.0 - h);
+}
+
 float sdRoundedPx(vec2 p, vec2 c, vec2 he, float r, float n) {
     const vec2 q = abs(p - c) - he + r;
     if (q.x > 0.0 && q.y > 0.0 && n > 2.01) {
         const vec2 pn = abs(q);
         return pow(pow(pn.x, n) + pow(pn.y, n), 1.0 / n) - r;
+    }
+    if (q.x < 0.0 && q.y < 0.0) {
+        return smax(q.x, q.y, 8.0) - r;
     }
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
@@ -89,6 +97,40 @@ float shapeSdf(GlassUniforms u, vec2 p) {
     return d;
 }
 
+vec2 sdfNormal(GlassUniforms u, vec2 p) {
+    const float e = 3.0;
+    vec2 g = vec2(shapeSdf(u, p + vec2(e, 0.0)) - shapeSdf(u, p - vec2(e, 0.0)),
+                  shapeSdf(u, p + vec2(0.0, e)) - shapeSdf(u, p - vec2(0.0, e)));
+    return g / max(length(g), 1e-5);
+}
+
+float filletWeight(GlassUniforms u, vec2 p) {
+    const int count = clamp(int(u.shapeCount), 1, 8);
+    float w = 0.0;
+    for (int i = 0; i < 8; ++i) {
+        if (i >= count) {
+            break;
+        }
+        const GlassShape s = u.shapes[i];
+        const vec2 c = s.center * u.dpr;
+        const vec2 he = s.halfExtent * u.dpr;
+        const float r = min(s.corner * u.dpr, min(he.x, he.y));
+        const float rr = max(r, 1.0);
+        float fw;
+        if (r >= min(he.x, he.y) - 0.5) {
+            const vec2 a = c - vec2(he.x - r, 0.0);
+            const vec2 ba = vec2(2.0 * (he.x - r), 0.0);
+            const float h = clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+            fw = smoothstep(0.12, 0.5, abs(h - 0.5) * 2.0);
+        } else {
+            const vec2 f = abs(p - c) - (he - r);
+            fw = clamp(f.x / rr, 0.0, 1.0) * clamp(f.y / rr, 0.0, 1.0);
+        }
+        w = max(w, fw);
+    }
+    return w;
+}
+
 float safeAsin(float x) {
     return asin(clamp(x, -1.0, 1.0));
 }
@@ -101,8 +143,10 @@ void main() {
     const GlassUniforms u = instances[0];
     const vec2 p = v_uv * u.resolution;
     float d = shapeSdf(u, p);
-    vec2 n2 = vec2(dFdx(d), dFdy(d));
-    n2 /= max(length(n2), 1e-5);
+    const vec2 n2 = sdfNormal(u, p);
+    const vec2 he0 = u.shapes[0].halfExtent * u.dpr;
+    const float r0 = min(u.shapes[0].corner * u.dpr, min(he0.x, he0.y));
+    const float fillet = filletWeight(u, p);
     const float alphaShape = smoothstep(0.75, -0.75, d);
     if (alphaShape <= 0.001) {
         out_color = vec4(0.0);
@@ -118,19 +162,22 @@ void main() {
     }
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
-    const float wrapT = min(T, 16.0 * max(u.dpr, 1.0));
+    const float dprN0 = max(u.dpr, 1.0);
+    const float wrapT = mix(12.0 * dprN0, max(T, r0 * 0.6), fillet);
     float wrapX = 0.0;
     float wrapE = 0.0;
     if (delta < wrapT && u.thickness > 0.001) {
-        wrapX = 1.0 - clamp(delta / wrapT, 0.0, 1.0);
+        wrapX = 1.0 - clamp(delta / max(wrapT, 1.0), 0.0, 1.0);
         const float thetaI = safeAsin(pow(wrapX, 1.25));
         const float eta = max(u.ior, 1.01);
         const float thetaT = safeAsin(sin(thetaI) / eta);
         wrapE = -tan(thetaT - thetaI);
     }
+    const float distK = u.refDistance / 0.35;
+    const float diag = clamp(abs(n2.x * n2.y) * 2.0, 0.0, 1.0);
+    const float magPx = wrapE * 32.0 * distK * dprN0 * mix(0.7, 1.2, fillet) * mix(1.0, 0.5, diag);
     vec2 offset = vec2(0.0);
-    if (abs(wrapE) > 1e-5) {
-        const float magPx = wrapE * (u.refDistance / 0.35) * 28.0 * max(u.dpr, 1.0);
+    if (abs(magPx) > 1e-5) {
         offset = n2 * magPx / max(u.resolution, vec2(1.0));
     }
 
