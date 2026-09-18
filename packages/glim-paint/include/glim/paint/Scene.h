@@ -115,6 +115,7 @@ struct GroupParams {
     bool backdropFlat = false;
     std::optional<Glass> glass;
     bool glassContainer = false;
+    std::uint32_t semantic = 0;
 };
 
 struct FillRect {
@@ -164,6 +165,13 @@ using Shape = std::variant<FillRect, FillRounded, Stroke, Blit, GlyphRun, SlotHo
 struct SlotPlacement {
     std::uint32_t id = 0;
     Rect windowLogical{};
+};
+
+struct Hit {
+    std::uint32_t semantic = 0;
+    Rect bounds{};
+    bool slot = false;
+    bool opaque = true;
 };
 
 inline bool hasClip(const GroupParams& p) noexcept {
@@ -295,6 +303,7 @@ void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
 Shape transformShape(const Mat4&, const Shape&);
 bool hasSlotHole(const Group&);
 void collectSlots(const Scene&, std::vector<SlotPlacement>* out);
+bool hitTest(const Scene&, Vec2 logical, Hit* out);
 
 constexpr int kTileSize = 32;
 

@@ -204,6 +204,13 @@ void Context::slot(const Rect& rect, std::uint32_t id) {
     recordShape(current(), transformSlot(state_.model, SlotHole{rect, id}));
 }
 
+void Context::setSemantic(std::uint32_t id) {
+    if (!recording_) {
+        return;
+    }
+    current()->params.semantic = id;
+}
+
 void Context::translate(Vec2 offset) {
     state_.model = state_.model * Mat4::translate(offset.x, offset.y);
 }

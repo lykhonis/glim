@@ -298,6 +298,9 @@ bool canMerge(const Group& g) {
     if (needsIsolate(g) || hasClip(g.params) || hasSlotHole(g)) {
         return false;
     }
+    if (g.params.semantic != 0) {
+        return false;
+    }
     return g.params.blend == Blend::SrcOver;
 }
 

@@ -42,6 +42,7 @@ public:
     void text(Vec2 origin, const char* latin, float sizePx);
     TextSize measureText(const char* latin, float sizePx) const;
     void slot(const Rect&, std::uint32_t id);
+    void setSemantic(std::uint32_t id);
     void translate(Vec2);
     void save();
     void restore();

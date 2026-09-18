@@ -1,6 +1,7 @@
 add_library(glim-paint STATIC
     src/Context.cpp
     src/Merge.cpp
+    src/HitTest.cpp
     src/Glass.cpp
     src/Encode.cpp
     src/Software.cpp
@@ -133,7 +134,12 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-glass-test)
     add_test(NAME glim-glass-test COMMAND glim-glass-test)
 
+    add_executable(glim-hit-test tests/hit_test.cpp)
+    target_link_libraries(glim-hit-test PRIVATE glim::paint)
+    glim_target_defaults(glim-hit-test)
+    add_test(NAME glim-hit-test COMMAND glim-hit-test)
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
                       glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
-                      glim-glass-test)
+                      glim-glass-test glim-hit-test)
 endif()
