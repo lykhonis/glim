@@ -263,11 +263,6 @@ bool hasGlassWork(const Group& g) noexcept {
             return true;
         }
     }
-    for (const Shape& s : g.shapes) {
-        if (std::get_if<FillRounded>(&s)) {
-            return true;
-        }
-    }
     return false;
 }
 

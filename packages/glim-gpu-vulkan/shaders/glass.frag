@@ -27,8 +27,6 @@ layout(std430, set = 0, binding = 0) readonly buffer Instances {
 
 layout(set = 0, binding = 2) uniform sampler2D u_sharp;
 layout(set = 0, binding = 3) uniform sampler2D u_blur;
-layout(set = 0, binding = 4) uniform sampler2D u_luma;
-layout(set = 0, binding = 5) uniform sampler2D u_lumaPrev;
 
 layout(location = 0) in vec2 v_uv;
 layout(location = 0) out vec4 out_color;
@@ -46,8 +44,15 @@ float sminCirc(float a, float b, float k) {
 }
 
 float sdCapsulePx(vec2 p, vec2 c, vec2 he, float r) {
-    const vec2 a = c - vec2(he.x - r, 0.0);
-    const vec2 b = c + vec2(he.x - r, 0.0);
+    vec2 a;
+    vec2 b;
+    if (he.x >= he.y) {
+        a = c - vec2(he.x - r, 0.0);
+        b = c + vec2(he.x - r, 0.0);
+    } else {
+        a = c - vec2(0.0, he.y - r);
+        b = c + vec2(0.0, he.y - r);
+    }
     const vec2 pa = p - a;
     const vec2 ba = b - a;
     const float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
@@ -72,7 +77,10 @@ float sdRoundedPx(vec2 p, vec2 c, vec2 he, float r, float n) {
 }
 
 float shapeSdf(GlassUniforms u, vec2 p) {
-    const int count = clamp(int(u.shapeCount), 1, 8);
+    const int count = clamp(int(u.shapeCount), 0, 8);
+    if (count <= 0) {
+        return 1e6;
+    }
     float d = 1e6;
     for (int i = 0; i < 8; ++i) {
         if (i >= count) {
@@ -98,14 +106,14 @@ float shapeSdf(GlassUniforms u, vec2 p) {
 }
 
 vec2 sdfNormal(GlassUniforms u, vec2 p) {
-    const float e = 3.0;
+    const float e = max(1.5 * u.dpr, 1.0);
     vec2 g = vec2(shapeSdf(u, p + vec2(e, 0.0)) - shapeSdf(u, p - vec2(e, 0.0)),
                   shapeSdf(u, p + vec2(0.0, e)) - shapeSdf(u, p - vec2(0.0, e)));
     return g / max(length(g), 1e-5);
 }
 
 float filletWeight(GlassUniforms u, vec2 p) {
-    const int count = clamp(int(u.shapeCount), 1, 8);
+    const int count = clamp(int(u.shapeCount), 0, 8);
     float w = 0.0;
     for (int i = 0; i < 8; ++i) {
         if (i >= count) {
@@ -118,8 +126,15 @@ float filletWeight(GlassUniforms u, vec2 p) {
         const float rr = max(r, 1.0);
         float fw;
         if (r >= min(he.x, he.y) - 0.5) {
-            const vec2 a = c - vec2(he.x - r, 0.0);
-            const vec2 ba = vec2(2.0 * (he.x - r), 0.0);
+            vec2 a;
+            vec2 ba;
+            if (he.x >= he.y) {
+                a = c - vec2(he.x - r, 0.0);
+                ba = vec2(2.0 * (he.x - r), 0.0);
+            } else {
+                a = c - vec2(0.0, he.y - r);
+                ba = vec2(0.0, 2.0 * (he.y - r));
+            }
             const float h = clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
             fw = smoothstep(0.12, 0.5, abs(h - 0.5) * 2.0);
         } else {
@@ -143,10 +158,8 @@ void main() {
     const GlassUniforms u = instances[0];
     const vec2 p = v_uv * u.resolution;
     float d = shapeSdf(u, p);
-    const vec2 n2 = sdfNormal(u, p);
     const vec2 he0 = u.shapes[0].halfExtent * u.dpr;
     const float r0 = min(u.shapes[0].corner * u.dpr, min(he0.x, he0.y));
-    const float fillet = filletWeight(u, p);
     const float alphaShape = smoothstep(0.75, -0.75, d);
     if (alphaShape <= 0.001) {
         out_color = vec4(0.0);
@@ -163,6 +176,12 @@ void main() {
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
     const float dprN0 = max(u.dpr, 1.0);
+    // Deep interior: beyond any possible wrap radius, refraction is zero.
+    // Skip the normal (4 SDF evals) and fillet loop for these bulk pixels.
+    const float maxWrap = max(12.0 * dprN0, max(T, r0 * 0.6));
+    const bool deep = delta > maxWrap;
+    const vec2 n2 = deep ? vec2(0.0, 1.0) : sdfNormal(u, p);
+    const float fillet = deep ? 0.0 : filletWeight(u, p);
     const float wrapT = mix(12.0 * dprN0, max(T, r0 * 0.6), fillet);
     float wrapX = 0.0;
     float wrapE = 0.0;
@@ -190,8 +209,8 @@ void main() {
     const vec2 uvIsoW = clamp(v_uv + offset, vec2(0.001), vec2(0.999));
     const vec2 uvW = mix(u.destUv0, u.destUv1, uvIsoW);
     if (gamma > 0.0 && wrapX > 0.08) {
-        const vec2 uvIsoR = clamp(v_uv + offset * (1.0 - (0.98 - 1.0) * gamma), vec2(0.001), vec2(0.999));
-        const vec2 uvIsoB = clamp(v_uv + offset * (1.0 - (1.02 - 1.0) * gamma), vec2(0.001), vec2(0.999));
+        const vec2 uvIsoR = clamp(v_uv + offset * (1.0 - gamma), vec2(0.001), vec2(0.999));
+        const vec2 uvIsoB = clamp(v_uv + offset * (1.0 + gamma), vec2(0.001), vec2(0.999));
         const vec2 uvR = mix(u.destUv0, u.destUv1, uvIsoR);
         const vec2 uvB = mix(u.destUv0, u.destUv1, uvIsoB);
         wrapRgb = vec3(textureLod(u_sharp, uvR, 0.0).r, textureLod(u_sharp, uvW, 0.0).g,

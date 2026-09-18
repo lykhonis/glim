@@ -35,7 +35,7 @@ float blurRadiusLogical(const Glass& g) {
 
 float sizeScaleFor(const Rect& aabb) {
     const float area = std::max(0.f, aabb.size.x * aabb.size.y);
-    const float t = std::clamp(std::sqrt(area) / kGlassRefArea, 0.f, 1.f);
+    const float t = std::clamp(std::sqrt(area / std::max(kGlassRefArea, 1e-6f)), 0.f, 1.f);
     return 1.f + 0.6f * t;
 }
 
@@ -48,6 +48,7 @@ void emitPill(GlassPill* out, int* n, Rect rect, float radius) {
     p.rect = rect;
     p.radius = radius;
     p.superellipseN = 4.f;
+    // Capsule SDF in shaders handles both horizontal and vertical orientations.
     p.kind = radius >= minSide * 0.5f - 1e-3f ? GlassPillKind::Capsule : GlassPillKind::Rounded;
     out[*n] = p;
     ++*n;
@@ -82,7 +83,9 @@ int collectGlassPills(const Group& g, GlassPill* out) {
         return 0;
     }
     int n = 0;
-    collectFills(g, out, &n);
+    if (hasGlass(g)) {
+        collectFills(g, out, &n);
+    }
     if (isGlassContainer(g)) {
         for (const auto& child : g.children) {
             if (!child || !hasGlass(*child)) {
@@ -113,8 +116,13 @@ void clearGlassParams(GroupParams& p) {
 }
 
 void stripGlassForIsolate(Group& g) {
+    // Nested glass is flattened by design: outer plate wins, inner refraction
+    // is dropped silently to avoid spamming logs on every frame.
+    const bool hadGlass = hasGlass(g);
     clearGlassParams(g.params);
-    dropGlassPills(g);
+    if (hadGlass) {
+        dropGlassPills(g);
+    }
     for (auto& child : g.children) {
         if (child) {
             stripGlassForIsolate(*child);

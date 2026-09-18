@@ -17,8 +17,8 @@ struct GlassUniforms {
     vec4 tint;
     float blurEdge, lumaLift, lumaShadow, lumaOn;
     float dimmer, interactive, flatten, _pad1;
-    vec2 lightDir;
-    vec2 _pad2;
+    vec2 destUv0;
+    vec2 destUv1;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {

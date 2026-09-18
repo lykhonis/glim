@@ -77,8 +77,15 @@ float sminCirc(float a, float b, float k) {
 }
 
 float sdCapsulePx(float2 p, float2 c, float2 he, float r) {
-    const float2 a = c - float2(he.x - r, 0.0);
-    const float2 b = c + float2(he.x - r, 0.0);
+    float2 a;
+    float2 b;
+    if (he.x >= he.y) {
+        a = c - float2(he.x - r, 0.0);
+        b = c + float2(he.x - r, 0.0);
+    } else {
+        a = c - float2(0.0, he.y - r);
+        b = c + float2(0.0, he.y - r);
+    }
     const float2 pa = p - a;
     const float2 ba = b - a;
     const float h = saturate(dot(pa, ba) / max(dot(ba, ba), 1e-4));
@@ -103,7 +110,10 @@ float sdRoundedPx(float2 p, float2 c, float2 he, float r, float n) {
 }
 
 float shapeSdf(thread const GlassUniforms& u, float2 p) {
-    const int count = clamp(int(u.shapeCount), 1, 8);
+    const int count = clamp(int(u.shapeCount), 0, 8);
+    if (count <= 0) {
+        return 1e6;
+    }
     float d = 1e6;
     for (int i = 0; i < 8; ++i) {
         if (i >= count) {
@@ -129,14 +139,14 @@ float shapeSdf(thread const GlassUniforms& u, float2 p) {
 }
 
 float2 sdfNormal(thread const GlassUniforms& u, float2 p) {
-    const float e = 3.0;
+    const float e = max(1.5 * u.dpr, 1.0);
     float2 g = float2(shapeSdf(u, p + float2(e, 0.0)) - shapeSdf(u, p - float2(e, 0.0)),
                       shapeSdf(u, p + float2(0.0, e)) - shapeSdf(u, p - float2(0.0, e)));
     return g / max(length(g), 1e-5);
 }
 
 float filletWeight(thread const GlassUniforms& u, float2 p) {
-    const int count = clamp(int(u.shapeCount), 1, 8);
+    const int count = clamp(int(u.shapeCount), 0, 8);
     float w = 0.0;
     for (int i = 0; i < 8; ++i) {
         if (i >= count) {
@@ -149,8 +159,15 @@ float filletWeight(thread const GlassUniforms& u, float2 p) {
         const float rr = max(r, 1.0);
         float fw;
         if (r >= min(he.x, he.y) - 0.5) {
-            const float2 a = c - float2(he.x - r, 0.0);
-            const float2 ba = float2(2.0 * (he.x - r), 0.0);
+            float2 a;
+            float2 ba;
+            if (he.x >= he.y) {
+                a = c - float2(he.x - r, 0.0);
+                ba = float2(2.0 * (he.x - r), 0.0);
+            } else {
+                a = c - float2(0.0, he.y - r);
+                ba = float2(0.0, 2.0 * (he.y - r));
+            }
             const float h = saturate(dot(p - a, ba) / max(dot(ba, ba), 1e-4));
             fw = smoothstep(0.12, 0.5, abs(h - 0.5) * 2.0);
         } else {
@@ -171,19 +188,15 @@ float rec709(float3 c) {
 }
 
 fragment float4 fs_main(VSOut in [[stage_in]],
-                        constant GlassUniforms* instances [[buffer(0)]],
-                        texture2d<float> u_sharp [[texture(0)]],
-                        texture2d<float> u_blur [[texture(1)]],
-                        texture2d<float> u_luma [[texture(2)]],
-                        texture2d<float> u_lumaPrev [[texture(3)]],
-                        sampler samp [[sampler(0)]]) {
+                         constant GlassUniforms* instances [[buffer(0)]],
+                         texture2d<float> u_sharp [[texture(0)]],
+                         texture2d<float> u_blur [[texture(1)]],
+                         sampler samp [[sampler(0)]]) {
     const GlassUniforms u = instances[0];
     const float2 p = in.uv * u.resolution;
     float d = shapeSdf(u, p);
-    const float2 n2 = sdfNormal(u, p);
     const float2 he0 = u.shapes[0].halfExtent * u.dpr;
     const float r0 = min(u.shapes[0].corner * u.dpr, min(he0.x, he0.y));
-    const float fillet = filletWeight(u, p);
     const float alphaShape = smoothstep(0.75, -0.75, d);
     if (alphaShape <= 0.001) {
         return float4(0.0);
@@ -199,6 +212,12 @@ fragment float4 fs_main(VSOut in [[stage_in]],
     const float T = max(u.thickness * u.dpr, 1.0);
     const float delta = max(-d, 0.0);
     const float dprN0 = max(u.dpr, 1.0);
+    // Deep interior: beyond any possible wrap radius, refraction is zero.
+    // Skip the normal (4 SDF evals) and fillet loop for these bulk pixels.
+    const float maxWrap = max(12.0 * dprN0, max(T, r0 * 0.6));
+    const bool deep = delta > maxWrap;
+    const float2 n2 = deep ? float2(0.0, 1.0) : sdfNormal(u, p);
+    const float fillet = deep ? 0.0 : filletWeight(u, p);
     const float wrapT = mix(12.0 * dprN0, max(T, r0 * 0.6), fillet);
     float wrapX = 0.0;
     float wrapE = 0.0;
@@ -227,8 +246,8 @@ fragment float4 fs_main(VSOut in [[stage_in]],
     const float2 uvIsoW = clamp(in.uv + offset, float2(0.001), float2(0.999));
     const float2 uvW = mix(u.destUv0, u.destUv1, uvIsoW);
     if (gamma > 0.0 && wrapX > 0.08) {
-        const float2 uvIsoR = clamp(in.uv + offset * (1.0 - (0.98 - 1.0) * gamma), float2(0.001), float2(0.999));
-        const float2 uvIsoB = clamp(in.uv + offset * (1.0 - (1.02 - 1.0) * gamma), float2(0.001), float2(0.999));
+        const float2 uvIsoR = clamp(in.uv + offset * (1.0 - gamma), float2(0.001), float2(0.999));
+        const float2 uvIsoB = clamp(in.uv + offset * (1.0 + gamma), float2(0.001), float2(0.999));
         const float2 uvR = mix(u.destUv0, u.destUv1, uvIsoR);
         const float2 uvB = mix(u.destUv0, u.destUv1, uvIsoB);
         wrapRgb = float3(u_sharp.sample(samp, uvR, level(0.0)).r,

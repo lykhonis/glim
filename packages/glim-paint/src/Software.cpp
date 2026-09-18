@@ -461,7 +461,7 @@ void samplePlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pi
 }
 
 void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
-    const int radius = std::max(1, std::min(3, static_cast<int>(std::ceil(sigma))));
+    const int radius = std::max(1, std::min(32, static_cast<int>(std::ceil(3.f * sigma))));
     thread_local std::vector<Pixel> tmp;
     tmp = img;
     auto blurAxis = [&](bool horiz) {
@@ -660,7 +660,7 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
         p.b = p.b + (1.f - p.b) * rim;
     } else {
         const bool regular = mat.variant == GlassVariant::Regular;
-        const float milk = regular ? 0.12f : 0.05f;
+        const float milk = regular ? 0.22f : 0.08f;
         p.r = p.r + (1.f - p.r) * milk;
         p.g = p.g + (1.f - p.g) * milk;
         p.b = p.b + (1.f - p.b) * milk;
@@ -670,8 +670,8 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
         p.b = p.b + (mat.tint.blue() - p.b) * ta;
         if (mask > 0.85f && f.d > -5.f) {
             const float inside = std::max(-f.d, 0.f);
-            const float hair = std::clamp(1.f - std::fabs(inside - 1.3f) / 2.3f, 0.f, 1.f);
-            const float hair2 = hair * hair * hair;
+            const float hair = std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f);
+            const float hair2 = hair * hair * hair * hair * hair;
             const float horiz = f.nx * f.nx;
             p.r *= 1.f - horiz * hair2 * 0.38f;
             p.g *= 1.f - horiz * hair2 * 0.38f;
@@ -708,7 +708,7 @@ void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& 
         for (int x = 0; x < iw; ++x) {
             const float px = static_cast<float>(x) + 0.5f;
             const GlassSdf f = glassFieldEval(field, px, py);
-            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
+            const float mask = std::clamp((1.5f - f.d) / 1.5f, 0.f, 1.f);
             const std::size_t i = static_cast<std::size_t>(y * iw + x);
             if (mask < 0.001f) {
                 plate[i] = Pixel{0, 0, 0, 0};
@@ -742,7 +742,7 @@ void applyGlassChrome(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec
         for (int x = 0; x < iw; ++x) {
             const float px = static_cast<float>(x) + 0.5f;
             const GlassSdf f = glassFieldEval(field, px, py);
-            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
+            const float mask = std::clamp((1.5f - f.d) / 1.5f, 0.f, 1.f);
             const std::size_t i = static_cast<std::size_t>(y * iw + x);
             if (mask < 0.001f) {
                 plate[i] = Pixel{0, 0, 0, 0};
@@ -818,7 +818,7 @@ void sampleGlassPlate(std::vector<Pixel>& plate, int iw, int ih, const std::vect
         for (int x = 0; x < iw; ++x) {
             const float px = static_cast<float>(x) + 0.5f;
             const GlassSdf f = glassFieldEval(field, px, py);
-            const float mask = std::clamp((1.25f - f.d) * 0.8f, 0.f, 1.f);
+            const float mask = std::clamp((1.5f - f.d) / 1.5f, 0.f, 1.f);
             const std::size_t i = static_cast<std::size_t>(y * iw + x);
             if (mask < 0.001f) {
                 plate[i] = Pixel{0, 0, 0, 0};
@@ -906,7 +906,8 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     if (needsIsolate(g)) {
         const bool backdrop = hasBackdrop(g);
         const bool glassWork = hasGlassWork(g);
-        const Rect surface = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+        const Rect surface = glassWork ? glassSurface(g)
+                                       : (g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g));
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
         const int iw = isolatePixelSize(surface.size.x, pr);
         const int ih = isolatePixelSize(surface.size.y, pr);
@@ -926,8 +927,10 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             }
             GlassPill pills[kMaxGlassPills];
             const int n = collectGlassPills(g, pills);
-            const PlateSpec field = glassPillsToField(pills, n, mat.mergeKPx, pr, surface);
-            sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, mat, field);
+            if (n > 0) {
+                const PlateSpec field = glassPillsToField(pills, n, mat.mergeKPx, pr, surface);
+                sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, mat, field);
+            }
         } else {
             const float sigma = snapBackdropSigma(g.params.backdropBlur);
             if (sigma > 0.f || g.params.backdropBend > 0.f) {
@@ -996,13 +999,15 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
                    float pixelRatio) {
     std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
     if (iso.hasGlass) {
-        const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
-        const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
-        const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
-        const PlateSpec field = glassPillsToField(
-            iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
-            static_cast<int>(iso.glassPills.size()), iso.glass.mergeKPx, pr, local);
-        sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass, field);
+        if (!iso.glassPills.empty()) {
+            const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
+            const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
+            const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
+            const PlateSpec field = glassPillsToField(
+                iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
+                static_cast<int>(iso.glassPills.size()), iso.glass.mergeKPx, pr, local);
+            sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass, field);
+        }
     } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
         const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
         const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;

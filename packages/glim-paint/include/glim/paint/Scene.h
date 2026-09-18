@@ -55,6 +55,15 @@ struct Glass {
     float refDistance = 0.35f;
     float dispersion = 0.12f;
     bool flatten = false;
+
+    static Glass clear() {
+        Glass g;
+        g.variant = GlassVariant::Clear;
+        g.thicknessPx = 16.f;
+        g.ior = 1.33f;
+        g.dispersion = 0.08f;
+        return g;
+    }
 };
 
 // Pigment for a Shape. Solid, sampled, or foreign (imageId).

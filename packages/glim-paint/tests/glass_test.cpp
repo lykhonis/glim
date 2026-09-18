@@ -240,7 +240,7 @@ int main() {
         renderer.draw(ctx.scene());
         const std::size_t center = static_cast<std::size_t>((22 * w + 32) * 4);
         expect(buf[center] > 80, "cpu glass plate samples dest");
-        expect(buf[center + 1] < 40 && buf[center + 2] < 40, "cpu glass plate is dest red, not warp black");
+        expect(buf[center + 1] < 80 && buf[center + 2] < 80, "cpu glass plate is dest red, not warp black");
     }
 
     if (failures) {

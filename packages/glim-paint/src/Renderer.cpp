@@ -67,6 +67,7 @@ struct GlassUniforms {
     float ior;
     float refDistance;
     float dispersion;
+    // Reserved for future fresnel/glare model; currently unused by shaders.
     float fresnelRange;
     float fresnelHardness;
     float fresnelIntensity;
@@ -104,14 +105,11 @@ GlassUniforms makeGlassUniforms(const Glass& g, const GlassPill* pills, int n, i
     u.resolution[0] = static_cast<float>(iw);
     u.resolution[1] = static_cast<float>(ih);
     u.dpr = pixelRatio > 0.f ? pixelRatio : 1.f;
-    const int count = std::max(1, std::min(kMaxGlassPills, n));
+    const int count = std::max(0, std::min(kMaxGlassPills, n));
     u.shapeCount = static_cast<float>(count);
     for (int i = 0; i < count; ++i) {
         const GlassPill& p = (pills && n > 0) ? pills[i] : GlassPill{};
         Rect r = p.rect;
-        if (n <= 0) {
-            r = Rect::fromSize({static_cast<float>(iw) / u.dpr, static_cast<float>(ih) / u.dpr});
-        }
         u.shapes[i].center[0] = r.origin.x + r.size.x * 0.5f;
         u.shapes[i].center[1] = r.origin.y + r.size.y * 0.5f;
         u.shapes[i].halfExtent[0] = r.size.x * 0.5f;
@@ -121,12 +119,10 @@ GlassUniforms makeGlassUniforms(const Glass& g, const GlassPill* pills, int n, i
         u.shapes[i].mergeK = g.mergeKPx;
     }
     const bool ident = g.variant == GlassVariant::Identity;
-    u.thickness = ident ? 0.f : (g.variant == GlassVariant::Clear && g.thicknessPx == 24.f ? 16.f : g.thicknessPx);
-    u.ior = g.variant == GlassVariant::Clear && g.ior == 1.45f ? 1.33f : g.ior;
+    u.thickness = ident ? 0.f : g.thicknessPx;
+    u.ior = g.ior;
     u.refDistance = g.refDistance;
-    u.dispersion = ident || g.flatten ? 0.f
-                                      : (g.variant == GlassVariant::Clear && g.dispersion == 0.12f ? 0.08f
-                                                                                                 : g.dispersion);
+    u.dispersion = (ident || g.flatten) ? 0.f : g.dispersion;
     u.fresnelRange = 18.f;
     u.fresnelHardness = 0.0f;
     u.fresnelIntensity = ident || g.flatten ? (g.flatten ? 0.05f : 0.f)
@@ -765,12 +761,27 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                     void* blur = sharp;
                     const float blurR = glassBlurRadius(iso.glass);
                     if (blurR > 0.f && blur1d_.native() && !iso.glass.flatten) {
-                        const int bw = std::max(1, iso.contentW / 2);
-                        const int bh = std::max(1, iso.contentH / 2);
+                        // Large sigmas are blurred at reduced resolution, then bilinearly
+                        // upsampled. Targets never go below 1/8 res so animated content
+                        // behind the frost can't visibly step/pulse. Remaining sigma is
+                        // covered by iterating H+V pairs (variances add), which matches a
+                        // single wide Gaussian without a 65-tap kernel.
+                        const float pr =
+                            iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
+                        const float sigmaFull = blurR * pr * 0.5f;
+                        int div = 2;
+                        float sigmaEff = sigmaFull;
+                        while (sigmaEff > 4.f && div < 8) {
+                            div *= 2;
+                            sigmaEff = sigmaFull * 2.f / static_cast<float>(div);
+                        }
+                        const float ratio = sigmaEff / 4.f;
+                        const int n = std::max(1, static_cast<int>(std::ceil(ratio * ratio)));
+                        const float sigma = sigmaEff / std::sqrt(static_cast<float>(n));
+                        const int bw = std::max(1, iso.contentW / div);
+                        const int bh = std::max(1, iso.contentH / div);
                         ensureRt(device_, glassBlurTmp_, bw, bh);
                         ensureRt(device_, glassBlur_, bw, bh);
-                        const float sigma = blurR * (iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f) *
-                                            0.5f;
                         auto pass1d = [&](void* dst, int dw, int dh, void* src, float dx, float dy,
                                           float su0, float sv0, float su1, float sv1) {
                             gpu::PassDesc d;
@@ -804,14 +815,27 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                             p.end();
                         };
                         if (glassBlurTmp_.native() && glassBlur_.native()) {
+                            // V (+downsample), then (n-1) H+V pairs and a final H:
+                            // 2n directional passes of sigmaK == one wide Gaussian.
                             pass1d(glassBlurTmp_.native(), bw, bh, sharp, 0.f, 1.f, iso.glassU0,
                                    iso.glassV0, iso.glassU1, iso.glassV1);
-                            pass1d(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f, 0.f,
-                                   0.f, 1.f, 1.f);
-                            blur = glassBlur_.native();
+                            void* src = glassBlurTmp_.native();
+                            void* dst = glassBlur_.native();
+                            for (int i = 1; i < n; ++i) {
+                                pass1d(dst, bw, bh, src, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
+                                void* t = src;
+                                src = dst;
+                                dst = t;
+                                pass1d(dst, bw, bh, src, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f);
+                                t = src;
+                                src = dst;
+                                dst = t;
+                            }
+                            pass1d(dst, bw, bh, src, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
+                            blur = dst;
                         }
                     }
-                    if (glass_.native()) {
+                    if (glass_.native() && !iso.glassPills.empty()) {
                         gpu::PassDesc plate;
                         plate.nativeColor = ft->native();
                         plate.load = gpu::LoadOp::Clear;
@@ -830,12 +854,8 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                         gp.setFragmentBytes(0, &gu, sizeof(gu));
                         gp.setFragmentTexture(0, sharp);
                         gp.setFragmentTexture(1, blur);
-                        gp.setFragmentTexture(2, sharp);
-                        gp.setFragmentTexture(3, sharp);
                         gp.setFragmentSampler(0, device_.nativeSampler());
                         gp.setFragmentSampler(1, device_.nativeSampler());
-                        gp.setFragmentSampler(2, device_.nativeSampler());
-                        gp.setFragmentSampler(3, device_.nativeSampler());
                         gp.draw(6, 1, 0, 0);
                         gp.end();
                     } else {
@@ -1438,11 +1458,22 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         void* blurTex = glassTex;
                         const float blurR = glassBlurRadius(mat);
                         if (sharpTex && blurR > 0.f && blur1d_.native() && !mat.flatten) {
-                            const int bw = std::max(1, iw / 2);
-                            const int bh = std::max(1, ih / 2);
+                            // Same adaptive scheme as the isolate path above: never below
+                            // 1/8 res, iterate H+V pairs for the remaining sigma.
+                            const float sigmaFull = blurR * localPr * 0.5f;
+                            int div = 2;
+                            float sigmaEff = sigmaFull;
+                            while (sigmaEff > 4.f && div < 8) {
+                                div *= 2;
+                                sigmaEff = sigmaFull * 2.f / static_cast<float>(div);
+                            }
+                            const float ratio = sigmaEff / 4.f;
+                            const int n = std::max(1, static_cast<int>(std::ceil(ratio * ratio)));
+                            const float sigma = sigmaEff / std::sqrt(static_cast<float>(n));
+                            const int bw = std::max(1, iw / div);
+                            const int bh = std::max(1, ih / div);
                             ensureRt(device_, glassBlurTmp_, bw, bh);
                             ensureRt(device_, glassBlur_, bw, bh);
-                            const float sigma = blurR * localPr * 0.5f;
                             auto blur1dPass = [&](void* dst, int dw, int dh, void* src, float dx, float dy,
                                                   float su0, float sv0, float su1, float sv1) {
                                 gpu::PassDesc d;
@@ -1480,12 +1511,23 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             if (glassBlurTmp_.native() && glassBlur_.native()) {
                                 blur1dPass(glassBlurTmp_.native(), bw, bh, sharpTex, 0.f, 1.f, du0, dv0,
                                            du1, dv1);
-                                blur1dPass(glassBlur_.native(), bw, bh, glassBlurTmp_.native(), 1.f, 0.f,
-                                           0.f, 0.f, 1.f, 1.f);
-                                blurTex = glassBlur_.native();
+                                void* src = glassBlurTmp_.native();
+                                void* dst = glassBlur_.native();
+                                for (int i = 1; i < n; ++i) {
+                                    blur1dPass(dst, bw, bh, src, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
+                                    void* t = src;
+                                    src = dst;
+                                    dst = t;
+                                    blur1dPass(dst, bw, bh, src, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f);
+                                    t = src;
+                                    src = dst;
+                                    dst = t;
+                                }
+                                blur1dPass(dst, bw, bh, src, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
+                                blurTex = dst;
                             }
                         }
-                        if (sharpTex && glass_.native()) {
+                        if (sharpTex && glass_.native() && gn > 0) {
                             gpu::PassDesc plate;
                             plate.nativeColor = ft->native();
                             plate.load = gpu::LoadOp::Clear;
@@ -1501,12 +1543,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                             gp.setFragmentBytes(0, &gu, sizeof(gu));
                             gp.setFragmentTexture(0, sharpTex);
                             gp.setFragmentTexture(1, blurTex ? blurTex : sharpTex);
-                            gp.setFragmentTexture(2, sharpTex);
-                            gp.setFragmentTexture(3, sharpTex);
                             gp.setFragmentSampler(0, device_.nativeSampler());
                             gp.setFragmentSampler(1, device_.nativeSampler());
-                            gp.setFragmentSampler(2, device_.nativeSampler());
-                            gp.setFragmentSampler(3, device_.nativeSampler());
                             gp.draw(6, 1, 0, 0);
                             stats_.draws += 1;
                             gp.end();
