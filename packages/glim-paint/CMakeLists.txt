@@ -63,7 +63,7 @@ function(glim_add_renderer name)
         GLIM_METAL_SHADER_DIR="${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 endfunction()
 
-set(_glim_gpu_common src/gpu/Pipelines.cpp src/gpu/Batch.cpp src/gpu/Isolates.cpp src/gpu/PacketSubmit.cpp)
+set(_glim_gpu_common src/gpu/Pipelines.cpp src/gpu/Batch.cpp src/gpu/Isolates.cpp)
 
 glim_add_renderer(glim-paint-gpu SOURCES ${_glim_gpu_common} src/gpu/SceneEncode.cpp LIBS glim::gpu)
 target_compile_definitions(glim-paint-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=0)
