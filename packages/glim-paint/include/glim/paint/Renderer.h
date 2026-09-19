@@ -40,47 +40,8 @@ public:
 #endif
     const Stats& stats() const { return stats_; }
 
-private:
 #if !GLIM_SOFTWARE
-    bool ensurePipelines();
-    void flushSolid(gpu::Pass& pass);
-    void flushRounded(gpu::Pass& pass);
-    void flushGradient(gpu::Pass& pass);
-    void flushBlit(gpu::Pass& pass);
-    void flushGlyph(gpu::Pass& pass);
-    void* gpuTexture(std::uint32_t imageId);
-#if GLIM_EMBED
-    void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
-                     const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& gradients,
-                     const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
-                     int viewportH, void* nativeColor, gpu::LoadOp load);
-#else
-    void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
-                     int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
-                     float pixelRatio, Vec2 logicalSize, const Mat4& extra = Mat4::identity());
-#endif
-    gpu::Device& device_;
-    gpu::Pipeline solid_{};
-    gpu::Pipeline rounded_{};
-    gpu::Pipeline blit_{};
-    gpu::Pipeline glyph_{};
-    gpu::Pipeline blur_{};
-    gpu::Pipeline blur1d_{};
-    gpu::Pipeline glass_{};
-    gpu::Pipeline gradient_{};
-    gpu::FrameTarget backdrop_{};
-    gpu::FrameTarget glassSrc_{};
-    gpu::FrameTarget glassBlurTmp_{};
-    gpu::FrameTarget glassBlur_{};
-    struct ScratchRt {
-        gpu::FrameTarget ft;
-        int w = 0;
-        int h = 0;
-    };
-    std::vector<ScratchRt> scratch_;
-    int scratchUsed_ = 0;
-    gpu::FrameTarget* acquireScratch(int w, int h);
-    bool ready_ = false;
+public:
     struct SolidInstance {
         float rect[4];
         float color[4];
@@ -103,15 +64,72 @@ private:
         float colors[32];
         float offsets[8];
     };
-    std::vector<SolidInstance> pending_;
-    std::vector<RoundedInstance> pendingRounded_;
-    std::vector<GradientInstance> pendingGradient_;
-    std::vector<BlitInstance> pendingBlit_;
-    void* pendingBlitTex_ = nullptr;
-    std::vector<BlitInstance> pendingGlyph_;
-    void* pendingGlyphTex_ = nullptr;
-    std::vector<gpu::Texture> gpuImages_;
-    const ImageStore* images_ = nullptr;
+    struct Pipelines {
+        bool ensure(gpu::Device& device);
+        gpu::Pipeline solid{};
+        gpu::Pipeline rounded{};
+        gpu::Pipeline blit{};
+        gpu::Pipeline glyph{};
+        gpu::Pipeline blur{};
+        gpu::Pipeline blur1d{};
+        gpu::Pipeline glass{};
+        gpu::Pipeline gradient{};
+        bool ready_ = false;
+    };
+    struct TextureCache {
+        explicit TextureCache(gpu::Device& device) : device_(device) {}
+        void setImages(const ImageStore* images) { images_ = images; }
+        void* get(std::uint32_t imageId);
+        gpu::Device& device_;
+        const ImageStore* images_ = nullptr;
+        std::vector<gpu::Texture> textures_;
+    };
+    struct Batch {
+        void clearAll();
+        void flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
+        void flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
+        void flushGradient(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
+        void flushBlit(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats);
+        void flushGlyph(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats);
+        std::vector<SolidInstance> solid;
+        std::vector<RoundedInstance> rounded;
+        std::vector<GradientInstance> gradient;
+        std::vector<BlitInstance> blit;
+        void* blitTex = nullptr;
+        std::vector<BlitInstance> glyph;
+        void* glyphTex = nullptr;
+    };
+    struct TargetPool {
+        gpu::FrameTarget* acquire(gpu::Device& device, int w, int h);
+        void reset() { used_ = 0; }
+        gpu::FrameTarget backdrop;
+        gpu::FrameTarget glassSrc;
+        gpu::FrameTarget glassBlurTmp;
+        gpu::FrameTarget glassBlur;
+        struct Slot {
+            gpu::FrameTarget ft;
+            int w = 0;
+            int h = 0;
+        };
+        std::vector<Slot> slots_;
+        int used_ = 0;
+    };
+private:
+#if GLIM_EMBED
+    void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
+                     const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& gradients,
+                     const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
+                     int viewportH, void* nativeColor, gpu::LoadOp load);
+#else
+    void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
+                     int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
+                     float pixelRatio, Vec2 logicalSize, const Mat4& extra = Mat4::identity());
+#endif
+    gpu::Device& device_;
+    Pipelines pipes_;
+    TargetPool targets_;
+    TextureCache textures_;
+    Batch batch_;
 #else
     std::uint8_t* rgba_ = nullptr;
     int width_ = 0;

@@ -53,16 +53,19 @@ configure_file(
     @ONLY)
 
 function(glim_add_renderer name)
-    add_library(${name} STATIC src/Renderer.cpp)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
+    add_library(${name} STATIC src/Renderer.cpp ${ARG_SOURCES})
     target_include_directories(${name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(${name} PUBLIC glim::paint ${ARGN})
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(${name} PUBLIC glim::paint ${ARG_LIBS})
     glim_target_defaults(${name})
     target_compile_definitions(${name} PRIVATE
         GLIM_METAL_SHADER_DIR="${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 endfunction()
 
-glim_add_renderer(glim-paint-gpu glim::gpu)
+set(_glim_gpu_common src/gpu/Pipelines.cpp src/gpu/Batch.cpp src/gpu/Isolates.cpp)
+
+glim_add_renderer(glim-paint-gpu SOURCES ${_glim_gpu_common} src/gpu/SceneEncode.cpp LIBS glim::gpu)
 target_compile_definitions(glim-paint-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=0)
 if(GLIM_GPU STREQUAL "vulkan")
     target_compile_definitions(glim-paint-gpu PRIVATE GLIM_GPU_VULKAN=1)
@@ -75,7 +78,7 @@ glim_add_renderer(glim-paint-cpu)
 target_compile_definitions(glim-paint-cpu PUBLIC GLIM_SOFTWARE=1 GLIM_EMBED=0)
 add_library(glim::paint-cpu ALIAS glim-paint-cpu)
 
-glim_add_renderer(glim-paint-embed-gpu glim::gpu)
+glim_add_renderer(glim-paint-embed-gpu SOURCES ${_glim_gpu_common} src/gpu/PacketSubmit.cpp LIBS glim::gpu)
 target_compile_definitions(glim-paint-embed-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=1)
 if(GLIM_GPU STREQUAL "vulkan")
     target_compile_definitions(glim-paint-embed-gpu PRIVATE GLIM_GPU_VULKAN=1)

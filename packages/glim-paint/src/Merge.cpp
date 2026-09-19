@@ -360,7 +360,7 @@ bool blendCompatible(Blend parent, Blend child) {
     // Only SrcOver and Plus exist in v1 (K9). A Plus child merges only into a
     // Plus parent; mixed blends never share a pass.
     // NOTE: GPU pipelines are still hardcoded to SrcOver
-    // (Renderer::ensurePipelines). Merging both-Plus is the correct grouping;
+    // (Renderer::Pipelines::ensure). Merging both-Plus is the correct grouping;
     // a per-blend pipeline switch in the Renderer is follow-up work.
     return parent == Blend::SrcOver || parent == Blend::Plus;
 }
