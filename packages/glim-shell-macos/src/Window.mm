@@ -54,6 +54,14 @@ using glim::shell::Window;
         }
         return;
     }
+    if (event.keyCode == 36) {
+        Event e(EventType::KeyDown);
+        e.setKey(Key::Enter);
+        if (eventCallback_) {
+            eventCallback_(e);
+        }
+        return;
+    }
     [super keyDown:event];
 }
 

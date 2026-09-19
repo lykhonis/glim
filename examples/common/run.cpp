@@ -104,6 +104,12 @@ int glimRunExample(const ExampleApp& app, void (*record)(ExampleFrame&)) {
             paint();
             return;
         }
+        if (e.type() == T::PointerDown ||
+            (e.type() == T::KeyDown && e.key() == glim::shell::Key::Enter)) {
+            overlay.toggleExpanded();
+            paint();
+            return;
+        }
         if (e.type() == T::WindowResized || e.type() == T::Frame) {
             paint();
         }

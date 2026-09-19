@@ -703,6 +703,9 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
 
     pendingGradient_.clear();
     for (const GradientQuad& q : gradients) {
+        if (q.w <= 0.f || q.h <= 0.f || q.coverage <= 1e-4f || q.stopCount == 0) {
+            continue;
+        }
         GradientInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -1166,9 +1169,11 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         pending_.push_back(inst);
     };
     auto addGradient = [this, &pass](const GradientQuad& q) {
+        if (q.w <= 0.f || q.h <= 0.f || q.coverage <= 1e-4f || q.stopCount == 0) {
+            return;
+        }
         flushSolid(pass);
         flushRounded(pass);
-        flushGradient(pass);
         flushBlit(pass);
         flushGlyph(pass);
         GradientInstance inst{};

@@ -808,10 +808,7 @@ void Pass::draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uin
     ai.pSetLayouts = &d->setLayout;
     VkDescriptorSet set = VK_NULL_HANDLE;
     if (vkAllocateDescriptorSets(d->device, &ai, &set) != VK_SUCCESS) {
-        vkResetDescriptorPool(d->device, frame.descriptors, 0);
-        if (vkAllocateDescriptorSets(d->device, &ai, &set) != VK_SUCCESS) {
-            return;
-        }
+        return;
     }
 
     VkDescriptorBufferInfo ssbo{};
@@ -1370,16 +1367,17 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     VkCommandBuffer cmds[kFrames]{};
     vkAllocateCommandBuffers(d.device, &cba, cmds);
 
+    constexpr uint32_t kMaxSetsPerFrame = 4096;
     VkDescriptorPoolSize poolSizes[3]{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[0].descriptorCount = 1024;
+    poolSizes[0].descriptorCount = kMaxSetsPerFrame;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1024;
+    poolSizes[1].descriptorCount = kMaxSetsPerFrame;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[2].descriptorCount = 1024 * kMaxFragmentTextures;
+    poolSizes[2].descriptorCount = kMaxSetsPerFrame * kMaxFragmentTextures;
     VkDescriptorPoolCreateInfo dpi{};
     dpi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    dpi.maxSets = 1024;
+    dpi.maxSets = kMaxSetsPerFrame;
     dpi.poolSizeCount = 3;
     dpi.pPoolSizes = poolSizes;
 

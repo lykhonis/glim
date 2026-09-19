@@ -28,6 +28,11 @@ int main() {
     expect(!overlay.enabled(), "setEnabled false");
 
     overlay.setEnabled(true);
+    expect(!overlay.expanded(), "compact by default");
+    overlay.toggleExpanded();
+    expect(overlay.expanded(), "toggle expands");
+    overlay.toggleExpanded();
+    expect(!overlay.expanded(), "toggle collapses");
     for (int i = 0; i < 60; ++i) {
         overlay.tick(1.f / 60.f);
     }

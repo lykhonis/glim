@@ -306,9 +306,9 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
         addSpan(s, r.origin.x, r.origin.x + r.size.x, 1.f);
         out.push_back(std::move(s));
     };
-    const auto inside = [](Rect r, float px, float py) {
-        return px >= r.origin.x && px < r.origin.x + r.size.x && py >= r.origin.y &&
-               py < r.origin.y + r.size.y;
+    const auto touches = [&](Rect r, float px, float py) {
+        return px >= r.origin.x && px <= r.origin.x + r.size.x && py >= r.origin.y &&
+               py <= r.origin.y + r.size.y;
     };
     if (radius.lt <= kEps && radius.rt <= kEps && radius.lb <= kEps && radius.rb <= kEps) {
         emitRect(rect);
@@ -348,8 +348,19 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
             for (int x = x0; x < x1; ++x) {
                 const float px = static_cast<float>(x) + 0.5f;
                 const float py = static_cast<float>(y) + 0.5f;
-                if (inside(body, px, py) || inside(top, px, py) || inside(bot, px, py) ||
-                    inside(left, px, py) || inside(right, px, py)) {
+                const bool inTiled =
+                    (touches(body, x, y) || touches(top, x, y) || touches(bot, x, y) ||
+                     touches(left, x, y) || touches(right, x, y)) &&
+                    (touches(body, x + 1.f, y) || touches(top, x + 1.f, y) ||
+                     touches(bot, x + 1.f, y) || touches(left, x + 1.f, y) ||
+                     touches(right, x + 1.f, y)) &&
+                    (touches(body, x, y + 1.f) || touches(top, x, y + 1.f) ||
+                     touches(bot, x, y + 1.f) || touches(left, x, y + 1.f) ||
+                     touches(right, x, y + 1.f)) &&
+                    (touches(body, x + 1.f, y + 1.f) || touches(top, x + 1.f, y + 1.f) ||
+                     touches(bot, x + 1.f, y + 1.f) || touches(left, x + 1.f, y + 1.f) ||
+                     touches(right, x + 1.f, y + 1.f));
+                if (inTiled) {
                     continue;
                 }
                 addSpan(s, static_cast<float>(x), static_cast<float>(x + 1),
@@ -466,7 +477,7 @@ void appendGradientQuad(std::vector<GradientQuad>& out, float x, float y, float 
     if (w <= 0.f || h <= 0.f || coverage <= 1e-4f || !m.isGradient() || m.gradientStopCount <= 0) {
         return;
     }
-    GradientQuad q;
+    GradientQuad q{};
     q.x = x;
     q.y = y;
     q.w = w;
