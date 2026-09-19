@@ -10,10 +10,9 @@
 #if !GLIM_SOFTWARE
 #include <glim/gpu/Device.h>
 #endif
-#if GLIM_EMBED
 #include <glim/paint/FramePacket.h>
-#else
-#include <glim/paint/Scene.h>
+#if !GLIM_SOFTWARE && !GLIM_EMBED
+#include <glim/paint/Reuse.h>
 #endif
 
 #include <cstdint>
@@ -115,21 +114,18 @@ public:
         int used_ = 0;
     };
 private:
-#if GLIM_EMBED
     void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
                      const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& gradients,
                      const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
                      int viewportH, void* nativeColor, gpu::LoadOp load);
-#else
-    void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
-                     int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
-                     float pixelRatio, Vec2 logicalSize, const Mat4& extra = Mat4::identity());
-#endif
     gpu::Device& device_;
     Pipelines pipes_;
     TargetPool targets_;
     TextureCache textures_;
     Batch batch_;
+#if !GLIM_EMBED
+    ReuseCache reuse_;
+#endif
 #else
     std::uint8_t* rgba_ = nullptr;
     int width_ = 0;

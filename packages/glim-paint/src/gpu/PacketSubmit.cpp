@@ -104,6 +104,7 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_);
 
     bool glassFrozen = false;
+    bool snapshotted = false;
     for (const Isolate& iso : isolates) {
         gpu::FrameTarget* ft = targets_.acquire(device_, iso.contentW, iso.contentH);
         if (!ft || !ft->native()) {
@@ -185,49 +186,54 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
             ++stats_.glassPassCount;
             stats_.glassPillCount += static_cast<unsigned>(iso.glassPills.size());
         } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
-            const int hw = std::max(1, viewportW / 2);
-            const int hh = std::max(1, viewportH / 2);
-            if (!targets_.backdrop.native() || targets_.backdrop.width() != hw ||
-                targets_.backdrop.height() != hh) {
-                gpu::FrameTargetDesc bgDesc;
-                bgDesc.width = hw;
-                bgDesc.height = hh;
-                bgDesc.mipmaps = true;
-                auto bg = device_.createFrameTarget(bgDesc);
-                if (bg.ok()) {
-                    targets_.backdrop = std::move(bg.value());
-                }
-            }
-            if (targets_.backdrop.native()) {
-                if (!encoder.copyColorTo(targets_.backdrop)) {
-                    void* src = nativeColor ? nativeColor : device_.colorNative();
-                    if (src) {
-                        gpu::PassDesc down;
-                        down.nativeColor = targets_.backdrop.native();
-                        down.load = gpu::LoadOp::DontCare;
-                        down.viewportW = hw;
-                        down.viewportH = hh;
-                        gpu::Pass dp = encoder.beginPass(down);
-                        const Mat4 dproj =
-                            Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
-                        setProjection(dp, dproj);
-                        BlitInstance blit{};
-                        blit.rect[0] = 0.f;
-                        blit.rect[1] = 0.f;
-                        blit.rect[2] = static_cast<float>(hw);
-                        blit.rect[3] = static_cast<float>(hh);
-                        blit.uv[2] = 1.f;
-                        blit.uv[3] = 1.f;
-                        blit.extra[0] = blit.extra[1] = blit.extra[2] = blit.extra[3] = 1.f;
-                        dp.setPipeline(pipes_.blit);
-                        dp.setBytes(0, &blit, sizeof(blit));
-                        dp.setFragmentTexture(0, src);
-                        dp.setFragmentSampler(0, device_.nativeSampler());
-                        dp.draw(6, 1, 0, 0);
-                        dp.end();
+            if (!snapshotted) {
+                const int hw = std::max(1, viewportW / 2);
+                const int hh = std::max(1, viewportH / 2);
+                if (!targets_.backdrop.native() || targets_.backdrop.width() != hw ||
+                    targets_.backdrop.height() != hh) {
+                    gpu::FrameTargetDesc bgDesc;
+                    bgDesc.width = hw;
+                    bgDesc.height = hh;
+                    bgDesc.mipmaps = true;
+                    auto bg = device_.createFrameTarget(bgDesc);
+                    if (bg.ok()) {
+                        targets_.backdrop = std::move(bg.value());
                     }
                 }
-                encoder.generateMips(targets_.backdrop);
+                if (targets_.backdrop.native()) {
+                    if (!encoder.copyColorTo(targets_.backdrop)) {
+                        void* src = nativeColor ? nativeColor : device_.colorNative();
+                        if (src) {
+                            gpu::PassDesc down;
+                            down.nativeColor = targets_.backdrop.native();
+                            down.load = gpu::LoadOp::DontCare;
+                            down.viewportW = hw;
+                            down.viewportH = hh;
+                            gpu::Pass dp = encoder.beginPass(down);
+                            const Mat4 dproj =
+                                Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
+                            setProjection(dp, dproj);
+                            BlitInstance blit{};
+                            blit.rect[0] = 0.f;
+                            blit.rect[1] = 0.f;
+                            blit.rect[2] = static_cast<float>(hw);
+                            blit.rect[3] = static_cast<float>(hh);
+                            blit.uv[2] = 1.f;
+                            blit.uv[3] = 1.f;
+                            blit.extra[0] = blit.extra[1] = blit.extra[2] = blit.extra[3] = 1.f;
+                            dp.setPipeline(pipes_.blit);
+                            dp.setBytes(0, &blit, sizeof(blit));
+                            dp.setFragmentTexture(0, src);
+                            dp.setFragmentSampler(0, device_.nativeSampler());
+                            dp.draw(6, 1, 0, 0);
+                            dp.end();
+                        }
+                    }
+                    encoder.generateMips(targets_.backdrop);
+                }
+                snapshotted = true;
+            }
+            if (targets_.backdrop.native()) {
                 gpu::PassDesc plate;
                 plate.nativeColor = ft->native();
                 plate.load = gpu::LoadOp::Clear;
@@ -291,6 +297,7 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     pass.end();
 }
 
+#if GLIM_EMBED
 void Renderer::submit(const FramePacket& packet) {
     const auto t0 = std::chrono::steady_clock::now();
     stats_ = packet.stats;
@@ -315,5 +322,6 @@ void Renderer::submit(const FramePacket& packet) {
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
+#endif
 
 }  // namespace glim::paint
