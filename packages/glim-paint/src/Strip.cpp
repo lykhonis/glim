@@ -461,9 +461,63 @@ void stripsToQuads(const std::vector<Strip>& strips, const Vec4& premul, std::ve
     }
 }
 
-void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const Shape& shape,
-                 const ClipState& clip) {
+void appendGradientQuad(std::vector<GradientQuad>& out, float x, float y, float w, float h,
+                        float coverage, const Matter& m) {
+    if (w <= 0.f || h <= 0.f || coverage <= 1e-4f || !m.isGradient() || m.gradientStopCount <= 0) {
+        return;
+    }
+    GradientQuad q;
+    q.x = x;
+    q.y = y;
+    q.w = w;
+    q.h = h;
+    q.coverage = coverage;
+    q.kind = m.gradientKind == GradientKind::Radial ? 1 : 0;
+    q.p0x = m.gradientP0.x;
+    q.p0y = m.gradientP0.y;
+    q.p1x = m.gradientP1.x;
+    q.p1y = m.gradientP1.y;
+    q.radius = m.gradientRadius;
+    q.stopCount = static_cast<std::uint8_t>(m.gradientStopCount);
+    for (int i = 0; i < m.gradientStopCount; ++i) {
+        const GradientStop& s = m.gradientStops[i];
+        const Vec4 p = s.color.premul();
+        q.offsets[i] = s.offset;
+        q.r[i] = p.x;
+        q.g[i] = p.y;
+        q.b[i] = p.z;
+        q.a[i] = p.w;
+    }
+    out.push_back(q);
+}
+
+void stripsToGradientQuads(const std::vector<Strip>& strips, const Matter& m,
+                           std::vector<GradientQuad>& out) {
+    for (const Strip& s : strips) {
+        for (const StripSpan& sp : s.spans) {
+            if (sp.x1 <= sp.x0 || s.height <= 0.f) {
+                continue;
+            }
+            appendGradientQuad(out, sp.x0, s.y, sp.x1 - sp.x0, s.height, sp.coverage, m);
+        }
+    }
+}
+
+void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
+                 std::vector<GradientQuad>& gradients, const Shape& shape, const ClipState& clip) {
     if (const auto* f = std::get_if<FillRect>(&shape)) {
+        if (f->matter.isGradient()) {
+            if (!clip.active) {
+                appendGradientQuad(gradients, f->rect.origin.x, f->rect.origin.y, f->rect.size.x,
+                                   f->rect.size.y, 1.f, f->matter);
+                return;
+            }
+            std::vector<Strip> strips;
+            flattenRounded(f->rect, Radius{}, strips);
+            clipStrips(strips, clip);
+            stripsToGradientQuads(strips, f->matter, gradients);
+            return;
+        }
         if (!clip.active) {
             const Vec4 p = f->matter.color.premul();
             Quad q;
@@ -483,11 +537,25 @@ void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const S
         clipStrips(strips, clip);
         stripsToQuads(strips, f->matter.color.premul(), quads);
     } else if (const auto* r = std::get_if<FillRounded>(&shape)) {
+        if (r->matter.isGradient()) {
+            std::vector<Strip> strips;
+            flattenRounded(r->rect, r->radius, strips);
+            clipStrips(strips, clip);
+            stripsToGradientQuads(strips, r->matter, gradients);
+            return;
+        }
         std::vector<Strip> strips;
         flattenRounded(r->rect, r->radius, strips);
         clipStrips(strips, clip);
         stripsToQuads(strips, r->matter.color.premul(), quads);
     } else if (const auto* s = std::get_if<Stroke>(&shape)) {
+        if (s->matter.isGradient()) {
+            std::vector<Strip> strips;
+            flattenStroke(s->rect, s->radius, s->width, strips);
+            clipStrips(strips, clip);
+            stripsToGradientQuads(strips, s->matter, gradients);
+            return;
+        }
         std::vector<Strip> strips;
         flattenStroke(s->rect, s->radius, s->width, strips);
         clipStrips(strips, clip);

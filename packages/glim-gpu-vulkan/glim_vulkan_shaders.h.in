@@ -19,6 +19,8 @@ inline constexpr unsigned char blur1d_vert[] = {@GLIM_BLUR1D_VERT_SPV@};
 inline constexpr unsigned char blur1d_frag[] = {@GLIM_BLUR1D_FRAG_SPV@};
 inline constexpr unsigned char glass_vert[] = {@GLIM_GLASS_VERT_SPV@};
 inline constexpr unsigned char glass_frag[] = {@GLIM_GLASS_FRAG_SPV@};
+inline constexpr unsigned char gradient_vert[] = {@GLIM_GRADIENT_VERT_SPV@};
+inline constexpr unsigned char gradient_frag[] = {@GLIM_GRADIENT_FRAG_SPV@};
 
 }  // namespace vulkan_shaders
 }  // namespace glim

@@ -10,9 +10,10 @@
 namespace glim::paint {
 namespace {
 
-void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vector<Isolate>& isolates,
-                const Group& g, const Mat4& extra, const ClipState& parentClip, Stats* stats,
-                float pixelRatio, Vec2 logicalSize);
+void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
+                std::vector<GradientQuad>& gradients, std::vector<Isolate>& isolates, const Group& g,
+                const Mat4& extra, const ClipState& parentClip, Stats* stats, float pixelRatio,
+                Vec2 logicalSize);
 
 Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 logicalSize, Stats* stats) {
     Isolate iso;
@@ -106,8 +107,8 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
         local.params.clip = Rect{{0, 0}, surface.size};
         local.params.clipRadius = {};
     }
-    encodeTree(iso.quads, iso.blits, iso.isolates, local,
-               Mat4::translate(-surface.origin.x, -surface.origin.y), {}, nullptr, pixelRatio, surface.size);
+    encodeTree(iso.quads, iso.blits, iso.gradients, iso.isolates, local,
+                Mat4::translate(-surface.origin.x, -surface.origin.y), {}, nullptr, pixelRatio, surface.size);
     // NOTE: nested isolates encode against surface.size, not the window. Their
     // backdrop/glass UVs are relative to this isolate's buffer, which is the
     // buffer they sample when rasterized (rasterIsolate paints nested isolates
@@ -115,9 +116,10 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     return iso;
 }
 
-void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vector<Isolate>& isolates,
-                const Group& g, const Mat4& extra, const ClipState& parentClip, Stats* stats,
-                float pixelRatio, Vec2 logicalSize) {
+void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
+                std::vector<GradientQuad>& gradients, std::vector<Isolate>& isolates, const Group& g,
+                const Mat4& extra, const ClipState& parentClip, Stats* stats, float pixelRatio,
+                Vec2 logicalSize) {
     const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
     bool seenBackdrop = false;
     bool afterBackdrop = false;
@@ -137,7 +139,7 @@ void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vec
                 }
                 return;
             }
-            appendShape(quads, blits, transformShape(extra, s), clip);
+            appendShape(quads, blits, gradients, transformShape(extra, s), clip);
         },
         [&](const Group& child) {
             const bool backdrop = hasBackdrop(child);
@@ -167,8 +169,8 @@ void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vec
                     }
                 }
             } else {
-                encodeTree(quads, blits, isolates, child, extra * child.params.transform, clip, stats,
-                           pixelRatio, logicalSize);
+                encodeTree(quads, blits, gradients, isolates, child, extra * child.params.transform,
+                           clip, stats, pixelRatio, logicalSize);
             }
         });
 }
@@ -180,10 +182,10 @@ FramePacket encode(const Scene& scene, float pixelRatio) {
     packet.logicalSize = scene.logicalSize;
     packet.images = scene.images;
     Group root = merge(scene.root, &packet.stats);
-    encodeTree(packet.quads, packet.blits, packet.isolates, root, Mat4::identity(), {}, &packet.stats,
-               pixelRatio, scene.logicalSize);
-    packet.stats.instances =
-        static_cast<unsigned>(packet.quads.size() + packet.blits.size());
+    encodeTree(packet.quads, packet.blits, packet.gradients, packet.isolates, root, Mat4::identity(),
+               {}, &packet.stats, pixelRatio, scene.logicalSize);
+    packet.stats.instances = static_cast<unsigned>(packet.quads.size() + packet.blits.size() +
+                                                   packet.gradients.size());
     packet.stats.tileCount = static_cast<unsigned>(coarseTileCount(scene.logicalSize, pixelRatio));
     return packet;
 }

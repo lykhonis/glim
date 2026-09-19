@@ -12,7 +12,16 @@ namespace glim::paint {
 
 enum class Blend { SrcOver, Plus };
 
-enum class MatterKind { Solid, Sampled, Foreign };
+enum class MatterKind { Solid, Sampled, Foreign, Gradient };
+
+enum class GradientKind { Linear, Radial };
+
+struct GradientStop {
+    float offset = 0.f;
+    Color color{};
+};
+
+constexpr int kMaxGradientStops = 8;
 
 enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
 
@@ -66,12 +75,20 @@ struct Glass {
     }
 };
 
-// Pigment for a Shape. Solid, sampled, or foreign (imageId).
+// Pigment for a Shape. Solid, sampled, foreign (imageId), or gradient.
+// Gradient geometry lives in the same logical space as the Shape rect and is
+// transformed with it. Stops are sorted by offset by the factories.
 struct Matter {
     MatterKind kind = MatterKind::Solid;
     Color color{};
     std::uint32_t imageId = 0;
     Rect uv{{0.f, 0.f}, {1.f, 1.f}};
+    GradientKind gradientKind = GradientKind::Linear;
+    Vec2 gradientP0{};
+    Vec2 gradientP1{};
+    float gradientRadius = 0.f;
+    int gradientStopCount = 0;
+    GradientStop gradientStops[kMaxGradientStops]{};
 
     static Matter solid(Color color) {
         Matter m;
@@ -95,7 +112,59 @@ struct Matter {
         m.imageId = imageId;
         return m;
     }
+
+    static Matter linearGradient(Vec2 begin, Vec2 end, const GradientStop* stops, int count) {
+        Matter m;
+        m.kind = MatterKind::Gradient;
+        m.gradientKind = GradientKind::Linear;
+        m.gradientP0 = begin;
+        m.gradientP1 = end;
+        m.setGradientStops(stops, count);
+        return m;
+    }
+
+    static Matter radialGradient(Vec2 center, float radius, const GradientStop* stops, int count) {
+        Matter m;
+        m.kind = MatterKind::Gradient;
+        m.gradientKind = GradientKind::Radial;
+        m.gradientP0 = center;
+        m.gradientRadius = radius > 0.f ? radius : 0.f;
+        m.setGradientStops(stops, count);
+        return m;
+    }
+
+    bool isGradient() const noexcept { return kind == MatterKind::Gradient; }
+
+private:
+    void setGradientStops(const GradientStop* stops, int count);
 };
+
+inline void Matter::setGradientStops(const GradientStop* stops, int count) {
+    gradientStopCount = 0;
+    if (!stops || count <= 0) {
+        return;
+    }
+    if (count > kMaxGradientStops) {
+        count = kMaxGradientStops;
+    }
+    for (int i = 0; i < count; ++i) {
+        gradientStops[i] = stops[i];
+    }
+    gradientStopCount = count;
+    // Insertion sort by offset; stable for equal offsets.
+    for (int i = 1; i < gradientStopCount; ++i) {
+        GradientStop key = gradientStops[i];
+        int j = i - 1;
+        while (j >= 0 && gradientStops[j].offset > key.offset) {
+            gradientStops[j + 1] = gradientStops[j];
+            --j;
+        }
+        gradientStops[j + 1] = key;
+    }
+    // Legacy single-color paths (Blit tint, GlyphRun color) degrade to the
+    // first stop instead of black.
+    color = gradientStops[0].color;
+}
 
 struct GroupParams {
     float opacity = 1.0f;

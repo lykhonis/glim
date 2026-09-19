@@ -32,5 +32,7 @@ glim_spv_bytes("${GLIM_SPV_DIR}/blur1d.vert.spv" GLIM_BLUR1D_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/blur1d.frag.spv" GLIM_BLUR1D_FRAG_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/glass.vert.spv" GLIM_GLASS_VERT_SPV)
 glim_spv_bytes("${GLIM_SPV_DIR}/glass.frag.spv" GLIM_GLASS_FRAG_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/gradient.vert.spv" GLIM_GRADIENT_VERT_SPV)
+glim_spv_bytes("${GLIM_SPV_DIR}/gradient.frag.spv" GLIM_GRADIENT_FRAG_SPV)
 
 configure_file("${GLIM_HEADER_IN}" "${GLIM_HEADER_OUT}" @ONLY)

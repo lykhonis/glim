@@ -45,14 +45,15 @@ private:
     bool ensurePipelines();
     void flushSolid(gpu::Pass& pass);
     void flushRounded(gpu::Pass& pass);
+    void flushGradient(gpu::Pass& pass);
     void flushBlit(gpu::Pass& pass);
     void flushGlyph(gpu::Pass& pass);
     void* gpuTexture(std::uint32_t imageId);
 #if GLIM_EMBED
     void submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
-                     const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
-                     const Mat4& projection, int viewportW, int viewportH, void* nativeColor,
-                     gpu::LoadOp load);
+                     const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& gradients,
+                     const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
+                     int viewportH, void* nativeColor, gpu::LoadOp load);
 #else
     void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
                      int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
@@ -66,6 +67,7 @@ private:
     gpu::Pipeline blur_{};
     gpu::Pipeline blur1d_{};
     gpu::Pipeline glass_{};
+    gpu::Pipeline gradient_{};
     gpu::FrameTarget backdrop_{};
     gpu::FrameTarget glassSrc_{};
     gpu::FrameTarget glassBlurTmp_{};
@@ -94,8 +96,16 @@ private:
         float uv[4];
         float extra[4];
     };
+    struct GradientInstance {
+        float rect[4];
+        float grad[4];
+        float misc[4];
+        float colors[32];
+        float offsets[8];
+    };
     std::vector<SolidInstance> pending_;
     std::vector<RoundedInstance> pendingRounded_;
+    std::vector<GradientInstance> pendingGradient_;
     std::vector<BlitInstance> pendingBlit_;
     void* pendingBlitTex_ = nullptr;
     std::vector<BlitInstance> pendingGlyph_;

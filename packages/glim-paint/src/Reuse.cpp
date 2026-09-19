@@ -71,6 +71,9 @@ struct FpContext {
     const ImageStore* images = nullptr;
 };
 
+void hashRect(FpContext& ctx, const Rect& r, bool normalize);
+void hashPoint(FpContext& ctx, Vec2 p, bool normalize);
+
 std::uint64_t fingerprintSampled(const StoredImage& img) {
     Hasher h;
     h.u32(static_cast<std::uint32_t>(img.width));
@@ -117,7 +120,7 @@ void hashImageRef(FpContext& ctx, std::uint32_t imageId) {
     ctx.h.u64(entry.fp);
 }
 
-void hashMatter(FpContext& ctx, const Matter& m) {
+void hashMatter(FpContext& ctx, const Matter& m, bool normalize) {
     ctx.h.u32(static_cast<std::uint32_t>(m.kind));
     ctx.h.u32(m.color.rgba);
     ctx.h.f32(m.uv.origin.x);
@@ -125,6 +128,17 @@ void hashMatter(FpContext& ctx, const Matter& m) {
     ctx.h.f32(m.uv.size.x);
     ctx.h.f32(m.uv.size.y);
     hashImageRef(ctx, m.imageId);
+    if (m.isGradient()) {
+        ctx.h.u32(static_cast<std::uint32_t>(m.gradientKind));
+        hashPoint(ctx, m.gradientP0, normalize);
+        hashPoint(ctx, m.gradientP1, normalize);
+        ctx.h.f32(m.gradientRadius);
+        ctx.h.u32(static_cast<std::uint32_t>(m.gradientStopCount));
+        for (int i = 0; i < m.gradientStopCount; ++i) {
+            ctx.h.f32(m.gradientStops[i].offset);
+            ctx.h.u32(m.gradientStops[i].color.rgba);
+        }
+    }
 }
 
 void hashRadius(FpContext& ctx, const Radius& r) {
@@ -159,6 +173,15 @@ Vec2 windowOrigin(const Group& root) {
             consider(r.origin.x, r.origin.y);
         }
     };
+    // Gradient geometry may extend beyond its Shape rect; anchor it too so a
+    // whole-scene shift still normalizes.
+    const auto considerMatter = [&](const Matter& m) {
+        if (!m.isGradient()) {
+            return;
+        }
+        consider(m.gradientP0.x, m.gradientP0.y);
+        consider(m.gradientP1.x, m.gradientP1.y);
+    };
     considerRect(root.params.bounds);
     if (hasClip(root.params)) {
         considerRect(root.params.clip);
@@ -166,10 +189,13 @@ Vec2 windowOrigin(const Group& root) {
     for (const Shape& s : root.shapes) {
         if (const auto* f = std::get_if<FillRect>(&s)) {
             considerRect(f->rect);
+            considerMatter(f->matter);
         } else if (const auto* r = std::get_if<FillRounded>(&s)) {
             considerRect(r->rect);
+            considerMatter(r->matter);
         } else if (const auto* st = std::get_if<Stroke>(&s)) {
             considerRect(st->rect);
+            considerMatter(st->matter);
         } else if (const auto* b = std::get_if<Blit>(&s)) {
             considerRect(b->rect);
         } else if (const auto* run = std::get_if<GlyphRun>(&s)) {
@@ -238,19 +264,19 @@ void hashShape(FpContext& ctx, const Shape& s, bool normalize) {
     ctx.h.u32(static_cast<std::uint32_t>(s.index()));
     if (const auto* f = std::get_if<FillRect>(&s)) {
         hashRect(ctx, f->rect, normalize);
-        hashMatter(ctx, f->matter);
+        hashMatter(ctx, f->matter, normalize);
     } else if (const auto* r = std::get_if<FillRounded>(&s)) {
         hashRect(ctx, r->rect, normalize);
         hashRadius(ctx, r->radius);
-        hashMatter(ctx, r->matter);
+        hashMatter(ctx, r->matter, normalize);
     } else if (const auto* st = std::get_if<Stroke>(&s)) {
         hashRect(ctx, st->rect, normalize);
         hashRadius(ctx, st->radius);
         ctx.h.f32(st->width);
-        hashMatter(ctx, st->matter);
+        hashMatter(ctx, st->matter, normalize);
     } else if (const auto* b = std::get_if<Blit>(&s)) {
         hashRect(ctx, b->rect, normalize);
-        hashMatter(ctx, b->matter);
+        hashMatter(ctx, b->matter, normalize);
     } else if (const auto* run = std::get_if<GlyphRun>(&s)) {
         hashPoint(ctx, run->origin, normalize);
         ctx.h.f32(run->sizePx);
@@ -534,6 +560,14 @@ void offsetPacket(FramePacket& packet, float dx, float dy) {
     for (BlitQuad& q : packet.blits) {
         q.x += dx;
         q.y += dy;
+    }
+    for (GradientQuad& q : packet.gradients) {
+        q.x += dx;
+        q.y += dy;
+        q.p0x += dx;
+        q.p0y += dy;
+        q.p1x += dx;
+        q.p1y += dy;
     }
     for (Isolate& iso : packet.isolates) {
         iso.destX += dx;

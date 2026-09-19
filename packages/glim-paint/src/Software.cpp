@@ -78,6 +78,84 @@ void fillQuads(std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& q
     }
 }
 
+// CPU mirror of the gradient fragment shader: same t, same piecewise-linear
+// stops, same coverage multiply. Evaluated at pixel centers; the quad rect
+// overlap supplies analytic coverage like fillQuad.
+void fillGradientQuad(std::vector<Pixel>& buf, int w, int h, const GradientQuad& q) {
+    const int n = static_cast<int>(q.stopCount);
+    if (n <= 0 || w <= 0 || h <= 0) {
+        return;
+    }
+    const float qx0 = q.x;
+    const float qy0 = q.y;
+    const float qx1 = q.x + q.w;
+    const float qy1 = q.y + q.h;
+    const int x0 = std::max(0, static_cast<int>(std::floor(qx0)));
+    const int y0 = std::max(0, static_cast<int>(std::floor(qy0)));
+    const int x1 = std::min(w, static_cast<int>(std::ceil(qx1)));
+    const int y1 = std::min(h, static_cast<int>(std::ceil(qy1)));
+    if (x0 >= x1 || y0 >= y1) {
+        return;
+    }
+    const float dx = q.p1x - q.p0x;
+    const float dy = q.p1y - q.p0y;
+    const float denom = dx * dx + dy * dy;
+    const bool linear = q.kind == 0;
+    for (int y = y0; y < y1; ++y) {
+        const float cy0 = std::max(static_cast<float>(y), qy0);
+        const float cy1 = std::min(static_cast<float>(y + 1), qy1);
+        const float ycov = cy1 - cy0;
+        if (ycov <= 1e-6f) {
+            continue;
+        }
+        for (int x = x0; x < x1; ++x) {
+            const float cx0 = std::max(static_cast<float>(x), qx0);
+            const float cx1 = std::min(static_cast<float>(x + 1), qx1);
+            const float cov = (cx1 - cx0) * ycov * q.coverage;
+            if (cov <= 1e-6f) {
+                continue;
+            }
+            const float px = static_cast<float>(x) + 0.5f;
+            const float py = static_cast<float>(y) + 0.5f;
+            float t;
+            if (linear) {
+                t = denom > 1e-8f ? ((px - q.p0x) * dx + (py - q.p0y) * dy) / denom : 0.f;
+            } else {
+                const float rx = px - q.p0x;
+                const float ry = py - q.p0y;
+                t = q.radius > 1e-6f ? std::hypot(rx, ry) / q.radius : 0.f;
+            }
+            t = std::min(1.f, std::max(0.f, t));
+            float cr = q.r[0];
+            float cg = q.g[0];
+            float cb = q.b[0];
+            float ca = q.a[0];
+            for (int i = 1; i < n && i < kMaxGradientStops; ++i) {
+                const float o0 = q.offsets[i - 1];
+                const float o1 = q.offsets[i];
+                float f;
+                if (o1 > o0) {
+                    f = std::min(1.f, std::max(0.f, (t - o0) / (o1 - o0)));
+                } else {
+                    f = t >= o1 ? 1.f : 0.f;
+                }
+                cr += (q.r[i] - cr) * f;
+                cg += (q.g[i] - cg) * f;
+                cb += (q.b[i] - cb) * f;
+                ca += (q.a[i] - ca) * f;
+            }
+            Pixel src{cr * cov, cg * cov, cb * cov, ca * cov};
+            srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
+        }
+    }
+}
+
+void fillGradients(std::vector<Pixel>& buf, int w, int h, const std::vector<GradientQuad>& grads) {
+    for (const GradientQuad& q : grads) {
+        fillGradientQuad(buf, w, h, q);
+    }
+}
+
 float clipCoverageAt(const ClipState& clip, float px, float py) {
     if (!clip.active) {
         return 1.f;
@@ -868,7 +946,8 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             if (std::get_if<GlyphRun>(&xf)) {
                 std::vector<Quad> unused;
                 std::vector<BlitQuad> blits;
-                appendShape(unused, blits, xf, clip);
+                std::vector<GradientQuad> unusedGrads;
+                appendShape(unused, blits, unusedGrads, xf, clip);
                 for (const BlitQuad& q : blits) {
                     Blit b;
                     b.rect = {{q.x, q.y}, {q.w, q.h}};
@@ -881,8 +960,10 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             }
             std::vector<Quad> quads;
             std::vector<BlitQuad> unused;
-            appendShape(quads, unused, xf, clip);
+            std::vector<GradientQuad> grads;
+            appendShape(quads, unused, grads, xf, clip);
             fillQuads(dest, w, h, quads);
+            fillGradients(dest, w, h, grads);
         },
         [&](const Group& child) {
             const bool backdrop = hasBackdrop(child);
@@ -993,11 +1074,12 @@ void paintBlits(std::vector<Pixel>& dest, int w, int h, const std::vector<BlitQu
 }
 
 void paintQuads(std::vector<Pixel>& dest, int w, int h, const std::vector<Quad>& quads,
-                const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
-                const ImageStore& images, float pixelRatio) {
+                const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& grads,
+                const std::vector<Isolate>& isolates, const ImageStore& images, float pixelRatio) {
     for (const Quad& q : quads) {
         fillQuad(dest, w, h, q);
     }
+    fillGradients(dest, w, h, grads);
     paintBlits(dest, w, h, blits, images);
     for (const Isolate& iso : isolates) {
         rasterIsolate(dest, w, h, iso, images, pixelRatio);
@@ -1031,7 +1113,8 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
             maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
         }
     }
-    paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.isolates, images, pixelRatio);
+    paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.gradients, iso.isolates,
+               images, pixelRatio);
     blitBuffer(dest, w, h, tmp, iso.contentW, iso.contentH,
                Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}}, iso.opacity);
 }
@@ -1063,7 +1146,8 @@ void rasterPacket(const FramePacket& packet, int width, int height, std::uint8_t
     thread_local std::vector<Pixel> buf;
     buf.assign(static_cast<std::size_t>(width * height), Pixel{0, 0, 0, 1});
     const float pr = packet.logicalSize.x > 0.f ? static_cast<float>(width) / packet.logicalSize.x : 1.f;
-    paintQuads(buf, width, height, packet.quads, packet.blits, packet.isolates, packet.images, pr);
+    paintQuads(buf, width, height, packet.quads, packet.blits, packet.gradients, packet.isolates,
+               packet.images, pr);
     toRgba(buf, rgba);
 }
 

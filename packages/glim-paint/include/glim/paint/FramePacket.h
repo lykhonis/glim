@@ -36,6 +36,29 @@ struct BlitQuad {
     std::uint8_t sdf = 0;
 };
 
+// One coverage-weighted span of a gradient-filled shape, in the same logical
+// space as Quad. Stops are premultiplied RGBA evaluated piecewise-linearly
+// over t in [0,1]: linear projects onto p0->p1, radial uses |p-c|/radius.
+struct GradientQuad {
+    float x = 0;
+    float y = 0;
+    float w = 0;
+    float h = 0;
+    float coverage = 1;
+    std::uint8_t kind = 0;  // 0 = linear, 1 = radial
+    float p0x = 0;
+    float p0y = 0;
+    float p1x = 0;
+    float p1y = 0;
+    float radius = 0;
+    std::uint8_t stopCount = 0;
+    float offsets[kMaxGradientStops]{};
+    float r[kMaxGradientStops]{};
+    float g[kMaxGradientStops]{};
+    float b[kMaxGradientStops]{};
+    float a[kMaxGradientStops]{};
+};
+
 struct Isolate {
     float destX = 0;
     float destY = 0;
@@ -68,6 +91,7 @@ struct Isolate {
     float glassV1 = 1;
     std::vector<Quad> quads;
     std::vector<BlitQuad> blits;
+    std::vector<GradientQuad> gradients;
     std::vector<Isolate> isolates;
 };
 
@@ -75,6 +99,7 @@ struct FramePacket {
     Vec2 logicalSize;
     std::vector<Quad> quads;
     std::vector<BlitQuad> blits;
+    std::vector<GradientQuad> gradients;
     std::vector<Isolate> isolates;
     ImageStore images;
     Stats stats;

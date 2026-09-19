@@ -49,7 +49,7 @@ void Context::fill(const Rect& rect) {
     if (!recording_) {
         return;
     }
-    recordShape(current(), transformFill(state_.model, FillRect{rect, Matter::solid(state_.fill.color)}));
+    recordShape(current(), transformFill(state_.model, FillRect{rect, state_.fill}));
 }
 
 void Context::fillRounded(const Rect& rect, Radius radius) {
@@ -57,7 +57,7 @@ void Context::fillRounded(const Rect& rect, Radius radius) {
         return;
     }
     recordShape(current(), transformRounded(
-        state_.model, FillRounded{rect, radius, Matter::solid(state_.fill.color)}));
+        state_.model, FillRounded{rect, radius, state_.fill}));
 }
 
 void Context::strokeRect(const Rect& rect, float width) {
@@ -69,7 +69,7 @@ void Context::strokeRect(const Rect& rect, Radius radius, float width) {
         return;
     }
     recordShape(current(), transformStroke(
-        state_.model, Stroke{rect, radius, width, Matter::solid(state_.fill.color)}));
+        state_.model, Stroke{rect, radius, width, state_.fill}));
 }
 
 void Context::clipRect(const Rect& rect) {

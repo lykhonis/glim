@@ -80,16 +80,42 @@ Radius transformRadius(const Mat4& t, const Rect& r, Radius rad) {
     return rad;
 }
 
+Vec2 transformPoint(const Mat4& t, Vec2 p) {
+    const Vec4 v = t * Vec4{p.x, p.y, 0, 1};
+    return {v.x, v.y};
+}
+
+// Gradient geometry rides with the Shape rect: points transform exactly,
+// radius scales by the largest axis scale (exact for rigid + uniform scale,
+// conservative otherwise).
+Matter transformMatter(const Mat4& t, Matter m) {
+    if (!m.isGradient()) {
+        return m;
+    }
+    m.gradientP0 = transformPoint(t, m.gradientP0);
+    m.gradientP1 = transformPoint(t, m.gradientP1);
+    const Vec4 ox = t * Vec4{0, 0, 0, 1};
+    const Vec4 xx = t * Vec4{1, 0, 0, 1};
+    const Vec4 yx = t * Vec4{0, 1, 0, 1};
+    const float sx = std::hypot(xx.x - ox.x, xx.y - ox.y);
+    const float sy = std::hypot(yx.x - ox.x, yx.y - ox.y);
+    const float s = std::max(sx, sy);
+    m.gradientRadius *= s;
+    return m;
+}
+
 }  // namespace
 
 FillRect transformFill(const Mat4& t, const FillRect& src) {
     FillRect out = src;
+    out.matter = transformMatter(t, src.matter);
     out.rect = transformRect(t, src.rect);
     return out;
 }
 
 FillRounded transformRounded(const Mat4& t, const FillRounded& src) {
     FillRounded out = src;
+    out.matter = transformMatter(t, src.matter);
     out.radius = transformRadius(t, src.rect, src.radius);
     out.rect = transformRect(t, src.rect);
     return out;
@@ -98,6 +124,7 @@ FillRounded transformRounded(const Mat4& t, const FillRounded& src) {
 Stroke transformStroke(const Mat4& t, const Stroke& src) {
     Stroke out = src;
     const float s = transformScale(t, src.rect);
+    out.matter = transformMatter(t, src.matter);
     out.radius = transformRadius(t, src.rect, src.radius);
     out.width = src.width * s;
     out.rect = transformRect(t, src.rect);

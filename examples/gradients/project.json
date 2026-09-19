@@ -1,0 +1,106 @@
+{
+  "name": "gradients",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/gradients",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["core"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "dependsOn": ["gpu-vulkan:shaders"],
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-gradients",
+        "install": true
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/gradients/glim-gradients"
+      }
+    },
+    "build-software": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-gradients-software"
+      }
+    },
+    "run-software": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-software"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/gradients/glim-gradients-software"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-gradients-golden",
+        "ctestRegex": "glim-gradients-golden"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-gradients"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/gradients/glim-gradients.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.gradients"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-gradients"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-tvos-sim"],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/gradients/glim-gradients.app",
+        "simulator": "tvos",
+        "bundleId": "com.glim.gradients"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-gradients"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/gradients/glim-gradients.apk",
+        "android": true,
+        "packageName": "com.glim.gradients"
+      }
+    }
+  }
+}

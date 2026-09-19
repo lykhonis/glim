@@ -38,8 +38,8 @@ void flattenStroke(const Rect&, Radius, float width, std::vector<Strip>&);
 void clipStrips(std::vector<Strip>&, const ClipState&);
 void stripsToQuads(const std::vector<Strip>&, const Vec4& premul, std::vector<Quad>&);
 
-void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, const Shape&,
-                 const ClipState&);
+void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
+                 std::vector<GradientQuad>& gradients, const Shape& shape, const ClipState&);
 
 float roundedCoverage(const Rect&, Radius, float px, float py);
 

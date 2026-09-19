@@ -273,6 +273,9 @@ std::string loadShader(const char* name) {
     if (std::strcmp(name, "glass.metal") == 0) {
         return glim::metal_shaders::glass;
     }
+    if (std::strcmp(name, "gradient.metal") == 0) {
+        return glim::metal_shaders::gradient;
+    }
     return {};
 }
 #endif
@@ -329,8 +332,9 @@ bool Renderer::ensurePipelines() {
     const std::string blurSrc = loadShader("blur.metal");
     const std::string blur1dSrc = loadShader("blur1d.metal");
     const std::string glassSrc = loadShader("glass.metal");
+    const std::string gradientSrc = loadShader("gradient.metal");
     if (solidSrc.empty() || blitSrc.empty() || roundedSrc.empty() || glyphSrc.empty() || blurSrc.empty() ||
-        blur1dSrc.empty() || glassSrc.empty()) {
+        blur1dSrc.empty() || glassSrc.empty() || gradientSrc.empty()) {
         return false;
     }
     auto vs = device_.createShader(gpu::ShaderStage::Vertex, solidSrc.data(), solidSrc.size());
@@ -494,6 +498,28 @@ bool Renderer::ensurePipelines() {
         return false;
     }
     glass_ = std::move(glass.value());
+
+#if GLIM_GPU_VULKAN
+    auto grvs = device_.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_vert),
+        sizeof(glim::vulkan_shaders::gradient_vert));
+    auto grfs = device_.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_frag),
+        sizeof(glim::vulkan_shaders::gradient_frag));
+#else
+    auto grvs = device_.createShader(gpu::ShaderStage::Vertex, gradientSrc.data(), gradientSrc.size());
+    auto grfs = device_.createShader(gpu::ShaderStage::Fragment, gradientSrc.data(), gradientSrc.size());
+#endif
+    if (grvs.ok() && grfs.ok()) {
+        pd.vertexShader = grvs->handle();
+        pd.fragmentShader = grfs->handle();
+        auto gradient = device_.createPipeline(pd);
+        if (gradient.ok()) {
+            gradient_ = std::move(gradient.value());
+        }
+    }
     ready_ = true;
     return true;
 }
@@ -541,6 +567,28 @@ void Renderer::flushRounded(gpu::Pass& pass) {
         i += n;
     }
     pendingRounded_.clear();
+}
+
+void Renderer::flushGradient(gpu::Pass& pass) {
+    if (pendingGradient_.empty()) {
+        return;
+    }
+    if (!gradient_.native()) {
+        pendingGradient_.clear();
+        return;
+    }
+    pass.setPipeline(gradient_);
+    constexpr std::size_t kMax = 4096 / sizeof(GradientInstance);
+    std::size_t i = 0;
+    while (i < pendingGradient_.size()) {
+        const std::size_t n = std::min(kMax, pendingGradient_.size() - i);
+        pass.setBytes(0, pendingGradient_.data() + i, sizeof(GradientInstance) * n);
+        pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
+        stats_.draws += 1;
+        stats_.instances += static_cast<unsigned>(n);
+        i += n;
+    }
+    pendingGradient_.clear();
 }
 
 void Renderer::flushBlit(gpu::Pass& pass) {
@@ -622,9 +670,9 @@ void* Renderer::gpuTexture(std::uint32_t imageId) {
 #if GLIM_EMBED
 
 void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>& quads,
-                           const std::vector<BlitQuad>& blits, const std::vector<Isolate>& isolates,
-                           const Mat4& projection, int viewportW, int viewportH, void* nativeColor,
-                           gpu::LoadOp load) {
+                           const std::vector<BlitQuad>& blits, const std::vector<GradientQuad>& gradients,
+                           const std::vector<Isolate>& isolates, const Mat4& projection, int viewportW,
+                           int viewportH, void* nativeColor, gpu::LoadOp load) {
     gpu::PassDesc passDesc;
     passDesc.nativeColor = nativeColor;
     passDesc.load = load;
@@ -650,6 +698,32 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         pending_.push_back(inst);
     }
     flushSolid(pass);
+
+    pendingGradient_.clear();
+    for (const GradientQuad& q : gradients) {
+        GradientInstance inst{};
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.grad[0] = q.p0x;
+        inst.grad[1] = q.p0y;
+        inst.grad[2] = q.p1x;
+        inst.grad[3] = q.p1y;
+        inst.misc[0] = static_cast<float>(q.kind);
+        inst.misc[1] = q.radius;
+        inst.misc[2] = q.coverage;
+        inst.misc[3] = static_cast<float>(q.stopCount);
+        for (int i = 0; i < q.stopCount && i < kMaxGradientStops; ++i) {
+            inst.colors[i * 4 + 0] = q.r[i];
+            inst.colors[i * 4 + 1] = q.g[i];
+            inst.colors[i * 4 + 2] = q.b[i];
+            inst.colors[i * 4 + 3] = q.a[i];
+            inst.offsets[i] = q.offsets[i];
+        }
+        pendingGradient_.push_back(inst);
+    }
+    flushGradient(pass);
 
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
@@ -952,8 +1026,8 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         const Mat4 localProj =
             Mat4::orthoYDown(0, 0, iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
                              iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
-        submitLayer(encoder, iso.quads, iso.blits, iso.isolates, localProj, iso.contentW, iso.contentH,
-                    ft->native(), plateLoad);
+        submitLayer(encoder, iso.quads, iso.blits, iso.gradients, iso.isolates, localProj,
+                    iso.contentW, iso.contentH, ft->native(), plateLoad);
 
         passDesc.load = gpu::LoadOp::Load;
         passDesc.nativeColor = nativeColor;
@@ -1003,8 +1077,8 @@ void Renderer::submit(const FramePacket& packet) {
     gpu::CommandEncoder encoder = device_.encoder();
     const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y),
                                         device_.presentRotationDegrees());
-    submitLayer(encoder, packet.quads, packet.blits, packet.isolates, proj, drawable->width(),
-                drawable->height(), nullptr, gpu::LoadOp::Clear);
+    submitLayer(encoder, packet.quads, packet.blits, packet.gradients, packet.isolates, proj,
+                drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear);
     encoder.present(drawable.value());
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
@@ -1028,6 +1102,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
 
     pending_.clear();
     pendingRounded_.clear();
+    pendingGradient_.clear();
     pendingBlit_.clear();
     pendingBlitTex_ = nullptr;
     pendingGlyph_.clear();
@@ -1088,6 +1163,34 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         inst.color[3] = q.a;
         pending_.push_back(inst);
     };
+    auto addGradient = [this, &pass](const GradientQuad& q) {
+        flushSolid(pass);
+        flushRounded(pass);
+        flushGradient(pass);
+        flushBlit(pass);
+        flushGlyph(pass);
+        GradientInstance inst{};
+        inst.rect[0] = q.x;
+        inst.rect[1] = q.y;
+        inst.rect[2] = q.w;
+        inst.rect[3] = q.h;
+        inst.grad[0] = q.p0x;
+        inst.grad[1] = q.p0y;
+        inst.grad[2] = q.p1x;
+        inst.grad[3] = q.p1y;
+        inst.misc[0] = static_cast<float>(q.kind);
+        inst.misc[1] = q.radius;
+        inst.misc[2] = q.coverage;
+        inst.misc[3] = static_cast<float>(q.stopCount);
+        for (int i = 0; i < q.stopCount && i < kMaxGradientStops; ++i) {
+            inst.colors[i * 4 + 0] = q.r[i];
+            inst.colors[i * 4 + 1] = q.g[i];
+            inst.colors[i * 4 + 2] = q.b[i];
+            inst.colors[i * 4 + 3] = q.a[i];
+            inst.offsets[i] = q.offsets[i];
+        }
+        pendingGradient_.push_back(inst);
+    };
     auto addBlit = [this, &pass](const BlitQuad& q) {
         void* tex = gpuTexture(q.imageId);
         if (!tex) {
@@ -1095,6 +1198,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         }
         flushSolid(pass);
         flushRounded(pass);
+        flushGradient(pass);
         BlitInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -1262,12 +1366,14 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
         const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
         flushSolid(pass);
         flushRounded(pass);
+        flushGradient(pass);
         flushBlit(pass);
         flushGlyph(pass);
         scissorFor(clip);
-        const auto addRounded = [this, &pass, &clip, &addQuad](const Shape& xf) {
+        const auto addRounded = [this, &pass, &clip, &addQuad, &addGradient](const Shape& xf) {
             flushBlit(pass);
             flushGlyph(pass);
+            flushGradient(pass);
             if (rounded_.native()) {
                 RoundedInstance inst{};
                 const Rect* rect = nullptr;
@@ -1285,6 +1391,17 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                     strokeWidth = st->width;
                 }
                 if (!rect || !radius || !matter) {
+                    return;
+                }
+                if (matter->isGradient()) {
+                    // Gradient rounded/stroke always rasterizes via strips.
+                    std::vector<Quad> unused;
+                    std::vector<BlitQuad> unusedBlits;
+                    std::vector<GradientQuad> grads;
+                    appendShape(unused, unusedBlits, grads, xf, clip);
+                    for (const GradientQuad& g : grads) {
+                        addGradient(g);
+                    }
                     return;
                 }
                 inst.rect[0] = rect->origin.x;
@@ -1306,8 +1423,10 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
             }
             std::vector<Quad> quads;
             std::vector<BlitQuad> unused;
-            appendShape(quads, unused, xf, clip);
+            std::vector<GradientQuad> unusedGrads;
+            appendShape(quads, unused, unusedGrads, xf, clip);
             flushRounded(pass);
+            flushGradient(pass);
             for (const Quad& q : quads) {
                 addQuad(q);
             }
@@ -1318,6 +1437,17 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 flushBlit(pass);
                 flushGlyph(pass);
                 flushRounded(pass);
+                flushGradient(pass);
+                if (fill->matter.isGradient()) {
+                    std::vector<Quad> unused;
+                    std::vector<BlitQuad> unusedBlits;
+                    std::vector<GradientQuad> grads;
+                    appendShape(unused, unusedBlits, grads, xf, clip);
+                    for (const GradientQuad& g : grads) {
+                        addGradient(g);
+                    }
+                    return;
+                }
                 if (!clip.active) {
                     const Vec4 p = fill->matter.color.premul();
                     Quad q;
@@ -1333,7 +1463,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                 } else {
                     std::vector<Quad> quads;
                     std::vector<BlitQuad> unused;
-                    appendShape(quads, unused, xf, clip);
+                    std::vector<GradientQuad> unusedGrads;
+                    appendShape(quads, unused, unusedGrads, xf, clip);
                     for (const Quad& q : quads) {
                         addQuad(q);
                     }
@@ -1343,7 +1474,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
             } else if (std::get_if<Blit>(&xf) || std::get_if<GlyphRun>(&xf)) {
                 std::vector<Quad> unused;
                 std::vector<BlitQuad> blits;
-                appendShape(unused, blits, xf, clip);
+                std::vector<GradientQuad> unusedGrads;
+                appendShape(unused, blits, unusedGrads, xf, clip);
                 for (const BlitQuad& q : blits) {
                     addBlit(q);
                 }
@@ -1650,6 +1782,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
             });
         flushSolid(pass);
         flushRounded(pass);
+        flushGradient(pass);
         flushBlit(pass);
         flushGlyph(pass);
         scissorFor(parentClip);
