@@ -190,6 +190,53 @@ int main() {
     expect(merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
            "merged tree keeps SlotHole");
 
+    expect(glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::SrcOver),
+           "SrcOver merges into SrcOver");
+    expect(glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::Plus),
+           "Plus merges into Plus");
+    expect(!glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::Plus),
+           "mixed blends never share a pass");
+    expect(!glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::SrcOver),
+           "mixed blends never share a pass (reversed)");
+
+    glim::paint::Context plusCtx;
+    plusCtx.setSize({80, 80});
+    plusCtx.beginFrame();
+    glim::paint::GroupParams plusParent;
+    plusParent.blend = glim::paint::Blend::Plus;
+    plusCtx.pushGroup(plusParent);
+    plusCtx.setFillColor(0xffffffff);
+    plusCtx.fill(glim::Rect::fromSize({10, 10}));
+    glim::paint::GroupParams plusChild;
+    plusChild.blend = glim::paint::Blend::Plus;
+    plusCtx.pushGroup(plusChild);
+    plusCtx.setFillColor(0xffffffff);
+    plusCtx.fill(glim::Rect::fromSize({4, 4}));
+    plusCtx.popGroup();
+    plusCtx.popGroup();
+    plusCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(plusCtx.scene().root), &stats);
+    expect(merged.children.size() == 1, "Plus parent stays isolated from SrcOver root");
+    expect(merged.children.size() == 1 && merged.children[0]->children.empty(),
+           "both-Plus child folds into Plus parent");
+
+    glim::paint::Context mixedCtx;
+    mixedCtx.setSize({80, 80});
+    mixedCtx.beginFrame();
+    mixedCtx.setFillColor(0xffffffff);
+    mixedCtx.fill(glim::Rect::fromSize({80, 80}));
+    glim::paint::GroupParams plusKid;
+    plusKid.blend = glim::paint::Blend::Plus;
+    mixedCtx.pushGroup(plusKid);
+    mixedCtx.setFillColor(0xffffffff);
+    mixedCtx.fill(glim::Rect::fromSize({10, 10}));
+    mixedCtx.popGroup();
+    mixedCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(mixedCtx.scene().root), &stats);
+    expect(merged.children.size() == 1, "Plus child does not merge into SrcOver parent");
+
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

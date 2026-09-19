@@ -170,6 +170,31 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    glim::paint::Context pills;
+    pills.setSize({120, 40});
+    pills.beginFrame();
+    pills.setFillColor(0xff0000ff);
+    pills.fill(glim::Rect::fromSize({120, 40}));
+    glim::paint::GroupParams plate;
+    plate.backdropBlur = 8.f;
+    plate.bounds = glim::Rect{{4, 4}, {112, 32}};
+    pills.pushGroup(plate);
+    for (int i = 0; i < 6; ++i) {
+        pills.fillRounded(glim::Rect{{8.f + static_cast<float>(i) * 18.f, 8.f}, {16, 16}},
+                          glim::Radius{8.f});
+    }
+    pills.popGroup();
+    pills.finish();
+    const glim::paint::FramePacket pillPkt = glim::paint::encode(pills.scene(), 1.f);
+    if (pillPkt.isolates.size() != 1 || pillPkt.isolates[0].backdropPills.size() != 4) {
+        std::cerr << "backdrop pills cap at 4\n";
+        return EXIT_FAILURE;
+    }
+    if (pillPkt.isolates[0].quads.empty()) {
+        std::cerr << "rounded fills beyond the pill cap must survive as content\n";
+        return EXIT_FAILURE;
+    }
+
     std::cout << "encode_test ok\n";
     return EXIT_SUCCESS;
 }

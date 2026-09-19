@@ -19,10 +19,14 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     iso.opacity = g.params.opacity;
     const bool glassWork = hasGlassWork(g);
     GLIM_ASSERT(!(hasBackdrop(g) && glassWork), "a Group cannot be both backdrop and glass");
+    // If both are ever set (release build), glass wins: same precedence as the
+    // Renderer path. Backdrop and glass never share one isolate.
+    const bool explicitBounds =
+        g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
     const Rect surface = glassWork ? glassSurface(g)
                                    : (hasBackdrop(g) ? backdropSurface(g)
-                                                     : (g.params.bounds.size.x > 0 ? g.params.bounds
-                                                                                   : contentBounds(g)));
+                                                     : (explicitBounds ? g.params.bounds
+                                                                       : contentBounds(g)));
     iso.contentW = isolatePixelSize(surface.size.x, pixelRatio);
     iso.contentH = isolatePixelSize(surface.size.y, pixelRatio);
     const Rect dest = transformRect(extra * g.params.transform, surface);
@@ -104,6 +108,10 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     }
     encodeTree(iso.quads, iso.blits, iso.isolates, local,
                Mat4::translate(-surface.origin.x, -surface.origin.y), {}, nullptr, pixelRatio, surface.size);
+    // NOTE: nested isolates encode against surface.size, not the window. Their
+    // backdrop/glass UVs are relative to this isolate's buffer, which is the
+    // buffer they sample when rasterized (rasterIsolate paints nested isolates
+    // into tmp). Relative addressing is correct; do not pass logicalSize here.
     return iso;
 }
 

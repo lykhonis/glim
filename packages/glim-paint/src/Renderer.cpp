@@ -342,6 +342,10 @@ bool Renderer::ensurePipelines() {
     gpu::PipelineDesc pd;
     pd.vertexShader = vs->handle();
     pd.fragmentShader = fs->handle();
+    // Follow-up: per-blend pipelines. merge() now groups both-Plus, but every
+    // content pipeline below is created SrcOver, so Plus still draws as
+    // SrcOver. A Plus pipeline family (solid/rounded/blit/glyph) plus a blend
+    // switch on flush is needed to make Plus visually correct.
     pd.blend = gpu::Blend::SrcOver;
     auto pipe = device_.createPipeline(pd);
     if (!pipe.ok()) {
@@ -1389,9 +1393,11 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                     }
                     ++stats_.glassPassCount;
                 }
+                GLIM_ASSERT(!(backdrop && glassWork), "a Group cannot be both backdrop and glass");
                 const Rect surface = glassWork ? glassSurface(*child)
                                                : (backdrop ? backdropSurface(*child)
-                                                          : (child->params.bounds.size.x > 0
+                                                          : (child->params.bounds.size.x > 0.f &&
+                                                                     child->params.bounds.size.y > 0.f
                                                                  ? child->params.bounds
                                                                  : contentBounds(*child)));
                 const int iw = isolatePixelSize(surface.size.x, pixelRatio);
@@ -1420,6 +1426,8 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         content->params.clip = Rect{{0, 0}, surface.size};
                     }
                     const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
+                    // Width-based: isolate content is uniformly scaled by pr
+                    // (iw = ceil(w * pr)), so pr == iw/w up to rounding.
                     const float localPr =
                         surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
                     if (glassWork) {
@@ -1674,11 +1682,20 @@ void Renderer::draw(const Scene& scene) {
     };
     prefetch(prefetch, root);
     gpu::CommandEncoder encoder = device_.encoder();
+    const int rotation = device_.presentRotationDegrees();
+    const bool swapped = (rotation == 90 || rotation == 270);
+    const float logicalW = swapped ? scene.logicalSize.y : scene.logicalSize.x;
+    const float logicalH = swapped ? scene.logicalSize.x : scene.logicalSize.y;
+    // Width and height ratios agree when the drawable aspect matches logical.
+    // On mismatch (letterbox/stretch) take the larger so isolates never
+    // undersample an axis.
+    const float prW =
+        logicalW > 0.f ? static_cast<float>(drawable->width()) / logicalW : 1.f;
+    const float prH =
+        logicalH > 0.f ? static_cast<float>(drawable->height()) / logicalH : 1.f;
+    const float pr = std::max(prW > 0.f ? prW : 1.f, prH > 0.f ? prH : 1.f);
     const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y),
-                                        device_.presentRotationDegrees());
-    const float pr = scene.logicalSize.x > 0.f
-                         ? static_cast<float>(drawable->width()) / scene.logicalSize.x
-                         : 1.f;
+                                        rotation);
     encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear,
                 pr, scene.logicalSize);
     encoder.present(drawable.value());

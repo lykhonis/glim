@@ -65,7 +65,8 @@ void collectFills(const Group& g, GlassPill* out, int* n) {
 }  // namespace
 
 Rect glassSurface(const Group& g) {
-    Rect aabb = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+    const bool explicitBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
+    Rect aabb = explicitBounds ? g.params.bounds : contentBounds(g);
     const Glass& mat = glassMaterial(g);
     const float T = mat.thicknessPx * sizeScaleFor(aabb);
     const float blur = blurRadiusLogical(mat);
@@ -94,13 +95,16 @@ int collectGlassPills(const Group& g, GlassPill* out) {
             const int before = n;
             collectFills(*child, out, &n);
             if (n == before) {
-                Rect b = child->params.bounds.size.x > 0.f ? child->params.bounds : contentBounds(*child);
+                const bool childBounds =
+                    child->params.bounds.size.x > 0.f && child->params.bounds.size.y > 0.f;
+                Rect b = childBounds ? child->params.bounds : contentBounds(*child);
                 emitPill(out, &n, b, plateRadius(child->params.clipRadius));
             }
         }
     }
     if (hasGlass(g) && n == 0) {
-        Rect b = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+        const bool ownBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
+        Rect b = ownBounds ? g.params.bounds : contentBounds(g);
         emitPill(out, &n, b, plateRadius(g.params.clipRadius));
     }
     return n;

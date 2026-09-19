@@ -169,8 +169,12 @@ float snapBackdropSigma(float sigma) {
     return 24.f;
 }
 
+bool hasExplicitBounds(const Group& g) {
+    return g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
+}
+
 Rect backdropSurface(const Group& g) {
-    return g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+    return hasExplicitBounds(g) ? g.params.bounds : contentBounds(g);
 }
 
 int collectBackdropPills(const Group& g, BackdropPill* out) {
@@ -189,7 +193,7 @@ int collectBackdropPills(const Group& g, BackdropPill* out) {
         }
     }
     if (n == 0) {
-        Rect b = g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g);
+        Rect b = hasExplicitBounds(g) ? g.params.bounds : contentBounds(g);
         out[0].rect = b;
         out[0].radius = plateRadius(g.params.clipRadius);
         n = 1;
@@ -198,11 +202,29 @@ int collectBackdropPills(const Group& g, BackdropPill* out) {
 }
 
 void dropBackdropPills(Group& g) {
+    // Drop only the shapes that were collected as pills (the first
+    // kMaxBackdropPills FillRounded shapes). They define the plate mask drawn
+    // by the backdrop program; dropping every FillRounded would delete visual
+    // content beyond the pill cap.
+    int pillShapes = 0;
+    for (const Shape& s : g.shapes) {
+        if (pillShapes >= kMaxBackdropPills) {
+            break;
+        }
+        if (std::get_if<FillRounded>(&s)) {
+            ++pillShapes;
+        }
+    }
+    if (pillShapes == 0) {
+        return;
+    }
+    int dropped = 0;
     std::vector<Shape> keep;
     std::vector<std::uint32_t> map(g.shapes.size(), ~0u);
     keep.reserve(g.shapes.size());
     for (std::size_t i = 0; i < g.shapes.size(); ++i) {
-        if (std::get_if<FillRounded>(&g.shapes[i])) {
+        if (dropped < pillShapes && std::get_if<FillRounded>(&g.shapes[i])) {
+            ++dropped;
             continue;
         }
         map[i] = static_cast<std::uint32_t>(keep.size());
@@ -301,7 +323,19 @@ bool canMerge(const Group& g) {
     if (g.params.semantic != 0) {
         return false;
     }
-    return g.params.blend == Blend::SrcOver;
+    return g.params.blend == Blend::SrcOver || g.params.blend == Blend::Plus;
+}
+
+bool blendCompatible(Blend parent, Blend child) {
+    if (parent != child) {
+        return false;
+    }
+    // Only SrcOver and Plus exist in v1 (K9). A Plus child merges only into a
+    // Plus parent; mixed blends never share a pass.
+    // NOTE: GPU pipelines are still hardcoded to SrcOver
+    // (Renderer::ensurePipelines). Merging both-Plus is the correct grouping;
+    // a per-blend pipeline switch in the Renderer is follow-up work.
+    return parent == Blend::SrcOver || parent == Blend::Plus;
 }
 
 Rect contentBounds(const Group& g) {
@@ -338,7 +372,7 @@ Group merge(Group g, Stats* stats) {
     out.params = g.params;
     bool lock = false;
     auto takeChild = [&](Group child) {
-        if (canMerge(child) && !lock) {
+        if (canMerge(child) && blendCompatible(out.params.blend, child.params.blend) && !lock) {
             if (stats) {
                 ++stats->mergedGroupCount;
             }

@@ -906,8 +906,9 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     if (needsIsolate(g)) {
         const bool backdrop = hasBackdrop(g);
         const bool glassWork = hasGlassWork(g);
+        const bool explicitBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
         const Rect surface = glassWork ? glassSurface(g)
-                                       : (g.params.bounds.size.x > 0.f ? g.params.bounds : contentBounds(g));
+                                       : (explicitBounds ? g.params.bounds : contentBounds(g));
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
         const int iw = isolatePixelSize(surface.size.x, pr);
         const int ih = isolatePixelSize(surface.size.y, pr);

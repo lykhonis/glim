@@ -246,6 +246,10 @@ struct Stats {
     unsigned backdropCount = 0;
     unsigned glassPassCount = 0;
     unsigned glassPillCount = 0;
+    // Raster reuse (Renderer-internal; Phase 2+). Zero when reuse is off.
+    unsigned reuseHits = 0;    // cached encode reused (exact or translation-only)
+    unsigned reuseMisses = 0;  // full merge+encode performed
+    unsigned dirtyTiles = 0;   // tiles re-encoded this frame (tile dirtying, later)
 };
 
 float snapBackdropSigma(float sigma);
@@ -265,6 +269,7 @@ void clearGlassParams(GroupParams&);
 void stripGlassForIsolate(Group&);
 bool needsIsolate(const Group&);
 bool canMerge(const Group&);
+bool blendCompatible(Blend parent, Blend child);
 
 template <typename ShapeFn, typename ChildFn>
 void visitGroup(const Group& g, ShapeFn&& onShape, ChildFn&& onChild) {

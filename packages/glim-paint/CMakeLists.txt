@@ -8,6 +8,7 @@ add_library(glim-paint STATIC
     src/ImageStore.cpp
     src/Strip.cpp
     src/Overlay.cpp
+    src/Reuse.cpp
     src/Font.cpp)
 add_library(glim::paint ALIAS glim-paint)
 target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -139,7 +140,17 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-hit-test)
     add_test(NAME glim-hit-test COMMAND glim-hit-test)
 
+    add_executable(glim-perf-test tests/perf_test.cpp)
+    target_link_libraries(glim-perf-test PRIVATE glim::paint)
+    glim_target_defaults(glim-perf-test)
+    add_test(NAME glim-perf-test COMMAND glim-perf-test)
+
+    add_executable(glim-reuse-test tests/reuse_test.cpp)
+    target_link_libraries(glim-reuse-test PRIVATE glim::paint)
+    glim_target_defaults(glim-reuse-test)
+    add_test(NAME glim-reuse-test COMMAND glim-reuse-test)
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
                       glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
-                      glim-glass-test glim-hit-test)
+                      glim-glass-test glim-hit-test glim-perf-test glim-reuse-test)
 endif()
