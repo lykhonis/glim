@@ -18,7 +18,11 @@ layout(std140, set = 0, binding = 1) uniform Uniforms {
 };
 
 layout(location = 0) out vec2 v_pos;
-layout(location = 1) flat out uint v_iid;
+layout(location = 1) out vec4 v_grad;
+layout(location = 2) out vec4 v_misc;
+layout(location = 3) out vec4 v_colors[8];
+layout(location = 11) out vec4 v_off0;
+layout(location = 12) out vec4 v_off1;
 
 void main() {
     const vec2 unit[6] = vec2[](
@@ -29,5 +33,11 @@ void main() {
     const vec2 pos = inst.rect.xy + p * inst.rect.zw;
     gl_Position = projection * vec4(pos, 0.0, 1.0);
     v_pos = pos;
-    v_iid = uint(gl_InstanceIndex);
+    v_grad = inst.grad;
+    v_misc = inst.misc;
+    for (int i = 0; i < 8; ++i) {
+        v_colors[i] = inst.colors[i];
+    }
+    v_off0 = inst.off0;
+    v_off1 = inst.off1;
 }
