@@ -62,7 +62,7 @@ void Overlay::record(Context& context, Rect safeArea) {
     context.setFillColor(0x0d111766);
     context.fill(banner);
 
-    char line[48];
+    char line[64];
     const int fpsI = std::max(0, static_cast<int>(fps_ + 0.5f));
     std::snprintf(line, sizeof(line), "FPS %d", fpsI);
     const TextSize fpsM = context.measureText(line, kFpsPx);
@@ -76,8 +76,9 @@ void Overlay::record(Context& context, Rect safeArea) {
     drawText(context, {x, textY + 2.f}, line, kMetaPx, Color{0xc5ccd1ff});
     x += (msM.width > 0.f ? msM.width : 48.f) + kGap;
 
-    std::snprintf(line, sizeof(line), "%.1f %ud %ui %uo", static_cast<double>(stats_.encodeMs),
-                  stats_.draws, stats_.instances, stats_.isolateCount);
+    std::snprintf(line, sizeof(line), "%.1f %ud %ui %uo %ur %ut", static_cast<double>(stats_.encodeMs),
+                  stats_.draws, stats_.instances, stats_.isolateCount, stats_.reuseHits,
+                  stats_.dirtyTiles);
     const TextSize stM = context.measureText(line, kMetaPx);
     drawText(context, {x, textY + 2.f}, line, kMetaPx, Color{0xa8b3b8ff});
     x += (stM.width > 0.f ? stM.width : 88.f) + kGap;

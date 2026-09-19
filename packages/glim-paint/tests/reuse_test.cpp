@@ -223,6 +223,59 @@ int main() {
         expect(after.stats.reuseMisses == 1, "encode after clear misses");
     }
 
+    // 7. Tile dirty tracking: identical frames are clean.
+    {
+        glim::paint::ReuseCache cache;
+        glim::paint::Context a;
+        recordCards(a, 0x00ff00ff);
+        const glim::paint::FramePacket first = cache.encode(a.scene(), 1.f);
+        expect(first.stats.dirtyTiles == 28, "first frame dirties all 7x4 tiles");
+        glim::paint::Context b;
+        recordCards(b, 0x00ff00ff);
+        const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
+        expect(second.stats.reuseHits == 1 && second.stats.dirtyTiles == 0,
+               "identical frame hits with zero dirty tiles");
+    }
+
+    // 8. One small content change dirties only nearby tiles.
+    {
+        glim::paint::ReuseCache cache;
+        glim::paint::Context a;
+        a.setSize({200, 120});
+        a.beginFrame();
+        a.setFillColor(0x111111ff);
+        a.fill(glim::Rect::fromSize({200, 120}));
+        a.setFillColor(0x00ff00ff);
+        a.fill(glim::Rect{{8, 8}, {20, 40}});
+        a.finish();
+        cache.encode(a.scene(), 1.f);
+        glim::paint::Context b;
+        b.setSize({200, 120});
+        b.beginFrame();
+        b.setFillColor(0x111111ff);
+        b.fill(glim::Rect::fromSize({200, 120}));
+        b.setFillColor(0xff0000ff);
+        b.fill(glim::Rect{{8, 8}, {20, 40}});
+        b.finish();
+        const glim::paint::FramePacket changed = cache.encode(b.scene(), 1.f);
+        expect(changed.stats.reuseMisses == 1, "color change misses");
+        expect(changed.stats.dirtyTiles > 0 && changed.stats.dirtyTiles <= 6,
+               "small change dirties only nearby tiles");
+    }
+
+    // 9. Whole-scene translation dirties overlapped tiles but still hits.
+    {
+        glim::paint::ReuseCache cache;
+        glim::paint::Context a;
+        recordCards(a, 0x00ff00ff);
+        cache.encode(a.scene(), 1.f);
+        glim::paint::Context b;
+        recordCards(b, 0x00ff00ff, 64.f, 0.f);
+        const glim::paint::FramePacket moved = cache.encode(b.scene(), 1.f);
+        expect(moved.stats.reuseHits == 1, "translated scene hits");
+        expect(moved.stats.dirtyTiles > 0, "moved content dirties tiles");
+    }
+
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

@@ -503,6 +503,9 @@ void Renderer::flushSolid(gpu::Pass& pass) {
         return;
     }
     pass.setPipeline(solid_);
+    // 4 KB chunks: setBytes-style uploads stay within the fast path on both
+    // backends (larger chunks risk heap-alloc fallback on Metal and dynamic
+    // UBO alignment trouble on Vulkan). Raise only with device validation.
     constexpr std::size_t kMax = 4096 / sizeof(SolidInstance);
     std::size_t i = 0;
     while (i < pending_.size()) {

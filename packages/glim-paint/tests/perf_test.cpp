@@ -8,11 +8,13 @@
 
 #include <glim/paint/Context.h>
 #include <glim/paint/FramePacket.h>
+#include <glim/paint/Software.h>
 
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 namespace {
 
@@ -143,6 +145,21 @@ int main() {
     expect(g.last.stats.tileCount > 0, "typical GUI reports tile count");
     expect(g.last.stats.backdropCount == 1, "typical GUI has one backdrop pyramid");
     expect(g.last.stats.glassPassCount == 1, "typical GUI has one glass pass");
+
+    // CPU raster (Software path incl. backdrop frost + glass plate): this is
+    // where blurSeparable/blurCheap/samplePlate cost lives. Reported only.
+    {
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(720 * 480 * 4), 0);
+        constexpr int kRasterIters = 3;
+        double total = 0;
+        for (int i = 0; i < kRasterIters; ++i) {
+            const auto t0 = std::chrono::steady_clock::now();
+            glim::paint::rasterScene(gui.scene(), 720, 480, pixels.data());
+            total += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0)
+                         .count();
+        }
+        std::cout << "typical-raster: avgMs=" << total / static_cast<double>(kRasterIters) << '\n';
+    }
 
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";

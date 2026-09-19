@@ -141,7 +141,7 @@ if(GLIM_HOST_TESTS)
     add_test(NAME glim-hit-test COMMAND glim-hit-test)
 
     add_executable(glim-perf-test tests/perf_test.cpp)
-    target_link_libraries(glim-perf-test PRIVATE glim::paint)
+    target_link_libraries(glim-perf-test PRIVATE glim::paint glim::paint-cpu)
     glim_target_defaults(glim-perf-test)
     add_test(NAME glim-perf-test COMMAND glim-perf-test)
 

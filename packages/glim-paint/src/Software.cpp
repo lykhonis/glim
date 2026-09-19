@@ -462,6 +462,15 @@ void samplePlate(std::vector<Pixel>& plate, int iw, int ih, const std::vector<Pi
 
 void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
     const int radius = std::max(1, std::min(32, static_cast<int>(std::ceil(3.f * sigma))));
+    // Hoist the Gaussian kernel out of the pixel loops. Weights depend only
+    // on k and sigma, computed with the same expression as before, so the
+    // output is bit-identical; it bounds worst-case cost on large plates.
+    const float denom = std::max(1.f, sigma);
+    std::vector<float> kernel(static_cast<std::size_t>(radius) + 1u);
+    for (int k = 0; k <= radius; ++k) {
+        const float d = static_cast<float>(k) / denom;
+        kernel[static_cast<std::size_t>(k)] = std::exp(-0.5f * d * d);
+    }
     thread_local std::vector<Pixel> tmp;
     tmp = img;
     auto blurAxis = [&](bool horiz) {
@@ -473,8 +482,7 @@ void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
                 float wt = 0.f;
                 for (int k = -radius; k <= radius; ++k) {
                     const int p = std::min(n - 1, std::max(0, i + k));
-                    const float d = static_cast<float>(k) / std::max(1.f, sigma);
-                    const float ww = std::exp(-0.5f * d * d);
+                    const float ww = kernel[static_cast<std::size_t>(k < 0 ? -k : k)];
                     const Pixel s = horiz ? tmp[static_cast<std::size_t>(j * w + p)]
                                           : tmp[static_cast<std::size_t>(p * w + j)];
                     acc.r += s.r * ww;

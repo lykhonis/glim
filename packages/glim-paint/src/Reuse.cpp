@@ -315,6 +315,192 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
         [&](const Group& child) { hashGroup(ctx, child, childLevel); });
 }
 
+// ---- Tile dirty tracking -------------------------------------------------
+//
+// Coarse tiles (kTileSize drawable px) carry a structural hash of the paint
+// items overlapping them. Diffing consecutive frames yields Stats.dirtyTiles:
+// an advisory count of tiles whose content changed. It does not drive
+// partial re-encode yet (the packet cache is whole-scene); it exists so a
+// future per-tile encode stage and dirty-region scissor can consume it.
+//
+// Over-marking is safe (extra work), under-marking is not. Item bounds are
+// therefore conservative: rotated/non-affine groups fall back to the full
+// scene rect. SlotHoles emit no coverage and are skipped.
+
+namespace {
+
+Rect unionTileRect(Rect a, Rect b) {
+    if (a.size.x <= 0.f || a.size.y <= 0.f) {
+        return b;
+    }
+    if (b.size.x <= 0.f || b.size.y <= 0.f) {
+        return a;
+    }
+    const float x0 = std::min(a.origin.x, b.origin.x);
+    const float y0 = std::min(a.origin.y, b.origin.y);
+    const float x1 = std::max(a.origin.x + a.size.x, b.origin.x + b.size.x);
+    const float y1 = std::max(a.origin.y + a.size.y, b.origin.y + b.size.y);
+    return {{x0, y0}, {x1 - x0, y1 - y0}};
+}
+
+// Window-space paint bounds of a root shape. Empty = no coverage (skipped).
+Rect shapeTileBounds(const Shape& s) {
+    if (const auto* f = std::get_if<FillRect>(&s)) {
+        return f->rect;
+    }
+    if (const auto* r = std::get_if<FillRounded>(&s)) {
+        return r->rect;
+    }
+    if (const auto* st = std::get_if<Stroke>(&s)) {
+        const float o = std::max(0.f, st->width) * 0.5f;
+        return {{st->rect.origin.x - o, st->rect.origin.y - o},
+                {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}};
+    }
+    if (const auto* b = std::get_if<Blit>(&s)) {
+        return b->rect;
+    }
+    if (const auto* run = std::get_if<GlyphRun>(&s)) {
+        Rect out{};
+        for (const GlyphQuad& q : run->glyphs) {
+            out = unionTileRect(out, q.dest);
+        }
+        return out;
+    }
+    return {};
+}
+
+bool isAxisAligned2D(const Mat4& t) {
+    if (t.is3D()) {
+        return false;
+    }
+    // No rotation/reflection: off-diagonals of the XY 2x2 must be ~0.
+    return std::fabs(t.m[1]) <= 1e-5f && std::fabs(t.m[4]) <= 1e-5f;
+}
+
+// Window-space bounds of a direct child subtree. Conservative by design.
+Rect childTileBounds(const Group& child, Vec2 fallback) {
+    Rect local = child.params.bounds;
+    local = unionTileRect(local, contentBounds(child));
+    if (hasClip(child.params)) {
+        local = unionTileRect(local, Rect{child.params.clip.origin, child.params.clip.size});
+    }
+    if (local.size.x <= 0.f || local.size.y <= 0.f) {
+        return {};
+    }
+    if (!isAxisAligned2D(child.params.transform)) {
+        return {{0.f, 0.f}, fallback};
+    }
+    return transformRect(child.params.transform, local);
+}
+
+struct TileItem {
+    Rect bounds{};
+    std::uint64_t hash = 0;
+};
+
+std::uint64_t hashTileItemShape(FpContext& base, const Shape& s) {
+    FpContext tmp;
+    tmp.origin = base.origin;
+    tmp.images = base.images;
+    tmp.imageFp = base.imageFp;
+    tmp.h.u32(0x74696c65u);  // 'tile': domain tag so item hashes never alias group hashes
+    hashShape(tmp, s, true);
+    base.imageFp = tmp.imageFp;
+    return tmp.h.h;
+}
+
+std::uint64_t hashTileItemGroup(FpContext& base, const Group& g) {
+    FpContext tmp;
+    tmp.origin = base.origin;
+    tmp.images = base.images;
+    tmp.imageFp = base.imageFp;
+    tmp.h.u32(0x74696c65u);
+    hashGroup(tmp, g, 1);
+    base.imageFp = tmp.imageFp;
+    if (tmp.hasForeign) {
+        base.hasForeign = true;
+    }
+    return tmp.h.h;
+}
+
+struct TileGrid {
+    int tx = 0;
+    int ty = 0;
+    std::vector<std::uint64_t> hash;
+};
+
+// Mix one item hash into every tile its bounds overlap. Bounds are logical;
+// tiles are kTileSize device px at the bucketed ratio.
+void splatItem(TileGrid& grid, const TileItem& item, float pr) {
+    if (item.bounds.size.x <= 0.f || item.bounds.size.y <= 0.f || grid.tx <= 0 || grid.ty <= 0 ||
+        !(pr > 0.f)) {
+        return;
+    }
+    const float x0 = std::min(item.bounds.origin.x, item.bounds.origin.x + item.bounds.size.x);
+    const float y0 = std::min(item.bounds.origin.y, item.bounds.origin.y + item.bounds.size.y);
+    const float x1 = std::max(item.bounds.origin.x, item.bounds.origin.x + item.bounds.size.x);
+    const float y1 = std::max(item.bounds.origin.y, item.bounds.origin.y + item.bounds.size.y);
+    const float tile = static_cast<float>(kTileSize);
+    int tx0 = static_cast<int>(std::floor(x0 * pr / tile));
+    int ty0 = static_cast<int>(std::floor(y0 * pr / tile));
+    int tx1 = static_cast<int>(std::floor((x1 - 1e-3f) * pr / tile));
+    int ty1 = static_cast<int>(std::floor((y1 - 1e-3f) * pr / tile));
+    tx0 = std::max(0, std::min(tx0, grid.tx - 1));
+    ty0 = std::max(0, std::min(ty0, grid.ty - 1));
+    tx1 = std::max(0, std::min(tx1, grid.tx - 1));
+    ty1 = std::max(0, std::min(ty1, grid.ty - 1));
+    for (int ty = ty0; ty <= ty1; ++ty) {
+        for (int tx = tx0; tx <= tx1; ++tx) {
+            std::uint64_t& h = grid.hash[static_cast<std::size_t>(ty * grid.tx + tx)];
+            h ^= item.hash + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
+        }
+    }
+}
+
+TileGrid computeTileGrid(const Scene& scene, FpContext& base, float prBucket) {
+    TileGrid grid;
+    if (!(scene.logicalSize.x > 0.f) || !(scene.logicalSize.y > 0.f) || !(prBucket > 0.f)) {
+        return grid;
+    }
+    const float tile = static_cast<float>(kTileSize);
+    grid.tx =
+        std::max(1, static_cast<int>(std::ceil(scene.logicalSize.x * prBucket / tile)));
+    grid.ty =
+        std::max(1, static_cast<int>(std::ceil(scene.logicalSize.y * prBucket / tile)));
+    grid.hash.assign(static_cast<std::size_t>(grid.tx * grid.ty), kFnvOffset);
+    const Group& root = scene.root;
+    for (const Shape& s : root.shapes) {
+        if (std::holds_alternative<SlotHole>(s)) {
+            continue;
+        }
+        TileItem item{shapeTileBounds(s), hashTileItemShape(base, s)};
+        splatItem(grid, item, prBucket);
+    }
+    for (const auto& child : root.children) {
+        if (!child) {
+            continue;
+        }
+        TileItem item{childTileBounds(*child, scene.logicalSize), hashTileItemGroup(base, *child)};
+        splatItem(grid, item, prBucket);
+    }
+    return grid;
+}
+
+unsigned diffTileGrids(const TileGrid& cur, const TileGrid& last) {
+    if (cur.tx != last.tx || cur.ty != last.ty || cur.hash.size() != last.hash.size()) {
+        return static_cast<unsigned>(cur.hash.size());
+    }
+    unsigned dirty = 0;
+    for (std::size_t i = 0; i < cur.hash.size(); ++i) {
+        if (cur.hash[i] != last.hash[i]) {
+            ++dirty;
+        }
+    }
+    return dirty;
+}
+
+}  // namespace
+
 // Whole-scene translation shifts top-level quads/blits and isolate dest
 // rects. Isolate *contents* are surface-relative (encodeIsolate rebases by
 // -surface.origin), so they are unchanged. Isolate dest UVs are
@@ -371,6 +557,10 @@ struct ReuseCache::Impl {
     std::deque<std::uint64_t> order;
     std::unordered_map<std::uint64_t, Entry> entries;
     std::unordered_map<std::uint32_t, FpContext::ImgFp> imageFp;
+    // Consecutive-frame tile hashes for dirty tracking (Phase 3). Independent
+    // of the packet entries: tiles describe the last encoded frame.
+    TileGrid lastTiles;
+    bool hasTiles = false;
 };
 
 ReuseCache::ReuseCache() : impl_(std::make_unique<Impl>()) {}
@@ -380,6 +570,8 @@ void ReuseCache::clear() {
     impl_->entries.clear();
     impl_->order.clear();
     impl_->imageFp.clear();
+    impl_->lastTiles = TileGrid{};
+    impl_->hasTiles = false;
 }
 
 std::size_t ReuseCache::size() const {
@@ -420,21 +612,46 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
     };
 
     auto it = impl_->entries.find(hash);
-    if (it != impl_->entries.end() && !probe.hasForeign && !probe.has3D && !it->second.has3D &&
-        it->second.logicalSize.x == scene.logicalSize.x &&
-        it->second.logicalSize.y == scene.logicalSize.y && it->second.prBucket == prBucket) {
+    const bool exactHit =
+        it != impl_->entries.end() && probe.origin.x == it->second.origin.x &&
+        probe.origin.y == it->second.origin.y && !probe.hasForeign && !probe.has3D &&
+        !it->second.has3D && it->second.logicalSize.x == scene.logicalSize.x &&
+        it->second.logicalSize.y == scene.logicalSize.y && it->second.prBucket == prBucket;
+    if (exactHit) {
+        // Content identical: no tile changed. Skip the tile walk.
         FramePacket hit = it->second.packet;
-        offsetPacket(hit, probe.origin.x - it->second.origin.x, probe.origin.y - it->second.origin.y);
         hit.stats.reuseHits = 1;
         hit.stats.reuseMisses = 0;
         hit.stats.dirtyTiles = 0;
+        return finish(hit);
+    }
+    // Translation-only hit or miss: recompute tiles and diff against the last
+    // frame. A translated scene dirties every tile its content overlaps.
+    const TileGrid curTiles = computeTileGrid(scene, probe, prBucket);
+    impl_->imageFp = probe.imageFp;
+    const unsigned dirty =
+        impl_->hasTiles ? diffTileGrids(curTiles, impl_->lastTiles)
+                        : static_cast<unsigned>(curTiles.hash.size());
+    impl_->lastTiles = curTiles;
+    impl_->hasTiles = true;
+
+    auto hitIt = impl_->entries.find(hash);
+    if (hitIt != impl_->entries.end() && !probe.hasForeign && !probe.has3D &&
+        !hitIt->second.has3D && hitIt->second.logicalSize.x == scene.logicalSize.x &&
+        hitIt->second.logicalSize.y == scene.logicalSize.y && hitIt->second.prBucket == prBucket) {
+        FramePacket hit = hitIt->second.packet;
+        offsetPacket(hit, probe.origin.x - hitIt->second.origin.x,
+                     probe.origin.y - hitIt->second.origin.y);
+        hit.stats.reuseHits = 1;
+        hit.stats.reuseMisses = 0;
+        hit.stats.dirtyTiles = dirty;
         return finish(hit);
     }
 
     FramePacket fresh = glim::paint::encode(scene, pixelRatio);
     fresh.stats.reuseHits = 0;
     fresh.stats.reuseMisses = 1;
-    fresh.stats.dirtyTiles = 0;
+    fresh.stats.dirtyTiles = dirty;
     if (!probe.hasForeign) {
         if (impl_->entries.size() >= Impl::kMaxEntries) {
             impl_->entries.erase(impl_->order.front());

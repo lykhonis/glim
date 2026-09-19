@@ -39,7 +39,9 @@ public:
 
     // Encode with reuse. Miss: full merge+encode, stored, stats.reuseMisses=1.
     // Hit (exact or translation-only): cached quads reused, origins
-    // rewritten on translation, stats.reuseHits=1.
+    // rewritten on translation, stats.reuseHits=1. stats.dirtyTiles reports
+    // coarse tiles (kTileSize device px) whose content changed vs the last
+    // frame: 0 on an exact hit, tile count on the first frame or a resize.
     FramePacket encode(const Scene& scene, float pixelRatio = 1.0f);
 
     void clear();
