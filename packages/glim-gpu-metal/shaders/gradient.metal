@@ -17,11 +17,7 @@ struct Uniforms {
 struct VSOut {
     float4 position [[position]];
     float2 pos;
-    float4 grad;
-    float4 misc;
-    float4 colors[8];
-    float4 off0;
-    float4 off1;
+    uint iid [[flat]];
 };
 
 vertex VSOut vs_main(uint vid [[vertex_id]],
@@ -38,41 +34,35 @@ vertex VSOut vs_main(uint vid [[vertex_id]],
     VSOut out;
     out.position = uniforms.projection * float4(pos, 0.0, 1.0);
     out.pos = pos;
-    out.grad = inst.grad;
-    out.misc = inst.misc;
-    for (uint i = 0; i < 8; ++i) {
-        out.colors[i] = inst.colors[i];
-    }
-    out.off0 = inst.off0;
-    out.off1 = inst.off1;
+    out.iid = iid;
     return out;
 }
 
-fragment float4 fs_main(VSOut in [[stage_in]]) {
-    const int n = int(in.misc.w + 0.5);
+fragment float4 fs_main(VSOut in [[stage_in]],
+                        constant Instance* instances [[buffer(0)]]) {
+    const Instance inst = instances[in.iid];
+    const int n = int(inst.misc.w + 0.5);
     if (n <= 0) {
         return float4(0.0);
     }
     float t;
-    if (in.misc.x < 0.5) {
-        const float2 d = in.grad.zw - in.grad.xy;
+    if (inst.misc.x < 0.5) {
+        const float2 d = inst.grad.zw - inst.grad.xy;
         const float denom = dot(d, d);
-        t = denom > 1e-8 ? dot(in.pos - in.grad.xy, d) / denom : 0.0;
+        t = denom > 1e-8 ? dot(in.pos - inst.grad.xy, d) / denom : 0.0;
     } else {
-        t = in.misc.y > 1e-6 ? length(in.pos - in.grad.xy) / in.misc.y : 0.0;
+        t = inst.misc.y > 1e-6 ? length(in.pos - inst.grad.xy) / inst.misc.y : 0.0;
     }
     t = clamp(t, 0.0, 1.0);
-    float off[8] = {in.off0.x, in.off0.y, in.off0.z, in.off0.w,
-                    in.off1.x, in.off1.y, in.off1.z, in.off1.w};
-    float4 c = in.colors[0];
+    float4 c = inst.colors[0];
     for (int i = 1; i < 8; ++i) {
         if (i >= n) {
             break;
         }
-        const float o0 = off[i - 1];
-        const float o1 = off[i];
+        const float o0 = i <= 4 ? inst.off0[i - 1] : inst.off1[i - 5];
+        const float o1 = i < 4 ? inst.off0[i] : inst.off1[i - 4];
         const float f = o1 > o0 ? clamp((t - o0) / (o1 - o0), 0.0, 1.0) : (t >= o1 ? 1.0 : 0.0);
-        c = mix(c, in.colors[i], f);
+        c = mix(c, inst.colors[i], f);
     }
-    return c * in.misc.z;
+    return c * inst.misc.z;
 }

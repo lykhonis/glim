@@ -582,7 +582,9 @@ void Renderer::flushGradient(gpu::Pass& pass) {
     std::size_t i = 0;
     while (i < pendingGradient_.size()) {
         const std::size_t n = std::min(kMax, pendingGradient_.size() - i);
-        pass.setBytes(0, pendingGradient_.data() + i, sizeof(GradientInstance) * n);
+        const std::uint64_t bytes = sizeof(GradientInstance) * n;
+        pass.setBytes(0, pendingGradient_.data() + i, bytes);
+        pass.setFragmentBytes(0, pendingGradient_.data() + i, bytes);
         pass.draw(6, static_cast<std::uint32_t>(n), 0, 0);
         stats_.draws += 1;
         stats_.instances += static_cast<unsigned>(n);
