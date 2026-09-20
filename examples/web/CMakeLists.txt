@@ -4,8 +4,9 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
     target_link_libraries(glim-web PRIVATE glim::glim)
     glim_target_defaults(glim-web)
     if(EMSCRIPTEN)
+        # No WebGPU port yet: the slice-1 Device is a stub with no WebGPU
+        # calls. Slice 2 adds --use-port=emdawnwebgpu with the real backend.
         target_link_options(glim-web PRIVATE
-            "-sUSE_WEBGPU=1"
             "-sWASM=1"
             "-sEXPORTED_FUNCTIONS=['_main','_glimWebResize','_glimWebFrame','_glimWebEvent']"
             "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']")
