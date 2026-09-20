@@ -35,4 +35,12 @@ pnpm exec nx run hello:run
 
 ---
 
+## Contributing
+
+Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+, Ninja.
+Per target: Xcode (Apple), Android SDK + NDK (`android-*` presets),
+Emscripten (`web-webgpu-debug` preset; after upgrading it, wipe `build/`),
+Chrome (web run). Linux:
+`ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
+
 [MIT](LICENSE) · [Volodymyr Lykhonis](https://lykhonis.com)

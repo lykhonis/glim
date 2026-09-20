@@ -1,4 +1,4 @@
-struct BlitInstance {
+struct Instance {
     rect: vec4<f32>,
     uv: vec4<f32>,
     extra: vec4<f32>,
@@ -8,7 +8,7 @@ struct Uniforms {
     projection: mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<storage, read> instances: array<BlitInstance>;
+@group(0) @binding(0) var<storage, read> instances: array<Instance>;
 @group(0) @binding(1) var<storage, read> uniforms: Uniforms;
 @group(0) @binding(2) var tex: texture_2d<f32>;
 @group(0) @binding(6) var texSampler: sampler;
@@ -16,7 +16,7 @@ struct Uniforms {
 struct VSOut {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
-    @location(1) tint: vec4<f32>,
+    @location(1) extra: vec4<f32>,
 };
 
 @vertex
@@ -30,15 +30,29 @@ fn vs_main(
     );
     let p = unit[vid];
     let inst = instances[iid];
-    let pos = inst.rect.xy + p * inst.rect.zw;
     var out: VSOut;
-    out.position = uniforms.projection * vec4<f32>(pos, 0.0, 1.0);
+    out.position = uniforms.projection * vec4<f32>(inst.rect.xy + p * inst.rect.zw, 0.0, 1.0);
     out.uv = mix(inst.uv.xy, inst.uv.zw, p);
-    out.tint = inst.extra;
+    out.extra = inst.extra;
     return out;
 }
 
 @fragment
 fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
-    return textureSample(tex, texSampler, in.uv) * in.tint;
+    let sigma = max(in.extra.x, 0.001);
+    let radius = clamp(i32(ceil(3.0 * sigma)), 1, 12);
+    let dims = vec2<f32>(textureDimensions(tex));
+    let texel = vec2<f32>(in.extra.y / max(dims.x, 1.0), in.extra.z / max(dims.y, 1.0));
+    var acc = vec4<f32>(0.0);
+    var wt = 0.0;
+    for (var k = -12; k <= 12; k++) {
+        if (abs(k) > radius) {
+            continue;
+        }
+        let d = f32(k) / sigma;
+        let w = exp(-0.5 * d * d);
+        acc += textureSampleLevel(tex, texSampler, in.uv + texel * f32(k), 0.0) * w;
+        wt += w;
+    }
+    return acc / max(wt, 1e-5);
 }

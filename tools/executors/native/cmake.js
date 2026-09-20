@@ -67,6 +67,19 @@ function withBuildLock(lockFile, fn) {
       if (err.code !== "EEXIST") {
         throw err;
       }
+      try {
+        const pid = parseInt(fs.readFileSync(lockFile, "utf8"), 10);
+        if (Number.isFinite(pid)) {
+          process.kill(pid, 0);
+        } else {
+          throw new Error("no pid");
+        }
+      } catch {
+        try {
+          fs.unlinkSync(lockFile);
+        } catch {}
+        continue;
+      }
       if (Date.now() > deadline) {
         throw new Error(`timed out waiting for ${lockFile}`);
       }

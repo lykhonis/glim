@@ -28,6 +28,7 @@ public:
     ~Window();
 
     void setSize(int width, int height);
+    void setPixelRatio(float ratio);
     void setTitle(const std::string&);
     void center();
     void show();
@@ -52,6 +53,7 @@ public:
 
     // Web-only: canvas selector (default "#glim"). Set before show().
     void setCanvasSelector(const std::string& selector);
+    const std::string& canvasSelector() const { return canvasSelector_; }
 
 private:
     std::string title_ = "Glim";

@@ -1,46 +1,22 @@
-/**
- * Glim for the web: loader + frame driver. No dependencies.
- * Attaches to an app-owned <canvas>; works from any framework.
- */
-
-const DEFAULT_SELECTOR_SIZE = { width: 720, height: 480 };
-
 function cssSize(canvas, width, height) {
   if (width > 0) canvas.style.width = `${width}px`;
   if (height > 0) canvas.style.height = `${height}px`;
 }
 
-function readDevicePixelRatio(pixelRatioOverride) {
-  if (typeof pixelRatioOverride === 'number' && pixelRatioOverride > 0) {
-    return pixelRatioOverride;
-  }
-  if (typeof window !== 'undefined' && window.devicePixelRatio > 0) {
-    return window.devicePixelRatio;
-  }
+function readDevicePixelRatio(override) {
+  if (typeof override === 'number' && override > 0) return override;
+  if (typeof window !== 'undefined' && window.devicePixelRatio > 0) return window.devicePixelRatio;
   return 1;
 }
 
 export class GlimCanvas {
-  /**
-   * @param {HTMLCanvasElement} canvas - app-owned canvas to paint into.
-   * @param {object} options
-   * @param {string} options.wasmURL - URL of the app-built glim.wasm.
-   * @param {number} [options.width] - CSS width hint (canvas attribute wins).
-   * @param {number} [options.height] - CSS height hint.
-   * @param {number} [options.pixelRatio] - override for devicePixelRatio.
-   * @param {object} [options.wasmImports] - extra imports for the wasm module.
-   */
   constructor(canvas, options = {}) {
-    if (!canvas || canvas.tagName !== 'CANVAS') {
-      throw new Error('GlimCanvas requires an <canvas> element');
-    }
-    if (!options.wasmURL) {
-      throw new Error('GlimCanvas requires options.wasmURL');
-    }
+    if (!canvas || canvas.tagName !== 'CANVAS') throw new Error('GlimCanvas requires an <canvas>');
+    if (!options.moduleURL) throw new Error('GlimCanvas requires options.moduleURL');
     this.canvas = canvas;
     this.options = options;
     this.pixelRatio = readDevicePixelRatio(options.pixelRatio);
-    this.wasm = null;
+    this.module = null;
     this.running = false;
     this.rafId = 0;
     this.onFrame = null;
@@ -51,15 +27,31 @@ export class GlimCanvas {
   }
 
   async init() {
-    const { width = DEFAULT_SELECTOR_SIZE.width, height = DEFAULT_SELECTOR_SIZE.height } =
-      this.options;
+    const moduleURL = new URL(this.options.moduleURL, window.location.href).href;
+    const createModule = (await import(moduleURL)).default;
+    this.module = await createModule();
+    const example = this.options.example || 0;
+    if (example !== 0) this.module.ccall('glimWebSelect', null, ['number'], [example]);
+    // Explicit options.width/height pin the canvas; otherwise CSS owns the size.
+    const { width = 0, height = 0 } = this.options;
     cssSize(this.canvas, width, height);
     this.resize();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', this._onResize);
-    }
+    if (typeof window !== 'undefined') window.addEventListener('resize', this._onResize);
     this._forwardDomEvents();
     return this;
+  }
+
+  call(name, types, args) {
+    try {
+      this.module.ccall(name, null, types, args);
+    } catch (err) {
+      this.fail(err);
+    }
+  }
+
+  fail(err) {
+    if (typeof this.onError === 'function') this.onError(err);
+    else console.error('[glim]', err);
   }
 
   resize() {
@@ -72,9 +64,7 @@ export class GlimCanvas {
     if (this.canvas.width !== dw) this.canvas.width = dw;
     if (this.canvas.height !== dh) this.canvas.height = dh;
     this.logicalSize = { width: cssW, height: cssH };
-    if (this.wasm?.glimWebResize) {
-      this.wasm.glimWebResize(cssW, cssH, this.pixelRatio);
-    }
+    if (this.module) this.call('glimWebResize', ['number', 'number', 'number'], [cssW, cssH, this.pixelRatio]);
   }
 
   start() {
@@ -82,18 +72,14 @@ export class GlimCanvas {
     this.running = true;
     const tick = (timeMs) => {
       if (!this.running) return;
-      try {
-        if (this.wasm?.glimWebFrame) {
-          this.wasm.glimWebFrame(timeMs / 1000, this.reduceTransparency ? 1 : 0);
-        }
-        if (typeof this.onFrame === 'function') {
+      if (this.module) {
+        this.call('glimWebFrame', ['number', 'number'], [timeMs / 1000, this.reduceTransparency ? 1 : 0]);
+      }
+      if (typeof this.onFrame === 'function') {
+        try {
           this.onFrame({ time: timeMs / 1000, size: this.logicalSize });
-        }
-      } catch (err) {
-        if (typeof this.onError === 'function') {
-          this.onError(err);
-        } else {
-          console.error('[glim]', err);
+        } catch (err) {
+          this.fail(err);
         }
       }
       this.rafId = requestAnimationFrame(tick);
@@ -116,24 +102,18 @@ export class GlimCanvas {
     this.reduceTransparency = Boolean(enabled);
   }
 
-  /**
-   * Forward a pointer/keyboard event as data.
-   */
   dispatch(event) {
-    if (this.wasm?.glimWebEvent) {
-      this.wasm.glimWebEvent(event.type, event.x ?? 0, event.y ?? 0, event.key ?? 0);
-      return;
-    }
-    if (typeof this.onFrame === 'function' && event.type === 'pointerdown') {
-      this.onFrame({ type: 'pointerdown', ...event });
+    if (this.module) {
+      const codes = { pointerdown: 1, pointermove: 2, pointerup: 3, keydown: 4, keyup: 5 };
+      const key = event.key === 'Enter' ? 13 : event.key === 'Escape' ? 27 : 0;
+      this.call('glimWebEvent', ['number', 'number', 'number', 'number'],
+        [codes[event.type] ?? 0, event.x ?? 0, event.y ?? 0, key]);
     }
   }
 
   dispose() {
     this.stop();
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('resize', this._onResize);
-    }
+    if (typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
     for (const dispose of this._disposers) dispose();
     this._disposers = [];
   }
@@ -148,13 +128,22 @@ export class GlimCanvas {
       if (e.key === 'Escape') this.setReduceTransparency(!this.reduceTransparency);
       this.dispatch({ type, key: e.key });
     };
-    canvas.addEventListener('pointerdown', pointer('pointerdown'));
-    canvas.addEventListener('pointermove', pointer('pointermove'));
-    canvas.addEventListener('pointerup', pointer('pointerup'));
-    window.addEventListener('keydown', key('keydown'));
-    window.addEventListener('keyup', key('keyup'));
+    const down = pointer('pointerdown');
+    const move = pointer('pointermove');
+    const up = pointer('pointerup');
+    const kd = key('keydown');
+    const ku = key('keyup');
+    canvas.addEventListener('pointerdown', down);
+    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerup', up);
+    window.addEventListener('keydown', kd);
+    window.addEventListener('keyup', ku);
     this._disposers.push(() => {
-      canvas.removeEventListener('pointerdown', pointer);
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerup', up);
+      window.removeEventListener('keydown', kd);
+      window.removeEventListener('keyup', ku);
     });
   }
 }

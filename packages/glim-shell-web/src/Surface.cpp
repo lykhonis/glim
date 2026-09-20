@@ -24,7 +24,8 @@ void Surface::setOpaque(bool opaque) {
 gpu::DeviceCreateInfo Surface::deviceCreateInfo() const {
     gpu::DeviceCreateInfo info{};
     info.backend = gpu::Backend::WebGpu;
-    info.native[0] = nullptr;
+    info.native[0] = window_ ? static_cast<void*>(const_cast<char*>(window_->canvasSelector().c_str()))
+                             : nullptr;
     info.native[1] = nullptr;
     info.native[2] = vsync_ ? reinterpret_cast<void*>(1) : nullptr;
     return info;

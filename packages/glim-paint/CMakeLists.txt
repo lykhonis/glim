@@ -28,6 +28,29 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/inter_latin.h"
     @ONLY)
 
+set(_glim_wgsl_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-webgpu/shaders")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${_glim_wgsl_dir}/solid.wgsl"
+    "${_glim_wgsl_dir}/blit.wgsl"
+    "${_glim_wgsl_dir}/rounded.wgsl"
+    "${_glim_wgsl_dir}/glyph.wgsl"
+    "${_glim_wgsl_dir}/blur.wgsl"
+    "${_glim_wgsl_dir}/blur1d.wgsl"
+    "${_glim_wgsl_dir}/glass.wgsl"
+    "${_glim_wgsl_dir}/gradient.wgsl")
+file(READ "${_glim_wgsl_dir}/solid.wgsl" GLIM_SOLID_WGSL)
+file(READ "${_glim_wgsl_dir}/blit.wgsl" GLIM_BLIT_WGSL)
+file(READ "${_glim_wgsl_dir}/rounded.wgsl" GLIM_ROUNDED_WGSL)
+file(READ "${_glim_wgsl_dir}/glyph.wgsl" GLIM_GLYPH_WGSL)
+file(READ "${_glim_wgsl_dir}/blur.wgsl" GLIM_BLUR_WGSL)
+file(READ "${_glim_wgsl_dir}/blur1d.wgsl" GLIM_BLUR1D_WGSL)
+file(READ "${_glim_wgsl_dir}/glass.wgsl" GLIM_GLASS_WGSL)
+file(READ "${_glim_wgsl_dir}/gradient.wgsl" GLIM_GRADIENT_WGSL)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/glim_webgpu_shaders.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/glim_webgpu_shaders.h"
+    @ONLY)
+
 set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/solid.metal"
@@ -71,6 +94,9 @@ if(GLIM_GPU STREQUAL "vulkan")
     target_compile_definitions(glim-paint-gpu PRIVATE GLIM_GPU_VULKAN=1)
     target_include_directories(glim-paint-gpu PRIVATE "${GLIM_VULKAN_SHADER_INCLUDE}")
     add_dependencies(glim-paint-gpu glim-vulkan-shaders)
+endif()
+if(GLIM_GPU STREQUAL "webgpu")
+    target_compile_definitions(glim-paint-gpu PRIVATE GLIM_GPU_WEBGPU=1)
 endif()
 add_library(glim::paint-gpu ALIAS glim-paint-gpu)
 

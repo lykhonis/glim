@@ -30,7 +30,10 @@ jobs:
       - name: Check staged bundle
         run: |
           test -f build/web-webgpu-debug/examples/web/serve/index.html
+          test -f build/web-webgpu-debug/examples/web/serve/glass.html
+          test -f build/web-webgpu-debug/examples/web/serve/gradients.html
+          test -f build/web-webgpu-debug/examples/web/serve/foreign.html
           test -f build/web-webgpu-debug/examples/web/serve/main.js
           test -f build/web-webgpu-debug/examples/web/serve/lib/glim.js
-          test -f build/web-webgpu-debug/examples/web/serve/glim.js
-          test -f build/web-webgpu-debug/examples/web/serve/glim.wasm
+          test -f build/web-webgpu-debug/examples/web/serve/glim-app.js
+          test -f build/web-webgpu-debug/examples/web/serve/glim-app.wasm

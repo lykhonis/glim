@@ -5,6 +5,8 @@
 
 #if GLIM_GPU_VULKAN
 #include "glim_vulkan_shaders.h"
+#elif GLIM_GPU_WEBGPU
+#include "glim_webgpu_shaders.h"
 #else
 #include <fstream>
 #include <sstream>
@@ -14,7 +16,7 @@
 
 namespace glim::paint {
 
-#if !GLIM_GPU_VULKAN
+#if !GLIM_GPU_VULKAN && !GLIM_GPU_WEBGPU
 namespace {
 
 std::string loadShader(const char* name) {
@@ -62,6 +64,33 @@ std::string loadShader(const char* name) {
 
 namespace {
 
+#if GLIM_GPU_WEBGPU
+const char* webgpuSource(const char* name) {
+    if (std::strcmp(name, "solid") == 0) {
+        return glim::webgpu_shaders::solid;
+    }
+    if (std::strcmp(name, "blit") == 0) {
+        return glim::webgpu_shaders::blit;
+    }
+    if (std::strcmp(name, "rounded") == 0) {
+        return glim::webgpu_shaders::rounded;
+    }
+    if (std::strcmp(name, "glyph") == 0) {
+        return glim::webgpu_shaders::glyph;
+    }
+    if (std::strcmp(name, "blur") == 0) {
+        return glim::webgpu_shaders::blur;
+    }
+    if (std::strcmp(name, "blur1d") == 0) {
+        return glim::webgpu_shaders::blur1d;
+    }
+    if (std::strcmp(name, "glass") == 0) {
+        return glim::webgpu_shaders::glass;
+    }
+    return glim::webgpu_shaders::gradient;
+}
+#endif
+
 auto makeVertex(gpu::Device& device, const char* name) {
 #if GLIM_GPU_VULKAN
     if (std::strcmp(name, "solid") == 0) {
@@ -102,6 +131,9 @@ auto makeVertex(gpu::Device& device, const char* name) {
     return device.createShader(gpu::ShaderStage::Vertex,
                                reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_vert),
                                sizeof(glim::vulkan_shaders::gradient_vert));
+#elif GLIM_GPU_WEBGPU
+    const char* src = webgpuSource(name);
+    return device.createShader(gpu::ShaderStage::Vertex, src, std::strlen(src));
 #else
     const std::string src = loadShader((std::string(name) + ".metal").c_str());
     return device.createShader(gpu::ShaderStage::Vertex, src.data(), src.size());
@@ -148,6 +180,9 @@ auto makeFragment(gpu::Device& device, const char* name) {
     return device.createShader(gpu::ShaderStage::Fragment,
                                reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_frag),
                                sizeof(glim::vulkan_shaders::gradient_frag));
+#elif GLIM_GPU_WEBGPU
+    const char* src = webgpuSource(name);
+    return device.createShader(gpu::ShaderStage::Fragment, src, std::strlen(src));
 #else
     const std::string src = loadShader((std::string(name) + ".metal").c_str());
     return device.createShader(gpu::ShaderStage::Fragment, src.data(), src.size());

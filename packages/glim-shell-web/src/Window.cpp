@@ -14,6 +14,12 @@ void Window::setSize(int width, int height) {
     }
 }
 
+void Window::setPixelRatio(float ratio) {
+    if (ratio > 0.f) {
+        pixelRatio_ = ratio;
+    }
+}
+
 void Window::setTitle(const std::string& title) {
     title_ = title;
 }

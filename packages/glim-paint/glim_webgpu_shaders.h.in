@@ -1,0 +1,16 @@
+#pragma once
+
+namespace glim {
+namespace webgpu_shaders {
+
+inline constexpr const char solid[] = R"GLIMWGSL(@GLIM_SOLID_WGSL@)GLIMWGSL";
+inline constexpr const char blit[] = R"GLIMWGSL(@GLIM_BLIT_WGSL@)GLIMWGSL";
+inline constexpr const char rounded[] = R"GLIMWGSL(@GLIM_ROUNDED_WGSL@)GLIMWGSL";
+inline constexpr const char glyph[] = R"GLIMWGSL(@GLIM_GLYPH_WGSL@)GLIMWGSL";
+inline constexpr const char blur[] = R"GLIMWGSL(@GLIM_BLUR_WGSL@)GLIMWGSL";
+inline constexpr const char blur1d[] = R"GLIMWGSL(@GLIM_BLUR1D_WGSL@)GLIMWGSL";
+inline constexpr const char glass[] = R"GLIMWGSL(@GLIM_GLASS_WGSL@)GLIMWGSL";
+inline constexpr const char gradient[] = R"GLIMWGSL(@GLIM_GRADIENT_WGSL@)GLIMWGSL";
+
+}  // namespace webgpu_shaders
+}  // namespace glim
