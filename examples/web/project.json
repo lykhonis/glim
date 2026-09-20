@@ -1,0 +1,27 @@
+{
+  "name": "web",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/web",
+  "projectType": "application",
+  "tags": ["example"],
+  "targets": {
+    "build-web": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "web-webgpu-debug",
+        "target": "glim-web"
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-web"],
+      "cache": false,
+      "options": {
+        "preset": "web-webgpu-debug",
+        "browser": true,
+        "serveDir": "examples/web/serve",
+        "port": 8080
+      }
+    }
+  }
+}

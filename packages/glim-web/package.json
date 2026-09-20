@@ -1,0 +1,12 @@
+{
+  "name": "@glim/web",
+  "version": "0.1.0",
+  "description": "Framework-agnostic loader for Glim WebGPU canvas (no dependencies)",
+  "type": "module",
+  "main": "./js/glim.js",
+  "module": "./js/glim.js",
+  "types": "./js/glim.d.ts",
+  "files": ["js/"],
+  "license": "MIT",
+  "sideEffects": false
+}

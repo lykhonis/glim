@@ -1,0 +1,36 @@
+name: Web
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: CI
+        run: |
+          pnpm exec nx run examples:build-web
+      - name: Check staged bundle
+        run: |
+          test -f build/web-webgpu-debug/examples/web/serve/index.html
+          test -f build/web-webgpu-debug/examples/web/serve/main.js
+          test -f build/web-webgpu-debug/examples/web/serve/lib/glim.js
+          test -f build/web-webgpu-debug/examples/web/serve/glim.js
+          test -f build/web-webgpu-debug/examples/web/serve/glim.wasm

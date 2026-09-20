@@ -32,7 +32,22 @@
     "packageName": {
       "type": "string",
       "description": "Android applicationId (required when android is true)"
+    },
+    "browser": {
+      "type": "boolean",
+      "description": "If true, serve serveDir over HTTP and open it in a browser instead of running a binary"
+    },
+    "serveDir": {
+      "type": "string",
+      "description": "Directory to serve, relative to build/<preset>/ (required when browser is true)"
+    },
+    "port": {
+      "type": "number",
+      "description": "Port to serve on (default 8080)"
+    },
+    "open": {
+      "type": "boolean",
+      "description": "Open the browser automatically (default true)"
     }
-  },
-  "required": ["binary"]
+  }
 }

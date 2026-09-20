@@ -508,6 +508,39 @@ function runOnAndroid(options, apk) {
   return { success: launch.status === 0 };
 }
 
+function runInBrowser(root, preset, options) {
+  if (!options.serveDir) {
+    return fail("@glim/native:run with browser requires options.serveDir");
+  }
+  const dir = path.isAbsolute(options.serveDir)
+    ? options.serveDir
+    : path.join(root, "build", preset, options.serveDir);
+  if (!fs.existsSync(path.join(dir, "index.html"))) {
+    return fail(`missing index.html in ${dir} (build the example first)`);
+  }
+  const port = options.port || 8080;
+  const python = which("python3") || which("python");
+  if (!python) {
+    return fail("python3 not found (required to serve the web example)");
+  }
+  const url = `http://localhost:${port}/index.html`;
+  console.log(`Serving ${dir}\n  ${url}`);
+  if (options.open !== false) {
+    const opener = process.platform === "darwin" ? "open" : "xdg-open";
+    spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+  }
+  const r = spawnSync(python, ["-m", "http.server", String(port), "--directory", dir], {
+    stdio: "inherit",
+  });
+  if (r.error) {
+    return fail(r.error.message);
+  }
+  if (r.status !== 0) {
+    return fail(`server exited (port ${port} busy? retry with --port)`);
+  }
+  return { success: true };
+}
+
 function resolvePreset(preset) {
   if (process.platform === "linux") {
     if (!preset || /^macos-/.test(preset)) {
@@ -520,6 +553,9 @@ function resolvePreset(preset) {
 exports.default = async function runExecutor(options, context) {
   const root = context.root;
   const preset = resolvePreset(options.preset);
+  if (options.browser) {
+    return runInBrowser(root, preset, options);
+  }
   if (!options.binary) {
     return fail("@glim/native:run requires options.binary");
   }

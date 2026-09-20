@@ -27,6 +27,11 @@
       "executor": "nx:noop",
       "cache": false,
       "dependsOn": [{ "target": "build-android", "projects": "tag:example" }]
+    },
+    "build-web": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "build-web", "projects": "tag:example" }]
     }
   }
 }

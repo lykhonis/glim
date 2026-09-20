@@ -157,9 +157,22 @@
           { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
         ]
       }
+    },
+    {
+      "name": "web-webgpu-debug",
+      "displayName": "Web WebGPU Debug (Emscripten)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/web-webgpu-debug",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GLIM_GPU": "webgpu",
+        "GLIM_SHELL": "web"
+      }
     }
   ],
   "buildPresets": [
+    { "name": "web-webgpu-debug", "configurePreset": "web-webgpu-debug" },
     { "name": "macos-metal-debug", "configurePreset": "macos-metal-debug" },
     { "name": "macos-metal-release", "configurePreset": "macos-metal-release" },
     { "name": "ios-sim-metal-debug", "configurePreset": "ios-sim-metal-debug" },

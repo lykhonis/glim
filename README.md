@@ -9,6 +9,7 @@
 [![tvOS](https://github.com/lykhonis/glim/actions/workflows/tvos.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/tvos.yml)
 [![Linux](https://github.com/lykhonis/glim/actions/workflows/linux.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/linux.yml)
 [![Android](https://github.com/lykhonis/glim/actions/workflows/android.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/android.yml)
+[![Web](https://github.com/lykhonis/glim/actions/workflows/web.yml/badge.svg)](https://github.com/lykhonis/glim/actions/workflows/web.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A **modular UI stack**. Host, Graphics, and Toolkit are separate layers you can use, replace, or skip. One Scene graph carries paint, native views, and semantics — renderer, hit-test, and accessibility walk the same tree.
