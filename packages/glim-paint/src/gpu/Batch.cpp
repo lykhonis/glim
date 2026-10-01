@@ -45,11 +45,14 @@ void Renderer::Batch::clearAll() {
     glyphTex = nullptr;
 }
 
-void Renderer::Batch::flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats& stats) {
+void Renderer::Batch::flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                                 Blend blend) {
     if (solid.empty()) {
         return;
     }
-    pass.setPipeline(pipes.solid);
+    const gpu::Pipeline& pipe =
+        (blend == Blend::Plus && pipes.solidPlus.native()) ? pipes.solidPlus : pipes.solid;
+    pass.setPipeline(pipe);
     // 4 KB chunks: setBytes-style uploads stay within the fast path on both
     // backends (larger chunks risk heap-alloc fallback on Metal and dynamic
     // UBO alignment trouble on Vulkan). Raise only with device validation.
@@ -66,15 +69,20 @@ void Renderer::Batch::flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats&
     solid.clear();
 }
 
-void Renderer::Batch::flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stats& stats) {
+void Renderer::Batch::flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                                   Blend blend) {
     if (rounded.empty()) {
         return;
     }
-    if (!pipes.rounded.native()) {
+    const gpu::Pipeline* pipe = &pipes.rounded;
+    if (blend == Blend::Plus && pipes.roundedPlus.native()) {
+        pipe = &pipes.roundedPlus;
+    }
+    if (!pipe->native()) {
         rounded.clear();
         return;
     }
-    pass.setPipeline(pipes.rounded);
+    pass.setPipeline(*pipe);
     constexpr std::size_t kMax = 4096 / sizeof(RoundedInstance);
     std::size_t i = 0;
     while (i < rounded.size()) {
@@ -90,15 +98,20 @@ void Renderer::Batch::flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stat
     rounded.clear();
 }
 
-void Renderer::Batch::flushGradient(gpu::Pass& pass, const Pipelines& pipes, Stats& stats) {
+void Renderer::Batch::flushGradient(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                                     Blend blend) {
     if (gradient.empty()) {
         return;
     }
-    if (!pipes.gradient.native()) {
+    const gpu::Pipeline* pipe = &pipes.gradient;
+    if (blend == Blend::Plus && pipes.gradientPlus.native()) {
+        pipe = &pipes.gradientPlus;
+    }
+    if (!pipe->native()) {
         gradient.clear();
         return;
     }
-    pass.setPipeline(pipes.gradient);
+    pass.setPipeline(*pipe);
     constexpr std::size_t kMax = 4096 / sizeof(GradientInstance);
     std::size_t i = 0;
     while (i < gradient.size()) {
@@ -115,13 +128,15 @@ void Renderer::Batch::flushGradient(gpu::Pass& pass, const Pipelines& pipes, Sta
 }
 
 void Renderer::Batch::flushBlit(gpu::Pass& pass, const Pipelines& pipes, void* sampler,
-                                Stats& stats) {
+                                Stats& stats, Blend blend) {
     if (blit.empty() || !blitTex) {
         blit.clear();
         blitTex = nullptr;
         return;
     }
-    pass.setPipeline(pipes.blit);
+    const gpu::Pipeline& pipe =
+        (blend == Blend::Plus && pipes.blitPlus.native()) ? pipes.blitPlus : pipes.blit;
+    pass.setPipeline(pipe);
     pass.setFragmentTexture(0, blitTex);
     pass.setFragmentSampler(0, sampler);
     constexpr std::size_t kMax = 4096 / sizeof(BlitInstance);
@@ -139,13 +154,15 @@ void Renderer::Batch::flushBlit(gpu::Pass& pass, const Pipelines& pipes, void* s
 }
 
 void Renderer::Batch::flushGlyph(gpu::Pass& pass, const Pipelines& pipes, void* sampler,
-                                 Stats& stats) {
+                                  Stats& stats, Blend blend) {
     if (glyph.empty() || !glyphTex) {
         glyph.clear();
         glyphTex = nullptr;
         return;
     }
-    pass.setPipeline(pipes.glyph);
+    const gpu::Pipeline& pipe =
+        (blend == Blend::Plus && pipes.glyphPlus.native()) ? pipes.glyphPlus : pipes.glyph;
+    pass.setPipeline(pipe);
     pass.setFragmentTexture(0, glyphTex);
     pass.setFragmentSampler(0, sampler);
     constexpr std::size_t kMax = 4096 / sizeof(BlitInstance);
@@ -160,6 +177,15 @@ void Renderer::Batch::flushGlyph(gpu::Pass& pass, const Pipelines& pipes, void* 
     }
     glyph.clear();
     glyphTex = nullptr;
+}
+
+void Renderer::Batch::flushAll(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats,
+                               Blend blend) {
+    flushSolid(pass, pipes, stats, blend);
+    flushRounded(pass, pipes, stats, blend);
+    flushGradient(pass, pipes, stats, blend);
+    flushBlit(pass, pipes, sampler, stats, blend);
+    flushGlyph(pass, pipes, sampler, stats, blend);
 }
 
 }  // namespace glim::paint

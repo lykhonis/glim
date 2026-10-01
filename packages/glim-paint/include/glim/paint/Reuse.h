@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 
 #include <glim/math.h>
 #include <glim/paint/FramePacket.h>
@@ -52,12 +53,31 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// Persistent image fingerprints so consecutive structural hashes hash each
+// sampled image's bytes once, not once per frame. Slots in an ImageStore are
+// append-only and immutable, so id->content is stable; entries are validated
+// against the live slot (pointer + dimensions + byte size) so ids from a
+// different ImageStore never alias.
+struct SceneHashCache {
+    struct Entry {
+        const StoredImage* ptr = nullptr;
+        int w = 0;
+        int h = 0;
+        std::size_t bytes = 0;
+        std::uint64_t fp = 0;
+    };
+    std::unordered_map<std::uint32_t, Entry> images;
+};
+
 // Structural hash of the unmerged scene with translation normalized out.
 // outOrigin receives the content-bbox origin the hash is relative to.
 // outHasForeign/outHas3D report volatile content / 3D transforms (both
 // optional, may be nullptr).
 std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, Vec2* outOrigin = nullptr,
                                  bool* outHasForeign = nullptr, bool* outHas3D = nullptr);
+std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, SceneHashCache& cache,
+                                 Vec2* outOrigin = nullptr, bool* outHasForeign = nullptr,
+                                 bool* outHas3D = nullptr);
 
 FramePacket encodeWithReuse(const Scene& scene, ReuseCache& cache, float pixelRatio = 1.0f);
 

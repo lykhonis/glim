@@ -17,9 +17,12 @@
 #endif
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace glim::paint {
+
+struct SceneHashCache;
 
 class Renderer {
 public:
@@ -74,6 +77,11 @@ public:
         gpu::Pipeline blur1d{};
         gpu::Pipeline glass{};
         gpu::Pipeline gradient{};
+        gpu::Pipeline solidPlus{};
+        gpu::Pipeline roundedPlus{};
+        gpu::Pipeline blitPlus{};
+        gpu::Pipeline glyphPlus{};
+        gpu::Pipeline gradientPlus{};
         bool ready_ = false;
     };
     struct TextureCache {
@@ -86,11 +94,18 @@ public:
     };
     struct Batch {
         void clearAll();
-        void flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
-        void flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
-        void flushGradient(gpu::Pass& pass, const Pipelines& pipes, Stats& stats);
-        void flushBlit(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats);
-        void flushGlyph(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats);
+        void flushSolid(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                        Blend blend = Blend::SrcOver);
+        void flushRounded(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                          Blend blend = Blend::SrcOver);
+        void flushGradient(gpu::Pass& pass, const Pipelines& pipes, Stats& stats,
+                           Blend blend = Blend::SrcOver);
+        void flushBlit(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats,
+                       Blend blend = Blend::SrcOver);
+        void flushGlyph(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats,
+                        Blend blend = Blend::SrcOver);
+        void flushAll(gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats,
+                      Blend blend = Blend::SrcOver);
         std::vector<SolidInstance> solid;
         std::vector<RoundedInstance> rounded;
         std::vector<GradientInstance> gradient;
@@ -130,6 +145,14 @@ private:
     TargetPool targets_;
     TextureCache textures_;
     Batch batch_;
+    std::uint64_t lastHash_ = 0;
+    Vec2 lastOrigin{};
+    Vec2 lastLogical{};
+    float lastPrBucket_ = 0.f;
+    bool hasLast_ = false;
+#if !GLIM_EMBED
+    std::unique_ptr<SceneHashCache> hashCache_;
+#endif
 #else
     std::uint8_t* rgba_ = nullptr;
     int width_ = 0;

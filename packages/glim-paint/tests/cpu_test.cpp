@@ -196,6 +196,122 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    std::vector<std::uint8_t> plusBuf(static_cast<std::size_t>(w * h * 4), 0);
+    std::vector<std::uint8_t> overBuf(static_cast<std::size_t>(w * h * 4), 0);
+    {
+        glim::paint::Renderer overR(overBuf.data(), w, h);
+        ctx.beginFrame();
+        ctx.setFillColor(0x000000ff);
+        ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+        glim::paint::GroupParams g;
+        g.blend = glim::paint::Blend::SrcOver;
+        ctx.pushGroup(g);
+        ctx.setFillColor(0xffffff80);
+        ctx.fill(glim::Rect{{8.f, 8.f}, {24.f, 24.f}});
+        ctx.setFillColor(0xffffff80);
+        ctx.fill(glim::Rect{{16.f, 16.f}, {24.f, 24.f}});
+        ctx.popGroup();
+        ctx.finish();
+        overR.draw(ctx.scene());
+    }
+    {
+        glim::paint::Renderer plusR(plusBuf.data(), w, h);
+        ctx.beginFrame();
+        ctx.setFillColor(0x000000ff);
+        ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+        glim::paint::GroupParams g;
+        g.blend = glim::paint::Blend::Plus;
+        ctx.pushGroup(g);
+        ctx.setFillColor(0xffffff80);
+        ctx.fill(glim::Rect{{8.f, 8.f}, {24.f, 24.f}});
+        ctx.setFillColor(0xffffff80);
+        ctx.fill(glim::Rect{{16.f, 16.f}, {24.f, 24.f}});
+        ctx.popGroup();
+        ctx.finish();
+        plusR.draw(ctx.scene());
+    }
+    {
+        const std::size_t px = static_cast<std::size_t>((24 * w + 24) * 4);
+        const int dr = std::abs(static_cast<int>(plusBuf[px]) - static_cast<int>(overBuf[px]));
+        const int dg =
+            std::abs(static_cast<int>(plusBuf[px + 1]) - static_cast<int>(overBuf[px + 1]));
+        const int db =
+            std::abs(static_cast<int>(plusBuf[px + 2]) - static_cast<int>(overBuf[px + 2]));
+        if (dr + dg + db < 30) {
+            std::cerr << "plus overlap should differ from src-over\n";
+            return EXIT_FAILURE;
+        }
+        if (plusBuf[px] < overBuf[px] || plusBuf[px + 1] < overBuf[px + 1] ||
+            plusBuf[px + 2] < overBuf[px + 2]) {
+            std::cerr << "plus overlap should be brighter than src-over\n";
+            return EXIT_FAILURE;
+        }
+    }
+
+    std::fill(buf.begin(), buf.end(), 0);
+    ctx.beginFrame();
+    ctx.setFillColor(0xffffffff);
+    ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+    glim::paint::GroupParams shadowG;
+    glim::paint::ShadowBlur sb;
+    sb.sigma = 8.f;
+    sb.offset = {6.f, 6.f};
+    sb.color = glim::Color{0, 0, 0, 128};
+    shadowG.shadow = sb;
+    shadowG.bounds = glim::Rect{{8.f, 4.f}, {48.f, 32.f}};
+    ctx.pushGroup(shadowG);
+    ctx.setFillColor(0xff0000ff);
+    ctx.fillRounded(glim::Rect{{16.f, 8.f}, {24.f, 16.f}}, glim::Radius{4.f});
+    ctx.popGroup();
+    ctx.finish();
+    renderer.draw(ctx.scene());
+    {
+        const std::size_t cardC = static_cast<std::size_t>((16 * w + 28) * 4);
+        if (buf[cardC] < 180 || buf[cardC + 1] > 80 || buf[cardC + 2] > 80) {
+            std::cerr << "shadow card center should stay red\n";
+            return EXIT_FAILURE;
+        }
+        const std::size_t shPx = static_cast<std::size_t>((28 * w + 43) * 4);
+        if (buf[shPx] > 235 || buf[shPx + 1] > 235 || buf[shPx + 2] > 235) {
+            std::cerr << "offset shadow should darken background outside the card\n";
+            return EXIT_FAILURE;
+        }
+        if (buf[shPx] < 40 || buf[shPx + 1] < 40 || buf[shPx + 2] < 40) {
+            std::cerr << "shadow should be soft, not opaque black\n";
+            return EXIT_FAILURE;
+        }
+    }
+
+    std::fill(buf.begin(), buf.end(), 0);
+    ctx.beginFrame();
+    ctx.setFillColor(0x000000ff);
+    ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+    glim::paint::GroupParams contentG;
+    contentG.contentBlur = 8.f;
+    contentG.bounds = glim::Rect{{16.f, 8.f}, {32.f, 32.f}};
+    ctx.pushGroup(contentG);
+    ctx.setFillColor(0xffffffff);
+    ctx.fill(glim::Rect{{24.f, 16.f}, {16.f, 16.f}});
+    ctx.popGroup();
+    ctx.finish();
+    renderer.draw(ctx.scene());
+    {
+        const std::size_t center = static_cast<std::size_t>((24 * w + 32) * 4);
+        if (buf[center] < 150) {
+            std::cerr << "content blur center should stay bright\n";
+            return EXIT_FAILURE;
+        }
+        const std::size_t spill = static_cast<std::size_t>((23 * w + 23) * 4);
+        if (buf[spill] < 10) {
+            std::cerr << "content blur should spill light outside the rect\n";
+            return EXIT_FAILURE;
+        }
+        if (buf[spill] > 200) {
+            std::cerr << "content blur spill should be soft, not solid\n";
+            return EXIT_FAILURE;
+        }
+    }
+
     std::cout << "cpu_test ok\n";
     return EXIT_SUCCESS;
 }

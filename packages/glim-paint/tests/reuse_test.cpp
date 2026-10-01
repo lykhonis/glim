@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 namespace {
 
@@ -274,6 +275,92 @@ int main() {
         const glim::paint::FramePacket moved = cache.encode(b.scene(), 1.f);
         expect(moved.stats.reuseHits == 1, "translated scene hits");
         expect(moved.stats.dirtyTiles > 0, "moved content dirties tiles");
+    }
+
+    {
+        glim::paint::ReuseCache cache;
+        glim::paint::Context a;
+        recordCards(a, 0x00ff00ff);
+        cache.encode(a.scene(), 1.f);
+        glim::paint::Context b;
+        recordCards(b, 0x00ff00ff);
+        const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
+        expect(second.stats.dirtyTiles == 0, "identical frame has zero dirty tiles");
+        expect(second.dirtyRect.size.x <= 0.f || second.dirtyRect.size.y <= 0.f,
+               "identical frame has empty dirty rect");
+    }
+
+    {
+        glim::paint::ReuseCache cache;
+        glim::paint::Context a;
+        a.setSize({200, 120});
+        a.beginFrame();
+        a.setFillColor(0x111111ff);
+        a.fill(glim::Rect::fromSize({200, 120}));
+        a.setFillColor(0x00ff00ff);
+        a.fill(glim::Rect{{8, 8}, {20, 40}});
+        a.finish();
+        cache.encode(a.scene(), 1.f);
+        glim::paint::Context b;
+        b.setSize({200, 120});
+        b.beginFrame();
+        b.setFillColor(0x111111ff);
+        b.fill(glim::Rect::fromSize({200, 120}));
+        b.setFillColor(0xff0000ff);
+        b.fill(glim::Rect{{8, 8}, {20, 40}});
+        b.finish();
+        const glim::paint::FramePacket changed = cache.encode(b.scene(), 1.f);
+        expect(changed.stats.dirtyTiles > 0, "color change dirties tiles");
+        expect(changed.dirtyRect.size.x > 0.f && changed.dirtyRect.size.y > 0.f,
+               "color change has non-empty dirty rect");
+        expect(changed.dirtyRect.origin.x >= 0.f && changed.dirtyRect.origin.y >= 0.f,
+               "dirty rect stays in scene bounds");
+        expect(changed.dirtyRect.origin.x + changed.dirtyRect.size.x <= 200.f &&
+                   changed.dirtyRect.origin.y + changed.dirtyRect.size.y <= 120.f,
+               "dirty rect stays inside the scene");
+        expect(changed.dirtyRect.origin.x < 64.f && changed.dirtyRect.origin.y < 64.f,
+               "dirty rect covers the changed card");
+    }
+
+    // 10. Cached structural hash matches the uncached hash and memoizes
+    // image fingerprints across frames.
+    {
+        glim::paint::Context a;
+        a.setSize({64, 64});
+        a.beginFrame();
+        std::vector<std::uint8_t> px(4 * 4 * 4, 128);
+        const std::uint32_t img = a.addImage(4, 4, px.data());
+        a.blit(glim::Rect{{8, 8}, {16, 16}}, glim::paint::Matter::sampled(img));
+        a.finish();
+        const std::uint64_t plain = glim::paint::hashSceneStructure(a.scene(), 1.f);
+        glim::paint::SceneHashCache cache;
+        const std::uint64_t first = glim::paint::hashSceneStructure(a.scene(), 1.f, cache);
+        expect(first == plain, "cached hash matches uncached hash");
+        expect(!cache.images.empty(), "cached hash memoizes image fingerprints");
+        const std::uint64_t second = glim::paint::hashSceneStructure(a.scene(), 1.f, cache);
+        expect(second == plain, "memoized hash stays stable across frames");
+    }
+
+    // 11. Fingerprint cache never aliases ids across ImageStores.
+    {
+        auto recordSwatch = [](glim::paint::Context& ctx, std::uint8_t v) {
+            ctx.setSize({64, 64});
+            ctx.beginFrame();
+            std::vector<std::uint8_t> px(2 * 2 * 4, v);
+            const std::uint32_t img = ctx.addImage(2, 2, px.data());
+            ctx.blit(glim::Rect{{8, 8}, {16, 16}}, glim::paint::Matter::sampled(img));
+            ctx.finish();
+        };
+        glim::paint::Context a;
+        recordSwatch(a, 10);
+        glim::paint::Context b;
+        recordSwatch(b, 200);
+        glim::paint::SceneHashCache cache;
+        const std::uint64_t ha = glim::paint::hashSceneStructure(a.scene(), 1.f, cache);
+        const std::uint64_t hb = glim::paint::hashSceneStructure(b.scene(), 1.f, cache);
+        expect(ha != hb, "same image id with different bytes hashes differently");
+        const std::uint64_t plainB = glim::paint::hashSceneStructure(b.scene(), 1.f);
+        expect(hb == plainB, "shared cache does not corrupt later hashes");
     }
 
     if (failures != 0) {

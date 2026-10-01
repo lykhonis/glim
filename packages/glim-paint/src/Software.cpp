@@ -27,7 +27,28 @@ void srcOver(Pixel& dst, Pixel src) {
     dst.a = src.a + dst.a * ia;
 }
 
-void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
+void plus(Pixel& dst, Pixel src) {
+    dst.r += src.r;
+    dst.g += src.g;
+    dst.b += src.b;
+    dst.a += src.a;
+}
+
+inline void blendPixel(Pixel& dst, Pixel src, Blend blend) {
+    if (blend == Blend::Plus) {
+        plus(dst, src);
+    } else {
+        srcOver(dst, src);
+    }
+}
+
+inline Blend quadBlend(const Quad& q, Blend fallback) {
+    return (fallback == Blend::Plus || q.plus != 0) ? Blend::Plus : Blend::SrcOver;
+}
+
+void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q,
+              Blend fallback = Blend::SrcOver) {
+    const Blend blend = quadBlend(q, fallback);
     const float qx0 = q.x;
     const float qy0 = q.y;
     const float qx1 = q.x + q.w;
@@ -42,7 +63,7 @@ void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
     const bool opaque = q.a >= 0.999f;
     const bool aligned = qx0 == static_cast<float>(x0) && qy0 == static_cast<float>(y0) &&
                          qx1 == static_cast<float>(x1) && qy1 == static_cast<float>(y1);
-    if (opaque && aligned) {
+    if (opaque && aligned && blend == Blend::SrcOver) {
         const Pixel src{q.r, q.g, q.b, 1.f};
         for (int y = y0; y < y1; ++y) {
             Pixel* row = buf.data() + static_cast<std::size_t>(y * w + x0);
@@ -67,21 +88,27 @@ void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q) {
                 continue;
             }
             Pixel src{q.r * cov, q.g * cov, q.b * cov, q.a * cov};
-            srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
+            blendPixel(buf[static_cast<std::size_t>(y * w + x)], src, blend);
         }
     }
 }
 
-void fillQuads(std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& quads) {
+void fillQuads(std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& quads,
+               Blend fallback = Blend::SrcOver) {
     for (const Quad& q : quads) {
-        fillQuad(buf, w, h, q);
+        fillQuad(buf, w, h, q, fallback);
     }
 }
 
 // CPU mirror of the gradient fragment shader: same t, same piecewise-linear
 // stops, same coverage multiply. Evaluated at pixel centers; the quad rect
 // overlap supplies analytic coverage like fillQuad.
-void fillGradientQuad(std::vector<Pixel>& buf, int w, int h, const GradientQuad& q) {
+inline Blend gradientBlend(const GradientQuad& q, Blend fallback) {
+    return (fallback == Blend::Plus || q.plus != 0) ? Blend::Plus : Blend::SrcOver;
+}
+
+void fillGradientQuad(std::vector<Pixel>& buf, int w, int h, const GradientQuad& q,
+                      Blend fallback = Blend::SrcOver) {
     const int n = static_cast<int>(q.stopCount);
     if (n <= 0 || w <= 0 || h <= 0) {
         return;
@@ -145,14 +172,16 @@ void fillGradientQuad(std::vector<Pixel>& buf, int w, int h, const GradientQuad&
                 ca += (q.a[i] - ca) * f;
             }
             Pixel src{cr * cov, cg * cov, cb * cov, ca * cov};
-            srcOver(buf[static_cast<std::size_t>(y * w + x)], src);
+            blendPixel(buf[static_cast<std::size_t>(y * w + x)], src,
+                       gradientBlend(q, fallback));
         }
     }
 }
 
-void fillGradients(std::vector<Pixel>& buf, int w, int h, const std::vector<GradientQuad>& grads) {
+void fillGradients(std::vector<Pixel>& buf, int w, int h, const std::vector<GradientQuad>& grads,
+                   Blend fallback = Blend::SrcOver) {
     for (const GradientQuad& q : grads) {
-        fillGradientQuad(buf, w, h, q);
+        fillGradientQuad(buf, w, h, q, fallback);
     }
 }
 
@@ -232,7 +261,7 @@ float sampleChannel(const StoredImage& img, float u, float v, int channel) {
 }
 
 void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const ImageStore& images,
-               Vec4 tint, const ClipState& clip, bool sdf) {
+               Vec4 tint, const ClipState& clip, bool sdf, Blend blend = Blend::SrcOver) {
     const StoredImage* img = images.get(b.matter.imageId);
     if (!img || img->rgba.empty()) {
         return;
@@ -285,7 +314,7 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
             src.g *= cov;
             src.b *= cov;
             src.a *= cov;
-            srcOver(dest[static_cast<std::size_t>(y * w + x)], src);
+            blendPixel(dest[static_cast<std::size_t>(y * w + x)], src, blend);
         }
     }
 }
@@ -936,8 +965,10 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         g,
         [&](const Shape& s) {
             const Shape xf = transformShape(world, s);
+            const Blend blend = g.params.blend;
             if (const auto* blit = std::get_if<Blit>(&xf)) {
-                blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip, false);
+                blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip, false,
+                          blend);
                 return;
             }
             if (std::get_if<SlotHole>(&xf)) {
@@ -954,7 +985,8 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
                     b.matter.kind = MatterKind::Sampled;
                     b.matter.imageId = q.imageId;
                     b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-                    blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0);
+                    blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0,
+                              blend);
                 }
                 return;
             }
@@ -962,8 +994,8 @@ void paintShapes(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             std::vector<BlitQuad> unused;
             std::vector<GradientQuad> grads;
             appendShape(quads, unused, grads, xf, clip);
-            fillQuads(dest, w, h, quads);
-            fillGradients(dest, w, h, grads);
+            fillQuads(dest, w, h, quads, blend);
+            fillGradients(dest, w, h, grads, blend);
         },
         [&](const Group& child) {
             const bool backdrop = hasBackdrop(child);
@@ -995,12 +1027,18 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
     if (needsIsolate(g)) {
         const bool backdrop = hasBackdrop(g);
         const bool glassWork = hasGlassWork(g);
+        const bool shadow = hasShadow(g);
+        const bool content = hasContentBlur(g);
         const bool explicitBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
         const Rect surface = glassWork ? glassSurface(g)
-                                       : (explicitBounds ? g.params.bounds : contentBounds(g));
+                                       : (hasBackdrop(g) ? backdropSurface(g)
+                                                         : ((shadow || content) ? shadowContentSurface(g)
+                                                         : (explicitBounds ? g.params.bounds
+                                                                           : contentBounds(g))));
         const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
-        const int iw = isolatePixelSize(surface.size.x, pr);
-        const int ih = isolatePixelSize(surface.size.y, pr);
+        const float effPr = useHalfIsolate(g) ? pr * 0.5f : pr;
+        const int iw = isolatePixelSize(surface.size.x, effPr);
+        const int ih = isolatePixelSize(surface.size.y, effPr);
         std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
         const Rect xf = transformRect(world, surface);
         if (glassWork) {
@@ -1040,6 +1078,7 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         local->params.opacity = 1.0f;
         local->params.isolate = false;
         clearBackdropParams(local->params);
+        clearShadowParams(local->params);
         local->params.transform = Mat4::identity();
         if (backdrop) {
             dropBackdropPills(*local);
@@ -1050,8 +1089,40 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
         if (!hasClip(local->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
             local->params.clip = Rect{{0, 0}, surface.size};
         }
-        const Mat4 localX = Mat4::scale(pr, pr) * Mat4::translate(-surface.origin.x, -surface.origin.y);
-        paintShapes(tmp, iw, ih, *local, images, localX, clipOf(local->params, localX), pr);
+        const Mat4 localX =
+            Mat4::scale(effPr, effPr) * Mat4::translate(-surface.origin.x, -surface.origin.y);
+        const ClipState localClip = clipOf(local->params, localX);
+        if (shadow || content) {
+            std::vector<Pixel> card(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
+            paintShapes(card, iw, ih, *local, images, localX, localClip, effPr);
+            if (content) {
+                const float csigma = snapContentSigma(g.params.contentBlur) * effPr * 0.5f;
+                blurCheap(card, iw, ih, csigma);
+            }
+            if (shadow && g.params.shadow.has_value()) {
+                const ShadowBlur& sb = *g.params.shadow;
+                const Vec4 tint = sb.color.premul();
+                std::vector<Pixel> sh(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
+                for (std::size_t i = 0; i < card.size() && i < sh.size(); ++i) {
+                    const float a = card[i].a;
+                    if (a > 1e-5f) {
+                        sh[i].r = tint.x * a;
+                        sh[i].g = tint.y * a;
+                        sh[i].b = tint.z * a;
+                        sh[i].a = tint.w * a;
+                    }
+                }
+                const float ssigma = snapShadowSigma(sb.sigma) * effPr * 0.5f;
+                blurCheap(sh, iw, ih, ssigma);
+                const Rect shRect{{xf.origin.x + sb.offset.x, xf.origin.y + sb.offset.y}, xf.size};
+                blitBuffer(dest, w, h, sh, iw, ih, shRect, 1.f);
+            }
+            for (std::size_t i = 0; i < card.size() && i < tmp.size(); ++i) {
+                srcOver(tmp[i], card[i]);
+            }
+        } else {
+            paintShapes(tmp, iw, ih, *local, images, localX, localClip, effPr);
+        }
         blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
         return;
     }
@@ -1069,7 +1140,8 @@ void paintBlits(std::vector<Pixel>& dest, int w, int h, const std::vector<BlitQu
         b.matter.kind = MatterKind::Sampled;
         b.matter.imageId = q.imageId;
         b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, {}, q.sdf != 0);
+        const Blend blend = q.plus != 0 ? Blend::Plus : Blend::SrcOver;
+        blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, {}, q.sdf != 0, blend);
     }
 }
 
@@ -1113,8 +1185,39 @@ void rasterIsolate(std::vector<Pixel>& dest, int w, int h, const Isolate& iso, c
             maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
         }
     }
-    paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.gradients, iso.isolates,
-               images, pixelRatio);
+    if (iso.hasShadow || iso.contentSigma > 0.f) {
+        std::vector<Pixel> card(static_cast<std::size_t>(iso.contentW * iso.contentH),
+                                Pixel{0, 0, 0, 0});
+        paintQuads(card, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.gradients,
+                   iso.isolates, images, pixelRatio);
+        if (iso.contentSigma > 0.f) {
+            blurCheap(card, iso.contentW, iso.contentH, iso.contentSigma * pixelRatio * 0.5f);
+        }
+        if (iso.hasShadow) {
+            const Vec4 tint = iso.shadow.color.premul();
+            std::vector<Pixel> sh(static_cast<std::size_t>(iso.contentW * iso.contentH),
+                                  Pixel{0, 0, 0, 0});
+            for (std::size_t i = 0; i < card.size() && i < sh.size(); ++i) {
+                const float a = card[i].a;
+                if (a > 1e-5f) {
+                    sh[i].r = tint.x * a;
+                    sh[i].g = tint.y * a;
+                    sh[i].b = tint.z * a;
+                    sh[i].a = tint.w * a;
+                }
+            }
+            blurCheap(sh, iso.contentW, iso.contentH, iso.shadow.sigma * pixelRatio * 0.5f);
+            const Rect shRect{{iso.destX + iso.shadow.offset.x, iso.destY + iso.shadow.offset.y},
+                              {iso.destW, iso.destH}};
+            blitBuffer(dest, w, h, sh, iso.contentW, iso.contentH, shRect, 1.f);
+        }
+        for (std::size_t i = 0; i < card.size() && i < tmp.size(); ++i) {
+            srcOver(tmp[i], card[i]);
+        }
+    } else {
+        paintQuads(tmp, iso.contentW, iso.contentH, iso.quads, iso.blits, iso.gradients,
+                   iso.isolates, images, pixelRatio);
+    }
     blitBuffer(dest, w, h, tmp, iso.contentW, iso.contentH,
                Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}}, iso.opacity);
 }

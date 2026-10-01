@@ -17,6 +17,7 @@ struct Quad {
     float g = 0;
     float b = 0;
     float a = 0;
+    std::uint8_t plus = 0;
 };
 
 struct BlitQuad {
@@ -34,6 +35,7 @@ struct BlitQuad {
     float a = 1;
     std::uint32_t imageId = 0;
     std::uint8_t sdf = 0;
+    std::uint8_t plus = 0;
 };
 
 // One coverage-weighted span of a gradient-filled shape, in the same logical
@@ -51,6 +53,7 @@ struct GradientQuad {
     float p1x = 0;
     float p1y = 0;
     float radius = 0;
+    std::uint8_t plus = 0;
     std::uint8_t stopCount = 0;
     float offsets[kMaxGradientStops]{};
     float r[kMaxGradientStops]{};
@@ -81,6 +84,9 @@ struct Isolate {
     float backdropV1 = 1;
     bool backdropFlat = false;
     std::vector<BackdropPill> backdropPills;
+    bool hasShadow = false;
+    ShadowBlur shadow{};
+    float contentSigma = 0.f;
     bool hasGlass = false;
     bool glassContainer = false;
     Glass glass{};
@@ -103,6 +109,7 @@ struct FramePacket {
     std::vector<Isolate> isolates;
     ImageStore images;
     Stats stats;
+    Rect dirtyRect{};
 };
 
 FramePacket encode(const Scene& scene, float pixelRatio = 1.0f);

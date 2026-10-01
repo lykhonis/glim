@@ -21,7 +21,17 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     setProjection(pass, projection);
 
     batch_.clearAll();
+    Blend curSolid = Blend::SrcOver;
+    bool solidInit = false;
     for (const Quad& q : quads) {
+        const Blend qb = q.plus != 0 ? Blend::Plus : Blend::SrcOver;
+        if (!solidInit) {
+            curSolid = qb;
+            solidInit = true;
+        } else if (qb != curSolid && !batch_.solid.empty()) {
+            batch_.flushSolid(pass, pipes_, stats_, curSolid);
+            curSolid = qb;
+        }
         SolidInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -33,11 +43,23 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         inst.color[3] = q.a;
         batch_.solid.push_back(inst);
     }
-    batch_.flushSolid(pass, pipes_, stats_);
+    if (!batch_.solid.empty()) {
+        batch_.flushSolid(pass, pipes_, stats_, curSolid);
+    }
 
+    Blend curGrad = Blend::SrcOver;
+    bool gradInit = false;
     for (const GradientQuad& q : gradients) {
         if (q.w <= 0.f || q.h <= 0.f || q.coverage <= 1e-4f || q.stopCount == 0) {
             continue;
+        }
+        const Blend qb = q.plus != 0 ? Blend::Plus : Blend::SrcOver;
+        if (!gradInit) {
+            curGrad = qb;
+            gradInit = true;
+        } else if (qb != curGrad && !batch_.gradient.empty()) {
+            batch_.flushGradient(pass, pipes_, stats_, curGrad);
+            curGrad = qb;
         }
         GradientInstance inst{};
         inst.rect[0] = q.x;
@@ -61,13 +83,18 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         }
         batch_.gradient.push_back(inst);
     }
-    batch_.flushGradient(pass, pipes_, stats_);
+    if (!batch_.gradient.empty()) {
+        batch_.flushGradient(pass, pipes_, stats_, curGrad);
+    }
 
-    auto pushSampled = [this, &pass](const BlitQuad& q) {
+    Blend curBlit = Blend::SrcOver;
+    Blend curGlyph = Blend::SrcOver;
+    auto pushSampled = [this, &pass, &curBlit, &curGlyph](const BlitQuad& q) {
         void* tex = textures_.get(q.imageId);
         if (!tex) {
             return;
         }
+        const Blend qb = q.plus != 0 ? Blend::Plus : Blend::SrcOver;
         BlitInstance inst{};
         inst.rect[0] = q.x;
         inst.rect[1] = q.y;
@@ -82,17 +109,33 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
         inst.extra[2] = q.b;
         inst.extra[3] = q.a;
         if (q.sdf) {
-            batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_);
+            if (!batch_.glyph.empty() && qb != curGlyph) {
+                batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, curGlyph);
+                curGlyph = qb;
+            } else if (batch_.glyph.empty()) {
+                curGlyph = qb;
+            }
+            if (!batch_.blit.empty()) {
+                batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, curBlit);
+            }
             if (batch_.glyphTex && batch_.glyphTex != tex) {
-                batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_);
+                batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, curGlyph);
             }
             batch_.glyphTex = tex;
             batch_.glyph.push_back(inst);
             return;
         }
-        batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_);
+        if (!batch_.blit.empty() && qb != curBlit) {
+            batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, curBlit);
+            curBlit = qb;
+        } else if (batch_.blit.empty()) {
+            curBlit = qb;
+        }
+        if (!batch_.glyph.empty()) {
+            batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, curGlyph);
+        }
         if (batch_.blitTex && batch_.blitTex != tex) {
-            batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_);
+            batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, curBlit);
         }
         batch_.blitTex = tex;
         batch_.blit.push_back(inst);
@@ -100,8 +143,16 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
     for (const BlitQuad& q : blits) {
         pushSampled(q);
     }
-    batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_);
-    batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_);
+    if (!batch_.blit.empty()) {
+        batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, curBlit);
+    } else {
+        batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, Blend::SrcOver);
+    }
+    if (!batch_.glyph.empty()) {
+        batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, curGlyph);
+    } else {
+        batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, Blend::SrcOver);
+    }
 
     bool glassFrozen = false;
     bool snapshotted = false;
@@ -268,11 +319,66 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
                              iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH));
         submitLayer(encoder, iso.quads, iso.blits, iso.gradients, iso.isolates, localProj,
                     iso.contentW, iso.contentH, ft->native(), plateLoad);
+        if (iso.contentSigma > 0.f && pipes_.blur1d.native()) {
+            const float pr =
+                iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
+            const float csigma = iso.contentSigma * pr * 0.5f;
+            if (csigma > 0.01f) {
+                void* blurred =
+                    blurGlass(encoder, pipes_, device_.nativeSampler(), device_, targets_,
+                              ft->native(), iso.contentW, iso.contentH, 0.f, 0.f, 1.f, 1.f, csigma,
+                              &stats_);
+                if (blurred) {
+                    blitTexture(encoder, pipes_, device_.nativeSampler(), stats_, ft->native(),
+                                iso.contentW, iso.contentH, blurred, 0.f, 0.f,
+                                static_cast<float>(iso.contentW), static_cast<float>(iso.contentH),
+                                0.f, 0.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f);
+                }
+            }
+            ++stats_.contentBlurCount;
+        }
 
         passDesc.load = gpu::LoadOp::Load;
         passDesc.nativeColor = nativeColor;
         pass = encoder.beginPass(passDesc);
         setProjection(pass, projection);
+        if (iso.hasShadow) {
+            const float pr =
+                iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
+            const float ssigma = iso.shadow.sigma * pr * 0.5f;
+            void* shadowTex = ft->native();
+            if (ssigma > 0.01f && pipes_.blur1d.native()) {
+                void* blurred =
+                    blurGlass(encoder, pipes_, device_.nativeSampler(), device_, targets_,
+                              ft->native(), iso.contentW, iso.contentH, 0.f, 0.f, 1.f, 1.f, ssigma,
+                              &stats_);
+                if (blurred) {
+                    shadowTex = blurred;
+                }
+            }
+            const Vec4 tint = iso.shadow.color.premul();
+            BlitInstance sh{};
+            sh.rect[0] = iso.destX + iso.shadow.offset.x;
+            sh.rect[1] = iso.destY + iso.shadow.offset.y;
+            sh.rect[2] = iso.destW;
+            sh.rect[3] = iso.destH;
+            sh.uv[0] = 0.f;
+            sh.uv[1] = 0.f;
+            sh.uv[2] = isoU1;
+            sh.uv[3] = isoV1;
+            sh.extra[0] = tint.x;
+            sh.extra[1] = tint.y;
+            sh.extra[2] = tint.z;
+            sh.extra[3] = tint.w;
+            pass.setPipeline(pipes_.blit);
+            pass.setBytes(0, &sh, sizeof(sh));
+            pass.setFragmentTexture(0, shadowTex);
+            pass.setFragmentSampler(0, device_.nativeSampler());
+            pass.draw(6, 1, 0, 0);
+            stats_.draws += 1;
+            stats_.instances += 1;
+            ++stats_.shadowPassCount;
+        }
         BlitInstance blit{};
         blit.rect[0] = iso.destX;
         blit.rect[1] = iso.destY;
@@ -301,6 +407,11 @@ void Renderer::submitLayer(gpu::CommandEncoder& encoder, const std::vector<Quad>
 void Renderer::submit(const FramePacket& packet) {
     const auto t0 = std::chrono::steady_clock::now();
     stats_ = packet.stats;
+    if (packet.stats.reuseHits == 1 && packet.stats.dirtyTiles == 0) {
+        stats_.encodeMs =
+            std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        return;
+    }
     if (!pipes_.ensure(device_)) {
         return;
     }

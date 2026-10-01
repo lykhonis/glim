@@ -2,6 +2,8 @@
 
 #if GLIM_SOFTWARE
 #include <glim/paint/Software.h>
+#else
+#include <glim/paint/Reuse.h>
 #endif
 
 namespace glim::paint {

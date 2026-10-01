@@ -19,17 +19,18 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     Isolate iso;
     iso.opacity = g.params.opacity;
     const bool glassWork = hasGlassWork(g);
+    const bool shadow = hasShadow(g);
+    const bool content = hasContentBlur(g);
     GLIM_ASSERT(!(hasBackdrop(g) && glassWork), "a Group cannot be both backdrop and glass");
-    // If both are ever set (release build), glass wins: same precedence as the
-    // Renderer path. Backdrop and glass never share one isolate.
     const bool explicitBounds =
         g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
     const Rect surface = glassWork ? glassSurface(g)
                                    : (hasBackdrop(g) ? backdropSurface(g)
+                                                     : ((shadow || content) ? shadowContentSurface(g)
                                                      : (explicitBounds ? g.params.bounds
-                                                                       : contentBounds(g)));
-    iso.contentW = isolatePixelSize(surface.size.x, pixelRatio);
-    iso.contentH = isolatePixelSize(surface.size.y, pixelRatio);
+                                                                       : contentBounds(g))));
+    iso.contentW = isolatePixelSizeFor(g, surface.size.x, pixelRatio);
+    iso.contentH = isolatePixelSizeFor(g, surface.size.y, pixelRatio);
     const Rect dest = transformRect(extra * g.params.transform, surface);
     iso.destX = dest.origin.x;
     iso.destY = dest.origin.y;
@@ -59,6 +60,20 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
         iso.backdropV0 = dest.origin.y / logicalSize.y;
         iso.backdropU1 = (dest.origin.x + dest.size.x) / logicalSize.x;
         iso.backdropV1 = (dest.origin.y + dest.size.y) / logicalSize.y;
+    }
+    iso.hasShadow = shadow;
+    if (shadow && g.params.shadow.has_value()) {
+        iso.shadow = *g.params.shadow;
+        iso.shadow.sigma = snapShadowSigma(iso.shadow.sigma);
+    }
+    iso.contentSigma = snapContentSigma(g.params.contentBlur);
+    if (stats) {
+        if (shadow) {
+            ++stats->shadowPassCount;
+        }
+        if (content) {
+            ++stats->contentBlurCount;
+        }
     }
     if (glassWork) {
         iso.hasGlass = hasGlass(g) || isGlassContainer(g);
@@ -96,6 +111,7 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     local.params.opacity = 1.f;
     local.params.isolate = false;
     clearBackdropParams(local.params);
+    clearShadowParams(local.params);
     local.params.transform = Mat4::identity();
     if (hasBackdrop(g)) {
         dropBackdropPills(local);
@@ -116,11 +132,25 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
     return iso;
 }
 
+void markPlus(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
+              std::vector<GradientQuad>& grads, std::size_t nq, std::size_t nb, std::size_t ng) {
+    for (std::size_t i = nq; i < quads.size(); ++i) {
+        quads[i].plus = 1;
+    }
+    for (std::size_t i = nb; i < blits.size(); ++i) {
+        blits[i].plus = 1;
+    }
+    for (std::size_t i = ng; i < grads.size(); ++i) {
+        grads[i].plus = 1;
+    }
+}
+
 void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
                 std::vector<GradientQuad>& gradients, std::vector<Isolate>& isolates, const Group& g,
                 const Mat4& extra, const ClipState& parentClip, Stats* stats, float pixelRatio,
                 Vec2 logicalSize) {
     const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
+    const bool isPlus = g.params.blend == Blend::Plus;
     bool seenBackdrop = false;
     bool afterBackdrop = false;
     bool seenGlass = false;
@@ -133,13 +163,20 @@ void encodeTree(std::vector<Quad>& quads, std::vector<BlitQuad>& blits,
                 wrap.shapes.push_back(transformShape(extra, s));
                 wrap.order.push_back({GroupItem::Shape, 0});
                 wrap.params.bounds = contentBounds(wrap);
+                wrap.params.blend = g.params.blend;
                 isolates.push_back(encodeIsolate(wrap, Mat4::identity(), pixelRatio, logicalSize, stats));
                 if (stats) {
                     ++stats->isolateCount;
                 }
                 return;
             }
+            const std::size_t nq = quads.size();
+            const std::size_t nb = blits.size();
+            const std::size_t ng = gradients.size();
             appendShape(quads, blits, gradients, transformShape(extra, s), clip);
+            if (isPlus) {
+                markPlus(quads, blits, gradients, nq, nb, ng);
+            }
         },
         [&](const Group& child) {
             const bool backdrop = hasBackdrop(child);
@@ -187,6 +224,8 @@ FramePacket encode(const Scene& scene, float pixelRatio) {
     packet.stats.instances = static_cast<unsigned>(packet.quads.size() + packet.blits.size() +
                                                    packet.gradients.size());
     packet.stats.tileCount = static_cast<unsigned>(coarseTileCount(scene.logicalSize, pixelRatio));
+    packet.stats.dirtyTiles = packet.stats.tileCount;
+    packet.dirtyRect = {{0.f, 0.f}, scene.logicalSize};
     return packet;
 }
 

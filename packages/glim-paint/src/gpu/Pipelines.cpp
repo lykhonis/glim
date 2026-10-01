@@ -196,10 +196,6 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
         return true;
     }
     gpu::PipelineDesc pd;
-    // Follow-up: per-blend pipelines. merge() now groups both-Plus, but every
-    // content pipeline below is created SrcOver, so Plus still draws as
-    // SrcOver. A Plus pipeline family (solid/rounded/blit/glyph) plus a blend
-    // switch on flush is needed to make Plus visually correct.
     pd.blend = gpu::Blend::SrcOver;
     const struct Entry {
         const char* name;
@@ -210,7 +206,16 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
         {"glyph", true, &glyph},     {"blur", true, &blur},     {"blur1d", true, &blur1d},
         {"glass", true, &glass},     {"gradient", false, &gradient},
     };
-    for (const Entry& e : entries) {
+    struct Cached {
+        const char* name;
+        gpu::Handle vs = 0;
+        gpu::Handle fs = 0;
+        bool vsOk = false;
+        bool fsOk = false;
+    };
+    Cached cached[8]{};
+    for (std::size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); ++i) {
+        const Entry& e = entries[i];
         auto vs = makeVertex(device, e.name);
         auto fs = makeFragment(device, e.name);
         if (!vs.ok() || !fs.ok()) {
@@ -219,8 +224,56 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
             }
             return false;
         }
+        cached[i].name = e.name;
+        cached[i].vs = vs->handle();
+        cached[i].fs = fs->handle();
+        cached[i].vsOk = true;
+        cached[i].fsOk = true;
         pd.vertexShader = vs->handle();
         pd.fragmentShader = fs->handle();
+        auto pipe = device.createPipeline(pd);
+        if (!pipe.ok()) {
+            if (!e.required) {
+                continue;
+            }
+            return false;
+        }
+        *e.out = std::move(pipe.value());
+    }
+    pd.blend = gpu::Blend::Plus;
+    const struct Entry plusEntries[] = {
+        {"solid", true, &solidPlus},
+        {"blit", true, &blitPlus},
+        {"rounded", false, &roundedPlus},
+        {"glyph", true, &glyphPlus},
+        {"gradient", false, &gradientPlus},
+    };
+    for (const Entry& e : plusEntries) {
+        gpu::Handle vsH = 0;
+        gpu::Handle fsH = 0;
+        bool found = false;
+        for (const Cached& c : cached) {
+            if (c.name && std::strcmp(c.name, e.name) == 0 && c.vsOk && c.fsOk) {
+                vsH = c.vs;
+                fsH = c.fs;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            auto vs = makeVertex(device, e.name);
+            auto fs = makeFragment(device, e.name);
+            if (!vs.ok() || !fs.ok()) {
+                if (!e.required) {
+                    continue;
+                }
+                return false;
+            }
+            vsH = vs->handle();
+            fsH = fs->handle();
+        }
+        pd.vertexShader = vsH;
+        pd.fragmentShader = fsH;
         auto pipe = device.createPipeline(pd);
         if (!pipe.ok()) {
             if (!e.required) {

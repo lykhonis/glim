@@ -166,6 +166,13 @@ inline void Matter::setGradientStops(const GradientStop* stops, int count) {
     color = gradientStops[0].color;
 }
 
+struct ShadowBlur {
+    float sigma = 0.f;
+    Vec2 offset{};
+    Color color{0, 0, 0, 128};
+    float expandPx = 0.f;
+};
+
 struct GroupParams {
     float opacity = 1.0f;
     Mat4 transform = Mat4::identity();
@@ -184,6 +191,8 @@ struct GroupParams {
     bool backdropFlat = false;
     std::optional<Glass> glass;
     bool glassContainer = false;
+    std::optional<ShadowBlur> shadow;
+    float contentBlur = 0.f;
     std::uint32_t semantic = 0;
 };
 
@@ -315,19 +324,28 @@ struct Stats {
     unsigned backdropCount = 0;
     unsigned glassPassCount = 0;
     unsigned glassPillCount = 0;
-    // Raster reuse (Renderer-internal; Phase 2+). Zero when reuse is off.
-    unsigned reuseHits = 0;    // cached encode reused (exact or translation-only)
-    unsigned reuseMisses = 0;  // full merge+encode performed
-    unsigned dirtyTiles = 0;   // tiles re-encoded this frame (tile dirtying, later)
+    unsigned reuseHits = 0;
+    unsigned reuseMisses = 0;
+    unsigned dirtyTiles = 0;
+    unsigned shadowPassCount = 0;
+    unsigned contentBlurCount = 0;
 };
 
 float snapBackdropSigma(float sigma);
 int isolatePixelSize(float logical, float pixelRatio);
+bool useHalfIsolate(const Group&);
+int isolatePixelSizeFor(const Group&, float logical, float pixelRatio);
 Rect backdropSurface(const Group&);
 int collectBackdropPills(const Group&, BackdropPill* out);
 void dropBackdropPills(Group&);
 void clearBackdropParams(GroupParams&);
 bool hasBackdrop(const Group&);
+bool hasShadow(const Group&) noexcept;
+bool hasContentBlur(const Group&) noexcept;
+float snapShadowSigma(float sigma);
+float snapContentSigma(float sigma);
+Rect shadowContentSurface(const Group&);
+void clearShadowParams(GroupParams&);
 bool hasGlass(const Group&) noexcept;
 bool isGlassContainer(const Group&) noexcept;
 bool hasGlassWork(const Group&) noexcept;

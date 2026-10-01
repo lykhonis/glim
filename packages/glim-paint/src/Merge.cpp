@@ -288,8 +288,59 @@ int isolatePixelSize(float logical, float pixelRatio) {
     return std::max(1, static_cast<int>(std::ceil(logical * pr)));
 }
 
+bool useHalfIsolate(const Group& g) {
+    return g.params.transform.is3D() && !hasBackdrop(g) && !hasGlassWork(g);
+}
+
+int isolatePixelSizeFor(const Group& g, float logical, float pixelRatio) {
+    const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
+    const float scale = useHalfIsolate(g) ? pr * 0.5f : pr;
+    return std::max(1, static_cast<int>(std::ceil(logical * scale)));
+}
+
 bool hasBackdrop(const Group& g) {
     return snapBackdropSigma(g.params.backdropBlur) > 0.f || g.params.backdropBend > 0.f;
+}
+
+bool hasShadow(const Group& g) noexcept {
+    return g.params.shadow.has_value() && snapShadowSigma(g.params.shadow->sigma) > 0.f;
+}
+
+bool hasContentBlur(const Group& g) noexcept {
+    return snapContentSigma(g.params.contentBlur) > 0.f;
+}
+
+float snapShadowSigma(float sigma) {
+    return snapBackdropSigma(sigma);
+}
+
+float snapContentSigma(float sigma) {
+    return snapBackdropSigma(sigma);
+}
+
+Rect shadowContentSurface(const Group& g) {
+    Rect b = contentBounds(g);
+    float pad = 0.f;
+    if (g.params.shadow.has_value()) {
+        const ShadowBlur& s = *g.params.shadow;
+        pad = std::max(pad, snapShadowSigma(s.sigma) + s.expandPx + std::fabs(s.offset.x) +
+                                  std::fabs(s.offset.y));
+    }
+    if (g.params.contentBlur > 0.f) {
+        pad = std::max(pad, snapContentSigma(g.params.contentBlur));
+    }
+    if (pad <= 0.f) {
+        return b;
+    }
+    if (b.size.x <= 0.f || b.size.y <= 0.f) {
+        return b;
+    }
+    return {{b.origin.x - pad, b.origin.y - pad}, {b.size.x + pad * 2.f, b.size.y + pad * 2.f}};
+}
+
+void clearShadowParams(GroupParams& p) {
+    p.shadow.reset();
+    p.contentBlur = 0.f;
 }
 
 bool hasGlass(const Group& g) noexcept {
@@ -326,6 +377,12 @@ bool needsIsolate(const Group& g) {
         return true;
     }
     if (hasBackdrop(g)) {
+        return true;
+    }
+    if (hasShadow(g)) {
+        return true;
+    }
+    if (hasContentBlur(g)) {
         return true;
     }
     if (hasGlassWork(g)) {

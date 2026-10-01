@@ -60,14 +60,7 @@ struct FpContext {
     // append-only and add() never mutates a stored image, so id->content is
     // immutable within a store; entries are validated against the live slot
     // (pointer + dimensions) so ids from a different ImageStore never alias.
-    struct ImgFp {
-        const StoredImage* ptr = nullptr;
-        int w = 0;
-        int h = 0;
-        std::size_t bytes = 0;
-        std::uint64_t fp = 0;
-    };
-    std::unordered_map<std::uint32_t, ImgFp> imageFp;
+    std::unordered_map<std::uint32_t, SceneHashCache::Entry> imageFp;
     const ImageStore* images = nullptr;
 };
 
@@ -110,7 +103,7 @@ void hashImageRef(FpContext& ctx, std::uint32_t imageId) {
         ctx.h.u64(it->second.fp);
         return;
     }
-    FpContext::ImgFp entry;
+    SceneHashCache::Entry entry;
     entry.ptr = img;
     entry.w = img->width;
     entry.h = img->height;
@@ -334,6 +327,15 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
         ctx.h.boolean(gl.flatten);
     }
     ctx.h.boolean(p.glassContainer);
+    ctx.h.boolean(p.shadow.has_value());
+    if (p.shadow.has_value()) {
+        ctx.h.f32(snapShadowSigma(p.shadow->sigma));
+        ctx.h.f32(p.shadow->offset.x);
+        ctx.h.f32(p.shadow->offset.y);
+        ctx.h.u32(p.shadow->color.rgba);
+        ctx.h.f32(p.shadow->expandPx);
+    }
+    ctx.h.f32(snapContentSigma(p.contentBlur));
     ctx.h.u32(p.semantic);
     const int childLevel = windowLevel >= 2 ? 2 : windowLevel + 1;
     visitGroup(
@@ -525,6 +527,58 @@ unsigned diffTileGrids(const TileGrid& cur, const TileGrid& last) {
     return dirty;
 }
 
+Rect dirtyUnion(const TileGrid& cur, const TileGrid& last, Vec2 logical, float pr) {
+    if (cur.tx <= 0 || cur.ty <= 0 || !(pr > 0.f)) {
+        return {};
+    }
+    if (cur.tx != last.tx || cur.ty != last.ty || cur.hash.size() != last.hash.size()) {
+        return {{0.f, 0.f}, logical};
+    }
+    const float tile = static_cast<float>(kTileSize);
+    Rect out{};
+    bool init = false;
+    for (int ty = 0; ty < cur.ty; ++ty) {
+        for (int tx = 0; tx < cur.tx; ++tx) {
+            const std::size_t i = static_cast<std::size_t>(ty * cur.tx + tx);
+            if (cur.hash[i] == last.hash[i]) {
+                continue;
+            }
+            const float x0 = static_cast<float>(tx) * tile / pr;
+            const float y0 = static_cast<float>(ty) * tile / pr;
+            const float x1 = static_cast<float>(tx + 1) * tile / pr;
+            const float y1 = static_cast<float>(ty + 1) * tile / pr;
+            Rect t{{x0, y0}, {x1 - x0, y1 - y0}};
+            if (!init) {
+                out = t;
+                init = true;
+            } else {
+                const float nx0 = std::min(out.origin.x, t.origin.x);
+                const float ny0 = std::min(out.origin.y, t.origin.y);
+                const float nx1 =
+                    std::max(out.origin.x + out.size.x, t.origin.x + t.size.x);
+                const float ny1 =
+                    std::max(out.origin.y + out.size.y, t.origin.y + t.size.y);
+                out.origin.x = nx0;
+                out.origin.y = ny0;
+                out.size.x = nx1 - nx0;
+                out.size.y = ny1 - ny0;
+            }
+        }
+    }
+    if (!init) {
+        return {};
+    }
+    out.origin.x = std::max(0.f, out.origin.x);
+    out.origin.y = std::max(0.f, out.origin.y);
+    if (logical.x > 0.f) {
+        out.size.x = std::min(out.size.x, logical.x - out.origin.x);
+    }
+    if (logical.y > 0.f) {
+        out.size.y = std::min(out.size.y, logical.y - out.origin.y);
+    }
+    return out;
+}
+
 }  // namespace
 
 // Whole-scene translation shifts top-level quads/blits and isolate dest
@@ -586,11 +640,12 @@ struct ReuseCache::Impl {
         float prBucket = 1.f;
         bool has3D = false;
         FramePacket packet;
+        TileGrid tiles;
     };
     static constexpr std::size_t kMaxEntries = 8;
     std::deque<std::uint64_t> order;
     std::unordered_map<std::uint64_t, Entry> entries;
-    std::unordered_map<std::uint32_t, FpContext::ImgFp> imageFp;
+    SceneHashCache imageFp;
     // Consecutive-frame tile hashes for dirty tracking (Phase 3). Independent
     // of the packet entries: tiles describe the last encoded frame.
     TileGrid lastTiles;
@@ -603,7 +658,7 @@ ReuseCache::~ReuseCache() = default;
 void ReuseCache::clear() {
     impl_->entries.clear();
     impl_->order.clear();
-    impl_->imageFp.clear();
+    impl_->imageFp.images.clear();
     impl_->lastTiles = TileGrid{};
     impl_->hasTiles = false;
 }
@@ -614,8 +669,16 @@ std::size_t ReuseCache::size() const {
 
 std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, Vec2* outOrigin,
                                  bool* outHasForeign, bool* outHas3D) {
+    SceneHashCache cache;
+    return hashSceneStructure(scene, pixelRatio, cache, outOrigin, outHasForeign, outHas3D);
+}
+
+std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, SceneHashCache& cache,
+                                 Vec2* outOrigin, bool* outHasForeign, bool* outHas3D) {
     FpContext ctx;
+    ctx.imageFp = cache.images;
     hashSceneInto(ctx, scene, pixelRatio);
+    cache.images = ctx.imageFp;
     if (outOrigin) {
         *outOrigin = ctx.origin;
     }
@@ -633,9 +696,9 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
     // Seed the fingerprint cache with previously computed entries so
     // sampled-image bytes hash once per imageId (slots are append-only).
     FpContext probe;
-    probe.imageFp = impl_->imageFp;
+    probe.imageFp = impl_->imageFp.images;
     hashSceneInto(probe, scene, pixelRatio);
-    impl_->imageFp = probe.imageFp;
+    impl_->imageFp.images = probe.imageFp;
 
     const std::uint64_t hash = probe.h.h;
     const float prBucket = bucketPixelRatio(pixelRatio);
@@ -652,20 +715,26 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
         !it->second.has3D && it->second.logicalSize.x == scene.logicalSize.x &&
         it->second.logicalSize.y == scene.logicalSize.y && it->second.prBucket == prBucket;
     if (exactHit) {
-        // Content identical: no tile changed. Skip the tile walk.
         FramePacket hit = it->second.packet;
         hit.stats.reuseHits = 1;
         hit.stats.reuseMisses = 0;
         hit.stats.dirtyTiles = 0;
+        hit.dirtyRect = {};
         return finish(hit);
     }
-    // Translation-only hit or miss: recompute tiles and diff against the last
-    // frame. A translated scene dirties every tile its content overlaps.
     const TileGrid curTiles = computeTileGrid(scene, probe, prBucket);
-    impl_->imageFp = probe.imageFp;
+    impl_->imageFp.images = probe.imageFp;
     const unsigned dirty =
         impl_->hasTiles ? diffTileGrids(curTiles, impl_->lastTiles)
                         : static_cast<unsigned>(curTiles.hash.size());
+    Rect dirtyRect{};
+    if (impl_->hasTiles) {
+        dirtyRect = dirtyUnion(curTiles, impl_->lastTiles, scene.logicalSize, prBucket);
+    } else {
+        dirtyRect = {{0.f, 0.f}, scene.logicalSize};
+    }
+    TileGrid prevTiles = impl_->hasTiles ? impl_->lastTiles : TileGrid{};
+    bool hadPrev = impl_->hasTiles;
     impl_->lastTiles = curTiles;
     impl_->hasTiles = true;
 
@@ -679,6 +748,8 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
         hit.stats.reuseHits = 1;
         hit.stats.reuseMisses = 0;
         hit.stats.dirtyTiles = dirty;
+        hit.dirtyRect = dirtyRect;
+        hitIt->second.tiles = curTiles;
         return finish(hit);
     }
 
@@ -686,6 +757,7 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
     fresh.stats.reuseHits = 0;
     fresh.stats.reuseMisses = 1;
     fresh.stats.dirtyTiles = dirty;
+    fresh.dirtyRect = dirtyRect;
     if (!probe.hasForeign) {
         if (impl_->entries.size() >= Impl::kMaxEntries) {
             impl_->entries.erase(impl_->order.front());
@@ -698,8 +770,12 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
         entry.prBucket = prBucket;
         entry.has3D = probe.has3D;
         entry.packet = fresh;
+        entry.tiles = curTiles;
         impl_->entries.emplace(hash, std::move(entry));
         impl_->order.push_back(hash);
+    } else {
+        (void)prevTiles;
+        (void)hadPrev;
     }
     return finish(fresh);
 }
