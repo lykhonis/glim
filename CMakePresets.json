@@ -169,10 +169,25 @@
         "GLIM_GPU": "webgpu",
         "GLIM_SHELL": "web"
       }
+    },
+    {
+      "name": "wasm-paint-debug",
+      "displayName": "Wasm Paint Smoke (Emscripten, core+paint only)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm-paint-debug",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GLIM_GPU": "none",
+        "GLIM_SHELL": "none",
+        "GLIM_SOFTWARE": "ON",
+        "GLIM_EMBED": "ON"
+      }
     }
   ],
   "buildPresets": [
     { "name": "web-webgpu-debug", "configurePreset": "web-webgpu-debug" },
+    { "name": "wasm-paint-debug", "configurePreset": "wasm-paint-debug" },
     { "name": "macos-metal-debug", "configurePreset": "macos-metal-debug" },
     { "name": "macos-metal-release", "configurePreset": "macos-metal-release" },
     { "name": "ios-sim-metal-debug", "configurePreset": "ios-sim-metal-debug" },

@@ -195,6 +195,13 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-embed-cpu-test)
     add_test(NAME glim-embed-cpu-test COMMAND glim-embed-cpu-test)
 
+    if(EMSCRIPTEN AND GLIM_SOFTWARE AND GLIM_EMBED)
+        add_executable(glim-wasm-paint-smoke tests/wasm_paint_smoke.cpp)
+        target_link_libraries(glim-wasm-paint-smoke PRIVATE glim::paint glim::paint-embed-cpu)
+        glim_target_defaults(glim-wasm-paint-smoke)
+        target_link_options(glim-wasm-paint-smoke PRIVATE "-sWASM=1" "-sENVIRONMENT=node")
+    endif()
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
                       glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
                       glim-glass-test glim-hit-test glim-perf-test glim-reuse-test glim-gradient-test

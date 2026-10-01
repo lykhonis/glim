@@ -115,7 +115,7 @@ exports.default = async function cmakeExecutor(options, context) {
     spawnSync("bash", [compilerId], { cwd: root, stdio: "inherit" });
   }
 
-  if (/^web-/.test(preset || "")) {
+  if (/^(web|wasm)-/.test(preset || "")) {
     const toolchain = emscriptenToolchain();
     if (toolchain.error) {
       console.error(toolchain.error);

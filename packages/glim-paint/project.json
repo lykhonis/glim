@@ -19,6 +19,13 @@
         "target": "glim-paint-tests",
         "ctestRegex": "glim-merge-test|glim-encode-test|glim-cpu-test|glim-overlay-test|glim-glyph-test|glim-slot-test|glim-foreign-test|glim-glass-test|glim-hit-test"
       }
+    },
+    "wasm-smoke": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "wasm-paint-debug",
+        "target": "glim-wasm-paint-smoke"
+      }
     }
   }
 }
