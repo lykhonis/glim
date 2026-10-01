@@ -24,4 +24,6 @@ if [ ! -d "$BUILD" ]; then
   exit 1
 fi
 
+cmake --build "$BUILD" --target glim-hello-vulkan-golden glim-glass-vulkan-golden glim-gradients-vulkan-golden
+
 ctest --test-dir "$BUILD" -R "glim-hello-golden|glim-glass-golden|glim-gradients-golden|glim-hello-vulkan-golden|glim-glass-vulkan-golden|glim-gradients-vulkan-golden|glim-cpu-test|glim-gradient-test|glim-reuse-test" --output-on-failure
