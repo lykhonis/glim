@@ -242,15 +242,21 @@ void blitBuffer(std::vector<Pixel>& dest, int dw, int dh, const std::vector<Pixe
 }
 
 float sampleChannel(const StoredImage& img, float u, float v, int channel) {
-    const float x = std::clamp(u, 0.f, 1.f) * static_cast<float>(std::max(1, img.width) - 1);
-    const float y = std::clamp(v, 0.f, 1.f) * static_cast<float>(std::max(1, img.height) - 1);
+    // Match GPU linear filtering with clamp-to-edge: texel centers sit at
+    // (i + 0.5) / size, so the sample coordinate is u * size - 0.5.
+    const float w = static_cast<float>(std::max(1, img.width));
+    const float h = static_cast<float>(std::max(1, img.height));
+    const float x = std::clamp(u, 0.f, 1.f) * w - 0.5f;
+    const float y = std::clamp(v, 0.f, 1.f) * h - 0.5f;
     const int x0 = static_cast<int>(std::floor(x));
     const int y0 = static_cast<int>(std::floor(y));
-    const int x1 = std::min(img.width - 1, x0 + 1);
-    const int y1 = std::min(img.height - 1, y0 + 1);
+    const int x1 = std::min(std::max(1, img.width) - 1, x0 + 1);
+    const int y1 = std::min(std::max(1, img.height) - 1, y0 + 1);
     const float fx = x - static_cast<float>(x0);
     const float fy = y - static_cast<float>(y0);
     auto at = [&](int px, int py) {
+        px = std::clamp(px, 0, std::max(0, img.width - 1));
+        py = std::clamp(py, 0, std::max(0, img.height - 1));
         return img.rgba[static_cast<std::size_t>((py * img.width + px) * 4 + channel)] / 255.f;
     };
     const float a = at(x0, y0);
@@ -291,15 +297,16 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
             Pixel src;
             if (sdf) {
                 const float d = sampleChannel(*img, u, v, 0);
-                const float t = (d - (0.5f - aa)) / std::max(1e-6f, 2.f * aa);
-                const float a = std::clamp(t, 0.f, 1.f);
+                const float t =
+                    std::clamp((d - (0.5f - aa)) / std::max(1e-6f, 2.f * aa), 0.f, 1.f);
+                const float a = t * t * (3.f - 2.f * t);
                 src = {tint.x * a, tint.y * a, tint.z * a, tint.w * a};
             } else {
-                const int sy = std::min(img->height - 1, std::max(0, static_cast<int>(v * ih)));
-                const int sx = std::min(img->width - 1, std::max(0, static_cast<int>(u * iw)));
-                const std::uint8_t* px =
-                    img->rgba.data() + static_cast<std::size_t>((sy * img->width + sx) * 4);
-                src = {px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f};
+                const float r = sampleChannel(*img, u, v, 0);
+                const float g = sampleChannel(*img, u, v, 1);
+                const float b = sampleChannel(*img, u, v, 2);
+                const float a = sampleChannel(*img, u, v, 3);
+                src = {r, g, b, a};
                 src.r *= src.a * tint.x;
                 src.g *= src.a * tint.y;
                 src.b *= src.a * tint.z;

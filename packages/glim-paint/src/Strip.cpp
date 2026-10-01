@@ -318,16 +318,29 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
     const float iR = std::max(radius.rt, radius.rb);
     const float iT = std::max(radius.lt, radius.rt);
     const float iB = std::max(radius.lb, radius.rb);
-    const Rect body{{rect.origin.x + iL, rect.origin.y + iT},
-                    {rect.size.x - iL - iR, rect.size.y - iT - iB}};
+    // Snap shared tile edges to integer pixels. Adjacent coverage-1 tiles
+    // then meet exactly and no pixel straddles two tiles; sequential SrcOver
+    // of complementary fractions blends to less than full coverage and leaves
+    // a visible seam. Interior pixels are fully covered either way.
+    float sx1 = std::round(rect.origin.x + iL);
+    float sx2 = std::round(rect.origin.x + rect.size.x - iR);
+    float sy1 = std::round(rect.origin.y + iT);
+    float sy2 = std::round(rect.origin.y + rect.size.y - iB);
+    if (sx2 <= sx1 || sy2 <= sy1) {
+        sx1 = rect.origin.x + iL;
+        sx2 = rect.origin.x + rect.size.x - iR;
+        sy1 = rect.origin.y + iT;
+        sy2 = rect.origin.y + rect.size.y - iB;
+    }
+    const Rect body{{sx1, sy1}, {sx2 - sx1, sy2 - sy1}};
     const Rect top{{rect.origin.x + radius.lt, rect.origin.y},
-                   {rect.size.x - radius.lt - radius.rt, iT}};
-    const Rect bot{{rect.origin.x + radius.lb, rect.origin.y + rect.size.y - iB},
-                   {rect.size.x - radius.lb - radius.rb, iB}};
+                   {rect.size.x - radius.lt - radius.rt, sy1 - rect.origin.y}};
+    const Rect bot{{rect.origin.x + radius.lb, sy2},
+                   {rect.size.x - radius.lb - radius.rb, rect.origin.y + rect.size.y - sy2}};
     const Rect left{{rect.origin.x, rect.origin.y + radius.lt},
-                    {iL, rect.size.y - radius.lt - radius.lb}};
-    const Rect right{{rect.origin.x + rect.size.x - iR, rect.origin.y + radius.rt},
-                     {iR, rect.size.y - radius.rt - radius.rb}};
+                    {sx1 - rect.origin.x, rect.size.y - radius.lt - radius.lb}};
+    const Rect right{{sx2, rect.origin.y + radius.rt},
+                     {rect.origin.x + rect.size.x - sx2, rect.size.y - radius.rt - radius.rb}};
     emitRect(body);
     emitRect(top);
     emitRect(bot);
