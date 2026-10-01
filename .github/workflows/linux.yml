@@ -9,8 +9,10 @@ jobs:
     uses: ./.github/workflows/native.yml
     with:
       runs-on: ubuntu-24.04
-      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools
+      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
       nx: |
         pnpm exec nx run-many -t test --output-style=stream
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
+        # CPU-reference goldens on the Vulkan build dir (no GPU coverage yet).
+        bash tools/scripts/run-vulkan-goldens.sh
