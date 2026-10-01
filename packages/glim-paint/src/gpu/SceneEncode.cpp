@@ -635,8 +635,8 @@ void Renderer::drawInto(const Scene& scene, int targetW, int targetH, void* nati
     const bool swapped0 = (rotation0 == 90 || rotation0 == 270);
     const float logicalW0 = swapped0 ? scene.logicalSize.y : scene.logicalSize.x;
     const float logicalH0 = swapped0 ? scene.logicalSize.x : scene.logicalSize.y;
-    const float prW0 = logicalW0 > 0.f ? static_cast<float>(drawable->width()) / logicalW0 : 1.f;
-    const float prH0 = logicalH0 > 0.f ? static_cast<float>(drawable->height()) / logicalH0 : 1.f;
+    const float prW0 = logicalW0 > 0.f ? static_cast<float>(targetW) / logicalW0 : 1.f;
+    const float prH0 = logicalH0 > 0.f ? static_cast<float>(targetH) / logicalH0 : 1.f;
     const float pr0 = std::max(prW0 > 0.f ? prW0 : 1.f, prH0 > 0.f ? prH0 : 1.f);
     {
         Vec2 origin{};
