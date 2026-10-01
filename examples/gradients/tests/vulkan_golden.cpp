@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include <algorithm>
+#include <string>
 
 void recordGradients(glim::paint::Context&, glim::Vec2, float, glim::Rect = {});
 
@@ -82,6 +83,14 @@ int main(int argc, char** argv) {
         } else {
             std::cerr << "vulkan golden mismatch: " << diff.overDelta << " channels differ by >2\n";
             diagnose(got, want);
+            if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
+                std::string name = (argc > 0 && argv[0]) ? argv[0] : "vulkan-golden";
+                const std::size_t slash = name.find_last_of('/');
+                if (slash != std::string::npos) {
+                    name = name.substr(slash + 1);
+                }
+                glim::image::Png::write((std::string(dir) + "/" + name + "-got.png").c_str(), got);
+            }
         }
         return EXIT_FAILURE;
     }

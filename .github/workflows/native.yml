@@ -37,3 +37,10 @@ jobs:
       - name: CI
         run: |
           ${{ inputs.nx }}
+      - name: Upload Vulkan golden outputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-got-${{ inputs.runs-on }}
+          path: build/**/vulkan-got/
+          if-no-files-found: ignore
