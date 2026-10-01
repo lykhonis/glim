@@ -13,7 +13,7 @@ glim.onError = (err) => console.error('[glim]', err);
 await glim.init();
 if (fixed) {
   glim.call('glimWebOverlay', ['number'], [0]);
-  glim.frame(0);
+  glim.startFixed(0);
 } else {
   glim.start();
 }

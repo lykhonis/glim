@@ -155,6 +155,7 @@ private:
     Vec2 lastLogical{};
     float lastPrBucket_ = 0.f;
     bool hasLast_ = false;
+    unsigned warmup_ = 0;
 #if !GLIM_EMBED
     std::unique_ptr<SceneHashCache> hashCache_;
 #endif

@@ -1,6 +1,7 @@
 function cssSize(canvas, width, height) {
   if (width > 0) canvas.style.width = `${width}px`;
   if (height > 0) canvas.style.height = `${height}px`;
+  if (width > 0 && height > 0) canvas.style.flex = 'none';
 }
 
 function readDevicePixelRatio(override) {
@@ -97,6 +98,22 @@ export class GlimCanvas {
     if (this.module) {
       this.call('glimWebFrame', ['number', 'number'], [timeSeconds, this.reduceTransparency ? 1 : 0]);
     }
+  }
+
+  startFixed(timeSeconds = 0) {
+    if (this.running) return;
+    this.running = true;
+    const tick = () => {
+      if (!this.running) return;
+      this.frame(timeSeconds);
+      try {
+        document.body.dataset.draws = String(this.module.ccall('glimWebStats', 'number', [], []));
+      } catch (err) {
+        this.fail(err);
+      }
+      this.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
   }
 
   setSize(width, height) {

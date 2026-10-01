@@ -25,7 +25,7 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
             "-sMODULARIZE=1"
             "-sEXPORT_ES6=1"
             "-sEXPORT_NAME=createGlimModule"
-            "-sEXPORTED_FUNCTIONS=['_main','_glimWebSelect','_glimWebResize','_glimWebFrame','_glimWebEvent','_glimWebOverlay']"
+            "-sEXPORTED_FUNCTIONS=['_main','_glimWebSelect','_glimWebResize','_glimWebFrame','_glimWebEvent','_glimWebOverlay','_glimWebStats']"
             "-sEXPORTED_RUNTIME_METHODS=['ccall']")
         set_target_properties(glim-web PROPERTIES OUTPUT_NAME "glim-app" SUFFIX ".js")
     endif()

@@ -11,6 +11,12 @@
 
 namespace glim::paint {
 
+namespace {
+
+constexpr unsigned kWarmupSubmitFrames = 30;
+
+}  // namespace
+
 void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
                            int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
                            float pixelRatio, Vec2 logicalSize, const Mat4& extraRoot) {
@@ -652,7 +658,8 @@ void Renderer::drawInto(const Scene& scene, int targetW, int targetH, void* nati
             static_cast<unsigned>(coarseTileCount(scene.logicalSize, pr0));
         if (hasLast_ && !hasForeign && !has3D && h == lastHash_ && origin.x == lastOrigin.x &&
             origin.y == lastOrigin.y && scene.logicalSize.x == lastLogical.x &&
-            scene.logicalSize.y == lastLogical.y && prB == lastPrBucket_) {
+            scene.logicalSize.y == lastLogical.y && prB == lastPrBucket_ &&
+            warmup_ >= kWarmupSubmitFrames) {
             stats_.reuseHits = 1;
             stats_.reuseMisses = 0;
             stats_.tileCount = tiles;
@@ -675,6 +682,9 @@ void Renderer::drawInto(const Scene& scene, int targetW, int targetH, void* nati
         stats_.reuseMisses = 1;
         stats_.tileCount = tiles;
         stats_.dirtyTiles = tiles;
+        if (warmup_ < kWarmupSubmitFrames) {
+            ++warmup_;
+        }
     }
     textures_.setImages(&scene.images);
     targets_.reset();

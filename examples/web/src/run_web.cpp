@@ -59,7 +59,7 @@ void paintOnce() {
     const glim::Vec2 drawable = gWindow->drawableSize();
     gDevice->setDrawableSize(static_cast<int>(drawable.x), static_cast<int>(drawable.y));
     gRenderer->draw(gContext->scene());
-    if (gRenderer->stats().draws == 0) {
+    if (gRenderer->stats().draws == 0 && gRenderer->stats().reuseHits == 0) {
         if (++gZeroStreak > 10) {
             gZeroStreak = 0;
             gRenderer.reset();
@@ -87,6 +87,13 @@ extern "C" void glimWebFrame(double timeSeconds, int reduceTransparency) {
 
 extern "C" void glimWebOverlay(int enabled) {
     gOverlay.setEnabled(enabled != 0);
+}
+
+extern "C" int glimWebStats() {
+    if (!gRenderer) {
+        return -1;
+    }
+    return gRenderer->stats().draws;
 }
 
 extern "C" void glimWebEvent(int type, float x, float y, int key) {
