@@ -406,7 +406,7 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
                         stripGlassForIsolate(*content);
                     }
                     if (!hasClip(content->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
-                        content->params.clip = Rect{{0, 0}, surface.size};
+                        content->params.clip = surface;
                     }
                     const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
                     // Width-based: isolate content is uniformly scaled by pr

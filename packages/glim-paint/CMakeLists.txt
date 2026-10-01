@@ -104,6 +104,10 @@ glim_add_renderer(glim-paint-cpu)
 target_compile_definitions(glim-paint-cpu PUBLIC GLIM_SOFTWARE=1 GLIM_EMBED=0)
 add_library(glim::paint-cpu ALIAS glim-paint-cpu)
 
+glim_add_renderer(glim-paint-embed-cpu)
+target_compile_definitions(glim-paint-embed-cpu PUBLIC GLIM_SOFTWARE=1 GLIM_EMBED=1)
+add_library(glim::paint-embed-cpu ALIAS glim-paint-embed-cpu)
+
 glim_add_renderer(glim-paint-embed-gpu SOURCES ${_glim_gpu_common} src/gpu/PacketSubmit.cpp LIBS glim::gpu)
 target_compile_definitions(glim-paint-embed-gpu PUBLIC GLIM_SOFTWARE=0 GLIM_EMBED=1)
 if(GLIM_GPU STREQUAL "vulkan")
@@ -115,10 +119,10 @@ add_library(glim::paint-embed-gpu ALIAS glim-paint-embed-gpu)
 
 if(GLIM_SOFTWARE)
     if(GLIM_EMBED)
-        set(_glim_renderer glim::paint-embed-gpu)
-        message(FATAL_ERROR "packet-cpu renderer is not built as a named alias yet; use GLIM_SOFTWARE without GLIM_EMBED for cpu draw")
+        set(_glim_renderer glim::paint-embed-cpu)
+    else()
+        set(_glim_renderer glim::paint-cpu)
     endif()
-    set(_glim_renderer glim::paint-cpu)
 elseif(GLIM_EMBED)
     set(_glim_renderer glim::paint-embed-gpu)
 else()
@@ -186,7 +190,13 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-gradient-test)
     add_test(NAME glim-gradient-test COMMAND glim-gradient-test)
 
+    add_executable(glim-embed-cpu-test tests/embed_cpu_test.cpp)
+    target_link_libraries(glim-embed-cpu-test PRIVATE glim::paint glim::paint-embed-cpu)
+    glim_target_defaults(glim-embed-cpu-test)
+    add_test(NAME glim-embed-cpu-test COMMAND glim-embed-cpu-test)
+
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
                       glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
-                      glim-glass-test glim-hit-test glim-perf-test glim-reuse-test glim-gradient-test)
+                      glim-glass-test glim-hit-test glim-perf-test glim-reuse-test glim-gradient-test
+                      glim-embed-cpu-test)
 endif()

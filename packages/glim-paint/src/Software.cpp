@@ -1102,7 +1102,7 @@ void rasterGroup(std::vector<Pixel>& dest, int w, int h, const Group& g, const I
             stripGlassForIsolate(*local);
         }
         if (!hasClip(local->params) && surface.size.x > 0.f && surface.size.y > 0.f) {
-            local->params.clip = Rect{{0, 0}, surface.size};
+            local->params.clip = surface;
         }
         const Mat4 localX =
             Mat4::scale(effPr, effPr) * Mat4::translate(-surface.origin.x, -surface.origin.y);

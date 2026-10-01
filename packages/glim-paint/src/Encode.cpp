@@ -120,7 +120,7 @@ Isolate encodeIsolate(const Group& g, const Mat4& extra, float pixelRatio, Vec2 
         stripGlassForIsolate(local);
     }
     if (!hasClip(local.params) && surface.size.x > 0.f && surface.size.y > 0.f) {
-        local.params.clip = Rect{{0, 0}, surface.size};
+        local.params.clip = surface;
         local.params.clipRadius = {};
     }
     encodeTree(iso.quads, iso.blits, iso.gradients, iso.isolates, local,

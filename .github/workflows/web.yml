@@ -69,9 +69,3 @@ jobs:
         run: |
           pip install --quiet pillow
           bash tools/scripts/run-web-goldens.sh
-      - name: Upload got PNGs on mismatch
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-got
-          path: build/web-webgpu-debug/web-got/
