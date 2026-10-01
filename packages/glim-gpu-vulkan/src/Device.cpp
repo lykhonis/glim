@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -117,6 +118,8 @@ struct Device::Impl {
 #endif
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
+    bool isHeadless = false;
+    GpuBuffer readStaging{};
     VkPhysicalDevice physical = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
@@ -271,6 +274,7 @@ struct Device::Impl {
         shaders.clear();
         destroyImage(dummyImage);
         destroyBuffer(ring);
+        destroyBuffer(readStaging);
         if (device) {
             if (sampler) {
                 vkDestroySampler(device, sampler, nullptr);
@@ -1035,12 +1039,13 @@ void CommandEncoder::submit(Queue&) {
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    si.waitSemaphoreCount = 1;
+    const bool noSync = d->isHeadless;
+    si.waitSemaphoreCount = noSync ? 0 : 1;
     si.pWaitSemaphores = &frame.imageAvailable;
     si.pWaitDstStageMask = &waitStage;
     si.commandBufferCount = 1;
     si.pCommandBuffers = &impl_->cmd;
-    si.signalSemaphoreCount = 1;
+    si.signalSemaphoreCount = noSync ? 0 : 1;
     si.pSignalSemaphores = &frame.renderFinished;
     vkQueueSubmit(d->queue, 1, &si, frame.inFlight);
 
@@ -1070,13 +1075,12 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     }
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
     auto* androidWindow = static_cast<ANativeWindow*>(info.native[0]);
-    if (!androidWindow) {
-        return Result<Device>::fail("Vulkan Android ANativeWindow is null");
-    }
+    const bool headless = (androidWindow == nullptr);
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
     auto* display = static_cast<wl_display*>(info.native[0]);
     auto* wlSurface = static_cast<wl_surface*>(info.native[1]);
-    if (!display || !wlSurface) {
+    const bool headless = (display == nullptr && wlSurface == nullptr);
+    if (!headless && (!display || !wlSurface)) {
         return Result<Device>::fail("Vulkan Wayland display/surface is null");
     }
 #else
@@ -1096,6 +1100,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     d.wlSurface = wlSurface;
 #endif
     d.vsync = info.native[2] != nullptr;
+    d.isHeadless = headless;
     d.shaders.resize(1);
     d.pipelines.resize(1);
     d.buffers.resize(1);
@@ -1105,13 +1110,16 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     vkEnumerateInstanceExtensionProperties(nullptr, &instExtCount, nullptr);
     std::vector<VkExtensionProperties> instExt(instExtCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &instExtCount, instExt.data());
-    std::vector<const char*> instanceExts = {VK_KHR_SURFACE_EXTENSION_NAME,
+    std::vector<const char*> instanceExts;
+    if (!headless) {
+        instanceExts = {VK_KHR_SURFACE_EXTENSION_NAME,
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
                                              VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
                                              VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 #endif
-    };
+        };
+    }
     for (const char* e : instanceExts) {
         if (!hasExtension(instExt, e)) {
             return Result<Device>::fail(std::string("missing instance extension ") + e);
@@ -1151,6 +1159,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     }
     volkLoadInstance(d.instance);
 
+    if (!headless) {
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
     VkAndroidSurfaceCreateInfoKHR sci{};
     sci.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
@@ -1167,6 +1176,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         return Result<Device>::fail("vkCreateWaylandSurfaceKHR failed");
     }
 #endif
+    }
 
     uint32_t physCount = 0;
     vkEnumeratePhysicalDevices(d.instance, &physCount, nullptr);
@@ -1185,6 +1195,10 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         for (uint32_t i = 0; i < n; ++i) {
             if (!(qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
                 continue;
+            }
+            if (headless) {
+                fam = static_cast<int>(i);
+                break;
             }
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
             if (!vkGetPhysicalDeviceWaylandPresentationSupportKHR(p, i, display)) {
@@ -1205,7 +1219,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         vkEnumerateDeviceExtensionProperties(p, nullptr, &extN, nullptr);
         std::vector<VkExtensionProperties> dext(extN);
         vkEnumerateDeviceExtensionProperties(p, nullptr, &extN, dext.data());
-        if (!hasExtension(dext, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+        if (!headless && !hasExtension(dext, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
             return -1;
         }
         *familyOut = static_cast<uint32_t>(fam);
@@ -1231,7 +1245,8 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         }
     }
     if (best < 0) {
-        return Result<Device>::fail("no GPU with graphics + present + swapchain");
+        return Result<Device>::fail(headless ? "no GPU with graphics queue"
+                                            : "no GPU with graphics + present + swapchain");
     }
     vkGetPhysicalDeviceProperties(d.physical, &d.props);
     d.ringAlign = std::max<VkDeviceSize>(d.props.limits.minStorageBufferOffsetAlignment, 16);
@@ -1246,7 +1261,10 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     vkEnumerateDeviceExtensionProperties(d.physical, nullptr, &extN, nullptr);
     std::vector<VkExtensionProperties> dext(extN);
     vkEnumerateDeviceExtensionProperties(d.physical, nullptr, &extN, dext.data());
-    std::vector<const char*> devExts = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char*> devExts;
+    if (!headless) {
+        devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
     const char* ahbExts[] = {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
                              VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
@@ -1260,7 +1278,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
         devExts.push_back(e);
     }
     if (!d.haveAhb) {
-        devExts.resize(1);
+        devExts.resize(headless ? 0 : 1);
     }
 #else
     (void)dext;
@@ -1278,7 +1296,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     vkGetDeviceQueue(d.device, d.queueFamily, 0, &d.queue);
     d.queueWrapper = Queue(d.queue);
 
-    if (!d.pickFormat()) {
+    if (!headless && !d.pickFormat()) {
         return Result<Device>::fail("no suitable swapchain format");
     }
     d.rpClear = d.makeRenderPass(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
@@ -1446,6 +1464,9 @@ int Device::presentRotationDegrees() const {
 }
 
 Result<Drawable> Device::nextDrawable() {
+    if (!impl_ || impl_->isHeadless) {
+        return Result<Drawable>::fail("headless device has no drawable");
+    }
     for (GpuImage& t : impl_->targets) {
         t.inUse = false;
     }
@@ -1932,6 +1953,14 @@ Result<Bindings> Device::createBindings(const BindingsDesc&) {
 
 CommandEncoder Device::encoder() {
     CommandEncoder enc;
+    if (impl_->isHeadless) {
+        impl_->frameIndex = (impl_->frameIndex + 1) % kFrames;
+        Frame& hframe = impl_->frames[impl_->frameIndex];
+        vkWaitForFences(impl_->device, 1, &hframe.inFlight, VK_TRUE, UINT64_MAX);
+        vkResetFences(impl_->device, 1, &hframe.inFlight);
+        vkResetDescriptorPool(impl_->device, hframe.descriptors, 0);
+        hframe.ringOffset = static_cast<VkDeviceSize>(impl_->frameIndex) * kRingBytes;
+    }
     Frame& frame = impl_->frames[impl_->frameIndex];
     vkResetCommandBuffer(frame.cmd, 0);
     VkCommandBufferBeginInfo bi{};
@@ -1978,6 +2007,123 @@ void* Device::colorNative() const {
         return nullptr;
     }
     return impl_->swapImages[impl_->imageIndex].view;
+}
+
+bool Device::headless() const {
+    return impl_ && impl_->isHeadless;
+}
+
+bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t bytes) {
+    if (!impl_ || !rgba8 || target.width() <= 0 || target.height() <= 0) {
+        return false;
+    }
+    const std::uint64_t need = static_cast<std::uint64_t>(target.width()) *
+                               static_cast<std::uint64_t>(target.height()) * 4;
+    if (bytes < need) {
+        return false;
+    }
+    Impl& d = *impl_;
+    GpuImage* img = d.imageFromView(target.native());
+    if (!img || !img->image) {
+        return false;
+    }
+    if (img->width != target.width() || img->height != target.height()) {
+        return false;
+    }
+    const int w = img->width;
+    const int h = img->height;
+    const VkDeviceSize rowBytes = static_cast<VkDeviceSize>(w) * 4;
+    const VkDeviceSize total = rowBytes * static_cast<VkDeviceSize>(h);
+    if (!d.readStaging.buffer || d.readStaging.size < total) {
+        if (d.makeBuffer(total, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         d.readStaging) != VK_SUCCESS ||
+            !d.readStaging.mapped) {
+            return false;
+        }
+    }
+    if (vkQueueWaitIdle(d.queue) != VK_SUCCESS) {
+        return false;
+    }
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    VkCommandBufferAllocateInfo cba{};
+    cba.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cba.commandPool = d.uploadPool;
+    cba.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cba.commandBufferCount = 1;
+    if (vkAllocateCommandBuffers(d.device, &cba, &cmd) != VK_SUCCESS) {
+        return false;
+    }
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
+        vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+        return false;
+    }
+    VkAccessFlags srcAccess = 0;
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    if (img->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    } else if (img->layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        srcAccess = VK_ACCESS_SHADER_READ_BIT;
+        srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    imageBarrier(cmd, img->image, img->layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcAccess,
+                 VK_ACCESS_TRANSFER_READ_BIT, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    VkBufferImageCopy region{};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1};
+    vkCmdCopyImageToBuffer(cmd, img->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           d.readStaging.buffer, 1, &region);
+    imageBarrier(cmd, img->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
+                 VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+        vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+        return false;
+    }
+    VkFence fence = VK_NULL_HANDLE;
+    VkFenceCreateInfo fi{};
+    fi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    if (vkCreateFence(d.device, &fi, nullptr, &fence) != VK_SUCCESS) {
+        vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+        return false;
+    }
+    VkSubmitInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    if (vkQueueSubmit(d.queue, 1, &si, fence) != VK_SUCCESS) {
+        vkDestroyFence(d.device, fence, nullptr);
+        vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+        return false;
+    }
+    if (vkWaitForFences(d.device, 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+        vkDestroyFence(d.device, fence, nullptr);
+        vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+        return false;
+    }
+    vkDestroyFence(d.device, fence, nullptr);
+    vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);
+    img->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const std::uint8_t* src = static_cast<const std::uint8_t*>(d.readStaging.mapped);
+    std::uint8_t* dst = static_cast<std::uint8_t*>(rgba8);
+    const bool bgra = (d.format == VK_FORMAT_B8G8R8A8_UNORM);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const std::uint8_t* p = src + (static_cast<std::size_t>(y) * w + x) * 4;
+            std::uint8_t* q = dst + (static_cast<std::size_t>(y) * w + x) * 4;
+            q[0] = bgra ? p[2] : p[0];
+            q[1] = p[1];
+            q[2] = bgra ? p[0] : p[2];
+            q[3] = p[3];
+        }
+    }
+    return true;
 }
 
 }  // namespace glim::gpu

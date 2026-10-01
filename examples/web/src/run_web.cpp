@@ -85,6 +85,10 @@ extern "C" void glimWebFrame(double timeSeconds, int reduceTransparency) {
     paintOnce();
 }
 
+extern "C" void glimWebOverlay(int enabled) {
+    gOverlay.setEnabled(enabled != 0);
+}
+
 extern "C" void glimWebEvent(int type, float x, float y, int key) {
     (void)x;
     (void)y;

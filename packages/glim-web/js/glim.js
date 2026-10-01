@@ -93,6 +93,12 @@ export class GlimCanvas {
     this.rafId = 0;
   }
 
+  frame(timeSeconds = 0) {
+    if (this.module) {
+      this.call('glimWebFrame', ['number', 'number'], [timeSeconds, this.reduceTransparency ? 1 : 0]);
+    }
+  }
+
   setSize(width, height) {
     cssSize(this.canvas, width, height);
     this.resize();

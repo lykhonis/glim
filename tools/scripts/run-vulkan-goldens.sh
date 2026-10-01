@@ -1,10 +1,6 @@
 #!/bin/bash
-# CPU-reference goldens against the linux-vulkan build dir (H6 incremental).
-# Binaries use the CPU raster path only — not GPU coverage. GPU-readback
-# goldens remain open: no readback API exists yet.
 set -euo pipefail
 
-# Reserved for the future readback harness; no current binary consumes it.
 if [ -n "${VK_ICD_FILENAMES:-}" ]; then
   echo "using caller VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
 elif [ -f /usr/share/vulkan/icd.d/vk_swiftshader_icd.json ]; then
@@ -28,4 +24,4 @@ if [ ! -d "$BUILD" ]; then
   exit 1
 fi
 
-ctest --test-dir "$BUILD" -R "glim-hello-golden|glim-glass-golden|glim-gradients-golden|glim-cpu-test|glim-gradient-test|glim-reuse-test" --output-on-failure
+ctest --test-dir "$BUILD" -R "glim-hello-golden|glim-glass-golden|glim-gradients-golden|glim-hello-vulkan-golden|glim-glass-vulkan-golden|glim-gradients-vulkan-golden|glim-cpu-test|glim-gradient-test|glim-reuse-test" --output-on-failure

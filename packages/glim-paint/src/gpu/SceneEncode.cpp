@@ -621,14 +621,14 @@ void Renderer::encodeGroup(gpu::CommandEncoder& encoder, const Group& group, con
     pass.end();
 }
 
-void Renderer::draw(const Scene& scene) {
+void Renderer::drawInto(const Scene& scene, int targetW, int targetH, void* nativeColor,
+                        const gpu::Drawable* drawable) {
     const auto t0 = std::chrono::steady_clock::now();
     stats_ = Stats{};
     if (!pipes_.ensure(device_)) {
         return;
     }
-    auto drawable = device_.nextDrawable();
-    if (!drawable.ok()) {
+    if (targetW <= 0 || targetH <= 0) {
         return;
     }
     const int rotation0 = device_.presentRotationDegrees();
@@ -700,18 +700,30 @@ void Renderer::draw(const Scene& scene) {
     // Width and height ratios agree when the drawable aspect matches logical.
     // On mismatch (letterbox/stretch) take the larger so isolates never
     // undersample an axis.
-    const float prW =
-        logicalW > 0.f ? static_cast<float>(drawable->width()) / logicalW : 1.f;
-    const float prH =
-        logicalH > 0.f ? static_cast<float>(drawable->height()) / logicalH : 1.f;
+    const float prW = logicalW > 0.f ? static_cast<float>(targetW) / logicalW : 1.f;
+    const float prH = logicalH > 0.f ? static_cast<float>(targetH) / logicalH : 1.f;
     const float pr = std::max(prW > 0.f ? prW : 1.f, prH > 0.f ? prH : 1.f);
     const Mat4 proj = presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y),
                                         rotation);
-    encodeGroup(encoder, root, proj, drawable->width(), drawable->height(), nullptr, gpu::LoadOp::Clear,
-                pr, scene.logicalSize);
-    encoder.present(drawable.value());
+    encodeGroup(encoder, root, proj, targetW, targetH, nativeColor, gpu::LoadOp::Clear, pr,
+                scene.logicalSize);
+    if (drawable) {
+        encoder.present(*drawable);
+    }
     encoder.submit(device_.queue());
     stats_.encodeMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+}
+
+void Renderer::draw(const Scene& scene) {
+    auto drawable = device_.nextDrawable();
+    if (!drawable.ok()) {
+        return;
+    }
+    drawInto(scene, drawable->width(), drawable->height(), nullptr, &drawable.value());
+}
+
+void Renderer::drawToTarget(const Scene& scene, gpu::FrameTarget& target) {
+    drawInto(scene, target.width(), target.height(), target.native(), nullptr);
 }
 
 }  // namespace glim::paint

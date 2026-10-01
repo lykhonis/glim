@@ -818,6 +818,14 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     return Result<FrameTarget>::ok(t);
 }
 
+bool Device::headless() const {
+    return false;
+}
+
+bool Device::readPixels(const FrameTarget&, void*, std::uint64_t) {
+    return false;
+}
+
 Result<Buffer> Device::createBuffer(const BufferDesc& desc) {
     WGPUBufferUsage usage = static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage |
                                                          WGPUBufferUsage_CopyDst);
@@ -1140,6 +1148,14 @@ int Device::presentRotationDegrees() const {
 }
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc&) {
     return Result<FrameTarget>::fail("glim-gpu-webgpu: browser target requires Emscripten");
+}
+
+bool Device::headless() const {
+    return false;
+}
+
+bool Device::readPixels(const FrameTarget&, void*, std::uint64_t) {
+    return false;
 }
 Result<Buffer> Device::createBuffer(const BufferDesc&) {
     return Result<Buffer>::fail("glim-gpu-webgpu: browser target requires Emscripten");

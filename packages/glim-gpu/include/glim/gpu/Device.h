@@ -168,6 +168,8 @@ public:
     void setDrawableSize(int width, int height);
     int presentRotationDegrees() const;
     Result<FrameTarget> createFrameTarget(const FrameTargetDesc&);
+    bool headless() const;
+    bool readPixels(const FrameTarget&, void* rgba8, std::uint64_t bytes);
     Result<Buffer> createBuffer(const BufferDesc&);
     void writeBuffer(Buffer&, const void* data, std::uint64_t size);
     Result<Texture> createTexture(const TextureDesc&);

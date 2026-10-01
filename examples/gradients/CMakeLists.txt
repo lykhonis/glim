@@ -8,4 +8,13 @@ if(GLIM_HOST_TESTS)
     target_compile_definitions(glim-gradients-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-gradients-golden
              COMMAND glim-gradients-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/gradients.png")
+    if(GLIM_GPU STREQUAL "vulkan")
+        add_executable(glim-gradients-vulkan-golden tests/vulkan_golden.cpp src/main.cpp)
+        target_include_directories(glim-gradients-vulkan-golden PRIVATE src)
+        target_link_libraries(glim-gradients-vulkan-golden PRIVATE glim::glim glim::image)
+        glim_target_defaults(glim-gradients-vulkan-golden)
+        target_compile_definitions(glim-gradients-vulkan-golden PRIVATE GLIM_GOLDEN=1)
+        add_test(NAME glim-gradients-vulkan-golden
+                 COMMAND glim-gradients-vulkan-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/gradients.png")
+    endif()
 endif()

@@ -301,6 +301,14 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     return Result<FrameTarget>::ok(t);
 }
 
+bool Device::headless() const {
+    return false;
+}
+
+bool Device::readPixels(const FrameTarget&, void*, std::uint64_t) {
+    return false;
+}
+
 Result<Buffer> Device::createBuffer(const BufferDesc& desc) {
     const NSUInteger size = static_cast<NSUInteger>(std::max<std::uint64_t>(desc.size, 16));
     id<MTLBuffer> buf = [impl_->device newBufferWithLength:size options:MTLResourceStorageModeShared];

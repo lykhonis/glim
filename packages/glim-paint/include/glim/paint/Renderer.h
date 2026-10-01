@@ -40,6 +40,9 @@ public:
     void submit(const FramePacket& packet);
 #else
     void draw(const Scene& scene);
+#if !GLIM_SOFTWARE
+    void drawToTarget(const Scene& scene, gpu::FrameTarget& target);
+#endif
 #endif
     const Stats& stats() const { return stats_; }
 
@@ -139,6 +142,8 @@ private:
     void encodeGroup(gpu::CommandEncoder& encoder, const Group& group, const Mat4& projection,
                      int viewportW, int viewportH, void* nativeColor, gpu::LoadOp load,
                      float pixelRatio, Vec2 logicalSize, const Mat4& extra = Mat4::identity());
+    void drawInto(const Scene& scene, int targetW, int targetH, void* nativeColor,
+                  const gpu::Drawable* drawable);
 #endif
     gpu::Device& device_;
     Pipelines pipes_;
