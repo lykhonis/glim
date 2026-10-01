@@ -63,9 +63,15 @@ jobs:
       - name: Build web bundle
         run: |
           pnpm exec nx run examples:build-web
-      - name: Serve and smoke-check pages
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+      - name: WebGPU screenshots vs CPU goldens
         run: |
-          (cd build/web-webgpu-debug/examples/web/serve && python3 -m http.server 8080 >/tmp/glim-web.log 2>&1 &)
-          sleep 2
-          for p in index.html glass.html gradients.html foreign.html; do curl --fail --silent --output /dev/null http://localhost:8080/$p; done
-          echo "web serve smoke ok"
+          pip install --quiet pillow
+          bash tools/scripts/run-web-goldens.sh
+      - name: Upload got PNGs on mismatch
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-got
+          path: build/web-webgpu-debug/web-got/
