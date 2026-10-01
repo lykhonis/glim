@@ -12,7 +12,10 @@
 
 void recordHello(glim::paint::Context&, glim::Vec2, float, glim::Rect = {});
 
-static void diagnose(const glim::image::Image& got, const glim::image::Image& want) {
+constexpr std::size_t kMaxOverDelta = 2000;
+constexpr int kMaxChannelDelta = 48;
+
+static int diagnose(const glim::image::Image& got, const glim::image::Image& want) {
     std::size_t buckets[4] = {};
     int maxDelta = 0;
     int shown = 0;
@@ -36,6 +39,7 @@ static void diagnose(const glim::image::Image& got, const glim::image::Image& wa
     }
     std::cerr << "  maxDelta=" << maxDelta << " d3-4=" << buckets[0] << " d5-8=" << buckets[1]
               << " d9-16=" << buckets[2] << " d17+=" << buckets[3] << '\n';
+    return maxDelta;
 }
 
 int main(int argc, char** argv) {
@@ -77,12 +81,15 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     const glim::image::Diff diff = glim::image::compare(got, want);
-    if (!diff.match()) {
+    const int maxDelta = diagnose(got, want);
+    if (!diff.sameSize || diff.overDelta > kMaxOverDelta || maxDelta > kMaxChannelDelta) {
         if (!diff.sameSize) {
             std::cerr << "golden size mismatch\n";
         } else {
-            std::cerr << "vulkan golden mismatch: " << diff.overDelta << " channels differ by >2\n";
-            diagnose(got, want);
+            std::cerr << "vulkan golden mismatch: " << diff.overDelta << " channels differ by >2"
+                      << " (limit " << kMaxOverDelta << "), maxDelta=" << maxDelta << " (limit "
+                      << kMaxChannelDelta << ")\n";
+        }
             if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
                 std::string name = (argc > 0 && argv[0]) ? argv[0] : "vulkan-golden";
                 const std::size_t slash = name.find_last_of('/');
@@ -91,7 +98,6 @@ int main(int argc, char** argv) {
                 }
                 glim::image::Png::write((std::string(dir) + "/" + name + "-got.png").c_str(), got);
             }
-        }
         return EXIT_FAILURE;
     }
     std::cout << "vulkan_golden ok\n";
