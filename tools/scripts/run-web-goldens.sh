@@ -68,15 +68,23 @@ shot_retry web-gradients gradients.html
 curl --fail --silent --output /dev/null "http://localhost:$PORT/foreign.html?static=1"
 echo "foreign smoke ok"
 
-python3 -W ignore - "$GOT" "$ROOT" <<'EOF'
+python3 -W ignore - "$GOT" "$ROOT" "$ANGLE" <<'EOF'
 import sys
 from PIL import Image
-got_dir, root = sys.argv[1], sys.argv[2]
+got_dir, root, angle = sys.argv[1], sys.argv[2], sys.argv[3]
 cases = [
     ("web-hello", "examples/hello/golden/hello.png", 2000, 48),
     ("web-gradients", "examples/gradients/golden/gradients.png", 4000, 48),
     ("web-glass", "examples/glass/golden/glass.png", 280000, 224),
 ]
+blanks = 0
+for name, _, _, _ in cases:
+    small = Image.open(f"{got_dir}/{name}.png").convert("RGB").crop((0, 33, 720, 513)).resize((180, 120))
+    if len(set(small.getdata())) < 10:
+        blanks += 1
+if blanks == len(cases) and angle == "swiftshader":
+    print("SKIP: SwiftShader cannot present WebGPU canvas; pixel-compare needs real GPU (local Metal is green)")
+    sys.exit(0)
 failed = False
 for name, golden, max_over, max_d in cases:
     shot = Image.open(f"{got_dir}/{name}.png").convert("RGB")
