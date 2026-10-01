@@ -290,7 +290,15 @@ void blitImage(std::vector<Pixel>& dest, int w, int h, const Blit& b, const Imag
         const float fy = b.rect.size.y <= 0 ? 0.f
                                             : (static_cast<float>(y) + 0.5f - b.rect.origin.y) / b.rect.size.y;
         const float v = v0 + fy * dv;
+        const float cy = static_cast<float>(y) + 0.5f;
+        if (cy < b.rect.origin.y || cy >= b.rect.origin.y + b.rect.size.y) {
+            continue;
+        }
         for (int x = x0; x < x1; ++x) {
+            const float cx = static_cast<float>(x) + 0.5f;
+            if (cx < b.rect.origin.x || cx >= b.rect.origin.x + b.rect.size.x) {
+                continue;
+            }
             const float fx = b.rect.size.x <= 0 ? 0.f
                                                 : (static_cast<float>(x) + 0.5f - b.rect.origin.x) / b.rect.size.x;
             const float u = u0 + fx * du;
