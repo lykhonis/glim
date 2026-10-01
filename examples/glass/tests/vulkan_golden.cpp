@@ -7,7 +7,35 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <algorithm>
+
 void recordGlass(glim::paint::Context&, glim::Vec2, float, glim::Rect = {}, bool = false);
+
+static void diagnose(const glim::image::Image& got, const glim::image::Image& want) {
+    std::size_t buckets[4] = {};
+    int maxDelta = 0;
+    int shown = 0;
+    const std::size_t n = got.rgba.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        const int d = std::abs(static_cast<int>(got.rgba[i]) - static_cast<int>(want.rgba[i]));
+        if (d <= 2) {
+            continue;
+        }
+        maxDelta = std::max(maxDelta, d);
+        ++buckets[d <= 4 ? 0 : d <= 8 ? 1 : d <= 16 ? 2 : 3];
+        if (d > 8 && shown < 8) {
+            const std::size_t px = i / 4;
+            const int x = static_cast<int>(px % static_cast<std::size_t>(got.width));
+            const int y = static_cast<int>(px / static_cast<std::size_t>(got.width));
+            std::cerr << "  diff@" << x << "," << y << " ch" << (i % 4)
+                      << " got=" << static_cast<int>(got.rgba[i])
+                      << " want=" << static_cast<int>(want.rgba[i]) << '\n';
+            ++shown;
+        }
+    }
+    std::cerr << "  maxDelta=" << maxDelta << " d3-4=" << buckets[0] << " d5-8=" << buckets[1]
+              << " d9-16=" << buckets[2] << " d17+=" << buckets[3] << '\n';
+}
 
 int main(int argc, char** argv) {
     const char* goldenPath = argc > 1 ? argv[1] : "examples/glass/golden/glass.png";
@@ -53,6 +81,7 @@ int main(int argc, char** argv) {
             std::cerr << "golden size mismatch\n";
         } else {
             std::cerr << "vulkan golden mismatch: " << diff.overDelta << " channels differ by >2\n";
+            diagnose(got, want);
         }
         return EXIT_FAILURE;
     }
