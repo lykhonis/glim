@@ -66,12 +66,15 @@ void Window::attachSlot(std::uint32_t id, SlotNative native) {
 }
 
 void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
-    (void)id;
-    (void)windowLogical;
+    if (id == 0 || windowLogical.size.x <= 0.f || windowLogical.size.y <= 0.f) {
+        return;
+    }
+    slotRects_[id] = windowLogical;
 }
 
 void Window::detachSlot(std::uint32_t id) {
     slots_.detach(id);
+    slotRects_.erase(id);
 }
 
 #if GLIM_SOFTWARE

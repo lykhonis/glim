@@ -20,6 +20,9 @@ export declare class GlimCanvas {
   resize(): void;
   start(): void;
   stop(): void;
+  setSlot(id: number, element: HTMLElement): void;
+  removeSlot(id: number): void;
+  syncSlots(): void;
   setSize(width: number, height: number): void;
   setReduceTransparency(enabled: boolean): void;
   dispatch(event: { type: number; x?: number; y?: number; key?: number }): void;

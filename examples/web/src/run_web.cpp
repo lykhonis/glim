@@ -1,9 +1,12 @@
 #include "run_web.h"
 
 #include <memory>
+#include <algorithm>
+#include <vector>
 
 #include <glim/paint/Overlay.h>
 #include <glim/paint/Renderer.h>
+#include <glim/paint/Scene.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/RunLoop.h>
 #include <glim/shell/Surface.h>
@@ -19,6 +22,35 @@ float gTime = 0.f;
 float gLastTime = 0.f;
 int gZeroStreak = 0;
 glim::paint::Overlay gOverlay;
+std::vector<glim::paint::SlotPlacement> gSlots;
+
+void syncSlots() {
+    if (gWindow == nullptr || gContext == nullptr) {
+        return;
+    }
+    std::vector<glim::paint::SlotPlacement> places;
+    glim::paint::collectSlots(gContext->scene(), &places);
+    std::sort(places.begin(), places.end(),
+              [](const auto& a, const auto& b) { return a.id < b.id; });
+    std::vector<std::uint32_t> live;
+    gWindow->forEachSlot([&](std::uint32_t id, glim::Rect) { live.push_back(id); });
+    for (std::uint32_t id : live) {
+        bool kept = false;
+        for (const auto& p : places) {
+            if (p.id == id) {
+                kept = true;
+                break;
+            }
+        }
+        if (!kept) {
+            gWindow->detachSlot(id);
+        }
+    }
+    for (const auto& p : places) {
+        gWindow->positionSlot(p.id, p.windowLogical);
+    }
+    gSlots = std::move(places);
+}
 
 bool ensureDevice() {
     if (gDevice && gRenderer) {
@@ -59,6 +91,7 @@ void paintOnce() {
     const glim::Vec2 drawable = gWindow->drawableSize();
     gDevice->setDrawableSize(static_cast<int>(drawable.x), static_cast<int>(drawable.y));
     gRenderer->draw(gContext->scene());
+    syncSlots();
     if (gRenderer->stats().draws == 0 && gRenderer->stats().reuseHits == 0) {
         if (++gZeroStreak > 10) {
             gZeroStreak = 0;
@@ -94,6 +127,45 @@ extern "C" int glimWebStats() {
         return -1;
     }
     return gRenderer->stats().draws;
+}
+
+extern "C" int glimWebSlotCount() {
+    return static_cast<int>(gSlots.size());
+}
+
+extern "C" unsigned glimWebSlotId(int i) {
+    if (i < 0 || static_cast<std::size_t>(i) >= gSlots.size()) {
+        return 0;
+    }
+    return gSlots[static_cast<std::size_t>(i)].id;
+}
+
+extern "C" float glimWebSlotX(int i) {
+    if (i < 0 || static_cast<std::size_t>(i) >= gSlots.size()) {
+        return 0.f;
+    }
+    return gSlots[static_cast<std::size_t>(i)].windowLogical.origin.x;
+}
+
+extern "C" float glimWebSlotY(int i) {
+    if (i < 0 || static_cast<std::size_t>(i) >= gSlots.size()) {
+        return 0.f;
+    }
+    return gSlots[static_cast<std::size_t>(i)].windowLogical.origin.y;
+}
+
+extern "C" float glimWebSlotW(int i) {
+    if (i < 0 || static_cast<std::size_t>(i) >= gSlots.size()) {
+        return 0.f;
+    }
+    return gSlots[static_cast<std::size_t>(i)].windowLogical.size.x;
+}
+
+extern "C" float glimWebSlotH(int i) {
+    if (i < 0 || static_cast<std::size_t>(i) >= gSlots.size()) {
+        return 0.f;
+    }
+    return gSlots[static_cast<std::size_t>(i)].windowLogical.size.y;
 }
 
 extern "C" void glimWebEvent(int type, float x, float y, int key) {

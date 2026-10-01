@@ -25,7 +25,7 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
             "-sMODULARIZE=1"
             "-sEXPORT_ES6=1"
             "-sEXPORT_NAME=createGlimModule"
-            "-sEXPORTED_FUNCTIONS=['_main','_glimWebSelect','_glimWebResize','_glimWebFrame','_glimWebEvent','_glimWebOverlay','_glimWebStats']"
+            "-sEXPORTED_FUNCTIONS=['_main','_glimWebSelect','_glimWebResize','_glimWebFrame','_glimWebEvent','_glimWebOverlay','_glimWebStats','_glimWebSlotCount','_glimWebSlotId','_glimWebSlotX','_glimWebSlotY','_glimWebSlotW','_glimWebSlotH']"
             "-sEXPORTED_RUNTIME_METHODS=['ccall']")
         set_target_properties(glim-web PROPERTIES OUTPUT_NAME "glim-app" SUFFIX ".js")
     endif()
@@ -38,6 +38,7 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
             "${CMAKE_CURRENT_SOURCE_DIR}/web/glass.html"
             "${CMAKE_CURRENT_SOURCE_DIR}/web/gradients.html"
             "${CMAKE_CURRENT_SOURCE_DIR}/web/foreign.html"
+            "${CMAKE_CURRENT_SOURCE_DIR}/web/slot.html"
             "${CMAKE_CURRENT_SOURCE_DIR}/web/main.js"
             "${_glim_web_serve}/"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

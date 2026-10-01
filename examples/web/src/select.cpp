@@ -17,9 +17,17 @@ int gExample = 0;
 }  // namespace
 
 void glimWebSelectExample(int example) {
-    if (example >= 0 && example <= 3) {
+    if (example >= 0 && example <= 4) {
         gExample = example;
     }
+}
+
+void recordSlot(ExampleFrame& frame) {
+    recordHello(frame.context, frame.size, frame.time, frame.safeArea);
+    const float w = 280.f;
+    const float h = 40.f;
+    const float x = (frame.size.x - w) * 0.5f;
+    frame.context.slot(glim::Rect{{x, 20.f}, {w, h}}, 1);
 }
 
 void recordExample(ExampleFrame& frame) {
@@ -33,6 +41,9 @@ void recordExample(ExampleFrame& frame) {
             break;
         case 3:
             recordForeignExample(frame);
+            break;
+        case 4:
+            recordSlot(frame);
             break;
         case 0:
         default:

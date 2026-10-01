@@ -25,6 +25,7 @@ export class GlimCanvas {
     this.reduceTransparency = false;
     this._onResize = () => this.resize();
     this._disposers = [];
+    this._slots = new Map();
   }
 
   async init() {
@@ -68,6 +69,60 @@ export class GlimCanvas {
     if (this.module) this.call('glimWebResize', ['number', 'number', 'number'], [cssW, cssH, this.pixelRatio]);
   }
 
+  setSlot(id, element) {
+    if (!(id > 0) || !(element instanceof HTMLElement)) return;
+    this._slots.set(id, element);
+    const parent = this.canvas.parentElement;
+    if (parent && (parent.style.position === '' || parent.style.position === 'static')) {
+      parent.style.position = 'relative';
+    }
+    element.style.position = 'absolute';
+    element.style.zIndex = '1';
+    this.syncSlots();
+  }
+
+  removeSlot(id) {
+    const element = this._slots.get(id);
+    if (element) element.style.display = 'none';
+    this._slots.delete(id);
+  }
+
+  syncSlots() {
+    if (!this.module || this._slots.size === 0) return;
+    let count = 0;
+    try {
+      count = this.module.ccall('glimWebSlotCount', 'number', [], []);
+    } catch (err) {
+      this.fail(err);
+      return;
+    }
+    const live = new Set();
+    for (let i = 0; i < count; ++i) {
+      let id = 0, x = 0, y = 0, w = 0, h = 0;
+      try {
+        id = this.module.ccall('glimWebSlotId', 'number', ['number'], [i]);
+        x = this.module.ccall('glimWebSlotX', 'number', ['number'], [i]);
+        y = this.module.ccall('glimWebSlotY', 'number', ['number'], [i]);
+        w = this.module.ccall('glimWebSlotW', 'number', ['number'], [i]);
+        h = this.module.ccall('glimWebSlotH', 'number', ['number'], [i]);
+      } catch (err) {
+        this.fail(err);
+        return;
+      }
+      const element = this._slots.get(id);
+      if (!element || id === 0) continue;
+      live.add(id);
+      element.style.display = 'block';
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+      element.style.width = `${w}px`;
+      element.style.height = `${h}px`;
+    }
+    for (const [id, element] of this._slots) {
+      if (!live.has(id)) element.style.display = 'none';
+    }
+  }
+
   start() {
     if (this.running) return;
     this.running = true;
@@ -75,6 +130,7 @@ export class GlimCanvas {
       if (!this.running) return;
       if (this.module) {
         this.call('glimWebFrame', ['number', 'number'], [timeMs / 1000, this.reduceTransparency ? 1 : 0]);
+        this.syncSlots();
       }
       if (typeof this.onFrame === 'function') {
         try {
@@ -106,6 +162,7 @@ export class GlimCanvas {
     const tick = () => {
       if (!this.running) return;
       this.frame(timeSeconds);
+      this.syncSlots();
       try {
         document.body.dataset.draws = String(this.module.ccall('glimWebStats', 'number', [], []));
       } catch (err) {
@@ -139,6 +196,7 @@ export class GlimCanvas {
     if (typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
     for (const dispose of this._disposers) dispose();
     this._disposers = [];
+    this._slots.clear();
   }
 
   _forwardDomEvents() {

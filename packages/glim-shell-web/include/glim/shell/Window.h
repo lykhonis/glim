@@ -14,6 +14,9 @@
 #include <glim/shell/Event.h>
 #include <glim/shell/Slot.h>
 
+#include <cstdint>
+#include <unordered_map>
+
 namespace glim::shell {
 
 // Web shell: browser canvas + WebGPU. Same API shape as macos/wayland shells.
@@ -44,6 +47,13 @@ public:
     void attachSlot(std::uint32_t id, SlotNative);
     void positionSlot(std::uint32_t id, Rect windowLogical);
     void detachSlot(std::uint32_t id);
+    std::size_t slotCount() const { return slotRects_.size(); }
+    template <typename Fn>
+    void forEachSlot(Fn&& fn) const {
+        for (const auto& e : slotRects_) {
+            fn(e.first, e.second);
+        }
+    }
 #if GLIM_SOFTWARE
     std::uint8_t* mapSoftware(int width, int height);
     void presentSoftware();
@@ -64,6 +74,7 @@ private:
     bool shown_ = false;
     EventCallback callback_;
     SlotTable slots_{};
+    std::unordered_map<std::uint32_t, Rect> slotRects_{};
 };
 
 }  // namespace glim::shell
