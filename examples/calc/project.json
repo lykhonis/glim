@@ -1,0 +1,34 @@
+{
+  "name": "calc",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/calc",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["toolkit"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-calc"
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/calc/glim-calc"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-calc-golden",
+        "ctestRegex": "glim-calc-golden"
+      }
+    }
+  }
+}

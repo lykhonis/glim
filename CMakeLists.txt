@@ -42,6 +42,7 @@ endif()
 
 add_subdirectory(packages/glim-paint)
 add_subdirectory(packages/glim-embed)
+add_subdirectory(packages/glim-toolkit)
 
 if(APPLE AND GLIM_SHELL STREQUAL "macos")
     enable_language(OBJCXX)

@@ -1,0 +1,11 @@
+add_library(glim-toolkit STATIC src/Toolkit.cpp)
+add_library(glim::toolkit ALIAS glim-toolkit)
+target_include_directories(glim-toolkit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+glim_target_defaults(glim-toolkit)
+
+if(GLIM_HOST_TESTS)
+    add_executable(glim-toolkit-test tests/toolkit_test.cpp)
+    target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)
+    glim_target_defaults(glim-toolkit-test)
+    add_test(NAME glim-toolkit-test COMMAND glim-toolkit-test)
+endif()

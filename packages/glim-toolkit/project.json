@@ -1,0 +1,22 @@
+{
+  "name": "toolkit",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/glim-toolkit",
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-toolkit"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-toolkit-test",
+        "ctestRegex": "glim-toolkit-test"
+      }
+    }
+  }
+}
