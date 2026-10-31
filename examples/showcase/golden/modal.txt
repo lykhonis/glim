@@ -1,6 +1,6 @@
 root box: 720x480
 Stack [0,0 720x480]
-  Empty [0,0 0x0] [expand]
+  Veil [0,0 720x480]
   Column [0,0 720x480]
     Empty [0,0 0x195] [expand]
     Row [0,203 720x74]

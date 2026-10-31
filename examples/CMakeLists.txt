@@ -1,5 +1,5 @@
 add_subdirectory(common)
-add_subdirectory(calc)
+add_subdirectory(showcase)
 add_subdirectory(hello)
 add_subdirectory(glass)
 add_subdirectory(gradients)

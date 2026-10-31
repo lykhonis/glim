@@ -6,6 +6,7 @@
 #include <sstream>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 #include "glim/toolkit/Place.h"
 
@@ -319,89 +320,83 @@ bool contains(const Box& b, float x, float y) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 }
 
-const Block* hitIn(const Block& b, const Box& box, float x, float y, const Engine& e) {
-  if (const auto* c = b.get<Custom>()) {
-    const Block* found = nullptr;
-    c->visit(box, e, [&](const Block& child, Box cb) {
-      if (const Block* t = hitIn(child, cb, x, y, e)) found = t;
-    });
-    if (found) return found;
-    return contains(box, x, y) ? &b : nullptr;
-  }
-  return std::visit(
-      [&](const auto& el) -> const Block* {
-        using T = std::decay_t<decltype(el)>;
-        if constexpr (has_inner_box<T>::value) {
-          if (hitIn(el.children[0], el.innerBox(box), x, y, e)) return &b;
-          return contains(box, x, y) ? &b : nullptr;
-        } else if constexpr (has_children<T>::value) {
-          const Block* found = nullptr;
-          std::size_t i = 0;
-          el.eachChild([&](const Block& child) {
-            if (const Block* t = hitIn(child, el.childBox(i++, box, e), x, y, e)) found = t;
-          });
-          if (found) return found;
-          return contains(box, x, y) ? &b : nullptr;
-        } else {
-          return contains(box, x, y) ? &b : nullptr;
-        }
-      },
-      b.v
-  );
-}
-
 }  // namespace
 
 const Block* hit(const Block& b, const Box& box, float x, float y) {
   Engine e;
-  return hitIn(b, box, x, y, e);
+  const Block* found = nullptr;
+  int matches = 0;
+  struct Claim {
+    const Block* node;
+    int entered;
+  };
+  std::vector<Claim> claims;
+  walk(
+      b,
+      box,
+      e,
+      [&](const Block& n, const Box& bx) -> bool {
+        if (claimsHit(n)) {
+          if (contains(bx, x, y)) {
+            found = &n;
+            ++matches;
+            return false;  // claimed: whole region resolves here
+          }
+          claims.push_back({&n, matches});
+          return true;  // missed chrome: a spilled child may still hit
+        }
+        if (contains(bx, x, y)) {
+          found = &n;
+          ++matches;
+        }
+        return true;
+      },
+      [&](const Block& n, const Box&) {
+        if (!claims.empty() && claims.back().node == &n) {
+          if (matches > claims.back().entered) found = &n;
+          claims.pop_back();
+        }
+      }
+  );
+  return found;
 }
 
 void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, int indent) {
-  const char* mark = b.has<ExpandTag>() ? "[expand]" : "";
-  auto print = [&](const Rec::Entry& en) {
-    for (int i = 0; i < indent; ++i) os << "  ";
+  auto print = [&](const Rec::Entry& en, const char* mark, int at) {
+    for (int i = 0; i < at; ++i) os << "  ";
     os << en.kind << " [" << en.box.x << "," << en.box.y << " " << en.box.w << "x" << en.box.h
        << "]";
     if (!en.text.empty()) os << " " << en.text;
     if (mark[0] != '\0') os << " " << mark;
     os << "\n";
   };
-  if (const auto* c = b.get<Custom>()) {
-    Rec tmp;
-    e.record(b, box, tmp);
-    if (tmp.entries.empty()) {
-      for (int i = 0; i < indent; ++i) os << "  ";
-      os << "Custom [" << box.x << "," << box.y << " " << box.w << "x" << box.h << "]";
-      if (mark[0] != '\0') os << " " << mark;
-      os << "\n";
-      return;
-    }
-    if (c->childCount() == 0) {
-      for (const auto& en : tmp.entries) print(en);
-      return;
-    }
-    print(tmp.entries[0]);
-    c->visit(box, e, [&](const Block& child, Box cb) { dumpIn(os, child, cb, e, indent + 1); });
-    return;
-  }
-  std::visit(
-      [&](const auto& el) {
-        using T = std::decay_t<decltype(el)>;
+  int depth = indent;
+  walk(
+      b,
+      box,
+      e,
+      [&](const Block& n, const Box& bx) -> bool {
+        const char* mark = n.has<ExpandTag>() ? "[expand]" : "";
         Rec tmp;
-        e.record(b, box, tmp);
-        if (tmp.entries.empty()) return;
-        if constexpr (has_children<T>::value) {
-          print(tmp.entries[0]);
-          std::size_t i = 0;
-          el.eachChild([&](const Block& child) {
-            dumpIn(os, child, el.childBox(i++, box, e), e, indent + 1);
-          });
-        } else {
-          for (const auto& en : tmp.entries) print(en);
+        e.record(n, bx, tmp);
+        if (tmp.entries.empty()) {
+          if (!walkHasChildren(n)) {
+            for (int i = 0; i < depth; ++i) os << "  ";
+            os << "Custom [" << bx.x << "," << bx.y << " " << bx.w << "x" << bx.h << "]";
+            if (mark[0] != '\0') os << " " << mark;
+            os << "\n";
+          }
+          return false;
         }
+        if (walkHasChildren(n)) {
+          print(tmp.entries[0], mark, depth);
+        } else {
+          for (const auto& en : tmp.entries) print(en, mark, depth);
+        }
+        ++depth;
+        return true;
       },
-      b.v
+      [&](const Block&, const Box&) { --depth; }
   );
 }
 
@@ -423,33 +418,26 @@ bool handle(const Block& b, const Event& ev) {
 }
 
 bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Event& ev) {
-  Engine e;
-  const Block* t = hitIn(b, box, x, y, e);
+  const Block* t = hit(b, box, x, y);
   if (!t) return false;
   return handle(*t, ev);
 }
 
 bool broadcastEvent(const Block& b, const Box& box, const Event& ev) {
   Engine e;
-  if (handle(b, ev)) return true;
   bool consumed = false;
-  if (const auto* c = b.get<Custom>()) {
-    c->visit(box, e, [&](const Block& child, Box cb) {
-      if (broadcastEvent(child, cb, ev)) consumed = true;
-    });
-    return consumed;
-  }
-  std::visit(
-      [&](const auto& el) {
-        using T = std::decay_t<decltype(el)>;
-        if constexpr (has_children<T>::value) {
-          std::size_t i = 0;
-          el.eachChild([&](const Block& child) {
-            if (broadcastEvent(child, el.childBox(i++, box, e), ev)) consumed = true;
-          });
+  walk(
+      b,
+      box,
+      e,
+      [&](const Block& n, const Box&) -> bool {
+        if (handle(n, ev)) {
+          consumed = true;
+          return false;  // handling node prunes its own subtree, not siblings
         }
+        return true;
       },
-      b.v
+      [](const Block&, const Box&) {}
   );
   return consumed;
 }
@@ -462,26 +450,15 @@ struct FocusedBox {
 };
 
 void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<FocusedBox>& out) {
-  if (const auto* c = b.get<Custom>()) {
-    bool transparent = c->childCount() > 0;
-    if (c->handles()) out.push_back({&b, box});
-    if (transparent) {
-      c->visit(box, e, [&](const Block& child, Box cb) { collectFocus(child, cb, e, out); });
-    }
-    return;
-  }
-  std::visit(
-      [&](const auto& el) {
-        using T = std::decay_t<decltype(el)>;
-        if constexpr (has_handle<T>::value) out.push_back({&b, box});
-        if constexpr (has_children<T>::value) {
-          std::size_t i = 0;
-          el.eachChild([&](const Block& child) {
-            collectFocus(child, el.childBox(i++, box, e), e, out);
-          });
-        }
+  walk(
+      b,
+      box,
+      e,
+      [&](const Block& n, const Box& bx) -> bool {
+        if (canHandle(n)) out.push_back({&n, bx});
+        return walkHasChildren(n);
       },
-      b.v
+      [](const Block&, const Box&) {}
   );
 }
 

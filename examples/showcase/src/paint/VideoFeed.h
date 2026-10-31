@@ -66,6 +66,40 @@ struct ContextSink {
   ::glim::paint::Context& ctx;
   explicit ContextSink(::glim::paint::Context& c) : ctx(c) {}
   ::glim::paint::Context& context() { return ctx; }
+  // The ONLY place that knows entry kinds. New elements add one branch
+  // here; OpsRecorder and the archive never change. Unknown kinds are
+  // ignored (old painters skip new elements instead of breaking).
+  void entry(const Rec::Entry& en, VideoFeed& feed) {
+    const std::string& k = en.kind;
+    if (k == "Button" || k == "Button.primary") {
+      bool primary = (k == "Button.primary");
+      fillRounded(
+          en.box,
+          Tokens::kButtonRadius,
+          primary ? Tokens::kButtonPrimaryFill : Tokens::kButtonFill
+      );
+      text(
+          en.box.x + static_cast<float>(Tokens::kButtonPadH),
+          en.box.y + (en.box.h - Tokens::kTypeLine) * 0.5f,
+          en.text,
+          primary ? Tokens::kInkOnDark : Tokens::kInkOnLight
+      );
+    } else if (k == "Card") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Lines") {
+      text(en.box.x, en.box.y, en.text, Tokens::kInkOnLight);
+    } else if (k == "Veil") {
+      fill(en.box, Tokens::kScrim);
+    } else if (k == "Video") {
+      blitVideo(en.box, feed);
+    }
+  }
+  void blitVideo(const Box& b, VideoFeed& feed) {
+    std::uint32_t vid = feed.ensure(ctx);
+    if (vid != 0) blit(b, vid, feed.foreign);
+  }
+
+ private:
   void fill(const Box& b, std::uint32_t rgba) {
     ctx.setFillColor(rgba);
     ctx.fill(toRect(b));
@@ -87,10 +121,8 @@ struct ContextSink {
                 : ::glim::paint::Matter::sampled(imageId)
     );
   }
-  void blitVideo(const Box& b, VideoFeed& feed) {
-    std::uint32_t vid = feed.ensure(ctx);
-    if (vid != 0) blit(b, vid, feed.foreign);
-  }
+
+ public:
   void pushGlass(const Box& b, int radius, bool clear) {
     ::glim::paint::GroupParams p;
     p.bounds = toRect(b);

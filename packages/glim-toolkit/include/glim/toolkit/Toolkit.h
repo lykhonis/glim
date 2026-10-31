@@ -13,3 +13,4 @@
 #include "glim/toolkit/Tagged.h"
 #include "glim/toolkit/Tags.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/Walk.h"
