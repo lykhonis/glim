@@ -22,54 +22,54 @@ enum class IndexType { U16, U32 };
 enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
 
 struct ColorClear {
-    float rgba[4]{0, 0, 0, 0};
+  float rgba[4]{0, 0, 0, 0};
 };
 
 struct DeviceCreateInfo {
-    Backend backend = Backend::Metal;
-    // Metal: [0] CAMetalLayer*, [1] id<MTLDevice>
-    // Vulkan Wayland: [0] wl_display*, [1] wl_surface*, [2] vsync (nullptr = off)
-    // Vulkan Android: [0] ANativeWindow*, [1] unused, [2] vsync (nullptr = off)
-    void* native[8]{};
+  Backend backend = Backend::Metal;
+  // Metal: [0] CAMetalLayer*, [1] id<MTLDevice>
+  // Vulkan Wayland: [0] wl_display*, [1] wl_surface*, [2] vsync (nullptr = off)
+  // Vulkan Android: [0] ANativeWindow*, [1] unused, [2] vsync (nullptr = off)
+  void* native[8]{};
 };
 
 struct BufferDesc {
-    std::uint64_t size = 0;
-    bool vertex = false;
-    bool uniform = false;
-    bool index = false;
+  std::uint64_t size = 0;
+  bool vertex = false;
+  bool uniform = false;
+  bool index = false;
 };
 
 struct TextureDesc {
-    int width = 1;
-    int height = 1;
+  int width = 1;
+  int height = 1;
 };
 
 struct FrameTargetDesc {
-    int width = 1;
-    int height = 1;
-    bool mipmaps = false;
+  int width = 1;
+  int height = 1;
+  bool mipmaps = false;
 };
 
 struct PipelineDesc {
-    Handle vertexShader = 0;
-    Handle fragmentShader = 0;
-    Blend blend = Blend::SrcOver;
+  Handle vertexShader = 0;
+  Handle fragmentShader = 0;
+  Blend blend = Blend::SrcOver;
 };
 
 struct BindingsDesc {
-    Handle buffer = 0;
-    std::uint32_t index = 0;
+  Handle buffer = 0;
+  std::uint32_t index = 0;
 };
 
 struct PassDesc {
-    Handle color = 0;
-    void* nativeColor = nullptr;  // MTLTexture / VkImage view; null = current drawable
-    LoadOp load = LoadOp::Clear;
-    StoreOp store = StoreOp::Store;
-    ColorClear clear{};
-    int viewportW = 0;
-    int viewportH = 0;
+  Handle color = 0;
+  void* nativeColor = nullptr;  // MTLTexture / VkImage view; null = current drawable
+  LoadOp load = LoadOp::Clear;
+  StoreOp store = StoreOp::Store;
+  ColorClear clear{};
+  int viewportW = 0;
+  int viewportH = 0;
 };
 
 }  // namespace glim::gpu

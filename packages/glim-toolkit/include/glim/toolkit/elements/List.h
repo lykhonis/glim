@@ -39,12 +39,12 @@ struct List : WithGap {
 };
 
 template <class F, class... As>
-List list(int count, F&& fn, As&&... as) {
+auto list(int count, F&& fn, As&&... as) {
   List l;
   if (count < 0) count = 0;
   for (int i = 0; i < count; ++i) l.items.push_back(toBlock(fn(i)));
   configureTags(l, std::forward<As>(as)...);
-  return l;
+  return finish(std::move(l), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

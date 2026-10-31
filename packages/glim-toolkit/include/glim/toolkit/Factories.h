@@ -2,7 +2,6 @@
 
 #include "glim/toolkit/elements/Column.h"
 #include "glim/toolkit/elements/Empty.h"
-#include "glim/toolkit/elements/Fill.h"
 #include "glim/toolkit/elements/Lines.h"
 #include "glim/toolkit/elements/List.h"
 #include "glim/toolkit/elements/Roll.h"

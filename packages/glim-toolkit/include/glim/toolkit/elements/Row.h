@@ -31,7 +31,8 @@ struct Row : WithGap {
   }
   void record(const Box& box, Rec& rec, const Engine& e) const {
     rec.push(kKind, box);
-    for (std::size_t i = 0; i < children.size(); ++i) e.record(children[i], childBox(i, box, e), rec);
+    for (std::size_t i = 0; i < children.size(); ++i)
+      e.record(children[i], childBox(i, box, e), rec);
   }
 };
 
@@ -39,7 +40,7 @@ template <class... As>
 auto row(As&&... as) {
   Row r;
   configure(r, r.children, std::forward<As>(as)...);
-  return r;
+  return finish(std::move(r), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

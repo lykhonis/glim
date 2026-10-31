@@ -15,11 +15,14 @@ namespace toolkit {
 template <class T, class = void>
 struct has_handle : std::false_type {};
 template <class T>
-struct has_handle<T, std::void_t<decltype(std::declval<const T&>().handle(
-                           std::declval<const Event&>()))>>
-    : std::is_same<decltype(std::declval<const T&>().handle(
-                               std::declval<const Event&>())),
-                   bool> {};
+struct has_handle<
+    T,
+    std::void_t<decltype(std::declval<const T&>().handle(std::declval<const Event&>()))>>
+    : std::is_same<decltype(std::declval<const T&>().handle(std::declval<const Event&>())), bool> {
+};
+
+template <class T>
+struct is_tagged : std::false_type {};
 
 // Opt-in child transparency: an element exposing its composed children
 // (eachChild visitor + per-child box in a laid-out parent box) is traversed
@@ -35,20 +38,20 @@ template <class T, class = void>
 struct has_children : std::false_type {};
 template <class T>
 struct has_children<
-    T, std::void_t<decltype(std::declval<const T&>().eachChild(
-                       std::declval<void (*)(const Block&)>())),
-                    decltype(std::declval<const T&>().childBox(
-                        std::declval<std::size_t>(), std::declval<const Box&>(),
-                        std::declval<const Engine&>()))>> : std::true_type {};
+    T,
+    std::void_t<
+        decltype(std::declval<const T&>().eachChild(std::declval<void (*)(const Block&)>())),
+        decltype(std::declval<const T&>().childBox(
+            std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
+        ))>> : std::true_type {};
 
 template <class T, class = void>
 struct has_inner_box : std::false_type {};
 template <class T>
-struct has_inner_box<T, std::void_t<decltype(std::declval<const T&>().innerBox(
-                               std::declval<const Box&>()))>>
-    : std::is_same<decltype(std::declval<const T&>().innerBox(
-                               std::declval<const Box&>())),
-                   Box> {};
+struct has_inner_box<
+    T,
+    std::void_t<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>()))>>
+    : std::is_same<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>())), Box> {};
 
 struct Custom {
   static constexpr const char* kKind = "Custom";
@@ -64,6 +67,8 @@ struct Custom {
     void (*destroy)(void* s, bool heap);
     void (*moveTo)(void* d, void* s, bool& dheap, bool& sheap);
     void (*cloneTo)(const void* s, bool heap, void* d, bool& dheap);
+    bool (*hasTag)(const void* s, bool heap, const std::type_info& t);
+    const void* (*tagPtr)(const void* s, bool heap, const std::type_info& t);
   };
 
   static constexpr std::size_t kCapacity = 64;
@@ -76,17 +81,22 @@ struct Custom {
   Custom(T&& t) {
     using U = std::decay_t<T>;
     static_assert(
-        std::is_same<decltype(std::declval<const U&>().place(
-                         std::declval<Constraints>(), std::declval<const Engine&>())),
-                     Box>::value,
+        std::is_same<
+            decltype(std::declval<const U&>()
+                         .place(std::declval<Constraints>(), std::declval<const Engine&>())),
+            Box>::value,
         "custom element must provide 'Box place(Constraints, const Engine&) const' "
-        "(see elements/Row.h)");
-    static_assert(std::is_same<decltype(std::declval<const U&>().record(
-                                       std::declval<const Box&>(), std::declval<Rec&>(),
-                                       std::declval<const Engine&>())),
-                                   void>::value,
-                  "custom element must provide 'void record(const Box&, Rec&, const Engine&) "
-                  "const' (see elements/Row.h)");
+        "(see elements/Row.h)"
+    );
+    static_assert(
+        std::is_same<
+            decltype(std::declval<const U&>().record(
+                std::declval<const Box&>(), std::declval<Rec&>(), std::declval<const Engine&>()
+            )),
+            void>::value,
+        "custom element must provide 'void record(const Box&, Rec&, const Engine&) "
+        "const' (see elements/Row.h)"
+    );
     vt = vtableFor<U>();
     if (sizeof(U) <= kCapacity) {
       new (buf) U(std::forward<T>(t));
@@ -145,9 +155,13 @@ struct Custom {
     return vt && vt->handle ? vt->handle(buf, onHeap, ev) : false;
   }
   bool handles() const { return vt && vt->handle != nullptr; }
-  std::size_t childCount() const {
-    return vt && vt->childCount ? vt->childCount(buf, onHeap) : 0;
+  bool hasTag(const std::type_info& t) const {
+    return vt && vt->hasTag ? vt->hasTag(buf, onHeap, t) : false;
   }
+  const void* tagPtr(const std::type_info& t) const {
+    return vt && vt->tagPtr ? vt->tagPtr(buf, onHeap, t) : nullptr;
+  }
+  std::size_t childCount() const { return vt && vt->childCount ? vt->childCount(buf, onHeap) : 0; }
   const Block* childAt(std::size_t i) const {
     return vt && vt->childAt ? vt->childAt(buf, onHeap, i) : nullptr;
   }
@@ -175,8 +189,8 @@ struct Custom {
     return static_cast<const U*>(addr<U>(buf, onHeap));
   }
   Box place(Constraints c, const Engine& e) const {
-    if (!vt) return {0, 0, detail::clampF(0.0f, c.minW, c.maxW),
-                     detail::clampF(0.0f, c.minH, c.maxH)};
+    if (!vt)
+      return {0, 0, detail::clampF(0.0f, c.minW, c.maxW), detail::clampF(0.0f, c.minH, c.maxH)};
     return vt->place(buf, onHeap, c, e);
   }
   void record(const Box& b, Rec& r, const Engine& e) const {
@@ -232,13 +246,44 @@ struct Custom {
   template <class U>
   static Box (*childBoxFn())(const void*, bool, std::size_t, const Box&, const Engine&) {
     if constexpr (has_children<U>::value) {
-      return [](const void* s, bool heap, std::size_t i, const Box& b,
-                const Engine& e) -> Box {
+      return [](const void* s, bool heap, std::size_t i, const Box& b, const Engine& e) -> Box {
         return static_cast<const U*>(addr<U>(s, heap))->childBox(i, b, e);
       };
     } else {
       return nullptr;
     }
+  }
+
+  template <class U>
+  static bool hasTagImpl(const std::type_info& t) {
+    if constexpr (is_tagged<U>::value) {
+      if (t == typeid(typename U::tag_type)) return true;
+      return hasTagImpl<typename U::inner_type>(t);
+    } else {
+      return false;
+    }
+  }
+
+  template <class U>
+  static const void* tagPtrImpl(const U& u, const std::type_info& t) {
+    if constexpr (is_tagged<U>::value) {
+      if (t == typeid(typename U::tag_type)) return static_cast<const void*>(&u.tag_);
+      return tagPtrImpl(u.inner_, t);
+    } else {
+      return nullptr;
+    }
+  }
+
+  template <class U>
+  static bool (*hasTagFor())(const void*, bool, const std::type_info&) {
+    return [](const void*, bool, const std::type_info& t) -> bool { return hasTagImpl<U>(t); };
+  }
+
+  template <class U>
+  static const void* (*tagPtrFor())(const void*, bool, const std::type_info&) {
+    return [](const void* s, bool heap, const std::type_info& t) -> const void* {
+      return tagPtrImpl(*static_cast<const U*>(addr<U>(s, heap)), t);
+    };
   }
 
   template <class U>
@@ -281,7 +326,10 @@ struct Custom {
             new (d) U(*static_cast<const U*>(s));
             dheap = false;
           }
-        }};
+        },
+        hasTagFor<U>(),
+        tagPtrFor<U>()
+    };
     return &v;
   }
 };

@@ -1,4 +1,4 @@
-#include "glim/toolkit/Place.h"
+#include "glim/toolkit/Toolkit.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <variant>
 
-#include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit/Place.h"
 
 namespace glim {
 namespace toolkit {
@@ -17,8 +17,7 @@ namespace detail {
 float clampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
 Box measureText(const std::string& text, Constraints c) {
-  return resolveSize(static_cast<float>(text.size()) * Tokens::kTypeAdvance, Tokens::kTypeLine,
-                     c);
+  return resolveSize(static_cast<float>(text.size()) * Tokens::kTypeAdvance, Tokens::kTypeLine, c);
 }
 
 std::vector<std::string> wrapText(const std::string& text, float maxW) {
@@ -93,8 +92,7 @@ std::vector<std::string> truncateLines(std::vector<std::string> lines, float max
     last += dots;
     return lines;
   }
-  int per = isUnbounded(maxW) ? static_cast<int>(last.size())
-                              : static_cast<int>(maxW / adv);
+  int per = isUnbounded(maxW) ? static_cast<int>(last.size()) : static_cast<int>(maxW / adv);
   if (per < 0) per = 0;
   int keep = per - static_cast<int>(dots.size());
   if (keep < 0) {
@@ -146,17 +144,15 @@ namespace {
 
 Constraints childConstraints(Constraints c) { return {0, c.maxW, 0, c.maxH}; }
 
-bool isFillBlock(const Block& b) { return b.get<Fill>() != nullptr; }
-
 }  // namespace
 
 Flow flowRow(const std::vector<Block>& children, int gap, Constraints c, const Engine& e) {
   Flow f;
-  std::size_t nFill = 0;
+  std::size_t nFlex = 0;
   for (const auto& child : children)
-    if (isFillBlock(child)) ++nFill;
+    if (child.has<ExpandTag>()) ++nFlex;
   Constraints cc = childConstraints(c);
-  if (nFill == 0) {
+  if (nFlex == 0) {
     float x = 0, h = 0;
     for (const auto& child : children) {
       Box b = e.place(child, cc);
@@ -170,12 +166,12 @@ Flow flowRow(const std::vector<Block>& children, int gap, Constraints c, const E
     f.size = {0, 0, clampF(x, c.minW, c.maxW), clampF(h, c.minH, c.maxH)};
     return f;
   }
-  // Measure rigid children first; fills split the remainder equally.
+  // Measure rigid children first; flexible children split the remainder equally.
   std::vector<Box> rigid(children.size());
   std::vector<bool> rigidDone(children.size(), false);
   float rigidW = 0;
   for (std::size_t i = 0; i < children.size(); ++i) {
-    if (isFillBlock(children[i])) continue;
+    if (children[i].has<ExpandTag>()) continue;
     Box b = e.place(children[i], cc);
     rigid[i] = b;
     rigidDone[i] = true;
@@ -185,17 +181,10 @@ Flow flowRow(const std::vector<Block>& children, int gap, Constraints c, const E
   bool bounded = !isUnbounded(c.maxW);
   float remainder = bounded ? c.maxW - rigidW - gaps : -1.0f;
   if (!bounded || remainder < 0) {
-    // Unbounded axis: fill is a programmer error, fall back to natural.
-    // Overflow: rigid budget already blown, fills spill at natural size.
+    // Unbounded axis or rigid overflow: flexible children take natural size and spill.
     float x = 0, h = 0;
     for (std::size_t i = 0; i < children.size(); ++i) {
-      Box b;
-      if (rigidDone[i]) {
-        b = rigid[i];
-      } else {
-        const Fill* fl = children[i].get<Fill>();
-        b = e.place(fl->children[0], cc);
-      }
+      Box b = e.place(children[i], cc);
       b.x = x;
       b.y = 0;
       f.children.push_back(b);
@@ -206,15 +195,14 @@ Flow flowRow(const std::vector<Block>& children, int gap, Constraints c, const E
     f.size = {0, 0, clampF(x, c.minW, c.maxW), clampF(h, c.minH, c.maxH)};
     return f;
   }
-  float share = remainder / static_cast<float>(nFill);
+  float share = remainder / static_cast<float>(nFlex);
   float x = 0, h = 0;
   for (std::size_t i = 0; i < children.size(); ++i) {
     Box b;
     if (rigidDone[i]) {
       b = rigid[i];
     } else {
-      const Fill* fl = children[i].get<Fill>();
-      Box inner = e.place(fl->children[0], {share, share, 0, c.maxH});
+      Box inner = e.place(children[i], {share, share, 0, c.maxH});
       b = {0, 0, share, inner.h};
     }
     b.x = x;
@@ -230,11 +218,11 @@ Flow flowRow(const std::vector<Block>& children, int gap, Constraints c, const E
 
 Flow flowColumn(const std::vector<Block>& children, int gap, Constraints c, const Engine& e) {
   Flow f;
-  std::size_t nFill = 0;
+  std::size_t nFlex = 0;
   for (const auto& child : children)
-    if (isFillBlock(child)) ++nFill;
+    if (child.has<ExpandTag>()) ++nFlex;
   Constraints cc = childConstraints(c);
-  if (nFill == 0) {
+  if (nFlex == 0) {
     float y = 0, w = 0;
     for (const auto& child : children) {
       Box b = e.place(child, cc);
@@ -252,7 +240,7 @@ Flow flowColumn(const std::vector<Block>& children, int gap, Constraints c, cons
   std::vector<bool> rigidDone(children.size(), false);
   float rigidH = 0;
   for (std::size_t i = 0; i < children.size(); ++i) {
-    if (isFillBlock(children[i])) continue;
+    if (children[i].has<ExpandTag>()) continue;
     Box b = e.place(children[i], cc);
     rigid[i] = b;
     rigidDone[i] = true;
@@ -264,13 +252,7 @@ Flow flowColumn(const std::vector<Block>& children, int gap, Constraints c, cons
   if (!bounded || remainder < 0) {
     float y = 0, w = 0;
     for (std::size_t i = 0; i < children.size(); ++i) {
-      Box b;
-      if (rigidDone[i]) {
-        b = rigid[i];
-      } else {
-        const Fill* fl = children[i].get<Fill>();
-        b = e.place(fl->children[0], cc);
-      }
+      Box b = e.place(children[i], cc);
       b.x = 0;
       b.y = y;
       f.children.push_back(b);
@@ -281,15 +263,14 @@ Flow flowColumn(const std::vector<Block>& children, int gap, Constraints c, cons
     f.size = {0, 0, clampF(w, c.minW, c.maxW), clampF(y, c.minH, c.maxH)};
     return f;
   }
-  float share = remainder / static_cast<float>(nFill);
+  float share = remainder / static_cast<float>(nFlex);
   float y = 0, w = 0;
   for (std::size_t i = 0; i < children.size(); ++i) {
     Box b;
     if (rigidDone[i]) {
       b = rigid[i];
     } else {
-      const Fill* fl = children[i].get<Fill>();
-      Box inner = e.place(fl->children[0], {0, c.maxW, share, share});
+      Box inner = e.place(children[i], {0, c.maxW, share, share});
       b = {0, 0, inner.w, share};
     }
     b.x = 0;
@@ -320,15 +301,17 @@ Flow flowStack(const std::vector<Block>& children, Constraints c, const Engine& 
 
 }  // namespace detail
 
-Box place(const Block& b, Constraints c) {
-  Engine e;
-  return std::visit([&](const auto& x) -> Box { return x.place(c, e); }, b.v);
+Box Engine::place(const Block& b, Constraints c) const {
+  return std::visit([&](const auto& x) -> Box { return x.place(c, *this); }, b.v);
 }
 
-void record(const Block& b, const Box& box, Rec& r) {
-  Engine e;
-  std::visit([&](const auto& x) { x.record(box, r, e); }, b.v);
+void Engine::record(const Block& b, const Box& box, Rec& r) const {
+  std::visit([&](const auto& x) { x.record(box, r, *this); }, b.v);
 }
+
+Box place(const Block& b, Constraints c) { return Engine{}.place(b, c); }
+
+void record(const Block& b, const Box& box, Rec& r) { Engine{}.record(b, box, r); }
 
 namespace {
 
@@ -341,7 +324,6 @@ bool contains(const Box& b, float x, float y) {
 }
 
 const Block* hitIn(const Block& b, const Box& box, float x, float y, const Engine& e) {
-  if (const auto* fl = b.get<Fill>()) return hitIn(fl->children[0], box, x, y, e);
   if (const auto* c = b.get<Custom>()) {
     const Block* found = nullptr;
     c->visit(box, e, [&](const Block& child, Box cb) {
@@ -368,7 +350,8 @@ const Block* hitIn(const Block& b, const Box& box, float x, float y, const Engin
           return contains(box, x, y) ? &b : nullptr;
         }
       },
-      b.v);
+      b.v
+  );
 }
 
 }  // namespace
@@ -381,6 +364,7 @@ const Block* hit(const Block& b, const Box& box, float x, float y) {
 void dump(std::ostream& os, const Block& b, int indent) {
   for (int i = 0; i < indent; ++i) os << "  ";
   os << kindOf(b);
+  if (b.has<ExpandTag>()) os << " [expand]";
   if (const auto* l = b.get<Lines>()) os << " \"" << l->text << "\"";
   os << "\n";
   auto dumpChildren = [&](const auto& el) {
@@ -391,11 +375,11 @@ void dump(std::ostream& os, const Block& b, int indent) {
         using T = std::decay_t<decltype(el)>;
         if constexpr (has_children<T>::value) dumpChildren(el);
       },
-      b.v);
+      b.v
+  );
 }
 
 bool handle(const Block& b, const Event& ev) {
-  if (const auto* f = b.get<Fill>()) return handle(f->children[0], ev);
   if (const auto* c = b.get<Custom>()) return c->handle(ev);
   bool consumed = false;
   std::visit(
@@ -403,7 +387,8 @@ bool handle(const Block& b, const Event& ev) {
         using T = std::decay_t<decltype(el)>;
         if constexpr (has_handle<T>::value) consumed = el.handle(ev);
       },
-      b.v);
+      b.v
+  );
   return consumed;
 }
 
@@ -416,7 +401,6 @@ bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Eve
 
 bool broadcastEvent(const Block& b, const Box& box, const Event& ev) {
   Engine e;
-  if (const auto* f = b.get<Fill>()) return broadcastEvent(f->children[0], box, ev);
   if (handle(b, ev)) return true;
   bool consumed = false;
   if (const auto* c = b.get<Custom>()) {
@@ -435,7 +419,8 @@ bool broadcastEvent(const Block& b, const Box& box, const Event& ev) {
           });
         }
       },
-      b.v);
+      b.v
+  );
   return consumed;
 }
 
@@ -466,7 +451,8 @@ void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<F
           });
         }
       },
-      b.v);
+      b.v
+  );
 }
 
 }  // namespace
@@ -501,13 +487,20 @@ int deliverKey(const Block& root, const Box& box, int current, Key key) {
   }
   if (handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(KeyPress{key}))) return i;
   switch (key) {
-    case Key::Left: return moveFocus(root, box, i, FocusDir::Left);
-    case Key::Right: return moveFocus(root, box, i, FocusDir::Right);
-    case Key::Up: return moveFocus(root, box, i, FocusDir::Up);
-    case Key::Down: return moveFocus(root, box, i, FocusDir::Down);
-    case Key::Next: return moveFocus(root, box, i, FocusDir::Next);
-    case Key::Prev: return moveFocus(root, box, i, FocusDir::Prev);
-    default: return i;
+    case Key::Left:
+      return moveFocus(root, box, i, FocusDir::Left);
+    case Key::Right:
+      return moveFocus(root, box, i, FocusDir::Right);
+    case Key::Up:
+      return moveFocus(root, box, i, FocusDir::Up);
+    case Key::Down:
+      return moveFocus(root, box, i, FocusDir::Down);
+    case Key::Next:
+      return moveFocus(root, box, i, FocusDir::Next);
+    case Key::Prev:
+      return moveFocus(root, box, i, FocusDir::Prev);
+    default:
+      return i;
   }
 }
 
@@ -552,11 +545,28 @@ int moveFocus(const Block& root, const Box& box, int current, FocusDir dir) {
     bool beyond = false;
     float primary = 0, secondary = 0;
     switch (dir) {
-      case FocusDir::Right: beyond = dx > 0.5f; primary = dx; secondary = std::fabs(dy); break;
-      case FocusDir::Left: beyond = dx < -0.5f; primary = -dx; secondary = std::fabs(dy); break;
-      case FocusDir::Down: beyond = dy > 0.5f; primary = dy; secondary = std::fabs(dx); break;
-      case FocusDir::Up: beyond = dy < -0.5f; primary = -dy; secondary = std::fabs(dx); break;
-      default: break;
+      case FocusDir::Right:
+        beyond = dx > 0.5f;
+        primary = dx;
+        secondary = std::fabs(dy);
+        break;
+      case FocusDir::Left:
+        beyond = dx < -0.5f;
+        primary = -dx;
+        secondary = std::fabs(dy);
+        break;
+      case FocusDir::Down:
+        beyond = dy > 0.5f;
+        primary = dy;
+        secondary = std::fabs(dx);
+        break;
+      case FocusDir::Up:
+        beyond = dy < -0.5f;
+        primary = -dy;
+        secondary = std::fabs(dx);
+        break;
+      default:
+        break;
     }
     if (!beyond) continue;
     float score = primary + 4.0f * secondary;

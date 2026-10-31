@@ -1,7 +1,7 @@
+#include "glim/toolkit/Toolkit.h"
+
 #include <cassert>
 #include <iostream>
-
-#include "glim/toolkit/Toolkit.h"
 
 using namespace glim::toolkit;
 
@@ -10,7 +10,6 @@ static_assert(has_children<Column>::value, "");
 static_assert(has_children<Stack>::value, "");
 static_assert(has_children<List>::value, "");
 static_assert(has_children<Roll>::value, "");
-static_assert(has_children<Fill>::value, "");
 static_assert(has_children<Tap>::value, "");
 static_assert(!has_children<Empty>::value, "");
 static_assert(!has_children<Lines>::value, "");
@@ -57,6 +56,36 @@ struct Radial : WithGap, WithRadius {
   }
 };
 
+struct Pin {};
+
+template <>
+struct is_tag<Pin> : std::true_type {};
+
+template <>
+struct is_slot_tag<Pin> : std::true_type {};
+
+struct Tint {
+  int v = 0;
+};
+
+template <>
+struct is_tag<Tint> : std::true_type {};
+
+template <>
+struct is_slot_tag<Tint> : std::true_type {};
+
+struct TintProbe {
+  static constexpr const char* kKind = "TintProbe";
+  const char* kind() const { return kKind; }
+  State<int> seen;
+  Box place(Constraints c, const Engine& e) const {
+    const Tint* t = e.get<Tint>();
+    seen = t ? t->v : -1;
+    return detail::resolveSize(10, 10, c);
+  }
+  void record(const Box& box, Rec& rec, const Engine&) const { rec.push(kKind, box); }
+};
+
 }  // namespace toolkit
 }  // namespace glim
 
@@ -67,8 +96,11 @@ struct Counter {
   glim::toolkit::Block view() const {
     auto c = count;
     using namespace glim::toolkit;
-    return column(gap(8), lines("Count: " + std::to_string(*c)),
-                  tap(lines("Inc"), [c] { c = *c + 1; }, primary()));
+    return column(
+        gap(8),
+        lines("Count: " + std::to_string(*c)),
+        tap(lines("Inc"), [c] { c = *c + 1; }, primary())
+    );
   }
 };
 
@@ -78,7 +110,7 @@ glim::toolkit::Block myRadial(glim::toolkit::State<int> sel, As&&... as) {
   Radial m;
   m.children.push_back(lines("sel=" + std::to_string(*sel)));
   configure(m, m.children, std::forward<As>(as)...);
-  return Block{Custom{std::move(m)}};
+  return finish(std::move(m), std::forward<As>(as)...);
 }
 
 }  // namespace
@@ -124,25 +156,29 @@ int main() {
   assert(focusables(m, mb).size() == 1);
   {
     Box tb = focusBox(m, mb, 0);
-    assert(dispatchPointer(m, mb, tb.x + 1, tb.y + 1,
-                           Event::borrow(PointerDown{tb.x + 1, tb.y + 1})));
+    assert(
+        dispatchPointer(m, mb, tb.x + 1, tb.y + 1, Event::borrow(PointerDown{tb.x + 1, tb.y + 1}))
+    );
   }
 
-  // Fill splits the remainder equally: 4 fills in 720 with gap 8
+  // expand splits the remainder equally: 4 expanded in 720 with gap 8
   // share = (720 - 3*8) / 4 = 174.
-  Block fr = row(gap(8), fill(lines("a")), fill(lines("b")), fill(lines("c")), fill(lines("d")));
+  Block fr = row(
+      gap(8), lines("a", expand()), lines("b", expand()), lines("c", expand()), lines("d", expand())
+  );
   Box fb = place(fr, {0, 720, 0, 480});
   assert(fb.w == 720);
   {
+    const Row* rp = fr.get<Row>();
+    assert(rp && rp->children.size() == 4);
+    Engine e;
+    for (std::size_t i = 0; i < 4; ++i) {
+      assert(rp->children[i].has<ExpandTag>());
+      assert(rp->childBox(i, fb, e).w == 174);
+    }
     Rec recr;
     record(fr, fb, recr);
-    int fills = 0;
-    for (const auto& e : recr.entries)
-      if (e.kind == "Fill") {
-        assert(e.box.w == 174);
-        ++fills;
-      }
-    assert(fills == 4);
+    for (const auto& en : recr.entries) assert(en.kind != "Fill");
   }
 
   // Overflow spills: rigid children wider than budget keep natural size.
@@ -183,8 +219,9 @@ int main() {
     assert(recr.entries[2].box.x == 160);
   }
   State<float> off2 = store.make<float>(160.0f);
-  Block scrolled = roll(horizontal(), scrollOffset(off2), lines("12345678901234567890"),
-                        lines("12345678901234567890"));
+  Block scrolled = roll(
+      horizontal(), scrollOffset(off2), lines("12345678901234567890"), lines("12345678901234567890")
+  );
   Box scrolledBox = place(scrolled, {0, 100, 0, 480});
   {
     Rec recr;
@@ -194,20 +231,18 @@ int main() {
     assert(top && top->get<Lines>() && top->get<Lines>()->text == "12345678901234567890");
   }
 
-  // Column fill splits vertical remainder equally.
-  Block fc = column(gap(0), fill(lines("a")), fill(lines("b")));
+  // Column expand splits vertical remainder equally.
+  Block fc = column(gap(0), lines("a", expand()), lines("b", expand()));
   Box fcb = place(fc, {0, 720, 0, 100});
   assert(fcb.h == 100);
   {
-    Rec recr;
-    record(fc, fcb, recr);
-    int fills = 0;
-    for (const auto& e : recr.entries)
-      if (e.kind == "Fill") {
-        assert(e.box.h == 50);
-        ++fills;
-      }
-    assert(fills == 2);
+    const Column* cp = fc.get<Column>();
+    assert(cp && cp->children.size() == 2);
+    Engine e;
+    for (std::size_t i = 0; i < 2; ++i) {
+      assert(cp->children[i].has<ExpandTag>());
+      assert(cp->childBox(i, fcb, e).h == 50);
+    }
   }
 
   // Semantic marks ride the record entries hooks for the a11y node map.
@@ -308,9 +343,7 @@ int main() {
     struct Ping {};
     struct Bell {
       State<int> rings;
-      Box place(Constraints c, const Engine&) const {
-        return detail::resolveSize(10, 10, c);
-      }
+      Box place(Constraints c, const Engine&) const { return detail::resolveSize(10, 10, c); }
       void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Bell", box); }
       bool handle(const Event& ev) const {
         if (ev.is<Ping>()) {
@@ -331,9 +364,7 @@ int main() {
     assert(!handle(bare, Event::borrow(Ping{})));
     struct MissProbe {
       int* n;
-      Box place(Constraints c, const Engine&) const {
-        return detail::resolveSize(10, 10, c);
-      }
+      Box place(Constraints c, const Engine&) const { return detail::resolveSize(10, 10, c); }
       void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Miss", box); }
       bool handle(const Event&) const {
         ++(*n);
@@ -341,17 +372,48 @@ int main() {
       }
     };
     int missCount = 0;
-    Block filled = fill(Block{Custom{MissProbe{&missCount}}});
+    Block filled = Block{Custom{Tagged<ExpandTag, MissProbe>{MissProbe{&missCount}, ExpandTag{}}}};
     Box fbox = place(filled, {0, 720, 0, 480});
     assert(!broadcastEvent(filled, fbox, Event::borrow(Ping{})));
     assert(missCount == 1);
   }
-  Block grid = column(gap(0), row(gap(0), tap(lines("1"), [] {}), tap(lines("2"), [] {}),
-                                        tap(lines("3"), [] {})),
-                      row(gap(0), tap(lines("4"), [] {}), tap(lines("5"), [] {}),
-                          tap(lines("6"), [] {})),
-                      row(gap(0), tap(lines("7"), [] {}), tap(lines("8"), [] {}),
-                          tap(lines("9"), [] {})));
+
+  // Custom slot tags ride any element with no opt-in: the parent reads Pin,
+  // the element never mentions it.
+  {
+    State<int> pc = store.make<int>(0);
+    Block pinned = row(gap(0), tap(lines("a"), [pc] { pc = 1; }, Pin{}), lines("b"));
+    const Row* rp = pinned.get<Row>();
+    assert(rp && rp->children.size() == 2);
+    assert(rp->children[0].has<Pin>());
+    assert(rp->children[0].tag<Pin>() != nullptr);
+    assert(!rp->children[1].has<Pin>());
+    assert(handle(rp->children[0], Event::borrow(Activate{})));
+    assert(*pc == 1);
+  }
+
+  // Inherited tags flow down through oblivious middles: TintProbe reads Tint
+  // set two levels up; nearest scope wins.
+  {
+    State<int> seen = store.make<int>(-99);
+    Block tinted = column(Tint{3}, TintProbe{seen}, lines("x"));
+    place(tinted, {0, 720, 0, 480});
+    assert(*seen == 3);
+    State<int> seen2 = store.make<int>(-99);
+    Block nested = column(Tint{3}, column(Tint{7}, TintProbe{seen2}));
+    place(nested, {0, 720, 0, 480});
+    assert(*seen2 == 7);
+    State<int> seen3 = store.make<int>(-99);
+    Block plain = column(lines("y"), TintProbe{seen3});
+    place(plain, {0, 720, 0, 480});
+    assert(*seen3 == -1);
+  }
+  Block grid = column(
+      gap(0),
+      row(gap(0), tap(lines("1"), [] {}), tap(lines("2"), [] {}), tap(lines("3"), [] {})),
+      row(gap(0), tap(lines("4"), [] {}), tap(lines("5"), [] {}), tap(lines("6"), [] {})),
+      row(gap(0), tap(lines("7"), [] {}), tap(lines("8"), [] {}), tap(lines("9"), [] {}))
+  );
   Box gridBox = place(grid, {0, 720, 0, 480});
   auto focusablesList = focusables(grid, gridBox);
   assert(focusablesList.size() == 9);
@@ -374,8 +436,9 @@ int main() {
   // Key delivery: arrows move like moveFocus, Activate handles in place.
   {
     State<int> tapped = store.make<int>(0);
-    Block keys = row(gap(0), tap(lines("a"), [tapped] { tapped = 1; }),
-                     tap(lines("b"), [tapped] { tapped = 2; }));
+    Block keys = row(gap(0), tap(lines("a"), [tapped] { tapped = 1; }), tap(lines("b"), [tapped] {
+                       tapped = 2;
+                     }));
     Box kbox = place(keys, {0, 720, 0, 480});
     int ki = 0;
     ki = deliverKey(keys, kbox, ki, Key::Right);

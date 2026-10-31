@@ -1,12 +1,12 @@
 #pragma once
 
+#include <glim/math.h>
+#include <glim/paint/FramePacket.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
-
-#include <glim/math.h>
-#include <glim/paint/FramePacket.h>
 
 namespace glim::paint {
 
@@ -32,25 +32,25 @@ namespace glim::paint {
 // Whole-packet granularity in this step: per-tile dirtying shares the hash
 // grid and lands with the tile stage (Stats.dirtyTiles stays 0 here).
 class ReuseCache {
-public:
-    ReuseCache();
-    ~ReuseCache();
-    ReuseCache(const ReuseCache&) = delete;
-    ReuseCache& operator=(const ReuseCache&) = delete;
+ public:
+  ReuseCache();
+  ~ReuseCache();
+  ReuseCache(const ReuseCache&) = delete;
+  ReuseCache& operator=(const ReuseCache&) = delete;
 
-    // Encode with reuse. Miss: full merge+encode, stored, stats.reuseMisses=1.
-    // Hit (exact or translation-only): cached quads reused, origins
-    // rewritten on translation, stats.reuseHits=1. stats.dirtyTiles reports
-    // coarse tiles (kTileSize device px) whose content changed vs the last
-    // frame: 0 on an exact hit, tile count on the first frame or a resize.
-    FramePacket encode(const Scene& scene, float pixelRatio = 1.0f);
+  // Encode with reuse. Miss: full merge+encode, stored, stats.reuseMisses=1.
+  // Hit (exact or translation-only): cached quads reused, origins
+  // rewritten on translation, stats.reuseHits=1. stats.dirtyTiles reports
+  // coarse tiles (kTileSize device px) whose content changed vs the last
+  // frame: 0 on an exact hit, tile count on the first frame or a resize.
+  FramePacket encode(const Scene& scene, float pixelRatio = 1.0f);
 
-    void clear();
-    std::size_t size() const;
+  void clear();
+  std::size_t size() const;
 
-private:
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 // Persistent image fingerprints so consecutive structural hashes hash each
@@ -59,25 +59,35 @@ private:
 // against the live slot (pointer + dimensions + byte size) so ids from a
 // different ImageStore never alias.
 struct SceneHashCache {
-    struct Entry {
-        const StoredImage* ptr = nullptr;
-        int w = 0;
-        int h = 0;
-        std::size_t bytes = 0;
-        std::uint64_t fp = 0;
-    };
-    std::unordered_map<std::uint32_t, Entry> images;
+  struct Entry {
+    const StoredImage* ptr = nullptr;
+    int w = 0;
+    int h = 0;
+    std::size_t bytes = 0;
+    std::uint64_t fp = 0;
+  };
+  std::unordered_map<std::uint32_t, Entry> images;
 };
 
 // Structural hash of the unmerged scene with translation normalized out.
 // outOrigin receives the content-bbox origin the hash is relative to.
 // outHasForeign/outHas3D report volatile content / 3D transforms (both
 // optional, may be nullptr).
-std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, Vec2* outOrigin = nullptr,
-                                 bool* outHasForeign = nullptr, bool* outHas3D = nullptr);
-std::uint64_t hashSceneStructure(const Scene& scene, float pixelRatio, SceneHashCache& cache,
-                                 Vec2* outOrigin = nullptr, bool* outHasForeign = nullptr,
-                                 bool* outHas3D = nullptr);
+std::uint64_t hashSceneStructure(
+    const Scene& scene,
+    float pixelRatio,
+    Vec2* outOrigin = nullptr,
+    bool* outHasForeign = nullptr,
+    bool* outHas3D = nullptr
+);
+std::uint64_t hashSceneStructure(
+    const Scene& scene,
+    float pixelRatio,
+    SceneHashCache& cache,
+    Vec2* outOrigin = nullptr,
+    bool* outHasForeign = nullptr,
+    bool* outHas3D = nullptr
+);
 
 FramePacket encodeWithReuse(const Scene& scene, ReuseCache& cache, float pixelRatio = 1.0f);
 

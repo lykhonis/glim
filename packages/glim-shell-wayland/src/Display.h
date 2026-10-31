@@ -22,21 +22,21 @@ class Window;
 namespace detail {
 
 struct Wayland {
-    wl_display* display = nullptr;
-    wl_registry* registry = nullptr;
-    wl_compositor* compositor = nullptr;
-    xdg_wm_base* wm = nullptr;
-    wl_shm* shm = nullptr;
-    wl_seat* seat = nullptr;
-    wl_pointer* pointer = nullptr;
-    wl_keyboard* keyboard = nullptr;
-    wl_output* output = nullptr;
-    wp_viewporter* viewporter = nullptr;
+  wl_display* display = nullptr;
+  wl_registry* registry = nullptr;
+  wl_compositor* compositor = nullptr;
+  xdg_wm_base* wm = nullptr;
+  wl_shm* shm = nullptr;
+  wl_seat* seat = nullptr;
+  wl_pointer* pointer = nullptr;
+  wl_keyboard* keyboard = nullptr;
+  wl_output* output = nullptr;
+  wp_viewporter* viewporter = nullptr;
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
-    wp_fractional_scale_manager_v1* fractional = nullptr;
+  wp_fractional_scale_manager_v1* fractional = nullptr;
 #endif
-    int outputScale = 1;
-    bool connected = false;
+  int outputScale = 1;
+  bool connected = false;
 };
 
 Wayland& wayland();

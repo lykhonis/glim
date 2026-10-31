@@ -14,21 +14,29 @@
 namespace glim {
 namespace toolkit {
 
-struct Button : WithGap, WithPrimary, WithThrough, WithPad, WithSemantic {
+struct Button : WithGap,
+                WithPrimary,
+                WithThrough,
+                WithPad,
+                WithSemantic {
   static constexpr const char* kKind = "Button";
   static constexpr const char* kKindPrimary = "Button.primary";
   std::string label;
   Action onTap;
   Box place(Constraints c, const Engine&) const {
     Box t = detail::measureText(label, {0, kUnbounded, 0, kUnbounded});
-    return detail::resolveSize(t.w + static_cast<float>(2 * padH),
-                               t.h + static_cast<float>(2 * padV), c);
+    return detail::resolveSize(
+        t.w + static_cast<float>(2 * padH),
+        t.h + static_cast<float>(2 * padV),
+        c
+    );
   }
   void record(const Box& box, Rec& rec, const Engine&) const {
     rec.push(isPrimary ? kKindPrimary : kKind, box, label, semantic);
   }
   bool handle(const Event& ev) const {
-    if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
+    if (ev.is<PointerDown>() || ev.is<Activate>())
+      return detail::invokeAction(onTap);
     return false;
   }
 };
@@ -41,7 +49,7 @@ Block button(std::string label, Action onTap, As&&... as) {
   b.padH = Tokens::kButtonPadH;
   b.padV = Tokens::kButtonPadV;
   configureTags(b, std::forward<As>(as)...);
-  return Block{Custom{std::move(b)}};
+  return finish(std::move(b), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

@@ -35,7 +35,11 @@ std::string readFile(const std::string& path) {
   return os.str();
 }
 
-int checkGolden(const std::string& dir, const std::string& name, const std::string& got) {
+int checkGolden(
+    const std::string& dir,
+    const std::string& name,
+    const std::string& got
+) {
   std::string path = dir + "/" + name;
   if (!fileExists(path)) {
     std::ofstream out(path, std::ios::binary);
@@ -63,7 +67,8 @@ int main(int argc, char** argv) {
   if (int rc = checkGolden(dir, "focus.txt", focusDump())) return rc;
   if (int rc = checkGolden(dir, "list.txt", listDump())) return rc;
 
-  // Calc dispatch + focus end to end on real buttons (flat rows, direct leaves).
+  // Calc dispatch + focus end to end on real buttons (flat rows, direct
+  // leaves).
   Store store;
   State<std::string> out = store.make<std::string>("12+3");
   Block tree = calcTree(out);
@@ -72,8 +77,13 @@ int main(int argc, char** argv) {
   assert(focusableList.size() == 12);
   // First focusable is "7"; firing it appends through the cell.
   Box first = focusBox(tree, box, 0);
-  assert(dispatchPointer(tree, box, first.x + 1, first.y + 1,
-                         Event::borrow(PointerDown{first.x + 1, first.y + 1})));
+  assert(dispatchPointer(
+      tree,
+      box,
+      first.x + 1,
+      first.y + 1,
+      Event::borrow(PointerDown{first.x + 1, first.y + 1})
+  ));
   assert(*out == "12+37");
   // Spatial moves walk the digit grid.
   assert(moveFocus(tree, box, 0, FocusDir::Right) == 1);
@@ -98,10 +108,12 @@ int main(int argc, char** argv) {
     assert(recr.entries.back().box.x == first2.x - 2);
   }
 
-  // Modal overlay: dim fills the box, card centers via fills, paint under→over.
-  // Buttons composed inside the Card stay reachable through eachChild.
+  // Modal overlay: dim fills the box, card centers via fills, paint
+  // under→over. Buttons composed inside the Card stay reachable through
+  // eachChild.
   State<int> answer = store.make<int>(0);
-  Block modal = modalTree([answer] { answer = 1; }, [answer] { answer = 2; });
+  Block modal =
+      modalTree([answer] { answer = 1; }, [answer] { answer = 2; });
   Box mbox = place(modal, {0, 720, 0, 480});
   const Stack* st2 = modal.get<Stack>();
   assert(st2 && st2->children.size() == 2);
@@ -111,14 +123,21 @@ int main(int argc, char** argv) {
   Box yesBox = focusBox(modal, mbox, 1);
   const Block* yesHit = hit(modal, mbox, yesBox.x + 1, yesBox.y + 1);
   assert(yesHit && yesHit->get<Custom>());
-  assert(dispatchPointer(modal, mbox, yesBox.x + 1, yesBox.y + 1,
-                         Event::borrow(PointerDown{yesBox.x + 1, yesBox.y + 1})));
+  assert(dispatchPointer(
+      modal,
+      mbox,
+      yesBox.x + 1,
+      yesBox.y + 1,
+      Event::borrow(PointerDown{yesBox.x + 1, yesBox.y + 1})
+  ));
   assert(*answer == 2);
   // Focus walks from No to Yes.
   assert(moveFocus(modal, mbox, 0, FocusDir::Right) == 1);
   // Dim corner hits the dim, which ignores the event.
   const Block* dimHit = hit(modal, mbox, 10, 10);
-  assert(dimHit && !handle(*dimHit, Event::borrow(PointerDown{10, 10})));
+  assert(
+      dimHit && !handle(*dimHit, Event::borrow(PointerDown{10, 10}))
+  );
   // Card padding itself resolves to the Card, which ignores the event.
   {
     Rec recr;
@@ -131,21 +150,32 @@ int main(int argc, char** argv) {
         foundCard = true;
       }
     assert(foundCard);
-    const Block* padHit = hit(modal, mbox, cardBox.x + 1, cardBox.y + 1);
-    assert(padHit && padHit->get<Custom>() &&
-           !handle(*padHit, Event::borrow(PointerDown{cardBox.x + 1, cardBox.y + 1})));
+    const Block* padHit =
+        hit(modal, mbox, cardBox.x + 1, cardBox.y + 1);
+    assert(
+        padHit && padHit->get<Custom>() &&
+        !handle(
+            *padHit,
+            Event::borrow(PointerDown{cardBox.x + 1, cardBox.y + 1})
+        )
+    );
   }
 
-  // List scroll: content taller than the viewport spills past it (no clip).
+  // List scroll: content taller than the viewport spills past it (no
+  // clip).
   {
-    Block scrolled = roll(vertical(), list(8, [](int i) { return lines("item" + std::to_string(i)); }));
+    Block scrolled = roll(vertical(), list(8, [](int i) {
+                            return lines("item" + std::to_string(i));
+                          }));
     Box vbox = place(scrolled, {0, 720, 0, 100});
     assert(vbox.h == 100);
     Rec recr;
     record(scrolled, vbox, recr);
     bool spilled = false;
     for (const auto& e : recr.entries)
-      if (e.kind == "Lines" && e.box.y + e.box.h > vbox.y + vbox.h + 0.001f) spilled = true;
+      if (e.kind == "Lines" &&
+          e.box.y + e.box.h > vbox.y + vbox.h + 0.001f)
+        spilled = true;
     assert(spilled);
   }
 

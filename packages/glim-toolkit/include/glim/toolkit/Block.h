@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 #include <variant>
 
@@ -8,7 +9,6 @@
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/elements/Column.h"
 #include "glim/toolkit/elements/Empty.h"
-#include "glim/toolkit/elements/Fill.h"
 #include "glim/toolkit/elements/Lines.h"
 #include "glim/toolkit/elements/List.h"
 #include "glim/toolkit/elements/Roll.h"
@@ -20,7 +20,7 @@ namespace glim {
 namespace toolkit {
 
 struct Block {
-  using Variant = std::variant<Empty, Row, Column, Stack, Lines, List, Roll, Fill, Tap, Custom>;
+  using Variant = std::variant<Empty, Row, Column, Stack, Lines, List, Roll, Tap, Custom>;
   Variant v;
   Block() : v(Empty{}) {}
   Block(Empty e) : v(std::move(e)) {}
@@ -30,12 +30,23 @@ struct Block {
   Block(Lines l) : v(std::move(l)) {}
   Block(List l) : v(std::move(l)) {}
   Block(Roll r) : v(std::move(r)) {}
-  Block(Fill f) : v(std::move(f)) {}
   Block(Tap t) : v(std::move(t)) {}
   Block(Custom c) : v(std::move(c)) {}
   template <class T>
   const T* get() const {
     return std::get_if<T>(&v);
+  }
+  template <class T>
+  const T* tag() const {
+    if (const auto* c = get<Custom>()) {
+      return static_cast<const T*>(c->tagPtr(typeid(T)));
+    }
+    return nullptr;
+  }
+  template <class T>
+  bool has() const {
+    if (const auto* c = get<Custom>()) return c->hasTag(typeid(T));
+    return false;
   }
 };
 
@@ -48,40 +59,44 @@ struct has_view<T, std::void_t<decltype(std::declval<const T&>().view())>>
 template <class T, class = void>
 struct has_place : std::false_type {};
 template <class T>
-struct has_place<T, std::void_t<decltype(std::declval<const T&>().place(
-                       std::declval<Constraints>(), std::declval<const Engine&>()))>>
-    : std::is_same<decltype(std::declval<const T&>().place(
-                       std::declval<Constraints>(), std::declval<const Engine&>())),
-                   Box> {};
+struct has_place<
+    T,
+    std::void_t<decltype(std::declval<const T&>()
+                             .place(std::declval<Constraints>(), std::declval<const Engine&>()))>>
+    : std::is_same<
+          decltype(std::declval<const T&>()
+                       .place(std::declval<Constraints>(), std::declval<const Engine&>())),
+          Box> {};
 
 template <class T, class = void>
 struct has_record : std::false_type {};
 template <class T>
-struct has_record<T, std::void_t<decltype(std::declval<const T&>().record(
-                        std::declval<const Box&>(), std::declval<Rec&>(),
-                        std::declval<const Engine&>()))>> : std::true_type {};
+struct has_record<
+    T,
+    std::void_t<decltype(std::declval<const T&>().record(
+        std::declval<const Box&>(), std::declval<Rec&>(), std::declval<const Engine&>()
+    ))>> : std::true_type {};
 
 template <class T>
 struct is_block : std::is_same<std::decay_t<T>, Block> {};
 template <class T>
-struct is_block_arm
-    : std::integral_constant<bool,
-                             std::is_same<std::decay_t<T>, Empty>::value ||
-                                 std::is_same<std::decay_t<T>, Row>::value ||
-                                 std::is_same<std::decay_t<T>, Column>::value ||
-                                 std::is_same<std::decay_t<T>, Stack>::value ||
-                                 std::is_same<std::decay_t<T>, Lines>::value ||
-                                 std::is_same<std::decay_t<T>, List>::value ||
-                                 std::is_same<std::decay_t<T>, Roll>::value ||
-                                 std::is_same<std::decay_t<T>, Fill>::value ||
-                                 std::is_same<std::decay_t<T>, Tap>::value ||
-                                 std::is_same<std::decay_t<T>, Custom>::value> {};
+struct is_block_arm : std::integral_constant<
+                          bool,
+                          std::is_same<std::decay_t<T>, Empty>::value ||
+                              std::is_same<std::decay_t<T>, Row>::value ||
+                              std::is_same<std::decay_t<T>, Column>::value ||
+                              std::is_same<std::decay_t<T>, Stack>::value ||
+                              std::is_same<std::decay_t<T>, Lines>::value ||
+                              std::is_same<std::decay_t<T>, List>::value ||
+                              std::is_same<std::decay_t<T>, Roll>::value ||
+                              std::is_same<std::decay_t<T>, Tap>::value ||
+                              std::is_same<std::decay_t<T>, Custom>::value> {};
 template <class T>
 struct is_child_type
-    : std::integral_constant<bool, is_block<T>::value || is_block_arm<T>::value ||
-                                       has_view<std::decay_t<T>>::value ||
-                                       (has_place<std::decay_t<T>>::value &&
-                                        has_record<std::decay_t<T>>::value)> {};
+    : std::integral_constant<
+          bool,
+          is_block<T>::value || is_block_arm<T>::value || has_view<std::decay_t<T>>::value ||
+              (has_place<std::decay_t<T>>::value && has_record<std::decay_t<T>>::value)> {};
 
 template <class T>
 struct always_false : std::false_type {};
@@ -98,10 +113,12 @@ Block toBlock(T&& t) {
   } else if constexpr (has_place<U>::value && has_record<U>::value) {
     return Block{Custom{std::forward<T>(t)}};
   } else {
-    static_assert(always_false<U>::value,
-                  "child must be Block, an element, provide 'Block view() const', or "
-                  "provide 'Box place(Constraints, const Engine&) const' + 'void record(const "
-                  "Box&, Rec&, const Engine&) const' (see elements/Row.h)");
+    static_assert(
+        always_false<U>::value,
+        "child must be Block, an element, provide 'Block view() const', or "
+        "provide 'Box place(Constraints, const Engine&) const' + 'void record(const "
+        "Box&, Rec&, const Engine&) const' (see elements/Row.h)"
+    );
   }
 }
 

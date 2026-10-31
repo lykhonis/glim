@@ -46,7 +46,7 @@ auto lines(std::string text, As&&... as) {
   Lines l;
   l.text = std::move(text);
   configureTags(l, std::forward<As>(as)...);
-  return l;
+  return finish(std::move(l), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

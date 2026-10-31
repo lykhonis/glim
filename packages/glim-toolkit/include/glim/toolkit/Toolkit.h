@@ -10,5 +10,6 @@
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
+#include "glim/toolkit/Tagged.h"
 #include "glim/toolkit/Tags.h"
 #include "glim/toolkit/Tokens.h"

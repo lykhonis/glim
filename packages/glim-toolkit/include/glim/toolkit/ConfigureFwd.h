@@ -13,6 +13,9 @@ void configure(H& h, std::vector<Block>& children, As&&... as);
 template <class H, class... As>
 void configureTags(H& h, As&&... as);
 
+template <class H, class... As>
+Block finish(H&& h, As&&... as);
+
 namespace detail {
 
 template <class C, class F>

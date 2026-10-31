@@ -20,13 +20,15 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
     if (axis == kAxisHorizontal) {
       Constraints content{0, kUnbounded, 0, c.maxH};
       detail::Flow f = detail::flowRow(children, gap, content, e);
-      return {0, 0, detail::clampF(f.size.w, c.minW, c.maxW),
-              detail::clampF(f.size.h, c.minH, c.maxH)};
+      return {
+          0, 0, detail::clampF(f.size.w, c.minW, c.maxW), detail::clampF(f.size.h, c.minH, c.maxH)
+      };
     }
     Constraints content{0, c.maxW, 0, kUnbounded};
     detail::Flow f = detail::flowColumn(children, gap, content, e);
-    return {0, 0, detail::clampF(f.size.w, c.minW, c.maxW),
-            detail::clampF(f.size.h, c.minH, c.maxH)};
+    return {
+        0, 0, detail::clampF(f.size.w, c.minW, c.maxW), detail::clampF(f.size.h, c.minH, c.maxH)
+    };
   }
   template <class F>
   void eachChild(F&& f) const {
@@ -49,7 +51,8 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
   }
   void record(const Box& box, Rec& rec, const Engine& e) const {
     rec.push(kind(), box);
-    for (std::size_t i = 0; i < children.size(); ++i) e.record(children[i], childBox(i, box, e), rec);
+    for (std::size_t i = 0; i < children.size(); ++i)
+      e.record(children[i], childBox(i, box, e), rec);
   }
 };
 
@@ -57,7 +60,7 @@ template <class... As>
 auto roll(As&&... as) {
   Roll r;
   configure(r, r.children, std::forward<As>(as)...);
-  return r;
+  return finish(std::move(r), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

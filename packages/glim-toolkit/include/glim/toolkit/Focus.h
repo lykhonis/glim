@@ -41,8 +41,7 @@ Box focusBox(const Block& root, const Box& box, int index);
 // Out-of-range index (or empty focus set) yields a zero box / no entry.
 inline constexpr const char* kFocusRingKind = "FocusRing";
 Box focusRingBox(const Block& root, const Box& box, int index, float pad = 2.0f);
-void recordFocusRing(Rec& rec, const Block& root, const Box& box, int index,
-                     float pad = 2.0f);
+void recordFocusRing(Rec& rec, const Block& root, const Box& box, int index, float pad = 2.0f);
 
 }  // namespace toolkit
 }  // namespace glim

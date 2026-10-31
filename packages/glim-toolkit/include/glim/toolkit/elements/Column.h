@@ -31,7 +31,8 @@ struct Column : WithGap {
   }
   void record(const Box& box, Rec& rec, const Engine& e) const {
     rec.push(kKind, box);
-    for (std::size_t i = 0; i < children.size(); ++i) e.record(children[i], childBox(i, box, e), rec);
+    for (std::size_t i = 0; i < children.size(); ++i)
+      e.record(children[i], childBox(i, box, e), rec);
   }
 };
 
@@ -39,7 +40,7 @@ template <class... As>
 auto column(As&&... as) {
   Column c;
   configure(c, c.children, std::forward<As>(as)...);
-  return c;
+  return finish(std::move(c), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit

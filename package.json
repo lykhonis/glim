@@ -9,6 +9,8 @@
   "scripts": {
     "build": "nx run examples:build",
     "test": "nx run-many -t test",
+    "format": "tools/format.sh",
+    "format:check": "tools/format-check.sh",
     "hello": "nx run hello:run"
   },
   "devDependencies": {

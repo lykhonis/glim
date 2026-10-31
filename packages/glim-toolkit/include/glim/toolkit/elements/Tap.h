@@ -35,12 +35,12 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
 };
 
 template <class A, class... As>
-Tap tap(A&& a, Action onTap, As&&... as) {
+auto tap(A&& a, Action onTap, As&&... as) {
   Tap t;
   t.children.push_back(toBlock(std::forward<A>(a)));
   t.onTap = std::move(onTap);
   configureTags(t, std::forward<As>(as)...);
-  return t;
+  return finish(std::move(t), std::forward<As>(as)...);
 }
 
 inline Box Tap::innerBox(const Box& box) const {
@@ -54,8 +54,9 @@ inline Box Tap::innerBox(const Box& box) const {
 inline Box Tap::place(Constraints c, const Engine& e) const {
   Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
   Box inner = e.place(children[0], ic);
-  return detail::resolveSize(inner.w + static_cast<float>(2 * padH),
-                             inner.h + static_cast<float>(2 * padV), c);
+  return detail::resolveSize(
+      inner.w + static_cast<float>(2 * padH), inner.h + static_cast<float>(2 * padV), c
+  );
 }
 
 inline void Tap::record(const Box& box, Rec& rec, const Engine& e) const {

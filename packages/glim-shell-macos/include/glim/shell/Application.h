@@ -3,17 +3,17 @@
 namespace glim::shell {
 
 class Application final {
-public:
-    Application();
-    Application(const Application&) = delete;
-    Application& operator=(const Application&) = delete;
-    ~Application();
+ public:
+  Application();
+  Application(const Application&) = delete;
+  Application& operator=(const Application&) = delete;
+  ~Application();
 
-    void run();
+  void run();
 
-private:
-    void* delegate_ = nullptr;
-    void* application_ = nullptr;
+ private:
+  void* delegate_ = nullptr;
+  void* application_ = nullptr;
 };
 
 }  // namespace glim::shell

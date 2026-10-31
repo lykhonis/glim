@@ -21,5 +21,5 @@ std::enable_if_t<std::is_base_of<WithPrimary, H>::value> apply(H& h, PrimaryTag)
   h.isPrimary = true;
 }
 
-} // namespace toolkit
+}  // namespace toolkit
 }  // namespace glim

@@ -1,0 +1,21 @@
+#!/bin/sh
+# Pre-commit: reject C++ that clang-format would reword. Warn-and-pass when the
+# binary is missing; install it (or run pnpm format) instead of bypassing.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^vendor/' || true)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+if command -v clang-format >/dev/null 2>&1; then
+  CF=clang-format
+elif command -v xcrun >/dev/null 2>&1 && xcrun -f clang-format >/dev/null 2>&1; then
+  CF="xcrun clang-format"
+else
+  echo "pre-commit: clang-format not found, skipping format check" >&2
+  exit 0
+fi
+# shellcheck disable=SC2086
+if ! $CF --dry-run -Werror $staged; then
+  echo "pre-commit: run pnpm format on the files above and re-stage" >&2
+  exit 1
+fi

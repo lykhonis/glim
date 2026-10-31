@@ -2,6 +2,7 @@
 
 #include <iosfwd>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 #include "glim/toolkit/Event.h"
@@ -11,6 +12,12 @@ namespace glim {
 namespace toolkit {
 
 struct Block;
+
+struct Env {
+  const void* ptr = nullptr;
+  const std::type_info* type = nullptr;
+  const Env* parent = nullptr;
+};
 
 Box place(const Block& b, Constraints c);
 void record(const Block& b, const Box& box, Rec& r);
@@ -27,9 +34,15 @@ bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Eve
 bool broadcastEvent(const Block& b, const Box& box, const Event& ev);
 
 struct Engine {
-  Box place(const Block& b, Constraints c) const { return glim::toolkit::place(b, c); }
-  void record(const Block& b, const Box& box, Rec& r) const {
-    glim::toolkit::record(b, box, r);
+  const Env* env = nullptr;
+  Box place(const Block& b, Constraints c) const;
+  void record(const Block& b, const Box& box, Rec& r) const;
+  template <class T>
+  const T* get() const {
+    for (const Env* p = env; p; p = p->parent) {
+      if (p->type && *p->type == typeid(T)) return static_cast<const T*>(p->ptr);
+    }
+    return nullptr;
   }
 };
 

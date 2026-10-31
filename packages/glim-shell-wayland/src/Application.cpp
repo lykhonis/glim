@@ -8,24 +8,22 @@
 
 namespace glim::shell {
 
-Application::Application() {
-    detail::waylandConnect();
-}
+Application::Application() { detail::waylandConnect(); }
 
 Application::~Application() = default;
 
 void Application::run() {
-    if (!detail::waylandConnect()) {
-        return;
+  if (!detail::waylandConnect()) {
+    return;
+  }
+  RunLoop runLoop;
+  runLoop.scheduleFrameCallback([] {
+    const Event frame(EventType::Frame);
+    for (Window* window : detail::shownWindows()) {
+      window->dispatch(frame);
     }
-    RunLoop runLoop;
-    runLoop.scheduleFrameCallback([] {
-        const Event frame(EventType::Frame);
-        for (Window* window : detail::shownWindows()) {
-            window->dispatch(frame);
-        }
-    });
-    runLoop.run();
+  });
+  runLoop.run();
 }
 
 }  // namespace glim::shell

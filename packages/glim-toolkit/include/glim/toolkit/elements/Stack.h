@@ -14,9 +14,7 @@ struct Stack {
   static constexpr const char* kKind = "Stack";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
-  Box place(Constraints c, const Engine& e) const {
-    return detail::flowStack(children, c, e).size;
-  }
+  Box place(Constraints c, const Engine& e) const { return detail::flowStack(children, c, e).size; }
   template <class F>
   void eachChild(F&& f) const {
     detail::forEachBlock(children, std::forward<F>(f));
@@ -30,7 +28,8 @@ struct Stack {
   }
   void record(const Box& box, Rec& rec, const Engine& e) const {
     rec.push(kKind, box);
-    for (std::size_t i = 0; i < children.size(); ++i) e.record(children[i], childBox(i, box, e), rec);
+    for (std::size_t i = 0; i < children.size(); ++i)
+      e.record(children[i], childBox(i, box, e), rec);
   }
 };
 
@@ -38,7 +37,7 @@ template <class... As>
 auto stack(As&&... as) {
   Stack s;
   configure(s, s.children, std::forward<As>(as)...);
-  return s;
+  return finish(std::move(s), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit
