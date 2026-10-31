@@ -110,8 +110,8 @@ int glimRunExample(
       return;
     }
     if (e.type() == T::PointerDown ||
-        (e.type() == T::KeyDown &&
-         e.key() == glim::shell::Key::Enter)) {
+        (e.type() == T::KeyDown && e.key() == glim::shell::Key::Enter
+        )) {
       overlay.toggleExpanded();
       paint();
       return;

@@ -44,14 +44,12 @@ void recordGradients(
       {0.55f, Color{0xe9c46aff}},
       {1.f, Color{0xd97b6bff}},
   };
-  context.setFill(
-      Matter::linearGradient(
-          banner.origin,
-          {banner.origin.x + banner.size.x, banner.origin.y},
-          bannerStops,
-          3
-      )
-  );
+  context.setFill(Matter::linearGradient(
+      banner.origin,
+      {banner.origin.x + banner.size.x, banner.origin.y},
+      bannerStops,
+      3
+  ));
   context.fillRounded(banner, Radius{20.f});
 
   // Radial disc beside the banner.
@@ -86,14 +84,12 @@ void recordGradients(
       Rect{{ringC.x - 52.f, ringC.y - 52.f}, {104.f, 104.f}},
       Radius{26.f}
   );
-  context.setFill(
-      Matter::linearGradient(
-          {ringC.x - 52.f, ringC.y - 52.f},
-          {ringC.x + 52.f, ringC.y + 52.f},
-          ringStops,
-          2
-      )
-  );
+  context.setFill(Matter::linearGradient(
+      {ringC.x - 52.f, ringC.y - 52.f},
+      {ringC.x + 52.f, ringC.y + 52.f},
+      ringStops,
+      2
+  ));
   context.strokeRect(
       Rect{{ringC.x - 44.f, ringC.y - 44.f}, {88.f, 88.f}},
       Radius{22.f},
@@ -111,14 +107,12 @@ void recordGradients(
       {0.f, Color{0xe9c46aff}},
       {1.f, Color{0x9b5de5ff}},
   };
-  context.setFill(
-      Matter::linearGradient(
-          {sweep.origin.x + slide, sweep.origin.y},
-          {sweep.origin.x + slide + 160.f, sweep.origin.y},
-          sweepStops,
-          2
-      )
-  );
+  context.setFill(Matter::linearGradient(
+      {sweep.origin.x + slide, sweep.origin.y},
+      {sweep.origin.x + slide + 160.f, sweep.origin.y},
+      sweepStops,
+      2
+  ));
   context.fillRounded(sweep, Radius{14.f});
 
   context.setFillColor(0xe8eef4ff);

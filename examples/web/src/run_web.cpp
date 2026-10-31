@@ -31,9 +31,9 @@ void syncSlots() {
   std::vector<glim::paint::SlotPlacement> places;
   glim::paint::collectSlots(gContext->scene(), &places);
   std::sort(
-      places.begin(), places.end(), [](const auto& a, const auto& b) {
-        return a.id < b.id;
-      }
+      places.begin(),
+      places.end(),
+      [](const auto& a, const auto& b) { return a.id < b.id; }
   );
   std::vector<std::uint32_t> live;
   gWindow->forEachSlot([&](std::uint32_t id, glim::Rect) {

@@ -6,12 +6,13 @@ staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' 
 if [ -z "$staged" ]; then
   exit 0
 fi
-if command -v clang-format >/dev/null 2>&1; then
-  CF=clang-format
-elif command -v xcrun >/dev/null 2>&1 && xcrun -f clang-format >/dev/null 2>&1; then
-  CF="xcrun clang-format"
+if tools/clang-format.sh --version >/dev/null 2>&1; then
+  CF="tools/clang-format.sh"
 else
   echo "pre-commit: clang-format not found, skipping format check" >&2
+  exit 0
+fi
+if ! $CF --require-version; then
   exit 0
 fi
 # shellcheck disable=SC2086

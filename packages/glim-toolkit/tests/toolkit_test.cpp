@@ -99,7 +99,9 @@ struct Counter {
     return column(
         gap(8),
         lines("Count: " + std::to_string(*c)),
-        tap(lines("Inc"), [c] { c = *c + 1; }, primary())
+        tap(
+            lines("Inc"), [c] { c = *c + 1; }, primary()
+        )
     );
   }
 };

@@ -35,7 +35,9 @@ Block calcTree(State<std::string> out) {
           digit("1", '1'),
           digit("2", '2'),
           digit("3", '3'),
-          button("=", [o] { o = "="; }, primary(), expand()))
+          button(
+              "=", [o] { o = "="; }, primary(), expand()
+          ))
   );
 }
 

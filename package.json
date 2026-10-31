@@ -11,6 +11,7 @@
     "test": "nx run-many -t test",
     "format": "tools/format.sh",
     "format:check": "tools/format-check.sh",
+    "postinstall": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath tools/githooks || true",
     "hello": "nx run hello:run"
   },
   "devDependencies": {
