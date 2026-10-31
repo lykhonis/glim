@@ -57,7 +57,7 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
     return b;
   }
   void record(const Box& box, Rec& rec, const Engine& e) const {
-    rec.push(kKind, box, {}, semantic);
+    rec.push(kKind, box, {}, semantic, radius);
     for (std::size_t i = 0; i < children.size(); ++i)
       e.record(children[i], childBox(i, box, e), rec);
   }

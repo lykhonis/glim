@@ -25,10 +25,15 @@ struct Rec {
     Box box;
     std::string text;
     std::string mark;
+    // Paint description (dump ignores these — goldens stay text-only).
+    // radius: corner radius for FillRounded (Card honors its radius tag).
+    int radius = 0;
   };
   std::vector<Entry> entries;
-  void push(std::string kind, Box box, std::string text = {}, std::string mark = {}) {
-    entries.push_back({std::move(kind), box, std::move(text), std::move(mark)});
+  void push(
+      std::string kind, Box box, std::string text = {}, std::string mark = {}, int radius = 0
+  ) {
+    entries.push_back({std::move(kind), box, std::move(text), std::move(mark), radius});
   }
 };
 

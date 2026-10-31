@@ -1,14 +1,26 @@
+#include <glim/paint/Context.h>
+#include <glim/paint/Scene.h>
+
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <variant>
+#include <vector>
 
 #include "glim/toolkit/Toolkit.h"
+#include "paint/Bridge.h"
+#include "paint/Demo.h"
+#include "paint/Ops.h"
+#include "paint/VideoFeed.h"
 
 using namespace glim::toolkit;
+using namespace glim::toolkit::paint;
 
 std::string calcDump();
 std::string modalDump();
@@ -177,6 +189,123 @@ int main(int argc, char** argv) {
           e.box.y + e.box.h > vbox.y + vbox.h + 0.001f)
         spilled = true;
     assert(spilled);
+  }
+
+  // T4 bridge: UiOp order is Blit < glass < slot < ring; the archive
+  // round-trips byte-identically (and rejects truncation); the Scene
+  // has the Blit before glass, exactly one Clear glass group, and the
+  // SlotHole as a root sibling — never inside glass.
+  {
+    Block demo = paintDemoTree([] {}, [] {});
+    Box dbox = place(demo, {0, 720, 0, 480});
+
+    OpsRecorder rec;
+    VideoFeed stubFeed;
+    stubFeed.id = 7;
+    stubFeed.foreign = true;
+    {
+      Engine e;
+      paintTree(demo, dbox, e, rec, stubFeed);
+      rec.slot(demoSeatBox(), kDemoSeatId);
+      paintFocusRing(demo, dbox, 0, rec);
+    }
+    auto findOp = [&](UiOp::Kind k, int nth = 0) -> int {
+      int seen = 0;
+      for (std::size_t i = 0; i < rec.ops.size(); ++i)
+        if (rec.ops[i].kind == k && seen++ == nth)
+          return static_cast<int>(i);
+      return -1;
+    };
+    int blit = findOp(UiOp::Kind::Blit);
+    int glass = findOp(UiOp::Kind::PushGlass);
+    int slot = findOp(UiOp::Kind::Slot);
+    int ring = findOp(UiOp::Kind::Stroke);
+    assert(blit >= 0 && glass >= 0 && slot >= 0 && ring >= 0);
+    assert(blit < glass && glass < slot && slot < ring);
+    assert(findOp(UiOp::Kind::PushGlass, 1) < 0);  // one glass group
+    assert(rec.ops[static_cast<std::size_t>(glass)].clear);
+    assert(rec.ops[static_cast<std::size_t>(slot)].slot == kDemoSeatId);
+    assert(findOp(UiOp::Kind::Blit, 1) < 0);  // one video plate
+
+    std::vector<std::uint8_t> bytes;
+    encodeOps(rec.ops, bytes);
+    std::vector<UiOp> back;
+    assert(decodeOps(bytes.data(), bytes.size(), back));
+    assert(back == rec.ops);
+    assert(!decodeOps(bytes.data(), bytes.size() - 1, back));
+    bytes[3] ^= 0xff;  // corrupt magic
+    assert(!decodeOps(bytes.data(), bytes.size(), back));
+
+    glim::paint::Context ctx;
+    ctx.setSize({720, 480});
+    ctx.beginFrame();
+    {
+      VideoFeed feed;
+      ContextSink sink{ctx};
+      paintDemoInto(demo, dbox, sink, feed);
+    }
+    ctx.finish();
+    const glim::paint::Scene& scene = ctx.scene();
+    int glassGroups = 0;
+    bool glassClear = false;
+    bool slotInGlass = false;
+    bool blitInGlass = false;
+    int glyphRuns = 0;
+    std::vector<std::string> rootSeq;
+    std::function<void(const glim::paint::Group&, int, bool)> walk =
+        [&](const glim::paint::Group& g, int depth, bool inGlass) {
+          glim::paint::visitGroup(
+              g,
+              [&](const glim::paint::Shape& s) {
+                if (std::holds_alternative<glim::paint::Blit>(s)) {
+                  if (depth == 0) rootSeq.push_back("Blit");
+                  if (inGlass) blitInGlass = true;
+                } else if (std::holds_alternative<
+                               glim::paint::SlotHole>(s)) {
+                  if (depth == 0) {
+                    rootSeq.push_back("Slot");
+                    const auto& hole =
+                        std::get<glim::paint::SlotHole>(s);
+                    assert(hole.id == kDemoSeatId);
+                  }
+                  if (inGlass) slotInGlass = true;
+                } else if (std::holds_alternative<glim::paint::Stroke>(s
+                           )) {
+                  if (depth == 0) rootSeq.push_back("Stroke");
+                } else if (std::holds_alternative<
+                               glim::paint::GlyphRun>(s)) {
+                  ++glyphRuns;
+                } else if (depth == 0) {
+                  rootSeq.push_back("Fill");
+                }
+              },
+              [&](const glim::paint::Group& c) {
+                bool cg = glim::paint::hasGlass(c);
+                if (cg) {
+                  ++glassGroups;
+                  if (c.params.glass &&
+                      c.params.glass->variant ==
+                          glim::paint::GlassVariant::Clear)
+                    glassClear = true;
+                  if (depth == 0) rootSeq.push_back("Glass");
+                }
+                walk(c, depth + 1, inGlass || cg);
+              }
+          );
+        };
+    walk(scene.root, 0, false);
+    assert(glassGroups == 1 && glassClear);
+    assert(!slotInGlass && !blitInGlass);
+    assert(glyphRuns > 0);  // button labels + dialog text painted
+    auto pos = [&](const char* k) -> int {
+      for (std::size_t i = 0; i < rootSeq.size(); ++i)
+        if (rootSeq[i] == k) return static_cast<int>(i);
+      return -1;
+    };
+    int rBlit = pos("Blit"), rGlass = pos("Glass"), rSlot = pos("Slot"),
+        rStroke = pos("Stroke");
+    assert(rBlit >= 0 && rGlass >= 0 && rSlot >= 0 && rStroke >= 0);
+    assert(rBlit < rGlass && rGlass < rSlot && rSlot < rStroke);
   }
 
   std::cout << "dump_test ok\n";

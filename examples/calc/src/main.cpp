@@ -4,9 +4,24 @@
 
 #include "elements/Button.h"
 #include "elements/Card.h"
+#include "elements/Veil.h"
+#include "elements/Video.h"
 #include "glim/toolkit/Toolkit.h"
+#include "paint/Bridge.h"
+#include "paint/Demo.h"
+#include "paint/Ops.h"
+#include "paint/VideoFeed.h"
+#ifndef GLIM_GOLDEN
+#include <glim/image/Image.h>
+#include <glim/image/Png.h>
+#include <glim/paint/Software.h>
+
+#include <functional>
+#include <type_traits>
+#endif
 
 using namespace glim::toolkit;
+using namespace glim::toolkit::paint;
 
 Block calcTree(State<std::string> out) {
   auto o = out;
@@ -104,8 +119,107 @@ std::string focusDump() {
   return os.str();
 }
 
+// T4 paint demo: scrim + foreign-video plate under a frosted card,
+// seat strip as a sibling after (never inside) the glass group.
+// Same trees as the dump goldens plus Veil/Video/glass — the dump
+// goldens above stay byte-stable; this tree is paint-only (see Demo.h).
+
+void paintDemoScene(glim::paint::Context& ctx, VideoFeed& feed) {
+  Block demo = paintDemoTree([] {}, [] {});
+  Box box = place(demo, {0, ctx.size().x, 0, ctx.size().y});
+  // Window base is harness chrome, not tree content: the scrim Veil
+  // darkens it, the video plate and frosted card ride above.
+  ctx.setFillColor(Tokens::kWindowBg);
+  ctx.fill(glim::Rect{{0, 0}, ctx.size()});
+  ContextSink sink{ctx};
+  paintDemoInto(demo, box, sink, feed);
+}
+
 #ifndef GLIM_GOLDEN
-int main() {
+int main(int argc, char** argv) {
+  if (argc > 1 && std::string(argv[1]) == "--paint") {
+    glim::paint::Context ctx;
+    ctx.setSize({720, 480});
+    ctx.beginFrame();
+    VideoFeed feed;
+    paintDemoScene(ctx, feed);
+    ctx.finish();
+    auto img = glim::image::Image::rgba8(720, 480);
+    glim::paint::rasterScene(ctx.scene(), 720, 480, img.rgba.data());
+    const char* path = argc > 2 ? argv[2] : "/tmp/calc-paint.png";
+    if (!glim::image::Png::write(path, img)) {
+      std::cerr << "could not write " << path << '\n';
+      return 1;
+    }
+    std::cout << "wrote " << path << '\n';
+    if (argc > 3 && std::string(argv[3]) == "--debug") {
+      std::function<void(const glim::paint::Group&, int)> dump =
+          [&](const glim::paint::Group& g, int depth) {
+            std::string pad(static_cast<std::size_t>(depth * 2), ' ');
+            if (g.params.glass)
+              std::cout << pad << "Group glass="
+                        << (g.params.glass->variant ==
+                                    glim::paint::GlassVariant::Clear
+                                ? "clear"
+                                : "regular")
+                        << '\n';
+            glim::paint::visitGroup(
+                g,
+                [&](const glim::paint::Shape& s) {
+                  std::visit(
+                      [&](const auto& sh) {
+                        using T = std::decay_t<decltype(sh)>;
+                        if constexpr (std::is_same_v<
+                                          T,
+                                          glim::paint::FillRounded>)
+                          std::cout
+                              << pad << " FillRounded ["
+                              << sh.rect.origin.x << ","
+                              << sh.rect.origin.y << " "
+                              << sh.rect.size.x << "x" << sh.rect.size.y
+                              << "] r=" << sh.radius.lt << " rgba=0x"
+                              << std::hex << sh.matter.color.rgba
+                              << std::dec << '\n';
+                        else if constexpr (std::is_same_v<
+                                               T,
+                                               glim::paint::FillRect>)
+                          std::cout << pad << " FillRect ["
+                                    << sh.rect.origin.x << ","
+                                    << sh.rect.origin.y << "]\n";
+                        else if constexpr (std::is_same_v<
+                                               T,
+                                               glim::paint::Blit>)
+                          std::cout
+                              << pad << " Blit [" << sh.rect.origin.x
+                              << "," << sh.rect.origin.y << " "
+                              << sh.rect.size.x << "x" << sh.rect.size.y
+                              << "]\n";
+                        else if constexpr (std::is_same_v<
+                                               T,
+                                               glim::paint::GlyphRun>)
+                          std::cout << pad << " GlyphRun n="
+                                    << sh.glyphs.size() << '\n';
+                        else if constexpr (std::is_same_v<
+                                               T,
+                                               glim::paint::SlotHole>)
+                          std::cout << pad << " SlotHole id=" << sh.id
+                                    << '\n';
+                        else if constexpr (std::is_same_v<
+                                               T,
+                                               glim::paint::Stroke>)
+                          std::cout << pad << " Stroke w=" << sh.width
+                                    << '\n';
+                      },
+                      s
+                  );
+                },
+                [&](const glim::paint::Group& c) { dump(c, depth + 1); }
+            );
+          };
+      dump(ctx.scene().root, 0);
+    }
+    return 0;
+  }
   std::cout << calcDump();
   return 0;
 }
