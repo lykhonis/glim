@@ -21,6 +21,76 @@ struct has_handle<
     : std::is_same<decltype(std::declval<const T&>().handle(std::declval<const Event&>())), bool> {
 };
 
+template <class T, class = void>
+struct has_record : std::false_type {};
+template <class T>
+struct has_record<
+    T,
+    std::void_t<decltype(std::declval<const T&>()
+                             .record(std::declval<const Box&>(), std::declval<Rec&>()))>>
+    : std::true_type {};
+
+// opt-out hook: an element without record() is described by its kind.
+// Stack/Row/Column/List/Roll/Empty ride this; text/mark/radius owners
+// (Button/Card/Lines/Tap) keep their record.
+template <class T, class = void>
+struct has_kind : std::false_type {};
+template <class T>
+struct has_kind<T, std::void_t<decltype(std::declval<const T&>().kind())>>
+    : std::is_same<decltype(std::declval<const T&>().kind()), const char*> {};
+
+// Type-erased paint sink: the six concept methods as plain data calls.
+// Custom paint() is written once against AnySink and runs on every
+// sink — interpreting sinks paint pixels, recording sinks append ops,
+// so custom-painted elements archive without a fallback path.
+struct AnySink {
+  void* sink = nullptr;
+  const void* feed = nullptr;
+  void (*entryFn)(void*, const void*, const Rec::Entry&) = nullptr;
+  void (*pushGlassFn)(void*, const Box&, int, bool) = nullptr;
+  void (*pushClipFn)(void*, const Box&) = nullptr;
+  void (*popFn)(void*) = nullptr;
+  void (*slotFn)(void*, const Box&, std::uint32_t) = nullptr;
+  void (*strokeFn)(void*, const Box&, int, float, std::uint32_t) = nullptr;
+  void entry(const Rec::Entry& en) { entryFn(sink, feed, en); }
+  void pushGlass(const Box& b, int radius, bool clear) { pushGlassFn(sink, b, radius, clear); }
+  void pushClip(const Box& b) { pushClipFn(sink, b); }
+  void pop() { popFn(sink); }
+  void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
+  void stroke(const Box& b, int radius, float width, std::uint32_t rgba) {
+    strokeFn(sink, b, radius, width, rgba);
+  }
+};
+
+template <class S, class F>
+AnySink wrapSink(S& sink, F& feed) {
+  AnySink a;
+  a.sink = &sink;
+  a.feed = &feed;
+  a.entryFn = [](void* s, const void* f, const Rec::Entry& en) {
+    static_cast<S*>(s)->entry(en, *static_cast<F*>(const_cast<void*>(f)));
+  };
+  a.pushGlassFn = [](void* s, const Box& b, int radius, bool clear) {
+    static_cast<S*>(s)->pushGlass(b, radius, clear);
+  };
+  a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
+  a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };
+  a.slotFn = [](void* s, const Box& b, std::uint32_t id) { static_cast<S*>(s)->slot(b, id); };
+  a.strokeFn = [](void* s, const Box& b, int radius, float width, std::uint32_t rgba) {
+    static_cast<S*>(s)->stroke(b, radius, width, rgba);
+  };
+  return a;
+}
+
+template <class T, class = void>
+struct has_paint : std::false_type {};
+template <class T>
+struct has_paint<
+    T,
+    std::void_t<decltype(std::declval<const T&>().paint(
+        std::declval<const Box&>(), std::declval<AnySink&>(), std::declval<const Engine&>()
+    ))>> : std::true_type {};
+
 template <class T>
 struct is_tagged : std::false_type {};
 
@@ -59,8 +129,9 @@ struct Custom {
   struct VTable {
     const std::type_info& (*type)();
     Box (*place)(const void* s, bool heap, Constraints c, const Engine& e);
-    void (*record)(const void* s, bool heap, const Box& b, Rec& r, const Engine& e);
+    void (*record)(const void* s, bool heap, const Box& b, Rec& r);
     bool (*handle)(const void* s, bool heap, const Event& ev);
+    void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
     Box (*childBox)(const void* s, bool heap, std::size_t i, const Box& b, const Engine& e);
@@ -89,13 +160,9 @@ struct Custom {
         "(see elements/Row.h)"
     );
     static_assert(
-        std::is_same<
-            decltype(std::declval<const U&>().record(
-                std::declval<const Box&>(), std::declval<Rec&>(), std::declval<const Engine&>()
-            )),
-            void>::value,
-        "custom element must provide 'void record(const Box&, Rec&, const Engine&) "
-        "const' (see elements/Row.h)"
+        has_record<U>::value || has_kind<U>::value,
+        "custom element must provide 'void record(const Box&, Rec&) const' "
+        "or 'const char* kind() const' (see elements/Row.h)"
     );
     vt = vtableFor<U>();
     if (sizeof(U) <= kCapacity) {
@@ -193,9 +260,13 @@ struct Custom {
       return {0, 0, detail::clampF(0.0f, c.minW, c.maxW), detail::clampF(0.0f, c.minH, c.maxH)};
     return vt->place(buf, onHeap, c, e);
   }
-  void record(const Box& b, Rec& r, const Engine& e) const {
+  void record(const Box& b, Rec& r) const {
     if (!vt) return;
-    vt->record(buf, onHeap, b, r, e);
+    vt->record(buf, onHeap, b, r);
+  }
+  bool paints() const { return vt && vt->paint != nullptr; }
+  void paint(const Box& b, AnySink& sink, const Engine& e) const {
+    if (vt && vt->paint) vt->paint(buf, onHeap, b, sink, e);
   }
 
  private:
@@ -208,6 +279,17 @@ struct Custom {
     if constexpr (has_handle<U>::value) {
       return [](const void* s, bool heap, const Event& ev) -> bool {
         return static_cast<const U*>(addr<U>(s, heap))->handle(ev);
+      };
+    } else {
+      return nullptr;
+    }
+  }
+
+  template <class U>
+  static void (*paintFor())(const void*, bool, const Box&, AnySink&, const Engine&) {
+    if constexpr (has_paint<U>::value) {
+      return [](const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e) {
+        static_cast<const U*>(addr<U>(s, heap))->paint(b, sink, e);
       };
     } else {
       return nullptr;
@@ -293,10 +375,16 @@ struct Custom {
         [](const void* s, bool heap, Constraints c, const Engine& e) -> Box {
           return static_cast<const U*>(addr<U>(s, heap))->place(c, e);
         },
-        [](const void* s, bool heap, const Box& b, Rec& r, const Engine& e) {
-          static_cast<const U*>(addr<U>(s, heap))->record(b, r, e);
+        [](const void* s, bool heap, const Box& b, Rec& r) {
+          const U* u = static_cast<const U*>(addr<U>(s, heap));
+          if constexpr (has_record<U>::value) {
+            u->record(b, r);
+          } else {
+            r.push(u->kind(), b);
+          }
         },
         handleFor<U>(),
+        paintFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),
         childBoxFn<U>(),

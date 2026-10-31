@@ -49,11 +49,6 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
     b.y += box.y - off;
     return b;
   }
-  void record(const Box& box, Rec& rec, const Engine& e) const {
-    rec.push(kind(), box);
-    for (std::size_t i = 0; i < children.size(); ++i)
-      e.record(children[i], childBox(i, box, e), rec);
-  }
 };
 
 template <class... As>

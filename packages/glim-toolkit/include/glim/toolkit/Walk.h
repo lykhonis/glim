@@ -21,6 +21,24 @@
 namespace glim {
 namespace toolkit {
 
+// Per-node self description (no recursion). Elements push only their
+// own entries; elements without record() are described by their kind.
+// The walk accumulates subtrees; Engine::record (full subtree) is the
+// walk over it. Single home for the "what is this node" query.
+inline void describeSelf(const Block& b, const Box& box, Rec& r) {
+  std::visit(
+      [&](const auto& x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (has_record<T>::value) {
+          x.record(box, r);
+        } else {
+          r.push(x.kind(), box);
+        }
+      },
+      b.v
+  );
+}
+
 // True when the node has traversable children in this walk.
 inline bool walkHasChildren(const Block& b) {
   if (const Custom* c = b.get<Custom>()) return c->childCount() > 0;
@@ -49,10 +67,19 @@ inline bool canHandle(const Block& b) {
   return found;
 }
 
-// True for Tap-like builtin arms: single composed child plus chrome,
-// and the arm owns the whole region for hit purposes (a hit on the
-// child — even spilled past the chrome — resolves to the arm).
-// Custom-wrapped elements are always transparent (never claim).
+// True when the Custom arm paints itself (opt-in escape hatch for
+// visuals entries can't carry). Paint is written once against AnySink
+// and runs on every sink — pixels on interpreters, ops on recorders —
+// so custom-painted elements archive without a fallback path.
+inline bool paintsCustom(const Block& b) {
+  if (const Custom* c = b.get<Custom>()) return c->paints();
+  return false;
+}
+inline void paintCustom(const Block& b, const Box& box, AnySink& sink, const Engine& e) {
+  if (const Custom* c = b.get<Custom>()) c->paint(box, sink, e);
+}
+// Tap-like builtins own their hit region (a hit on the child — even
+// spilled past the chrome — resolves to the arm). Customs never claim.
 inline bool claimsHit(const Block& b) {
   if (b.get<Custom>()) return false;
   bool found = false;

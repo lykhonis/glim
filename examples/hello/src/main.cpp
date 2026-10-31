@@ -234,6 +234,10 @@ void recordHello(
 }
 
 #ifndef GLIM_GOLDEN
+bool onExampleEvent(const glim::shell::Event&, ExampleFrame&) {
+  return false;
+}
+
 void recordExample(ExampleFrame& frame) {
   recordHello(frame.context, frame.size, frame.time, frame.safeArea);
 }

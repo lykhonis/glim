@@ -31,7 +31,7 @@ struct Button : WithGap,
         c
     );
   }
-  void record(const Box& box, Rec& rec, const Engine&) const {
+  void record(const Box& box, Rec& rec) const {
     rec.push(isPrimary ? kKindPrimary : kKind, box, label, semantic);
   }
   bool handle(const Event& ev) const {

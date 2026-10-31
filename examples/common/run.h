@@ -2,6 +2,7 @@
 
 #include <glim/math.h>
 #include <glim/paint/Context.h>
+#include <glim/shell/Event.h>
 #include <glim/shell/Window.h>
 #if !GLIM_SOFTWARE
 #include <glim/gpu/Device.h>
@@ -27,3 +28,8 @@ struct ExampleFrame {
 
 int glimRunExample(const ExampleApp&, void (*record)(ExampleFrame&));
 void recordExample(ExampleFrame&);
+// Fixed-name event hook, defined by the example next to recordExample
+// (same pattern). Return true when the app consumed the event; the
+// harness repaints and skips the overlay toggle. Examples without
+// interaction return false.
+bool onExampleEvent(const glim::shell::Event&, ExampleFrame&);

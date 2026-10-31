@@ -122,6 +122,10 @@ void recordGradients(
 }
 
 #ifndef GLIM_GOLDEN
+bool onExampleEvent(const glim::shell::Event&, ExampleFrame&) {
+  return false;
+}
+
 void recordExample(ExampleFrame& frame) {
   recordGradients(
       frame.context, frame.size, frame.time, frame.safeArea

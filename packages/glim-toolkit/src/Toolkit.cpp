@@ -307,7 +307,16 @@ Box Engine::place(const Block& b, Constraints c) const {
 }
 
 void Engine::record(const Block& b, const Box& box, Rec& r) const {
-  std::visit([&](const auto& x) { x.record(box, r, *this); }, b.v);
+  walk(
+      b,
+      box,
+      *this,
+      [&](const Block& n, const Box& bx) -> bool {
+        describeSelf(n, bx, r);
+        return true;
+      },
+      [](const Block&, const Box&) {}
+  );
 }
 
 Box place(const Block& b, Constraints c) { return Engine{}.place(b, c); }
@@ -378,7 +387,7 @@ void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, i
       [&](const Block& n, const Box& bx) -> bool {
         const char* mark = n.has<ExpandTag>() ? "[expand]" : "";
         Rec tmp;
-        e.record(n, bx, tmp);
+        describeSelf(n, bx, tmp);
         if (tmp.entries.empty()) {
           if (!walkHasChildren(n)) {
             for (int i = 0; i < depth; ++i) os << "  ";
@@ -386,15 +395,12 @@ void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, i
             if (mark[0] != '\0') os << " " << mark;
             os << "\n";
           }
+          ++depth;  // balanced with exit; pruned below
           return false;
         }
-        if (walkHasChildren(n)) {
-          print(tmp.entries[0], mark, depth);
-        } else {
-          for (const auto& en : tmp.entries) print(en, mark, depth);
-        }
+        for (const auto& en : tmp.entries) print(en, mark, depth);
         ++depth;
-        return true;
+        return walkHasChildren(n);
       },
       [&](const Block&, const Box&) { --depth; }
   );

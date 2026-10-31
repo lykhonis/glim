@@ -21,7 +21,7 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
   std::vector<Block> children;
   Action onTap;
   Box place(Constraints c, const Engine& e) const;
-  void record(const Box& box, Rec& rec, const Engine& e) const;
+  void record(const Box& box, Rec& rec) const;
   bool handle(const Event& ev) const {
     if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
     return false;
@@ -59,9 +59,8 @@ inline Box Tap::place(Constraints c, const Engine& e) const {
   );
 }
 
-inline void Tap::record(const Box& box, Rec& rec, const Engine& e) const {
+inline void Tap::record(const Box& box, Rec& rec) const {
   rec.push(isPrimary ? kKindPrimary : kKind, box, {}, semantic);
-  e.record(children[0], innerBox(box), rec);
 }
 
 }  // namespace toolkit

@@ -28,7 +28,7 @@ struct Lines : WithAlign, WithSemantic, WithWrap {
     }
     return detail::resolveSize(w, static_cast<float>(lines.size()) * Tokens::kTypeLine, c);
   }
-  void record(const Box& box, Rec& rec, const Engine&) const {
+  void record(const Box& box, Rec& rec) const {
     std::vector<std::string> lines = detail::layoutLines(text, box.w, box.h, wrap);
     for (std::size_t i = 0; i < lines.size(); ++i) {
       float lw = static_cast<float>(lines[i].size()) * Tokens::kTypeAdvance;

@@ -5,13 +5,9 @@ if(TARGET glim-showcase-software)
 endif()
 
 if(GLIM_HOST_TESTS)
-    add_executable(
-        glim-showcase-golden tests/showcase_test.cpp src/main.cpp
-    )
+    add_executable(glim-showcase-golden tests/showcase_test.cpp src/main.cpp)
     target_include_directories(glim-showcase-golden PRIVATE src)
-    target_link_libraries(
-        glim-showcase-golden PRIVATE glim::toolkit glim::paint glim::image
-    )
+    target_link_libraries(glim-showcase-golden PRIVATE glim::toolkit glim::paint glim::image glim::shell)
     glim_target_defaults(glim-showcase-golden)
     target_compile_definitions(glim-showcase-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-showcase-golden

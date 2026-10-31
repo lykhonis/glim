@@ -38,6 +38,10 @@ void ensureTexture(ExampleFrame& frame) {
 
 }  // namespace
 
+bool onExampleEvent(const glim::shell::Event&, ExampleFrame&) {
+  return false;
+}
+
 void recordExample(ExampleFrame& frame) {
   using glim::Radius;
   using glim::Rect;

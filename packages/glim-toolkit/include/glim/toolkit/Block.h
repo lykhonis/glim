@@ -68,15 +68,6 @@ struct has_place<
                        .place(std::declval<Constraints>(), std::declval<const Engine&>())),
           Box> {};
 
-template <class T, class = void>
-struct has_record : std::false_type {};
-template <class T>
-struct has_record<
-    T,
-    std::void_t<decltype(std::declval<const T&>().record(
-        std::declval<const Box&>(), std::declval<Rec&>(), std::declval<const Engine&>()
-    ))>> : std::true_type {};
-
 template <class T>
 struct is_block : std::is_same<std::decay_t<T>, Block> {};
 template <class T>
@@ -96,7 +87,8 @@ struct is_child_type
     : std::integral_constant<
           bool,
           is_block<T>::value || is_block_arm<T>::value || has_view<std::decay_t<T>>::value ||
-              (has_place<std::decay_t<T>>::value && has_record<std::decay_t<T>>::value)> {};
+              (has_place<std::decay_t<T>>::value &&
+               (has_record<std::decay_t<T>>::value || has_kind<std::decay_t<T>>::value))> {};
 
 template <class T>
 struct always_false : std::false_type {};
@@ -110,14 +102,14 @@ Block toBlock(T&& t) {
     return Block{std::forward<T>(t)};
   } else if constexpr (has_view<U>::value) {
     return std::forward<T>(t).view();
-  } else if constexpr (has_place<U>::value && has_record<U>::value) {
+  } else if constexpr (has_place<U>::value && (has_record<U>::value || has_kind<U>::value)) {
     return Block{Custom{std::forward<T>(t)}};
   } else {
     static_assert(
         always_false<U>::value,
         "child must be Block, an element, provide 'Block view() const', or "
-        "provide 'Box place(Constraints, const Engine&) const' + 'void record(const "
-        "Box&, Rec&, const Engine&) const' (see elements/Row.h)"
+        "provide 'Box place(Constraints, const Engine&) const' plus 'void record(const "
+        "Box&, Rec&) const' or 'const char* kind() const' (see elements/Row.h)"
     );
   }
 }

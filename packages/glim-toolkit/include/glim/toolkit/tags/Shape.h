@@ -15,8 +15,8 @@ template <>
 struct is_tag<RadiusTag> : std::true_type {};
 
 struct WithRadius {
-  // Parked (T4): accepted today so `card(radius(6))` keeps one shape, but
-  // layout and record ignore it until glass/veil tokens land. No-op for now.
+  // Honored by paint (Card::record carries it into FillRounded);
+  // layout stays square-cornered — radius never changes boxes.
   int radius = 0;
 };
 

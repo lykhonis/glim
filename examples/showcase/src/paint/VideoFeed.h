@@ -41,22 +41,13 @@ struct VideoFeed {
   }
 };
 
-// Paint sink concept (duck-typed, zero cost). Every method takes plain
-// data — rects, colors, strings, ids. Two sinks ship in T4:
-// ContextSink (local Scene) and OpsRecorder (inspectable UI recording +
-// ArchiveSink source for the future network path). A new sink
-// implements these eleven methods; the walk never names a sink type.
-template <class T, class S, class = void>
-struct has_paint_with : std::false_type {};
-template <class T, class S>
-struct has_paint_with<
-    T,
-    S,
-    std::void_t<decltype(std::declval<const T&>().paint(
-        std::declval<const Box&>(),
-        std::declval<S&>(),
-        std::declval<const Engine&>()
-    ))>> : std::true_type {};
+// Paint sink concept (duck-typed, zero cost). Sinks interpret one
+// thing: Rec entries plus structural grouping. `entry` carries opaque
+// content (kind strings ride along); `pushGlass`/`pushClip`/`pop`,
+// `slot`, `stroke` carry structure. ContextSink interprets entry
+// kinds to pixels; OpsRecorder appends the serializable ops. New
+// elements serialize with zero codec edits. Custom paint() is written
+// once against AnySink (core) and runs on every sink.
 
 inline Rect toRect(const Box& b) {
   return Rect{{b.x, b.y}, {b.w, b.h}};
@@ -88,8 +79,6 @@ struct ContextSink {
       fillRounded(en.box, en.radius, Tokens::kCardFill);
     } else if (k == "Lines") {
       text(en.box.x, en.box.y, en.text, Tokens::kInkOnLight);
-    } else if (k == "Veil") {
-      fill(en.box, Tokens::kScrim);
     } else if (k == "Video") {
       blitVideo(en.box, feed);
     }

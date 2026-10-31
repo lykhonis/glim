@@ -20,9 +20,6 @@ struct Video {
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(320.0f, 180.0f, c);
   }
-  void record(const Box& box, Rec& rec, const Engine&) const {
-    rec.push(kKind, box);
-  }
 };
 
 template <class... As>

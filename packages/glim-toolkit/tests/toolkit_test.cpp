@@ -20,6 +20,7 @@ namespace glim {
 namespace toolkit {
 
 struct Radial : WithGap, WithRadius {
+  const char* kind() const { return "Radial"; }
   std::vector<Block> children;
   Box place(Constraints c, const Engine& e) const {
     float w = 0, h = 0;
@@ -50,10 +51,6 @@ struct Radial : WithGap, WithRadius {
     }
     return b;
   }
-  void record(const Box& b, Rec& r, const Engine& e) const {
-    r.push("Radial", b);
-    for (std::size_t i = 0; i < children.size(); ++i) e.record(children[i], childBox(i, b, e), r);
-  }
 };
 
 struct Pin {};
@@ -83,7 +80,6 @@ struct TintProbe {
     seen = t ? t->v : -1;
     return detail::resolveSize(10, 10, c);
   }
-  void record(const Box& box, Rec& rec, const Engine&) const { rec.push(kKind, box); }
 };
 
 }  // namespace toolkit
@@ -345,8 +341,8 @@ int main() {
     struct Ping {};
     struct Bell {
       State<int> rings;
+      const char* kind() const { return "Bell"; }
       Box place(Constraints c, const Engine&) const { return detail::resolveSize(10, 10, c); }
-      void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Bell", box); }
       bool handle(const Event& ev) const {
         if (ev.is<Ping>()) {
           rings = *rings + 1;
@@ -366,8 +362,8 @@ int main() {
     assert(!handle(bare, Event::borrow(Ping{})));
     struct MissProbe {
       int* n;
+      const char* kind() const { return "MissProbe"; }
       Box place(Constraints c, const Engine&) const { return detail::resolveSize(10, 10, c); }
-      void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Miss", box); }
       bool handle(const Event&) const {
         ++(*n);
         return false;

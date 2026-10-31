@@ -20,6 +20,7 @@
 
 #include "glim/toolkit/Toolkit.h"
 #include "paint/Bridge.h"
+#include "paint/Keys.h"
 #include "paint/Ops.h"
 #include "paint/Overlay.h"
 #include "paint/VideoFeed.h"
@@ -28,12 +29,13 @@ using namespace glim::toolkit;
 using namespace glim::toolkit::paint;
 
 std::string showcaseDump(Showcase s);
-std::string showcaseModalDump(Showcase s);
 std::string showcaseFocusDump(Showcase s);
 Block showcaseTree(Showcase s);
-Block showcaseModal(Showcase s);
 void paintShowcaseScene(
-    glim::paint::Context& ctx, VideoFeed& feed, Showcase s
+    glim::paint::Context& ctx,
+    VideoFeed& feed,
+    Showcase s,
+    int focus = 0
 );
 
 namespace {
@@ -45,8 +47,20 @@ struct Probe {
   Box place(Constraints c, const Engine&) const {
     return glim::toolkit::detail::resolveSize(10.0f, 10.0f, c);
   }
-  void record(const Box& box, Rec& rec, const Engine&) const {
+  void record(const Box& box, Rec& rec) const {
     rec.push("Probe", box, "probe", "mark", 3);
+  }
+};
+
+// Paint-hook peer: custom paint() for every sink (pixels on
+// interpreters, ops on recorders). No record() at all.
+struct CustomPainted {
+  const char* kind() const { return "CustomPainted"; }
+  Box place(Constraints c, const Engine&) const {
+    return glim::toolkit::detail::resolveSize(10.0f, 10.0f, c);
+  }
+  void paint(const Box& b, AnySink& s, const Engine&) const {
+    s.stroke(b, 0, 1.0f, 0xff0000ff);
   }
 };
 
@@ -91,14 +105,14 @@ int checkGolden(
 
 Showcase makeShown() {
   static Store store;
-  return Showcase{store.make<std::string>("12+3"), store.make<int>(0)};
+  return Showcase{store.make<std::string>("12+3")};
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  // Headless eyeball: --paint out.png renders the full scene (screen +
-  // modal overlay) through the software rasterizer, no window needed.
+  // Headless eyeball: --paint out.png renders the full scene through
+  // the software rasterizer, no window needed.
   if (argc > 2 && std::string(argv[1]) == "--paint") {
     glim::paint::Context ctx;
     ctx.setSize({720, 480});
@@ -116,22 +130,31 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
+  // Shell-to-toolkit key mapping: Dpads move, Enter/Center activate,
+  // everything else falls through to built-in behavior.
+  assert(showcaseKey(glim::shell::Key::DpadLeft) == Key::Left);
+  assert(showcaseKey(glim::shell::Key::DpadRight) == Key::Right);
+  assert(showcaseKey(glim::shell::Key::DpadUp) == Key::Up);
+  assert(showcaseKey(glim::shell::Key::DpadDown) == Key::Down);
+  assert(showcaseKey(glim::shell::Key::Enter) == Key::Activate);
+  assert(showcaseKey(glim::shell::Key::DpadCenter) == Key::Activate);
+  assert(!showcaseKey(glim::shell::Key::Escape));
+  assert(!showcaseKey(glim::shell::Key::Unknown));
+
   std::string dir = argc > 1 ? argv[1] : "examples/showcase/golden";
   Showcase s = makeShown();
   if (int rc = checkGolden(dir, "dump.txt", showcaseDump(s))) return rc;
-  if (int rc = checkGolden(dir, "modal.txt", showcaseModalDump(s)))
-    return rc;
   if (int rc = checkGolden(dir, "focus.txt", showcaseFocusDump(s)))
     return rc;
 
   // Touch end to end on the real screen. First focusable is the "7"
   // button; firing it appends through the cell.
   Store store;
-  Showcase t{store.make<std::string>("12+3"), store.make<int>(0)};
+  Showcase t{store.make<std::string>("12+3")};
   Block tree = showcaseTree(t);
   Box box = place(tree, {0, 720, 0, 480});
   auto focusableList = focusables(tree, box);
-  assert(focusableList.size() == 5);
+  assert(focusableList.size() == 3);
   Box first = focusBox(tree, box, 0);
   assert(dispatchPointer(
       tree,
@@ -141,10 +164,7 @@ int main(int argc, char** argv) {
       Event::borrow(PointerDown{first.x + 1, first.y + 1})
   ));
   assert(*t.out == "12+37");
-  // Spatial moves walk the screen top to bottom.
   assert(moveFocus(tree, box, 0, FocusDir::Right) == 1);
-  assert(moveFocus(tree, box, 1, FocusDir::Right) == 2);
-  // Keys drive the same walk; Activate handles the focused digit.
   {
     int ki = deliverKey(tree, box, 0, Key::Right);
     assert(ki == 1);
@@ -162,54 +182,6 @@ int main(int argc, char** argv) {
     assert(recr.entries.back().kind == kFocusRingKind);
     Box first2 = focusBox(tree, box, 0);
     assert(recr.entries.back().box.x == first2.x - 2);
-  }
-
-  // Modal overlay: veil fills the box, card centers via fills. Buttons
-  // composed inside the Card stay reachable through eachChild.
-  Block modal = showcaseModal(t);
-  Box mbox = place(modal, {0, 720, 0, 480});
-  const Stack* st2 = modal.get<Stack>();
-  assert(st2 && st2->children.size() == 2);
-  auto modalFocus = focusables(modal, mbox);
-  assert(modalFocus.size() == 2);
-  Box yesBox = focusBox(modal, mbox, 1);
-  const Block* yesHit = hit(modal, mbox, yesBox.x + 1, yesBox.y + 1);
-  assert(yesHit && yesHit->get<Custom>());
-  assert(dispatchPointer(
-      modal,
-      mbox,
-      yesBox.x + 1,
-      yesBox.y + 1,
-      Event::borrow(PointerDown{yesBox.x + 1, yesBox.y + 1})
-  ));
-  assert(*t.answer == 2);
-  assert(moveFocus(modal, mbox, 0, FocusDir::Right) == 1);
-  // Veil corner hits the veil, which ignores the event.
-  const Block* veilHit = hit(modal, mbox, 10, 10);
-  assert(
-      veilHit && !handle(*veilHit, Event::borrow(PointerDown{10, 10}))
-  );
-  // Card padding resolves to the Card, which ignores the event.
-  {
-    Rec recr;
-    record(modal, mbox, recr);
-    Box cardBox{0, 0, 0, 0};
-    bool foundCard = false;
-    for (const auto& e : recr.entries)
-      if (e.kind == "Card") {
-        cardBox = e.box;
-        foundCard = true;
-      }
-    assert(foundCard);
-    const Block* padHit =
-        hit(modal, mbox, cardBox.x + 1, cardBox.y + 1);
-    assert(
-        padHit && padHit->get<Custom>() &&
-        !handle(
-            *padHit,
-            Event::borrow(PointerDown{cardBox.x + 1, cardBox.y + 1})
-        )
-    );
   }
 
   // List scroll (direct, tight viewport): content taller than the
@@ -230,13 +202,12 @@ int main(int argc, char** argv) {
     assert(spilled);
   }
 
-  // Bridge ops: Entry(Video) < glass < slot < ring; archive
-  // round-trips byte-identically (rejects truncation/magic); Scene
-  // has the Blit first, Clear glass groups consecutive, SlotHole as
+  // Bridge ops: Entry(Video) < glass < slot < ring; the archive
+  // round-trips byte-identically (rejects truncation/magic); the Scene
+  // has the Blit before the one Clear glass group, and the SlotHole as
   // a root sibling — never inside glass.
   {
     Block screen = showcaseTree(t);
-    Block over = showcaseModal(t);
     Box dbox = place(screen, {0, 720, 0, 480});
 
     OpsRecorder rec;
@@ -246,7 +217,6 @@ int main(int argc, char** argv) {
     {
       Engine e;
       paintTree(screen, dbox, e, rec, stubFeed);
-      paintTree(over, dbox, e, rec, stubFeed);
       rec.slot(showcaseSeatBox(), kShowcaseSeatId);
       paintFocusRing(screen, dbox, 0, rec);
     }
@@ -270,17 +240,9 @@ int main(int argc, char** argv) {
     int slot = findOp(Op::Kind::Slot);
     int ring = findOp(Op::Kind::Stroke);
     assert(video >= 0 && glass >= 0 && slot >= 0 && ring >= 0);
-    // Tree order: screen dialog glass, then sibling video plate, then
-    // the fullscreen modal glass over everything, seat, ring. The
-    // overlapping pair (video under modal glass) is correctly ordered;
-    // dialog-vs-video never overlap (re-bucketing stays parked).
-    int glass2 = findOp(Op::Kind::PushGlass, 1);
-    assert(
-        glass < video && video < glass2 && glass2 < slot && slot < ring
-    );
-    assert(findOp(Op::Kind::PushGlass, 2) < 0);  // two glass groups
+    assert(video < glass && glass < slot && slot < ring);
+    assert(findOp(Op::Kind::PushGlass, 1) < 0);  // one glass group
     assert(rec.ops[static_cast<std::size_t>(glass)].clear);
-    assert(rec.ops[static_cast<std::size_t>(glass2)].clear);
     assert(
         rec.ops[static_cast<std::size_t>(slot)].slot == kShowcaseSeatId
     );
@@ -302,7 +264,7 @@ int main(int argc, char** argv) {
     {
       VideoFeed feed;
       ContextSink sink{ctx};
-      paintShowcaseInto(screen, over, dbox, sink, feed);
+      paintShowcaseInto(screen, dbox, sink, feed);
     }
     ctx.finish();
     const glim::paint::Scene& scene = ctx.scene();
@@ -355,7 +317,7 @@ int main(int argc, char** argv) {
           );
         };
     walkGroups(scene.root, 0, false);
-    assert(glassGroups == 2 && glassClear);
+    assert(glassGroups == 1 && glassClear);
     assert(!slotInGlass && !blitInGlass);
     assert(glyphRuns > 0);
     auto pos = [&](const char* k) -> int {
@@ -363,22 +325,13 @@ int main(int argc, char** argv) {
         if (rootSeq[i] == k) return static_cast<int>(i);
       return -1;
     };
-    int rBlit = pos("Blit"), rSlot = pos("Slot"),
+    int rBlit = pos("Blit"), rGlass = pos("Glass"), rSlot = pos("Slot"),
         rStroke = pos("Stroke");
-    assert(rBlit >= 0 && rSlot >= 0 && rStroke >= 0);
-    // Fullscreen modal glass rides over the video plate (the
-    // overlapping under/over pair); the inline dialog glass sits in
-    // tree order.
-    int lastGlass = -1;
-    for (int i = static_cast<int>(rootSeq.size()) - 1; i >= 0; --i)
-      if (rootSeq[i] == "Glass") {
-        lastGlass = i;
-        break;
-      }
-    assert(lastGlass > rBlit && lastGlass < rSlot && rSlot < rStroke);
+    assert(rBlit >= 0 && rGlass >= 0 && rSlot >= 0 && rStroke >= 0);
+    assert(rBlit < rGlass && rGlass < rSlot && rSlot < rStroke);
   }
 
-  // Zero-codec peer: covered in the ops block above via Probe entries.
+  // Zero-codec peer and paint-hook peer, as before.
   {
     Block probe = toBlock(Probe{});
     Box pbox = place(probe, {0, 720, 0, 480});
@@ -393,6 +346,40 @@ int main(int argc, char** argv) {
     std::vector<Op> pback;
     assert(decodeOps(pbytes.data(), pbytes.size(), pback));
     assert(pback == prec.ops);
+  }
+  {
+    Block cp = toBlock(CustomPainted{});
+    Box cbox = place(cp, {0, 720, 0, 480});
+    glim::paint::Context pctx;
+    pctx.setSize({720, 480});
+    pctx.beginFrame();
+    {
+      VideoFeed pf;
+      ContextSink ps{pctx};
+      Engine pe;
+      paintTree(cp, cbox, pe, ps, pf);
+    }
+    pctx.finish();
+    int strokes = 0, fills = 0;
+    glim::paint::visitGroup(
+        pctx.scene().root,
+        [&](const glim::paint::Shape& s) {
+          if (std::holds_alternative<glim::paint::Stroke>(s))
+            ++strokes;
+          else if (std::holds_alternative<glim::paint::FillRounded>(s))
+            ++fills;
+        },
+        [&](const glim::paint::Group&) {}
+    );
+    assert(strokes == 1 && fills == 0);
+    OpsRecorder cr;
+    {
+      VideoFeed pf;
+      Engine pe;
+      paintTree(cp, cbox, pe, cr, pf);
+    }
+    assert(cr.ops.size() == 1 && cr.ops[0].kind == Op::Kind::Stroke);
+    assert(cr.ops[0].width == 1.0f);
   }
 
   std::cout << "showcase_test ok\n";

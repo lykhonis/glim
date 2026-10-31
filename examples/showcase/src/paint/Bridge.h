@@ -1,27 +1,22 @@
 #pragma once
 
-// Block tree → paint sink walk, now on the core traversal
+// Block tree → paint sink walk on the core traversal
 // (toolkit::walk): pre-order, boxes threaded, Custom-transparent.
-// Per-node visuals come from the node's OWN Rec entries (first entry
-// for containers, all entries for leaves — the same rule as dump),
-// emitted through sink.entry; grouping (glass chrome, roll clip) rides
+// Per-node visuals come from the node's OWN Rec entries emitted
+// through sink.entry; grouping (glass chrome, roll clip) rides
 // enter/exit pairing. Slot wrappers (expand, glass, user tags) never
 // block the walk: record/visit/childBox all delegate through Tagged.
+// Custom-painted elements (Custom::paints) render through an AnySink
+// and prune their subtree; everything else flows as entries.
 //
-// Frosted-surface recipe (see Demo.h): entries first (fill-only by
-// convention), then an EMPTY chrome group, then children sharp on top.
+// Frosted-surface recipe: entries first (fill-only by convention),
+// then an EMPTY chrome group, then children sharp on top.
 // Text-bearing glass nodes would frost their text — glass tags go on
 // fill-only containers (Card), a documented constraint, not a check.
 
 #include <cstddef>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
-#include "elements/Button.h"
-#include "elements/Card.h"
-#include "elements/Veil.h"
-#include "elements/Video.h"
 #include "glim/toolkit/Toolkit.h"
 #include "glim/toolkit/Walk.h"
 #include "paint/Ops.h"
@@ -30,37 +25,6 @@
 namespace glim {
 namespace toolkit {
 namespace paint {
-
-template <class T, class S>
-std::enable_if_t<has_paint_with<T, S>::value, bool> maybePaint(
-    const T* t, const Box& box, S& sink, const Engine& e
-) {
-  t->paint(box, sink, e);
-  return true;
-}
-
-template <class T, class S>
-std::enable_if_t<!has_paint_with<T, S>::value, bool>
-maybePaint(const T*, const Box&, S&, const Engine&) {
-  return false;
-}
-
-template <class S>
-bool tryCustomPaint(
-    const Block& b, const Box& box, const Engine& e, S& sink
-) {
-  const Custom* c = b.get<Custom>();
-  if (!c) return false;
-  if (const auto* t = c->as<Button>())
-    if (maybePaint(t, box, sink, e)) return true;
-  if (const auto* t = c->as<Card>())
-    if (maybePaint(t, box, sink, e)) return true;
-  if (const auto* t = c->as<Veil>())
-    if (maybePaint(t, box, sink, e)) return true;
-  if (const auto* t = c->as<Video>())
-    if (maybePaint(t, box, sink, e)) return true;
-  return false;
-}
 
 namespace detail {
 
@@ -76,30 +40,30 @@ void paintTree(
     S& sink,
     VideoFeed& feed
 ) {
+  AnySink any = wrapSink(sink, feed);
   std::vector<const Block*> clips;  // nodes holding an open clip group
   walk(
       b,
       box,
       e,
       [&](const Block& n, const Box& bx) -> bool {
-        if (tryCustomPaint(n, bx, e, sink)) return false;
+        if (paintsCustom(n)) {
+          paintCustom(n, bx, any, e);
+          return false;
+        }
         Rec tmp;
-        e.record(n, bx, tmp);
+        describeSelf(n, bx, tmp);
         if (tmp.entries.empty()) return false;
-        bool leaf = !walkHasChildren(n);
-        auto emitOwn = [&] {
-          if (leaf) {
-            for (const auto& en : tmp.entries) sink.entry(en, feed);
-          } else {
-            sink.entry(tmp.entries[0], feed);
-          }
-        };
+        // Own entries first (fill-only by convention), then an empty
+        // chrome group, then children sharp on top. Text-bearing glass
+        // nodes would frost their text — glass tags go on fill-only
+        // containers (Card), a documented constraint, not a check.
         if (const GlassTag* g = n.tag<GlassTag>()) {
-          emitOwn();
+          for (const auto& en : tmp.entries) sink.entry(en, feed);
           sink.pushGlass(bx, tmp.entries[0].radius, g->clear);
           sink.pop();
         } else {
-          emitOwn();
+          for (const auto& en : tmp.entries) sink.entry(en, feed);
         }
         if (isRollKind(tmp.entries[0].kind)) {
           sink.pushClip(bx);

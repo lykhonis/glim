@@ -24,14 +24,20 @@ struct Tagged {
     Engine ce{&node};
     return inner_.place(c, ce);
   }
-  void record(const Box& box, Rec& rec, const Engine& e) const {
-    Env node{&tag_, &typeid(Tag), e.env};
-    Engine ce{&node};
-    inner_.record(box, rec, ce);
+  void record(const Box& box, Rec& rec) const {
+    if constexpr (has_record<Inner>::value) {
+      inner_.record(box, rec);
+    } else {
+      rec.push(inner_.kind(), box);
+    }
   }
   template <class I = Inner, std::enable_if_t<has_handle<I>::value, int> = 0>
   bool handle(const Event& ev) const {
     return inner_.handle(ev);
+  }
+  template <class I = Inner, std::enable_if_t<has_paint<I>::value, int> = 0>
+  void paint(const Box& box, AnySink& sink, const Engine& e) const {
+    inner_.paint(box, sink, e);
   }
   template <class F>
   void eachChild(F&& f) const {

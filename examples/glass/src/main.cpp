@@ -198,6 +198,10 @@ void recordGlass(
 }
 
 #ifndef GLIM_GOLDEN
+bool onExampleEvent(const glim::shell::Event&, ExampleFrame&) {
+  return false;
+}
+
 void recordExample(ExampleFrame& frame) {
   recordGlass(
       frame.context,

@@ -25,8 +25,6 @@ struct Rec {
     Box box;
     std::string text;
     std::string mark;
-    // Paint description (dump ignores these — goldens stay text-only).
-    // radius: corner radius for FillRounded (Card honors its radius tag).
     int radius = 0;
   };
   std::vector<Entry> entries;

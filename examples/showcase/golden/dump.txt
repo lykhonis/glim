@@ -1,38 +1,32 @@
 root box: 720x480
 Roll.v [0,0 720x480]
-  Column [0,0 720x604]
-    Column [0,0 56x32]
+  Column [0,0 720x586]
+    Column [0,0 56x34]
       Lines [0,0 56x14] Display
-      Roll.h [0,18 32x14]
-        Lines [0,18 32x14] 12+3
-    Column [0,44 720x46]
-      Lines [0,44 56x14] Buttons
-      Row [0,62 720x28]
-        Button [0,62 234.667x28] 7 [expand]
-        Button [242.667,62 234.667x28] 8 [expand]
-        Button.primary [485.333,62 234.667x28] = [expand]
-    Column [0,102 112x92]
-      Lines [0,102 48x14] Dialog
-      Card [0,120 112x74]
-        Lines [12,132 56x14] Delete?
-        Row [12,154 88x28]
-          Button [12,154 36x28] No
-          Button [56,154 44x28] Yes
-    Column [0,206 320x198]
-      Lines [0,206 40x14] Video
-      Video [0,224 320x180]
-    Column [0,416 696x46]
-      Lines [0,416 32x14] Wrap
-      Lines [0,434 696x14] Frosted card over foreign video, all from one tree. Wrap keeps words whole, splits long
-      Lines [0,448 488x14] words, and the roll below spills past its viewport by design.
-    Column [0,474 40x130]
-      Lines [0,474 32x14] List
-      List [0,492 40x112]
-        Lines [0,492 40x14] item0
-        Lines [0,506 40x14] item1
-        Lines [0,520 40x14] item2
-        Lines [0,534 40x14] item3
-        Lines [0,548 40x14] item4
-        Lines [0,562 40x14] item5
-        Lines [0,576 40x14] item6
-        Lines [0,590 40x14] item7
+      Roll.h [0,20 32x14]
+        Lines [0,20 32x14] 12+3
+    Column [0,54 720x48]
+      Lines [0,54 56x14] Buttons
+      Row [0,74 720x28]
+        Button [0,74 234.667x28] 7 [expand]
+        Button [242.667,74 234.667x28] 8 [expand]
+        Button.primary [485.333,74 234.667x28] = [expand]
+    Column [0,122 320x200]
+      Lines [0,122 40x14] Video
+      Video [0,142 320x180]
+    Column [0,342 696x48]
+      Lines [0,342 72x14] Multiline
+      Lines [0,362 696x14] Frosted card over foreign video, all from one tree. Wrap keeps words whole, splits long
+      Lines [0,376 488x14] words, and the list below spills past its viewport by design.
+    Column [0,410 208x80]
+      Lines [0,410 32x14] Card
+      Card [0,430 208x60]
+        Lines [12,442 96x14] Frosted card
+        Lines [12,464 184x14] backdrop blur plus tint
+    Column [0,510 40x76]
+      Lines [0,510 32x14] List
+      List [0,530 40x56]
+        Lines [0,530 40x14] item0
+        Lines [0,544 40x14] item1
+        Lines [0,558 40x14] item2
+        Lines [0,572 40x14] item3

@@ -44,6 +44,20 @@ int glimRunExample(
   auto lastPaint = start;
   bool reduceTransparency = false;
 
+  const auto frameAt = [&](float t) {
+    return ExampleFrame{
+        context,
+        window,
+        window.size(),
+        window.safeArea(),
+        reduceTransparency,
+        t,
+#if !GLIM_SOFTWARE
+        device,
+#endif
+    };
+  };
+
   const auto paint = [&] {
     const auto now = std::chrono::steady_clock::now();
     const float dt =
@@ -52,17 +66,8 @@ int glimRunExample(
     const glim::Vec2 size = window.size();
     context.setSize(size);
     context.beginFrame();
-    ExampleFrame frame{
-        context,
-        window,
-        size,
-        window.safeArea(),
-        reduceTransparency,
-        std::chrono::duration<float>(now - start).count(),
-#if !GLIM_SOFTWARE
-        device,
-#endif
-    };
+    ExampleFrame frame =
+        frameAt(std::chrono::duration<float>(now - start).count());
     if (record) {
       record(frame);
     }
@@ -108,6 +113,15 @@ int glimRunExample(
       reduceTransparency = !reduceTransparency;
       paint();
       return;
+    }
+    {
+      const auto now = std::chrono::steady_clock::now();
+      ExampleFrame frame =
+          frameAt(std::chrono::duration<float>(now - start).count());
+      if (onExampleEvent(e, frame)) {
+        paint();
+        return;
+      }
     }
     if (e.type() == T::PointerDown ||
         (e.type() == T::KeyDown && e.key() == glim::shell::Key::Enter

@@ -32,10 +32,6 @@ struct List : WithGap {
     b.y += box.y;
     return b;
   }
-  void record(const Box& box, Rec& rec, const Engine& e) const {
-    rec.push(kKind, box);
-    for (std::size_t i = 0; i < items.size(); ++i) e.record(items[i], childBox(i, box, e), rec);
-  }
 };
 
 template <class F, class... As>
