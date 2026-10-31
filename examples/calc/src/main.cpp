@@ -55,6 +55,29 @@ Block modalTree(Action onNo, Action onYes) {
 
 std::string modalDump() { return dumpTree(modalTree([] {}, [] {}), {0, 720, 0, 480}); }
 
+std::string listDump() {
+  Block tree = roll(vertical(), list(8, [](int i) { return lines("item" + std::to_string(i)); }));
+  return dumpTree(std::move(tree), {0, 720, 0, 100});
+}
+
+std::string focusDump() {
+  Store store;
+  Block tree = calcTree(store.make<std::string>("12+3"));
+  Constraints c{0, 720, 0, 480};
+  Box box = place(tree, c);
+  std::ostringstream os;
+  os << "root box: " << box.w << "x" << box.h << "\n";
+  dump(os, tree);
+  Rec rec;
+  record(tree, box, rec);
+  recordFocusRing(rec, tree, box, 0);
+  for (const auto& e : rec.entries) {
+    os << e.kind << " [" << e.box.x << "," << e.box.y << " " << e.box.w << "x" << e.box.h
+       << "] " << e.text << "\n";
+  }
+  return os.str();
+}
+
 #ifndef GLIM_GOLDEN
 int main() {
   std::cout << calcDump();

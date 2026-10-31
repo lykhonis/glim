@@ -5,6 +5,18 @@
 
 using namespace glim::toolkit;
 
+static_assert(has_children<Row>::value, "");
+static_assert(has_children<Column>::value, "");
+static_assert(has_children<Stack>::value, "");
+static_assert(has_children<List>::value, "");
+static_assert(has_children<Roll>::value, "");
+static_assert(has_children<Fill>::value, "");
+static_assert(has_children<Tap>::value, "");
+static_assert(!has_children<Empty>::value, "");
+static_assert(!has_children<Lines>::value, "");
+static_assert(has_inner_box<Tap>::value, "");
+static_assert(!has_inner_box<Row>::value, "");
+
 namespace glim {
 namespace toolkit {
 
@@ -80,7 +92,8 @@ int main() {
   assert(bb->children.size() == 1);
   const Lines* bl = bb->children[0].get<Lines>();
   assert(bl && bl->text == "Play");
-  assert(!fire(lines("x")));
+  assert(!handle(lines("x"), Event::borrow(Activate{})));
+  assert(!handle(lines("x"), Event::borrow(PointerMove{1, 1})));
 
   Block s = stack(lines("under"), column(lines("over")));
   const Stack* ss = s.get<Stack>();
@@ -98,7 +111,7 @@ int main() {
   Block tree = counter.view();
   const Column* col = tree.get<Column>();
   assert(col && col->children.size() == 2);
-  assert(fire(col->children[1]));
+  assert(handle(col->children[1], Event::borrow(Activate{})));
   assert(*n == 42);
 
   State<int> sel = store.make<int>(1);
@@ -111,8 +124,8 @@ int main() {
   assert(focusables(m, mb).size() == 1);
   {
     Box tb = focusBox(m, mb, 0);
-    const Block* th = hit(m, mb, tb.x + 1, tb.y + 1);
-    assert(th && fire(*th));
+    assert(dispatchPointer(m, mb, tb.x + 1, tb.y + 1,
+                           Event::borrow(PointerDown{tb.x + 1, tb.y + 1})));
   }
 
   // Fill splits the remainder equally: 4 fills in 720 with gap 8
@@ -213,7 +226,126 @@ int main() {
   Box pb = place(p, {0, 720, 0, 480});
   assert(pb.w == 16 + 12 && pb.h == 14 + 4);
 
-  // Focus: depth-first Tap order, spatial moves, ends clamp.
+  // Wrap is opt-in: plain Lines spills single-line, wrapped Lines reflows.
+  {
+    // No wrap tag → single 160px line spills past a 100px budget (T1 lock).
+    Block spill = lines("12345678901234567890");
+    Box spb = place(spill, {0, 100, 0, 480});
+    assert(spb.w == 160 && spb.h == 14);
+    // wrap() → two visual lines at 100px (12 chars + 8 chars).
+    Block wrapped = lines("12345678901234567890", wrap());
+    Box wb = place(wrapped, {0, 100, 0, 480});
+    assert(wb.w == 96 && wb.h == 28);
+    Rec recr;
+    record(wrapped, wb, recr);
+    assert(recr.entries.size() == 2);
+    assert(recr.entries[0].text == "123456789012" && recr.entries[0].box.x == 0);
+    assert(recr.entries[1].text == "34567890");
+    assert(recr.entries[1].box.y == 14);
+    // Word wrap keeps words whole; long words split at char boundaries.
+    Block words = lines("aa bb cc dd", wrap());
+    Rec wr;
+    record(words, place(words, {0, 40, 0, 480}), wr);
+    assert(wr.entries.size() == 2);
+    assert(wr.entries[0].text == "aa bb" && wr.entries[1].text == "cc dd");
+    // Align offsets wrapped lines inside a wider box.
+    Block centered = lines("hi", wrap(), alignCenter());
+    Box cb = place(centered, {0, 720, 0, 480});
+    Rec cr;
+    record(centered, {0, 0, 100, 14}, cr);
+    assert(cr.entries.size() == 1);
+    assert(cr.entries[0].box.x == 42);  // (100 - 16) / 2
+    Block right = lines("hi", wrap(), alignRight());
+    Rec rr;
+    record(right, {0, 0, 100, 14}, rr);
+    assert(rr.entries[0].box.x == 84);
+    // Ellipsis: bounded height truncates with "..." on the last line.
+    Block trunc = lines("aa bb cc dd", wrap());
+    Rec tr;
+    record(trunc, {0, 0, 40, 14}, tr);
+    assert(tr.entries.size() == 1);
+    assert(tr.entries[0].text == "aa...");
+    // Unbounded height never truncates (Roll spill witness).
+    Block tall = lines("aa bb cc dd", wrap());
+    Rec talr;
+    record(tall, {0, 0, 40, kUnbounded}, talr);
+    assert(talr.entries.size() == 2);
+    assert(talr.entries[1].text == "cc dd");
+    (void)cb;
+    Rec zr;
+    record(tall, {0, 0, 40, 0}, zr);
+    assert(zr.entries.size() == 1);
+    assert(zr.entries[0].text == "aa...");
+  }
+
+  // List: eager homogeneous Column; composes with Roll for scroll.
+  {
+    Block li = list(3, [](int i) { return lines("row" + std::to_string(i)); });
+    const List* lp = li.get<List>();
+    assert(lp && lp->items.size() == 3);
+    Box lb = place(li, {0, 720, 0, 480});
+    assert(lb.h == 42 && lb.w == 32);
+    Rec lr;
+    record(li, lb, lr);
+    assert(lr.entries.size() == 4);  // List + 3 rows
+    assert(lr.entries[0].kind == List::kKind);
+    // List of taps stays focusable in order.
+    State<int> picked = store.make<int>(-1);
+    Block lt = list(2, [picked](int i) {
+      return tap(lines("t" + std::to_string(i)), [picked, i] { picked = i; });
+    });
+    Box ltb = place(lt, {0, 720, 0, 480});
+    auto lf = focusables(lt, ltb);
+    assert(lf.size() == 2);
+    assert(deliverKey(lt, ltb, 0, Key::Next) == 1);
+    assert(deliverKey(lt, ltb, 1, Key::Activate) == 1 && *picked == 1);
+    // Negative count → empty list, no crash.
+    Block le = list(-1, [](int) { return lines("x"); });
+    assert(le.get<List>() && le.get<List>()->items.empty());
+  }
+
+  {
+    struct Ping {};
+    struct Bell {
+      State<int> rings;
+      Box place(Constraints c, const Engine&) const {
+        return detail::resolveSize(10, 10, c);
+      }
+      void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Bell", box); }
+      bool handle(const Event& ev) const {
+        if (ev.is<Ping>()) {
+          rings = *rings + 1;
+          return true;
+        }
+        return false;
+      }
+    };
+    State<int> n = store.make<int>(0);
+    Block tree = column(gap(0), tap(lines("x"), [] {}), Block{Custom{Bell{n}}});
+    Box tbox = place(tree, {0, 720, 0, 480});
+    assert(broadcastEvent(tree, tbox, Event::borrow(Ping{})));
+    assert(*n == 1);
+    Block bare = tap(lines("x"), [] {});
+    Box bbox = place(bare, {0, 720, 0, 480});
+    assert(!broadcastEvent(bare, bbox, Event::borrow(Ping{})));
+    assert(!handle(bare, Event::borrow(Ping{})));
+    struct MissProbe {
+      int* n;
+      Box place(Constraints c, const Engine&) const {
+        return detail::resolveSize(10, 10, c);
+      }
+      void record(const Box& box, Rec& rec, const Engine&) const { rec.push("Miss", box); }
+      bool handle(const Event&) const {
+        ++(*n);
+        return false;
+      }
+    };
+    int missCount = 0;
+    Block filled = fill(Block{Custom{MissProbe{&missCount}}});
+    Box fbox = place(filled, {0, 720, 0, 480});
+    assert(!broadcastEvent(filled, fbox, Event::borrow(Ping{})));
+    assert(missCount == 1);
+  }
   Block grid = column(gap(0), row(gap(0), tap(lines("1"), [] {}), tap(lines("2"), [] {}),
                                         tap(lines("3"), [] {})),
                       row(gap(0), tap(lines("4"), [] {}), tap(lines("5"), [] {}),
@@ -238,12 +370,58 @@ int main() {
   assert(fi == 8);  // clamped at end
   Box fbox = focusBox(grid, gridBox, 4);
   assert(fbox.x == 8 && fbox.y == 14);
+
+  // Key delivery: arrows move like moveFocus, Activate handles in place.
+  {
+    State<int> tapped = store.make<int>(0);
+    Block keys = row(gap(0), tap(lines("a"), [tapped] { tapped = 1; }),
+                     tap(lines("b"), [tapped] { tapped = 2; }));
+    Box kbox = place(keys, {0, 720, 0, 480});
+    int ki = 0;
+    ki = deliverKey(keys, kbox, ki, Key::Right);
+    assert(ki == 1);
+    ki = deliverKey(keys, kbox, ki, Key::Left);
+    assert(ki == 0);
+    ki = deliverKey(keys, kbox, ki, Key::Next);
+    assert(ki == 1);
+    ki = deliverKey(keys, kbox, ki, Key::Prev);
+    assert(ki == 0);
+    int before = *tapped;
+    ki = deliverKey(keys, kbox, ki, Key::Activate);
+    assert(ki == 0 && *tapped == before + 1);
+    // Empty tree: stays put, no crash.
+    Block empty;
+    Box ebox = place(empty, {0, 720, 0, 480});
+    assert(deliverKey(empty, ebox, 0, Key::Right) == 0);
+    assert(deliverKey(empty, ebox, 0, Key::Activate) == 0);
+  }
+
+  // Focus ring: expanded overlay box appended last by recordFocusRing.
+  {
+    Box ring = focusRingBox(grid, gridBox, 4);
+    assert(ring.x == fbox.x - 2 && ring.y == fbox.y - 2);
+    assert(ring.w == fbox.w + 4 && ring.h == fbox.h + 4);
+    Rec recr;
+    record(grid, gridBox, recr);
+    std::size_t base = recr.entries.size();
+    recordFocusRing(recr, grid, gridBox, 4);
+    assert(recr.entries.size() == base + 1);
+    assert(recr.entries.back().kind == kFocusRingKind);
+    assert(recr.entries.back().box.x == ring.x && recr.entries.back().box.y == ring.y);
+    // Out-of-range index: zero box, no entry.
+    assert(focusRingBox(grid, gridBox, 99).w == 0);
+    Rec empty;
+    recordFocusRing(empty, grid, gridBox, 99);
+    assert(empty.entries.empty());
+  }
   {
     State<int> tapped = store.make<int>(0);
     Block actionable = tap(lines("go"), [tapped] { tapped = 1; });
-    const Block* hitTap = hit(actionable, place(actionable, {0, 720, 0, 480}), 1, 1);
-    assert(hitTap && fire(*hitTap));
+    Box abox = place(actionable, {0, 720, 0, 480});
+    assert(dispatchPointer(actionable, abox, 1, 1, Event::borrow(PointerDown{1, 1})));
     assert(*tapped == 1);
+    assert(!dispatchPointer(actionable, abox, 900, 900, Event::borrow(PointerDown{900, 900})));
+    assert(!handle(actionable, Event::borrow(PointerMove{1, 1})));
   }
 
   std::cout << "toolkit tests ok\n";

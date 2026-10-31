@@ -1,0 +1,62 @@
+root box: 720x122
+Column
+  Roll.h
+    Lines "12+3"
+  Row
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+  Row
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+  Row
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+    Fill
+      Custom
+Column [0,0 720x122] 
+Roll.h [0,0 32x14] 
+Lines [0,0 32x14] 12+3
+Row [0,22 720x28] 
+Fill [0,22 174x28] 
+Button [0,22 174x28] 7
+Fill [182,22 174x28] 
+Button [182,22 174x28] 8
+Fill [364,22 174x28] 
+Button [364,22 174x28] 9
+Fill [546,22 174x28] 
+Button [546,22 174x28] /
+Row [0,58 720x28] 
+Fill [0,58 174x28] 
+Button [0,58 174x28] 4
+Fill [182,58 174x28] 
+Button [182,58 174x28] 5
+Fill [364,58 174x28] 
+Button [364,58 174x28] 6
+Fill [546,58 174x28] 
+Button [546,58 174x28] *
+Row [0,94 720x28] 
+Fill [0,94 174x28] 
+Button [0,94 174x28] 1
+Fill [182,94 174x28] 
+Button [182,94 174x28] 2
+Fill [364,94 174x28] 
+Button [364,94 174x28] 3
+Fill [546,94 174x28] 
+Button.primary [546,94 174x28] =
+FocusRing [-2,20 178x32] 

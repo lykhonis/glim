@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -11,9 +12,15 @@ namespace toolkit {
 
 struct Fill {
   static constexpr const char* kKind = "Fill";
+  const char* kind() const { return kKind; }
   std::vector<Block> children;
   Box place(Constraints c, const Engine& e) const;
   void record(const Box& box, Rec& rec, const Engine& e) const;
+  template <class F>
+  void eachChild(F&& f) const {
+    detail::forEachBlock(children, std::forward<F>(f));
+  }
+  Box childBox(std::size_t, const Box& box, const Engine&) const { return box; }
 };
 
 template <class A>

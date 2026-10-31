@@ -9,7 +9,7 @@ using Action = std::function<void()>;
 
 namespace detail {
 
-inline bool fireAction(const Action& a) {
+inline bool invokeAction(const Action& a) {
   if (a) {
     a();
     return true;

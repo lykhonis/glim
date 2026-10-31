@@ -18,5 +18,6 @@ struct is_tag : std::false_type {};
 #include "glim/toolkit/tags/Role.h"
 #include "glim/toolkit/tags/Scroll.h"
 #include "glim/toolkit/tags/Semantic.h"
+#include "glim/toolkit/tags/Wrap.h"
 #include "glim/toolkit/tags/Shape.h"
 #include "glim/toolkit/tags/Spacing.h"

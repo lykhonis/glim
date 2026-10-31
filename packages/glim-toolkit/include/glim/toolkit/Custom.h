@@ -5,6 +5,7 @@
 #include <typeinfo>
 #include <utility>
 
+#include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
 
@@ -12,10 +13,13 @@ namespace glim {
 namespace toolkit {
 
 template <class T, class = void>
-struct has_fire : std::false_type {};
+struct has_handle : std::false_type {};
 template <class T>
-struct has_fire<T, std::void_t<decltype(std::declval<const T&>().fire())>>
-    : std::is_same<decltype(std::declval<const T&>().fire()), bool> {};
+struct has_handle<T, std::void_t<decltype(std::declval<const T&>().handle(
+                           std::declval<const Event&>()))>>
+    : std::is_same<decltype(std::declval<const T&>().handle(
+                               std::declval<const Event&>())),
+                   bool> {};
 
 // Opt-in child transparency: an element exposing its composed children
 // (eachChild visitor + per-child box in a laid-out parent box) is traversed
@@ -37,12 +41,23 @@ struct has_children<
                         std::declval<std::size_t>(), std::declval<const Box&>(),
                         std::declval<const Engine&>()))>> : std::true_type {};
 
+template <class T, class = void>
+struct has_inner_box : std::false_type {};
+template <class T>
+struct has_inner_box<T, std::void_t<decltype(std::declval<const T&>().innerBox(
+                               std::declval<const Box&>()))>>
+    : std::is_same<decltype(std::declval<const T&>().innerBox(
+                               std::declval<const Box&>())),
+                   Box> {};
+
 struct Custom {
+  static constexpr const char* kKind = "Custom";
+  const char* kind() const { return kKind; }
   struct VTable {
     const std::type_info& (*type)();
     Box (*place)(const void* s, bool heap, Constraints c, const Engine& e);
     void (*record)(const void* s, bool heap, const Box& b, Rec& r, const Engine& e);
-    bool (*fire)(const void* s, bool heap);
+    bool (*handle)(const void* s, bool heap, const Event& ev);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
     Box (*childBox)(const void* s, bool heap, std::size_t i, const Box& b, const Engine& e);
@@ -126,8 +141,10 @@ struct Custom {
     }
   }
   bool empty() const { return !vt; }
-  bool fire() const { return vt && vt->fire ? vt->fire(buf, onHeap) : false; }
-  bool fireable() const { return vt && vt->fire != nullptr; }
+  bool handle(const Event& ev) const {
+    return vt && vt->handle ? vt->handle(buf, onHeap, ev) : false;
+  }
+  bool handles() const { return vt && vt->handle != nullptr; }
   std::size_t childCount() const {
     return vt && vt->childCount ? vt->childCount(buf, onHeap) : 0;
   }
@@ -173,10 +190,10 @@ struct Custom {
     return heap ? *static_cast<U* const*>(s) : s;
   }
   template <class U>
-  static bool (*fireFor())(const void*, bool) {
-    if constexpr (has_fire<U>::value) {
-      return [](const void* s, bool heap) -> bool {
-        return static_cast<const U*>(addr<U>(s, heap))->fire();
+  static bool (*handleFor())(const void*, bool, const Event&) {
+    if constexpr (has_handle<U>::value) {
+      return [](const void* s, bool heap, const Event& ev) -> bool {
+        return static_cast<const U*>(addr<U>(s, heap))->handle(ev);
       };
     } else {
       return nullptr;
@@ -234,7 +251,7 @@ struct Custom {
         [](const void* s, bool heap, const Box& b, Rec& r, const Engine& e) {
           static_cast<const U*>(addr<U>(s, heap))->record(b, r, e);
         },
-        fireFor<U>(),
+        handleFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),
         childBoxFn<U>(),

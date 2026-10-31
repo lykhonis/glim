@@ -1,0 +1,21 @@
+root box: 40x100
+Roll.v
+  List
+    Lines "item0"
+    Lines "item1"
+    Lines "item2"
+    Lines "item3"
+    Lines "item4"
+    Lines "item5"
+    Lines "item6"
+    Lines "item7"
+Roll.v [0,0 40x100] 
+List [0,0 40x112] 
+Lines [0,0 40x14] item0
+Lines [0,14 40x14] item1
+Lines [0,28 40x14] item2
+Lines [0,42 40x14] item3
+Lines [0,56 40x14] item4
+Lines [0,70 40x14] item5
+Lines [0,84 40x14] item6
+Lines [0,98 40x14] item7

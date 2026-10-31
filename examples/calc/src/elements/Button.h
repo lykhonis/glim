@@ -27,7 +27,10 @@ struct Button : WithGap, WithPrimary, WithThrough, WithPad, WithSemantic {
   void record(const Box& box, Rec& rec, const Engine&) const {
     rec.push(isPrimary ? kKindPrimary : kKind, box, label, semantic);
   }
-  bool fire() const { return detail::fireAction(onTap); }
+  bool handle(const Event& ev) const {
+    if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
+    return false;
+  }
 };
 
 template <class... As>

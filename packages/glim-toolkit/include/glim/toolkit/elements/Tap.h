@@ -12,16 +12,26 @@ namespace glim {
 namespace toolkit {
 
 // Focusable tappable. Owns the action; lays out its single child plus pad
-// chrome (touch target), records a "Tap" wrapper, fires onTap.
+// chrome (touch target), records a "Tap" wrapper, handles pointer and
+// activate with onTap.
 struct Tap : WithPrimary, WithPad, WithSemantic {
   static constexpr const char* kKind = "Tap";
   static constexpr const char* kKindPrimary = "Tap.primary";
+  const char* kind() const { return isPrimary ? kKindPrimary : kKind; }
   std::vector<Block> children;
   Action onTap;
   Box place(Constraints c, const Engine& e) const;
   void record(const Box& box, Rec& rec, const Engine& e) const;
-  bool fire() const { return detail::fireAction(onTap); }
+  bool handle(const Event& ev) const {
+    if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
+    return false;
+  }
   Box innerBox(const Box& box) const;
+  template <class F>
+  void eachChild(F&& f) const {
+    detail::forEachBlock(children, std::forward<F>(f));
+  }
+  Box childBox(std::size_t, const Box& box, const Engine&) const { return innerBox(box); }
 };
 
 template <class A, class... As>

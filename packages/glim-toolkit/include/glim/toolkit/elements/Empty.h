@@ -7,6 +7,7 @@ namespace toolkit {
 
 struct Empty {
   static constexpr const char* kKind = "Empty";
+  const char* kind() const { return kKind; }
   Box place(Constraints c, const Engine&) const {
     return {0, 0, detail::clampF(0.0f, c.minW, c.maxW), detail::clampF(0.0f, c.minH, c.maxH)};
   }

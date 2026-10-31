@@ -5,6 +5,7 @@
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/ConfigureFwd.h"
 #include "glim/toolkit/Custom.h"
+#include "glim/toolkit/Event.h"
 #include "glim/toolkit/Focus.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"

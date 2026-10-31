@@ -10,6 +10,7 @@
 #include "glim/toolkit/elements/Empty.h"
 #include "glim/toolkit/elements/Fill.h"
 #include "glim/toolkit/elements/Lines.h"
+#include "glim/toolkit/elements/List.h"
 #include "glim/toolkit/elements/Roll.h"
 #include "glim/toolkit/elements/Row.h"
 #include "glim/toolkit/elements/Stack.h"
@@ -19,7 +20,7 @@ namespace glim {
 namespace toolkit {
 
 struct Block {
-  using Variant = std::variant<Empty, Row, Column, Stack, Lines, Roll, Fill, Tap, Custom>;
+  using Variant = std::variant<Empty, Row, Column, Stack, Lines, List, Roll, Fill, Tap, Custom>;
   Variant v;
   Block() : v(Empty{}) {}
   Block(Empty e) : v(std::move(e)) {}
@@ -27,6 +28,7 @@ struct Block {
   Block(Column c) : v(std::move(c)) {}
   Block(Stack s) : v(std::move(s)) {}
   Block(Lines l) : v(std::move(l)) {}
+  Block(List l) : v(std::move(l)) {}
   Block(Roll r) : v(std::move(r)) {}
   Block(Fill f) : v(std::move(f)) {}
   Block(Tap t) : v(std::move(t)) {}
@@ -69,6 +71,7 @@ struct is_block_arm
                                  std::is_same<std::decay_t<T>, Column>::value ||
                                  std::is_same<std::decay_t<T>, Stack>::value ||
                                  std::is_same<std::decay_t<T>, Lines>::value ||
+                                 std::is_same<std::decay_t<T>, List>::value ||
                                  std::is_same<std::decay_t<T>, Roll>::value ||
                                  std::is_same<std::decay_t<T>, Fill>::value ||
                                  std::is_same<std::decay_t<T>, Tap>::value ||

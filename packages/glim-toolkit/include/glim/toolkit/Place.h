@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 
 namespace glim {
@@ -15,13 +16,15 @@ Box place(const Block& b, Constraints c);
 void record(const Block& b, const Box& box, Rec& r);
 void dump(std::ostream& os, const Block& b, int indent = 0);
 // Lifetime: the returned pointer borrows from `b` — the tree must outlive
-// the pointer. Call and use immediately (e.g. `fire(*hit(...))`); never
-// store past the tree's lifetime, and never call on a temporary.
+// the pointer. Call and use immediately; never store past the tree's
+// lifetime, and never call on a temporary.
 const Block* hit(const Block& b, const Box& box, float x, float y);
 
-// Fires the action on a Tap arm, a transparent Fill, or a fireable Custom.
-// Returns false for everything else (containers included: hit first).
-bool fire(const Block& b);
+bool handle(const Block& b, const Event& ev);
+
+bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Event& ev);
+
+bool broadcastEvent(const Block& b, const Box& box, const Event& ev);
 
 struct Engine {
   Box place(const Block& b, Constraints c) const { return glim::toolkit::place(b, c); }
@@ -34,6 +37,14 @@ namespace detail {
 
 float clampF(float v, float lo, float hi);
 Box measureText(const std::string& text, Constraints c);
+// Greedy word wrap at maxW (unbounded → single line). Words longer than a
+// line split at char boundaries. Spaces collapse to one separator.
+std::vector<std::string> wrapText(const std::string& text, float maxW);
+// Truncate wrapped lines to maxH with a "..." ellipsis on the last visible
+// line, keeping at least one line.
+std::vector<std::string> truncateLines(std::vector<std::string> lines, float maxW, float maxH);
+// Full visual layout for an allotted box: wrap (iff wrap) then truncate.
+std::vector<std::string> layoutLines(const std::string& text, float maxW, float maxH, bool wrap);
 // Tight proposal forces exact size; loose max never truncates —
 // rigid children spill past the budget, containers clamp their own box.
 Box resolveSize(float naturalW, float naturalH, Constraints c);

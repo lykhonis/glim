@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <ostream>
+#include <sstream>
+#include <type_traits>
 #include <variant>
 
 #include "glim/toolkit/Toolkit.h"
@@ -17,6 +19,99 @@ float clampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : 
 Box measureText(const std::string& text, Constraints c) {
   return resolveSize(static_cast<float>(text.size()) * Tokens::kTypeAdvance, Tokens::kTypeLine,
                      c);
+}
+
+std::vector<std::string> wrapText(const std::string& text, float maxW) {
+  if (isUnbounded(maxW)) return {text};
+  float adv = Tokens::kTypeAdvance;
+  int per = static_cast<int>(maxW / adv);
+  if (per < 1) per = 1;
+  // Split on spaces (collapse runs); empty text is one empty line.
+  std::vector<std::string> words;
+  std::string cur;
+  for (char ch : text) {
+    if (ch == ' ') {
+      if (!cur.empty()) {
+        words.push_back(cur);
+        cur.clear();
+      }
+    } else {
+      cur.push_back(ch);
+    }
+  }
+  if (!cur.empty()) words.push_back(cur);
+  if (words.empty()) return {""};
+  std::vector<std::string> lines;
+  std::string line;
+  float lineW = 0;
+  auto flushWord = [&](const std::string& w) {
+    float wW = static_cast<float>(w.size()) * adv;
+    if (line.empty()) {
+      line = w;
+      lineW = wW;
+    } else if (lineW + adv + wW <= maxW + 0.001f) {
+      line += ' ';
+      line += w;
+      lineW += adv + wW;
+    } else {
+      lines.push_back(line);
+      line = w;
+      lineW = wW;
+    }
+  };
+  for (const auto& w : words) {
+    if (static_cast<float>(w.size()) * adv <= maxW + 0.001f) {
+      flushWord(w);
+    } else {
+      // Long word: chunk at char boundaries.
+      std::size_t k = 0;
+      while (k < w.size()) {
+        std::size_t n = static_cast<std::size_t>(per);
+        if (n > w.size() - k) n = w.size() - k;
+        flushWord(w.substr(k, n));
+        k += n;
+      }
+    }
+  }
+  if (!line.empty()) lines.push_back(line);
+  if (lines.empty()) lines.push_back("");
+  return lines;
+}
+
+std::vector<std::string> truncateLines(std::vector<std::string> lines, float maxW, float maxH) {
+  float lineH = Tokens::kTypeLine;
+  float adv = Tokens::kTypeAdvance;
+  int maxLines = static_cast<int>(maxH / lineH);
+  if (maxLines < 1) maxLines = 1;
+  if (static_cast<int>(lines.size()) <= maxLines) return lines;
+  lines.resize(static_cast<std::size_t>(maxLines));
+  std::string& last = lines.back();
+  const std::string dots = "...";
+  float dotsW = static_cast<float>(dots.size()) * adv;
+  float lastW = static_cast<float>(last.size()) * adv;
+  if (lastW + dotsW <= maxW + 0.001f) {
+    last += dots;
+    return lines;
+  }
+  int per = isUnbounded(maxW) ? static_cast<int>(last.size())
+                              : static_cast<int>(maxW / adv);
+  if (per < 0) per = 0;
+  int keep = per - static_cast<int>(dots.size());
+  if (keep < 0) {
+    // Narrower than "...": as many dots as fit.
+    int n = per < 0 ? 0 : per;
+    last = dots.substr(0, static_cast<std::size_t>(n));
+    return lines;
+  }
+  if (keep > static_cast<int>(last.size())) keep = static_cast<int>(last.size());
+  last = last.substr(0, static_cast<std::size_t>(keep)) + dots;
+  return lines;
+}
+
+std::vector<std::string> layoutLines(const std::string& text, float maxW, float maxH, bool wrap) {
+  std::vector<std::string> lines = wrap ? wrapText(text, maxW) : std::vector<std::string>{text};
+  if (isUnbounded(maxH)) return lines;
+  return truncateLines(std::move(lines), maxW, maxH);
 }
 
 Box resolveSize(float naturalW, float naturalH, Constraints c) {
@@ -238,15 +333,7 @@ void record(const Block& b, const Box& box, Rec& r) {
 namespace {
 
 const char* kindOf(const Block& b) {
-  if (b.get<Row>()) return Row::kKind;
-  if (b.get<Column>()) return Column::kKind;
-  if (b.get<Stack>()) return Stack::kKind;
-  if (b.get<Lines>()) return Lines::kKind;
-  if (b.get<Roll>()) return b.get<Roll>()->axis == kAxisHorizontal ? Roll::kKindH : Roll::kKindV;
-  if (b.get<Fill>()) return Fill::kKind;
-  if (const auto* t = b.get<Tap>()) return t->isPrimary ? Tap::kKindPrimary : Tap::kKind;
-  if (b.get<Custom>()) return "Custom";
-  return Empty::kKind;
+  return std::visit([](const auto& x) -> const char* { return x.kind(); }, b.v);
 }
 
 bool contains(const Box& b, float x, float y) {
@@ -254,76 +341,34 @@ bool contains(const Box& b, float x, float y) {
 }
 
 const Block* hitIn(const Block& b, const Box& box, float x, float y, const Engine& e) {
-  if (const auto* r = b.get<Row>()) {
-    detail::Flow f = detail::flowRow(r->children, r->gap, {0, box.w, 0, box.h}, e);
-    for (std::size_t i = r->children.size(); i-- > 0;) {
-      Box cb = f.children[i];
-      cb.x += box.x;
-      cb.y += box.y;
-      if (const Block* t = hitIn(r->children[i], cb, x, y, e)) return t;
-    }
-    return contains(box, x, y) ? &b : nullptr;
-  }
-  if (const auto* c = b.get<Column>()) {
-    detail::Flow f = detail::flowColumn(c->children, c->gap, {0, box.w, 0, box.h}, e);
-    for (std::size_t i = c->children.size(); i-- > 0;) {
-      Box cb = f.children[i];
-      cb.x += box.x;
-      cb.y += box.y;
-      if (const Block* t = hitIn(c->children[i], cb, x, y, e)) return t;
-    }
-    return contains(box, x, y) ? &b : nullptr;
-  }
-  if (const auto* s = b.get<Stack>()) {
-    detail::Flow f = detail::flowStack(s->children, {0, box.w, 0, box.h}, e);
-    for (std::size_t i = s->children.size(); i-- > 0;) {
-      Box cb = f.children[i];
-      cb.x += box.x;
-      cb.y += box.y;
-      if (const Block* t = hitIn(s->children[i], cb, x, y, e)) return t;
-    }
-    return contains(box, x, y) ? &b : nullptr;
-  }
-  if (const auto* rl = b.get<Roll>()) {
-    float off = (rl->scrollOff ? *rl->scrollOff : 0.0f);
-    detail::Flow f;
-    if (rl->axis == kAxisHorizontal) {
-      Constraints unc{0, kUnbounded, 0, box.h};
-      f = detail::flowRow(rl->children, rl->gap, unc, e);
-      for (std::size_t i = rl->children.size(); i-- > 0;) {
-        Box cb = f.children[i];
-        cb.x += box.x - off;
-        cb.y += box.y;
-        if (const Block* t = hitIn(rl->children[i], cb, x, y, e)) return t;
-      }
-    } else {
-      Constraints unc{0, box.w, 0, kUnbounded};
-      f = detail::flowColumn(rl->children, rl->gap, unc, e);
-      for (std::size_t i = rl->children.size(); i-- > 0;) {
-        Box cb = f.children[i];
-        cb.x += box.x;
-        cb.y += box.y - off;
-        if (const Block* t = hitIn(rl->children[i], cb, x, y, e)) return t;
-      }
-    }
-    return contains(box, x, y) ? &b : nullptr;
-  }
   if (const auto* fl = b.get<Fill>()) return hitIn(fl->children[0], box, x, y, e);
-  if (const auto* t = b.get<Tap>()) {
-    if (hitIn(t->children[0], t->innerBox(box), x, y, e)) return &b;
-    return contains(box, x, y) ? &b : nullptr;
-  }
   if (const auto* c = b.get<Custom>()) {
-    // One walk via visit: child references stay alive only during the
-    // callback, so no pointer is retained past a synthesizing eachChild.
     const Block* found = nullptr;
-    // Reverse order for last-wins: visit is forward, so track the last hit.
     c->visit(box, e, [&](const Block& child, Box cb) {
       if (const Block* t = hitIn(child, cb, x, y, e)) found = t;
     });
     if (found) return found;
+    return contains(box, x, y) ? &b : nullptr;
   }
-  return contains(box, x, y) ? &b : nullptr;
+  return std::visit(
+      [&](const auto& el) -> const Block* {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_inner_box<T>::value) {
+          if (hitIn(el.children[0], el.innerBox(box), x, y, e)) return &b;
+          return contains(box, x, y) ? &b : nullptr;
+        } else if constexpr (has_children<T>::value) {
+          const Block* found = nullptr;
+          std::size_t i = 0;
+          el.eachChild([&](const Block& child) {
+            if (const Block* t = hitIn(child, el.childBox(i++, box, e), x, y, e)) found = t;
+          });
+          if (found) return found;
+          return contains(box, x, y) ? &b : nullptr;
+        } else {
+          return contains(box, x, y) ? &b : nullptr;
+        }
+      },
+      b.v);
 }
 
 }  // namespace
@@ -334,30 +379,64 @@ const Block* hit(const Block& b, const Box& box, float x, float y) {
 }
 
 void dump(std::ostream& os, const Block& b, int indent) {
-  // Structural view: variant arms only. Custom elements stay opaque here
-  // even when transparent to hit/focus — the record entries (below) are the
-  // semantic view that reveals composed children (Card → Lines/Row/Buttons).
-  // The two views intentionally differ; see Rec in Layout.h.
   for (int i = 0; i < indent; ++i) os << "  ";
   os << kindOf(b);
   if (const auto* l = b.get<Lines>()) os << " \"" << l->text << "\"";
   os << "\n";
-  auto dumpChildren = [&](const std::vector<Block>& children) {
-    for (const auto& child : children) dump(os, child, indent + 1);
+  auto dumpChildren = [&](const auto& el) {
+    el.eachChild([&](const Block& child) { dump(os, child, indent + 1); });
   };
-  if (const auto* r = b.get<Row>()) dumpChildren(r->children);
-  if (const auto* c = b.get<Column>()) dumpChildren(c->children);
-  if (const auto* s = b.get<Stack>()) dumpChildren(s->children);
-  if (const auto* rl = b.get<Roll>()) dumpChildren(rl->children);
-  if (const auto* f = b.get<Fill>()) dump(os, f->children[0], indent + 1);
-  if (const auto* t = b.get<Tap>()) dump(os, t->children[0], indent + 1);
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_children<T>::value) dumpChildren(el);
+      },
+      b.v);
 }
 
-bool fire(const Block& b) {
-  if (const auto* t = b.get<Tap>()) return t->fire();
-  if (const auto* f = b.get<Fill>()) return fire(f->children[0]);
-  if (const auto* c = b.get<Custom>()) return c->fire();
-  return false;
+bool handle(const Block& b, const Event& ev) {
+  if (const auto* f = b.get<Fill>()) return handle(f->children[0], ev);
+  if (const auto* c = b.get<Custom>()) return c->handle(ev);
+  bool consumed = false;
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_handle<T>::value) consumed = el.handle(ev);
+      },
+      b.v);
+  return consumed;
+}
+
+bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Event& ev) {
+  Engine e;
+  const Block* t = hitIn(b, box, x, y, e);
+  if (!t) return false;
+  return handle(*t, ev);
+}
+
+bool broadcastEvent(const Block& b, const Box& box, const Event& ev) {
+  Engine e;
+  if (const auto* f = b.get<Fill>()) return broadcastEvent(f->children[0], box, ev);
+  if (handle(b, ev)) return true;
+  bool consumed = false;
+  if (const auto* c = b.get<Custom>()) {
+    c->visit(box, e, [&](const Block& child, Box cb) {
+      if (broadcastEvent(child, cb, ev)) consumed = true;
+    });
+    return consumed;
+  }
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_children<T>::value) {
+          std::size_t i = 0;
+          el.eachChild([&](const Block& child) {
+            if (broadcastEvent(child, el.childBox(i++, box, e), ev)) consumed = true;
+          });
+        }
+      },
+      b.v);
+  return consumed;
 }
 
 namespace {
@@ -368,49 +447,26 @@ struct FocusedBox {
 };
 
 void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<FocusedBox>& out) {
-  if (b.get<Tap>()) {
-    out.push_back({&b, box});
-    return;
-  }
   if (const auto* c = b.get<Custom>()) {
-    // Fireable containers stay reachable themselves (pre-order) plus their
-    // children; pure containers recurse; opaque leaves push iff fireable.
     bool transparent = c->childCount() > 0;
-    if (c->fireable()) out.push_back({&b, box});
+    if (c->handles()) out.push_back({&b, box});
     if (transparent) {
       c->visit(box, e, [&](const Block& child, Box cb) { collectFocus(child, cb, e, out); });
     }
     return;
   }
-  if (const auto* f = b.get<Fill>()) {
-    collectFocus(f->children[0], box, e, out);
-    return;
-  }
-  auto flowed = [&](const std::vector<Block>& children, const detail::Flow& f, float dx,
-                     float dy) {
-    for (std::size_t i = 0; i < children.size(); ++i) {
-      Box cb = f.children[i];
-      cb.x += box.x + dx;
-      cb.y += box.y + dy;
-      collectFocus(children[i], cb, e, out);
-    }
-  };
-  if (const auto* r = b.get<Row>()) {
-    flowed(r->children, detail::flowRow(r->children, r->gap, {0, box.w, 0, box.h}, e), 0, 0);
-  } else if (const auto* c = b.get<Column>()) {
-    flowed(c->children, detail::flowColumn(c->children, c->gap, {0, box.w, 0, box.h}, e), 0, 0);
-  } else if (const auto* s = b.get<Stack>()) {
-    flowed(s->children, detail::flowStack(s->children, {0, box.w, 0, box.h}, e), 0, 0);
-  } else if (const auto* rl = b.get<Roll>()) {
-    float off = (rl->scrollOff ? *rl->scrollOff : 0.0f);
-    if (rl->axis == kAxisHorizontal) {
-      flowed(rl->children, detail::flowRow(rl->children, rl->gap, {0, kUnbounded, 0, box.h}, e),
-             -off, 0);
-    } else {
-      flowed(rl->children, detail::flowColumn(rl->children, rl->gap, {0, box.w, 0, kUnbounded}, e),
-             0, -off);
-    }
-  }
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_handle<T>::value) out.push_back({&b, box});
+        if constexpr (has_children<T>::value) {
+          std::size_t i = 0;
+          el.eachChild([&](const Block& child) {
+            collectFocus(child, el.childBox(i++, box, e), e, out);
+          });
+        }
+      },
+      b.v);
 }
 
 }  // namespace
@@ -430,6 +486,46 @@ Box focusBox(const Block& root, const Box& box, int index) {
   collectFocus(root, box, e, found);
   if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return {0, 0, 0, 0};
   return found[static_cast<std::size_t>(index)].box;
+}
+
+int deliverKey(const Block& root, const Box& box, int current, Key key) {
+  Engine e;
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (found.empty()) return 0;
+  int n = static_cast<int>(found.size());
+  int i = current < 0 ? 0 : (current >= n ? n - 1 : current);
+  if (key == Key::Activate) {
+    handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(Activate{}));
+    return i;
+  }
+  if (handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(KeyPress{key}))) return i;
+  switch (key) {
+    case Key::Left: return moveFocus(root, box, i, FocusDir::Left);
+    case Key::Right: return moveFocus(root, box, i, FocusDir::Right);
+    case Key::Up: return moveFocus(root, box, i, FocusDir::Up);
+    case Key::Down: return moveFocus(root, box, i, FocusDir::Down);
+    case Key::Next: return moveFocus(root, box, i, FocusDir::Next);
+    case Key::Prev: return moveFocus(root, box, i, FocusDir::Prev);
+    default: return i;
+  }
+}
+
+Box focusRingBox(const Block& root, const Box& box, int index, float pad) {
+  Engine e;
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return {0, 0, 0, 0};
+  Box b = found[static_cast<std::size_t>(index)].box;
+  return {b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad};
+}
+
+void recordFocusRing(Rec& rec, const Block& root, const Box& box, int index, float pad) {
+  Engine e;
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return;
+  rec.push(kFocusRingKind, focusRingBox(root, box, index, pad));
 }
 
 int moveFocus(const Block& root, const Box& box, int current, FocusDir dir) {
