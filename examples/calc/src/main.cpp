@@ -45,13 +45,7 @@ std::string dumpTree(Block tree, Constraints c) {
   std::ostringstream os;
   Box box = place(tree, c);
   os << "root box: " << box.w << "x" << box.h << "\n";
-  dump(os, tree);
-  Rec rec;
-  record(tree, box, rec);
-  for (const auto& e : rec.entries) {
-    os << e.kind << " [" << e.box.x << "," << e.box.y << " " << e.box.w
-       << "x" << e.box.h << "] " << e.text << "\n";
-  }
+  dump(os, tree, box);
   return os.str();
 }
 
@@ -103,14 +97,10 @@ std::string focusDump() {
   Box box = place(tree, c);
   std::ostringstream os;
   os << "root box: " << box.w << "x" << box.h << "\n";
-  dump(os, tree);
-  Rec rec;
-  record(tree, box, rec);
-  recordFocusRing(rec, tree, box, 0);
-  for (const auto& e : rec.entries) {
-    os << e.kind << " [" << e.box.x << "," << e.box.y << " " << e.box.w
-       << "x" << e.box.h << "] " << e.text << "\n";
-  }
+  dump(os, tree, box);
+  Box rb = focusRingBox(tree, box, 0);
+  os << kFocusRingKind << " [" << rb.x << "," << rb.y << " " << rb.w
+     << "x" << rb.h << "]\n";
   return os.str();
 }
 

@@ -1,14 +1,17 @@
 #!/bin/sh
-# Resolve a clang-format binary: PATH first, Xcode toolchain on macOS.
+# Resolve a clang-format binary: brew llvm@18 first (matches CI), then
+# PATH, then Xcode toolchain on macOS.
 # CI pins WANT (see gate.yml); a local mismatch warns because the local
 # result may not match CI - even patch releases reformat some constructs.
 WANT="18.1.8"
-if command -v clang-format >/dev/null 2>&1; then
+if [ -x /opt/homebrew/opt/llvm@18/bin/clang-format ]; then
+  CF=/opt/homebrew/opt/llvm@18/bin/clang-format
+elif command -v clang-format >/dev/null 2>&1; then
   CF=clang-format
 elif command -v xcrun >/dev/null 2>&1 && xcrun -f clang-format >/dev/null 2>&1; then
   CF="xcrun clang-format"
 else
-  echo "format: clang-format not found (apt install clang-format, or Xcode toolchain)" >&2
+  echo "format: clang-format not found (brew install llvm@18, apt install clang-format)" >&2
   exit 1
 fi
 # shellcheck disable=SC2086
@@ -19,7 +22,7 @@ if [ "$1" = "--require-version" ]; then
     exit 1
   elif [ "$HAVE" != "$WANT" ]; then
     echo "format: have clang-format $HAVE, CI uses $WANT - skipping local check" >&2
-    echo "format: pip install 'clang-format==$WANT' for a matching local check" >&2
+    echo "format: brew install llvm@18 for a matching local check" >&2
     exit 1
   fi
   exit 0

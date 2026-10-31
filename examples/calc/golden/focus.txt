@@ -1,38 +1,20 @@
 root box: 720x122
-Column
-  Roll.h
-    Lines "12+3"
-  Row
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-  Row
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-  Row
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-    Custom [expand]
-Column [0,0 720x122] 
-Roll.h [0,0 32x14] 
-Lines [0,0 32x14] 12+3
-Row [0,22 720x28] 
-Button [0,22 174x28] 7
-Button [182,22 174x28] 8
-Button [364,22 174x28] 9
-Button [546,22 174x28] /
-Row [0,58 720x28] 
-Button [0,58 174x28] 4
-Button [182,58 174x28] 5
-Button [364,58 174x28] 6
-Button [546,58 174x28] *
-Row [0,94 720x28] 
-Button [0,94 174x28] 1
-Button [182,94 174x28] 2
-Button [364,94 174x28] 3
-Button.primary [546,94 174x28] =
-FocusRing [-2,20 178x32] 
+Column [0,0 720x122]
+  Roll.h [0,0 32x14]
+    Lines [0,0 32x14] 12+3
+  Row [0,22 720x28]
+    Button [0,22 174x28] 7 [expand]
+    Button [182,22 174x28] 8 [expand]
+    Button [364,22 174x28] 9 [expand]
+    Button [546,22 174x28] / [expand]
+  Row [0,58 720x28]
+    Button [0,58 174x28] 4 [expand]
+    Button [182,58 174x28] 5 [expand]
+    Button [364,58 174x28] 6 [expand]
+    Button [546,58 174x28] * [expand]
+  Row [0,94 720x28]
+    Button [0,94 174x28] 1 [expand]
+    Button [182,94 174x28] 2 [expand]
+    Button [364,94 174x28] 3 [expand]
+    Button.primary [546,94 174x28] = [expand]
+FocusRing [-2,20 178x32]

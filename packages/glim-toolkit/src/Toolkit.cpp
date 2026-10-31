@@ -315,10 +315,6 @@ void record(const Block& b, const Box& box, Rec& r) { Engine{}.record(b, box, r)
 
 namespace {
 
-const char* kindOf(const Block& b) {
-  return std::visit([](const auto& x) -> const char* { return x.kind(); }, b.v);
-}
-
 bool contains(const Box& b, float x, float y) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 }
@@ -361,22 +357,56 @@ const Block* hit(const Block& b, const Box& box, float x, float y) {
   return hitIn(b, box, x, y, e);
 }
 
-void dump(std::ostream& os, const Block& b, int indent) {
-  for (int i = 0; i < indent; ++i) os << "  ";
-  os << kindOf(b);
-  if (b.has<ExpandTag>()) os << " [expand]";
-  if (const auto* l = b.get<Lines>()) os << " \"" << l->text << "\"";
-  os << "\n";
-  auto dumpChildren = [&](const auto& el) {
-    el.eachChild([&](const Block& child) { dump(os, child, indent + 1); });
+void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, int indent) {
+  const char* mark = b.has<ExpandTag>() ? "[expand]" : "";
+  auto print = [&](const Rec::Entry& en) {
+    for (int i = 0; i < indent; ++i) os << "  ";
+    os << en.kind << " [" << en.box.x << "," << en.box.y << " " << en.box.w << "x" << en.box.h
+       << "]";
+    if (!en.text.empty()) os << " " << en.text;
+    if (mark[0] != '\0') os << " " << mark;
+    os << "\n";
   };
+  if (const auto* c = b.get<Custom>()) {
+    Rec tmp;
+    e.record(b, box, tmp);
+    if (tmp.entries.empty()) {
+      for (int i = 0; i < indent; ++i) os << "  ";
+      os << "Custom [" << box.x << "," << box.y << " " << box.w << "x" << box.h << "]";
+      if (mark[0] != '\0') os << " " << mark;
+      os << "\n";
+      return;
+    }
+    if (c->childCount() == 0) {
+      for (const auto& en : tmp.entries) print(en);
+      return;
+    }
+    print(tmp.entries[0]);
+    c->visit(box, e, [&](const Block& child, Box cb) { dumpIn(os, child, cb, e, indent + 1); });
+    return;
+  }
   std::visit(
       [&](const auto& el) {
         using T = std::decay_t<decltype(el)>;
-        if constexpr (has_children<T>::value) dumpChildren(el);
+        Rec tmp;
+        e.record(b, box, tmp);
+        if (tmp.entries.empty()) return;
+        if constexpr (has_children<T>::value) {
+          print(tmp.entries[0]);
+          std::size_t i = 0;
+          el.eachChild([&](const Block& child) {
+            dumpIn(os, child, el.childBox(i++, box, e), e, indent + 1);
+          });
+        } else {
+          for (const auto& en : tmp.entries) print(en);
+        }
       },
       b.v
   );
+}
+
+void dump(std::ostream& os, const Block& b, const Box& box, const Engine& e, int indent) {
+  dumpIn(os, b, box, e, indent);
 }
 
 bool handle(const Block& b, const Event& ev) {

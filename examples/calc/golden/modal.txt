@@ -1,23 +1,14 @@
 root box: 720x480
-Stack
-  Custom [expand]
-  Column
-    Custom [expand]
-    Row
-      Custom [expand]
-      Custom
-      Custom [expand]
-    Custom [expand]
-Stack [0,0 720x480] 
-Empty [0,0 0x0] 
-Column [0,0 720x480] 
-Empty [0,0 0x195] 
-Row [0,203 720x74] 
-Empty [0,203 304x0] 
-Card [304,203 112x74] 
-Lines [316,215 56x14] Delete?
-Row [316,237 88x28] 
-Button [316,237 36x28] No
-Button [360,237 44x28] Yes
-Empty [416,203 304x0] 
-Empty [0,285 0x195] 
+Stack [0,0 720x480]
+  Empty [0,0 0x0] [expand]
+  Column [0,0 720x480]
+    Empty [0,0 0x195] [expand]
+    Row [0,203 720x74]
+      Empty [0,203 304x0] [expand]
+      Card [304,203 112x74]
+        Lines [316,215 56x14] Delete?
+        Row [316,237 88x28]
+          Button [316,237 36x28] No
+          Button [360,237 44x28] Yes
+      Empty [416,203 304x0] [expand]
+    Empty [0,285 0x195] [expand]

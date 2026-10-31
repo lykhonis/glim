@@ -21,7 +21,6 @@ struct Env {
 
 Box place(const Block& b, Constraints c);
 void record(const Block& b, const Box& box, Rec& r);
-void dump(std::ostream& os, const Block& b, int indent = 0);
 // Lifetime: the returned pointer borrows from `b` — the tree must outlive
 // the pointer. Call and use immediately; never store past the tree's
 // lifetime, and never call on a temporary.
@@ -45,6 +44,10 @@ struct Engine {
     return nullptr;
   }
 };
+
+void dump(
+    std::ostream& os, const Block& b, const Box& box, const Engine& e = Engine{}, int indent = 0
+);
 
 namespace detail {
 
