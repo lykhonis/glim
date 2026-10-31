@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    uses: ./.github/workflows/gate.yml
+
+  android:
+    needs: [gate]
+    uses: ./.github/workflows/android.yml
+
+  ios:
+    needs: [gate]
+    uses: ./.github/workflows/ios.yml
+
+  linux:
+    needs: [gate]
+    uses: ./.github/workflows/linux.yml
+
+  macos:
+    needs: [gate]
+    uses: ./.github/workflows/macos.yml
+
+  tvos:
+    needs: [gate]
+    uses: ./.github/workflows/tvos.yml
+
+  web:
+    needs: [gate]
+    uses: ./.github/workflows/web.yml

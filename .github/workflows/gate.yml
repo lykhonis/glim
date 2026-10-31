@@ -1,17 +1,16 @@
-name: Format
+name: Gate
 
 on:
-  push:
-  pull_request:
+  workflow_call:
 
 jobs:
-  check:
+  format:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install clang-format
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
+          python3 -m pip install --user --quiet 'clang-format==18.1.8'
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Check formatting
         run: tools/format-check.sh

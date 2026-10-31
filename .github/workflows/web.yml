@@ -1,8 +1,7 @@
 name: Web
 
 on:
-  push:
-  pull_request:
+  workflow_call:
 
 jobs:
   ci:
