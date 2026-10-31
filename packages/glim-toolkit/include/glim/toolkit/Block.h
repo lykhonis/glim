@@ -13,6 +13,7 @@
 #include "glim/toolkit/elements/List.h"
 #include "glim/toolkit/elements/Roll.h"
 #include "glim/toolkit/elements/Row.h"
+#include "glim/toolkit/elements/Seat.h"
 #include "glim/toolkit/elements/Stack.h"
 #include "glim/toolkit/elements/Tap.h"
 
@@ -20,7 +21,7 @@ namespace glim {
 namespace toolkit {
 
 struct Block {
-  using Variant = std::variant<Empty, Row, Column, Stack, Lines, List, Roll, Tap, Custom>;
+  using Variant = std::variant<Empty, Row, Column, Stack, Lines, List, Roll, Tap, Seat, Custom>;
   Variant v;
   Block() : v(Empty{}) {}
   Block(Empty e) : v(std::move(e)) {}
@@ -31,6 +32,7 @@ struct Block {
   Block(List l) : v(std::move(l)) {}
   Block(Roll r) : v(std::move(r)) {}
   Block(Tap t) : v(std::move(t)) {}
+  Block(Seat s) : v(std::move(s)) {}
   Block(Custom c) : v(std::move(c)) {}
   template <class T>
   const T* get() const {
@@ -81,6 +83,7 @@ struct is_block_arm : std::integral_constant<
                               std::is_same<std::decay_t<T>, List>::value ||
                               std::is_same<std::decay_t<T>, Roll>::value ||
                               std::is_same<std::decay_t<T>, Tap>::value ||
+                              std::is_same<std::decay_t<T>, Seat>::value ||
                               std::is_same<std::decay_t<T>, Custom>::value> {};
 template <class T>
 struct is_child_type

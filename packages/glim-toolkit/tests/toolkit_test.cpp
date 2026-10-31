@@ -13,6 +13,11 @@ static_assert(has_children<Roll>::value, "");
 static_assert(has_children<Tap>::value, "");
 static_assert(!has_children<Empty>::value, "");
 static_assert(!has_children<Lines>::value, "");
+static_assert(!has_children<Seat>::value, "");
+static_assert(!has_inner_box<Seat>::value, "");
+static_assert(has_handle<Seat>::value, "");
+static_assert(has_kind<Seat>::value, "");
+static_assert(!has_record<Seat>::value, "");
 static_assert(has_inner_box<Tap>::value, "");
 static_assert(!has_inner_box<Row>::value, "");
 
@@ -152,6 +157,18 @@ int main() {
   assert(mb.w > 0 && mb.h > 0);
   // Custom children are transparent to focus: the tap inside Radial is found.
   assert(focusables(m, mb).size() == 1);
+
+  // Seat: fixed reserve, kind-described (no record), focusable anchor
+  // that claims tap/activate for the native field.
+  Block f = seat(7, 688, 40, semantic("field"));
+  const Seat* fs = f.get<Seat>();
+  assert(fs && fs->id == 7 && fs->semantic == "field");
+  Box fb2 = place(f, {0, 720, 0, 480});
+  assert(fb2.w == 688 && fb2.h == 40);
+  assert(focusables(f, fb2).size() == 1);
+  assert(handle(f, Event::borrow(PointerDown{1, 1})));
+  assert(handle(f, Event::borrow(Activate{})));
+  assert(!handle(f, Event::borrow(PointerMove{1, 1})));
   {
     Box tb = focusBox(m, mb, 0);
     assert(

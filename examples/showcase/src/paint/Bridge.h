@@ -51,6 +51,13 @@ void paintTree(
           paintCustom(n, bx, any, e);
           return false;
         }
+        // Seat reconcile: the arm reserves a host native — the bridge
+        // turns its box into a structural slot (never an entry). The
+        // subtree prunes here; Seats are leaves.
+        if (const Seat* seat = n.get<Seat>()) {
+          sink.slot(bx, seat->id);
+          return false;
+        }
         Rec tmp;
         describeSelf(n, bx, tmp);
         if (tmp.entries.empty()) return false;

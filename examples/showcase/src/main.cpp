@@ -15,6 +15,11 @@
 #ifndef GLIM_GOLDEN
 #include "run.h"
 #endif
+#ifndef GLIM_GOLDEN
+#include <unordered_map>
+
+#include "paint/Seats.h"
+#endif
 
 using namespace glim::toolkit;
 using namespace glim::toolkit::paint;
@@ -74,6 +79,12 @@ Block showcaseTree(Showcase s) {
                     return lines("item" + std::to_string(i));
                   }
               )
+          ),
+          // Seat reconcile: the rect is a toolkit value like any
+          // other; the bridge turns it into a structural slot op and
+          // syncSeats hosts the native field in the hole.
+          section(
+              "Field", seat(kShowcaseSeatId, 688, 40, semantic("field"))
           )
       )
   );
@@ -184,6 +195,8 @@ bool onExampleEvent(const glim::shell::Event& e, ExampleFrame& frame) {
 void recordExample(ExampleFrame& frame) {
   auto& rt = runtime();
   static VideoFeed feed;
+  static std::unordered_map<std::uint32_t, glim::Rect> attached;
   paintShowcaseScene(frame.context, feed, {rt.out}, rt.focus);
+  syncSeats(frame.window, frame.context.scene(), attached);
 }
 #endif

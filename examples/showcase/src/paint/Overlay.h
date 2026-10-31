@@ -1,8 +1,8 @@
 #pragma once
 
 // Showcase paint entry shared by the windowed run and the golden test.
-// Screen tree, seat strip as a sibling after (never inside glass),
-// focus ring last. Sink-agnostic.
+// Screen tree owns its slot (Seat in the tree); focus ring last.
+// Sink-agnostic.
 #include "glim/toolkit/Toolkit.h"
 #include "paint/Bridge.h"
 #include "paint/VideoFeed.h"
@@ -12,8 +12,6 @@ namespace toolkit {
 namespace paint {
 
 inline constexpr std::uint32_t kShowcaseSeatId = 7;
-
-inline Box showcaseSeatBox() { return {16, 424, 688, 40}; }
 
 template <class S>
 void paintShowcaseInto(
@@ -25,7 +23,6 @@ void paintShowcaseInto(
 ) {
   Engine e;
   paintTree(screen, box, e, sink, feed);
-  sink.slot(showcaseSeatBox(), kShowcaseSeatId);
   paintFocusRing(screen, box, focus, sink);
 }
 

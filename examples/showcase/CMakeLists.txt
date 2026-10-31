@@ -1,7 +1,13 @@
 glim_add_example(showcase TITLE "Glim Showcase" SOFTWARE)
 target_link_libraries(glim-showcase PRIVATE glim::toolkit)
+if(APPLE)
+  target_sources(glim-showcase PRIVATE src/paint/SeatView.mm)
+else()
+  target_sources(glim-showcase PRIVATE src/paint/SeatView.cpp)
+endif()
 if(TARGET glim-showcase-software)
   target_link_libraries(glim-showcase-software PRIVATE glim::toolkit)
+  target_sources(glim-showcase-software PRIVATE src/paint/SeatView.cpp)
 endif()
 
 if(GLIM_HOST_TESTS)

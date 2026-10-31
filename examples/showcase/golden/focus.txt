@@ -1,6 +1,6 @@
 root box: 720x480
 Roll.v [0,0 720x480]
-  Column [0,0 720x586]
+  Column [0,0 720x666]
     Column [0,0 56x34]
       Lines [0,0 56x14] Display
       Roll.h [0,20 32x14]
@@ -30,4 +30,7 @@ Roll.v [0,0 720x480]
         Lines [0,544 40x14] item1
         Lines [0,558 40x14] item2
         Lines [0,572 40x14] item3
+    Column [0,606 688x60]
+      Lines [0,606 40x14] Field
+      Seat [0,626 688x40]
 FocusRing [-2,72 238.667x32]

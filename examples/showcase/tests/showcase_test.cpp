@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
 
   std::string dir = argc > 1 ? argv[1] : "examples/showcase/golden";
   Showcase s = makeShown();
+  assert(showcaseDump(s).find("Seat") != std::string::npos);
   if (int rc = checkGolden(dir, "dump.txt", showcaseDump(s))) return rc;
   if (int rc = checkGolden(dir, "focus.txt", showcaseFocusDump(s)))
     return rc;
@@ -154,7 +155,7 @@ int main(int argc, char** argv) {
   Block tree = showcaseTree(t);
   Box box = place(tree, {0, 720, 0, 480});
   auto focusableList = focusables(tree, box);
-  assert(focusableList.size() == 3);
+  assert(focusableList.size() == 4);  // 3 buttons + Seat field anchor
   Box first = focusBox(tree, box, 0);
   assert(dispatchPointer(
       tree,
@@ -171,6 +172,19 @@ int main(int argc, char** argv) {
     std::string before = *t.out;
     ki = deliverKey(tree, box, ki, Key::Activate);
     assert(ki == 1 && *t.out == before + "8");
+  }
+  // Seat anchor is focusable last; tapping it claims focus for the
+  // native field (no toolkit action).
+  {
+    Box seatFocus = focusBox(tree, box, 3);
+    assert(seatFocus.w == 688 && seatFocus.h == 40);
+    assert(dispatchPointer(
+        tree,
+        box,
+        seatFocus.x + 1,
+        seatFocus.y + 1,
+        Event::borrow(PointerDown{seatFocus.x + 1, seatFocus.y + 1})
+    ));
   }
   // Ring overlay rides last on the screen record.
   {
@@ -202,10 +216,11 @@ int main(int argc, char** argv) {
     assert(spilled);
   }
 
-  // Bridge ops: Entry(Video) < glass < slot < ring; the archive
-  // round-trips byte-identically (rejects truncation/magic); the Scene
-  // has the Blit before the one Clear glass group, and the SlotHole as
-  // a root sibling — never inside glass.
+  // Bridge ops: Entry(Video) < glass < slot < ring, all from the
+  // tree (Seat paints the slot via AnySink); the archive round-trips
+  // byte-identically (rejects truncation/magic); the Scene has the
+  // Blit before the one Clear glass group, and the SlotHole as a root
+  // sibling — never inside glass.
   {
     Block screen = showcaseTree(t);
     Box dbox = place(screen, {0, 720, 0, 480});
@@ -217,7 +232,6 @@ int main(int argc, char** argv) {
     {
       Engine e;
       paintTree(screen, dbox, e, rec, stubFeed);
-      rec.slot(showcaseSeatBox(), kShowcaseSeatId);
       paintFocusRing(screen, dbox, 0, rec);
     }
     auto findOp = [&](Op::Kind k, int nth = 0) -> int {
@@ -248,6 +262,34 @@ int main(int argc, char** argv) {
     );
     assert(findEntry("Video", 1) < 0);
     assert(findEntry("Card") >= 0 && findEntry("Button") >= 0);
+    // Seat reconcile: the slot box is the Seat's placed box — the
+    // tree owns it, no harness-supplied rect.
+    {
+      Engine e2;
+      Box seatBox{0, 0, 0, 0};
+      bool sawSeat = false;
+      walk(
+          screen,
+          dbox,
+          e2,
+          [&](const Block& n, const Box& bx) -> bool {
+            if (const Seat* s = n.get<Seat>()) {
+              if (s->id == kShowcaseSeatId) {
+                seatBox = bx;
+                sawSeat = true;
+              }
+            }
+            return true;
+          },
+          [](const Block&, const Box&) {}
+      );
+      assert(sawSeat);
+      const Box& slotBox = rec.ops[static_cast<std::size_t>(slot)].box;
+      assert(
+          slotBox.x == seatBox.x && slotBox.y == seatBox.y &&
+          slotBox.w == seatBox.w && slotBox.h == seatBox.h
+      );
+    }
 
     std::vector<std::uint8_t> bytes;
     encodeOps(rec.ops, bytes);
