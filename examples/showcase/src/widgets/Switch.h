@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "Gel.h"
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -10,6 +11,7 @@
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
 #include "glim/toolkit/Theme.h"
+#include "glim/toolkit/Tokens.h"
 
 namespace glim {
 namespace toolkit {
@@ -43,23 +45,22 @@ struct Switch : WithSemantic {
     const Theme& t = theme(e);
     if (*value) {
       sink.fillGradient(box, 14, t.accentTop, t.accentBottom, semantic);
+      gelCoat(sink, box, 14, semantic);
+      sink.stroke(box, 14, 1.0f, t.cardStroke, semantic);
     } else {
+      // Groove: no stroke — the fill contrast alone shapes it.
       sink.fillGradient(box, 14, t.trackTop, t.trackBottom, semantic);
     }
-    if (box.w > 8.0f) {
-      Box line{
-          detail::snapHalf(box.x + 4.0f),
-          detail::snapHalf(box.y + 1.0f),
-          box.w - 8.0f,
-          1.0f
-      };
-      sink.fillRounded(line, 1, t.glossLine, semantic);
-    }
-    sink.stroke(box, 14, 1.0f, t.cardStroke, semantic);
+    // No 1px gloss line: it clipped the thumb crown and read as a
+    // cut. The gel dome alone carries the track.
+    // Elevation: soft shadow one step below, then the face, a gloss
+    // crown, and a single mid-gray rim (never black — a black ring
+    // around white on near-black reads as a dirty halo).
     Box thumb{thumbX(box), box.y + 4.0f, kThumb, kThumb};
-    Box shade{thumb.x, thumb.y + 1.0f, thumb.w, thumb.h};
-    sink.fillRounded(shade, 10, t.thumbRim, semantic);
+    Box shadow{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
+    sink.fillRounded(shadow, 10, Tokens::kShadow, semantic);
     sink.fillGradient(thumb, 10, t.thumbTop, t.thumbBottom, semantic);
+    knobGloss(sink, thumb, semantic);
     sink.stroke(thumb, 10, 1.0f, t.thumbRim, semantic);
   }
   bool handle(const Event& ev) const {

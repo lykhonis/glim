@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 
+#include "Gel.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -54,6 +55,8 @@ struct Checkbox : WithSemantic {
     outer(box, out, inner);
     if (*value) {
       sink.fillGradient(out, 6, t.accentTop, t.accentBottom, semantic);
+      gelCoat(sink, out, 6, semantic);
+      sink.stroke(out, 6, 1.0f, t.cardStroke, semantic);
     } else {
       sink.fillGradient(
           out,
@@ -62,19 +65,17 @@ struct Checkbox : WithSemantic {
           t.buttonSecondaryBottom,
           semantic
       );
+      gelCoat(sink, out, 6, semantic);
+      sink.stroke(out, 6, 1.0f, t.cardStroke, semantic);
     }
-    if (out.w > 8.0f) {
-      Box line{
-          detail::snapHalf(out.x + 3.0f),
-          detail::snapHalf(out.y + 1.0f),
-          out.w - 6.0f,
-          1.0f
+    if (*value) {
+      // Check block: centered white inset reads checked at small
+      // sizes without a glyph run (Latin atlas has no checkmark).
+      float s = 10.0f;
+      Box mark{
+          out.x + (out.w - s) * 0.5f, out.y + (out.h - s) * 0.5f, s, s
       };
-      sink.fillRounded(line, 1, t.glossLine, semantic);
-    }
-    sink.stroke(out, 6, 1.0f, t.cardStroke, semantic);
-    if (!*value) {
-      sink.fillRounded(inner, 3, t.windowBg, semantic);
+      sink.fillRounded(mark, 3, t.inkOnLight, semantic);
     }
     Box lb = labelBox(box);
     sink.text(lb.x, lb.y, label, t.inkOnLight, t.typeLine, semantic);

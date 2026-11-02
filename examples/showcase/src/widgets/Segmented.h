@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "Gel.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -47,7 +48,7 @@ struct Segmented : WithSemantic {
   }
   void record(const Box& box, Rec& rec) const {
     rec.push(kKind, box, {}, semantic, 18);
-    rec.push(kKindActive, activeBox(box), {}, semantic, 14);
+    rec.push(kKindActive, activeBox(box), {}, semantic, 16);
   }
   Box activeBox(const Box& box) const {
     int n = static_cast<int>(options.size());
@@ -59,11 +60,14 @@ struct Segmented : WithSemantic {
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const Theme& t = theme(e);
+    // Groove: no stroke — the fill contrast alone shapes it.
     sink.fillGradient(box, 18, t.trackTop, t.trackBottom, semantic);
-    sink.stroke(box, 18, 1.0f, t.cardStroke, semantic);
     Box act = activeBox(box);
-    sink.fillGradient(act, 14, t.accentTop, t.accentBottom, semantic);
-    sink.stroke(act, 14, 1.0f, t.cardStroke, semantic);
+    // Pill is the track inset by 2px: radius 16 keeps corners
+    // concentric. Gel face with a light airy rim.
+    sink.fillGradient(act, 16, t.accentTop, t.accentBottom, semantic);
+    gelCoat(sink, act, 16, semantic);
+    sink.stroke(act, 16, 1.0f, t.cardStroke, semantic);
   }
 };
 

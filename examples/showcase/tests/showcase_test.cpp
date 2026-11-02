@@ -19,22 +19,17 @@
 #include <vector>
 
 #include "glim/toolkit/Toolkit.h"
-#include "paint/Bridge.h"
-#include "paint/Keys.h"
-#include "paint/Ops.h"
-#include "paint/Overlay.h"
-#include "paint/VideoFeed.h"
+#include "glim/toolkit/host/Host.h"
+#include "glim/toolkit/host/Paint.h"
 
 using namespace glim::toolkit;
-using namespace glim::toolkit::paint;
 
-std::string showcaseDump(Showcase s);
-std::string showcaseFocusDump(Showcase s);
-Block showcaseTree(Showcase s);
+std::string showcaseDump(Store& store);
+std::string showcaseFocusDump(Store& store);
 void paintShowcaseScene(
     glim::paint::Context& ctx,
-    VideoFeed& feed,
-    Showcase s,
+    glim::toolkit::host::LayerFeed& feed,
+    Store& store,
     int focus = -1,
     bool focusVisible = true
 );
@@ -104,19 +99,30 @@ int checkGolden(
   return EXIT_SUCCESS;
 }
 
-Showcase makeShown() {
-  static Store store;
-  return Showcase{
-      store.make<std::string>("12+3"),
-      store.make<bool>(true),
-      store.make<bool>(false),
-      store.make<int>(1),
-      store.make<float>(0.4f),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<std::string>("")
+Engine engineFor(Store& store) {
+  Engine e = host::measureEngine();
+  e.store = &store;
+  return e;
+}
+
+// State handles re-open the same scoped keys the tree allocated,
+// so tests observe the cells the tree captured.
+struct Shown {
+  State<int> taps;
+  State<bool> wifi;
+  State<bool> sound;
+  State<int> range;
+  State<float> level;
+};
+
+Shown shownStates(Store& store) {
+  Scope s(&store, "");
+  return Shown{
+      s.state("taps", 0),
+      s.state("wifi", true),
+      s.state("sound", false),
+      s.state("range", 1),
+      s.state("level", 0.4f),
   };
 }
 
@@ -129,8 +135,9 @@ int main(int argc, char** argv) {
     glim::paint::Context ctx;
     ctx.setSize({720, 480});
     ctx.beginFrame();
-    VideoFeed feed;
-    paintShowcaseScene(ctx, feed, makeShown());
+    host::LayerFeed feed;
+    Store app;
+    paintShowcaseScene(ctx, feed, app);
     ctx.finish();
     auto img = glim::image::Image::rgba8(720, 480);
     glim::paint::rasterScene(ctx.scene(), 720, 480, img.rgba.data());
@@ -144,71 +151,37 @@ int main(int argc, char** argv) {
 
   // Shell-to-toolkit key mapping: Dpads move, Enter/Center activate,
   // everything else falls through to built-in behavior.
-  assert(showcaseKey(glim::shell::Key::DpadLeft) == Key::Left);
-  assert(showcaseKey(glim::shell::Key::DpadRight) == Key::Right);
-  assert(showcaseKey(glim::shell::Key::DpadUp) == Key::Up);
-  assert(showcaseKey(glim::shell::Key::DpadDown) == Key::Down);
-  assert(showcaseKey(glim::shell::Key::Enter) == Key::Activate);
-  assert(showcaseKey(glim::shell::Key::DpadCenter) == Key::Activate);
-  assert(!showcaseKey(glim::shell::Key::Escape));
-  assert(!showcaseKey(glim::shell::Key::Unknown));
+  using glim::toolkit::host::mapKey;
+  assert(mapKey(glim::shell::Key::DpadLeft) == Key::Left);
+  assert(mapKey(glim::shell::Key::DpadRight) == Key::Right);
+  assert(mapKey(glim::shell::Key::DpadUp) == Key::Up);
+  assert(mapKey(glim::shell::Key::DpadDown) == Key::Down);
+  assert(mapKey(glim::shell::Key::Enter) == Key::Activate);
+  assert(mapKey(glim::shell::Key::DpadCenter) == Key::Activate);
+  assert(!mapKey(glim::shell::Key::Escape));
+  assert(!mapKey(glim::shell::Key::Unknown));
 
   std::string dir = argc > 1 ? argv[1] : "examples/showcase/golden";
-  Showcase s = makeShown();
+  Store s;
   assert(showcaseDump(s).find("Seat") != std::string::npos);
   if (int rc = checkGolden(dir, "dump.txt", showcaseDump(s))) return rc;
   if (int rc = checkGolden(dir, "focus.txt", showcaseFocusDump(s)))
     return rc;
 
-  // Touch end to end on the real screen. First focusable is the "7"
-  // button; firing it appends through the cell.
-  Store store;
-  Showcase t{
-      store.make<std::string>("12+3"),
-      store.make<bool>(true),
-      store.make<bool>(false),
-      store.make<int>(1),
-      store.make<float>(0.4f),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<int>(0),
-      store.make<std::string>("")
-  };
-  Block tree = showcaseTree(t);
+  // Touch end to end on the real screen. Two buttons, seat anchor,
+  // switch, checkbox, three segments, slider: progress and labels are
+  // read-only, never focusable.
+  Store t;
+  Engine te = engineFor(t);
+  Block tree = showcaseTree(rootScope(te));
+  Shown h = shownStates(t);
   Box box = place(tree, {0, 720, 0, 480});
   auto focusableList = focusables(tree, box);
-  // Range 3 + toolbar 6 + mode 6 + seat + switch + checkbox +
-  // 3 segments + slider (progress, avatar, stats, dim labels are
-  // read-only, never focusable).
-  assert(focusableList.size() == 22);
-  // Range chevrons shift the month window; download/export/bell
-  // set the toolbar notice; tabs move selection.
+  assert(focusableList.size() == 9);
+  // Primary counts up, secondary resets.
   {
-    assert(*t.span == 0);
-    Box prev = focusBox(tree, box, 0);
-    assert(dispatchPointer(
-        tree,
-        box,
-        prev.x + 1,
-        prev.y + 1,
-        Event::borrow(PointerDown{prev.x + 1, prev.y + 1})
-    ));
-    assert(*t.span == -1);
-  }
-  {
-    Box dl = focusBox(tree, box, 2);
-    assert(dispatchPointer(
-        tree,
-        box,
-        dl.x + 1,
-        dl.y + 1,
-        Event::borrow(PointerDown{dl.x + 1, dl.y + 1})
-    ));
-    assert(*t.notice == "Download started");
-  }
-  {
-    Box ex = focusBox(tree, box, 4);
+    assert(*h.taps == 0);
+    Box ex = focusBox(tree, box, 0);
     assert(dispatchPointer(
         tree,
         box,
@@ -216,41 +189,24 @@ int main(int argc, char** argv) {
         ex.y + 1,
         Event::borrow(PointerDown{ex.x + 1, ex.y + 1})
     ));
-    assert(*t.notice == "Exported 10,367 rows");
+    assert(*h.taps == 1);
   }
   {
-    assert(*t.tabSel == 0);
-    Box tb = focusBox(tree, box, 14);
+    Box cx = focusBox(tree, box, 1);
     assert(dispatchPointer(
         tree,
         box,
-        tb.x + 1,
-        tb.y + 1,
-        Event::borrow(PointerDown{tb.x + 1, tb.y + 1})
+        cx.x + 1,
+        cx.y + 1,
+        Event::borrow(PointerDown{cx.x + 1, cx.y + 1})
     ));
-    assert(*t.tabSel == 2);
-  }
-  Box first = focusBox(tree, box, 12);
-  assert(dispatchPointer(
-      tree,
-      box,
-      first.x + 1,
-      first.y + 1,
-      Event::borrow(PointerDown{first.x + 1, first.y + 1})
-  ));
-  assert(*t.tabSel == 0);
-  assert(moveFocus(tree, box, 12, FocusDir::Right) == 13);
-  {
-    int ki = deliverKey(tree, box, 12, Key::Right);
-    assert(ki == 13);
-    ki = deliverKey(tree, box, ki, Key::Activate);
-    assert(ki == 13 && *t.tabSel == 1);
+    assert(*h.taps == 0);
   }
   // Switch + checkbox flip their cells on tap; the segmented row
   // moves selection per segment tap.
   {
-    assert(*t.wifi == true);
-    Box sw = focusBox(tree, box, 16);
+    assert(*h.wifi == true);
+    Box sw = focusBox(tree, box, 3);
     assert(sw.w == 52 && sw.h == 28);
     assert(dispatchPointer(
         tree,
@@ -259,11 +215,11 @@ int main(int argc, char** argv) {
         sw.y + 1,
         Event::borrow(PointerDown{sw.x + 1, sw.y + 1})
     ));
-    assert(*t.wifi == false);
+    assert(*h.wifi == false);
   }
   {
-    assert(*t.sound == false);
-    Box cb = focusBox(tree, box, 17);
+    assert(*h.sound == false);
+    Box cb = focusBox(tree, box, 4);
     assert(dispatchPointer(
         tree,
         box,
@@ -271,11 +227,11 @@ int main(int argc, char** argv) {
         cb.y + 1,
         Event::borrow(PointerDown{cb.x + 1, cb.y + 1})
     ));
-    assert(*t.sound == true);
+    assert(*h.sound == true);
   }
   {
-    assert(*t.range == 1);
-    Box sg = focusBox(tree, box, 20);
+    assert(*h.range == 1);
+    Box sg = focusBox(tree, box, 7);
     assert(dispatchPointer(
         tree,
         box,
@@ -283,13 +239,13 @@ int main(int argc, char** argv) {
         sg.y + 1,
         Event::borrow(PointerDown{sg.x + 1, sg.y + 1})
     ));
-    assert(*t.range == 2);
+    assert(*h.range == 2);
   }
   // Slider: tap maps x to value through the laid-out box (handleAt);
   // a pressed drag scrubs, hover moves are ignored, arrows nudge.
   {
-    assert(*t.level > 0.39f && *t.level < 0.41f);
-    Box sl = focusBox(tree, box, 21);
+    assert(*h.level > 0.39f && *h.level < 0.41f);
+    Box sl = focusBox(tree, box, 8);
     assert(sl.w == 240 && sl.h == 28);
     assert(dispatchPointer(
         tree,
@@ -298,7 +254,7 @@ int main(int argc, char** argv) {
         sl.y + 14,
         Event::borrow(PointerDown{sl.x + 10, sl.y + 14})
     ));
-    assert(*t.level == 0.0f);
+    assert(*h.level == 0.0f);
     assert(dispatchPointer(
         tree,
         box,
@@ -306,25 +262,56 @@ int main(int argc, char** argv) {
         sl.y + 14,
         Event::borrow(PointerDown{sl.x + sl.w - 10, sl.y + 14})
     ));
-    assert(*t.level == 1.0f);
+    assert(*h.level == 1.0f);
     PointerMove hover{sl.x + 120, sl.y + 14, false};
     assert(!dispatchPointer(
         tree, box, hover.x, hover.y, Event::borrow(hover)
     ));
-    assert(*t.level == 1.0f);
+    assert(*h.level == 1.0f);
     PointerMove drag{sl.x + 120, sl.y + 14, true};
     assert(
         dispatchPointer(tree, box, drag.x, drag.y, Event::borrow(drag))
     );
-    assert(*t.level > 0.49f && *t.level < 0.51f);
-    int ki = deliverKey(tree, box, 21, Key::Right);
-    assert(ki == 21 && *t.level > 0.59f && *t.level < 0.61f);
+    assert(*h.level > 0.49f && *h.level < 0.51f);
+    int ki = deliverKey(tree, box, 8, Key::Right);
+    assert(ki == 8 && *h.level > 0.59f && *h.level < 0.61f);
   }
-  // Seat anchor is focusable after the tab row; tapping it claims
+  // Screen capture path (what the host loop actually drives):
+  // down captures the slider, pressed moves route captured and must
+  // flag a repaint via the store revision, or drags silently freeze.
+  {
+    Store u;
+    Engine ue = engineFor(u);
+    Block stree = showcaseTree(rootScope(ue));
+    Box sbox = place(stree, {0, 720, 0, 480});
+    Shown uh = shownStates(u);
+    Screen scr;
+    Box sl = focusBox(stree, sbox, 8);
+    assert(scr.pointerDown(stree, sbox, sl.x + 10, sl.y + 14, 1, ue));
+    assert(*uh.level == 0.0f);
+    assert(scr.needsPaint(u));
+    scr.painted(u);
+    assert(!scr.needsPaint(u));
+    assert(
+        scr.pointerMove(
+            stree, sbox, sl.x + 10, sl.y + 14, true, 1, ue
+        ) == false
+    );
+    assert(*uh.level == 0.0f);
+    scr.painted(u);
+    assert(
+        scr.pointerMove(
+            stree, sbox, sl.x + 120, sl.y + 14, true, 1, ue
+        ) == false
+    );
+    assert(*uh.level > 0.49f && *uh.level < 0.51f);
+    assert(scr.needsPaint(u));
+  }
+  // Seat anchor sits under the buttons; tapping it claims
   // focus for the native field (no toolkit action).
   {
-    Box seatFocus = focusBox(tree, box, 15);
-    assert(seatFocus.w == 664 && seatFocus.h == 40);
+    Box seatFocus = focusBox(tree, box, 2);
+    assert(seatFocus.w == 600 && seatFocus.h == 40);
     assert(dispatchPointer(
         tree,
         box,
@@ -363,17 +350,17 @@ int main(int argc, char** argv) {
     assert(spilled);
   }
 
-  // Bridge ops: slot < ring, all from the tree (Seat paints the
-  // slot via AnySink); the archive round-trips byte-identically
-  // (rejects truncation/magic); the SlotHole is a root sibling.
-  // (The video-under-glass ordering proof lives in git history —
-  // the hero no longer ships a video plate or frosted card.)
+  // Bridge ops: slot < ring, elements paint primitives (no widget
+  // switch); the archive round-trips byte-identically (rejects
+  // truncation/magic); the SlotHole is a root sibling. (The
+  // video-under-glass ordering proof lives in git history — the hero
+  // no longer ships a video plate or frosted card.)
   {
-    Block screen = showcaseTree(t);
+    Block screen = showcaseTree(rootScope(te));
     Box dbox = place(screen, {0, 720, 0, 480});
 
     OpsRecorder rec;
-    VideoFeed stubFeed;
+    host::LayerFeed stubFeed;
     stubFeed.id = 7;
     stubFeed.foreign = true;
     {
@@ -388,23 +375,42 @@ int main(int argc, char** argv) {
           return static_cast<int>(i);
       return -1;
     };
-    auto findEntry = [&](const char* kind, int nth = 0) -> int {
-      int seen = 0;
-      for (std::size_t i = 0; i < rec.ops.size(); ++i)
-        if (rec.ops[i].kind == Op::Kind::Entry &&
-            rec.ops[i].entry.kind == kind && seen++ == nth)
-          return static_cast<int>(i);
-      return -1;
-    };
     int slot = findOp(Op::Kind::Slot);
-    int ring = findOp(Op::Kind::Stroke);
+    int ring = -1;  // focus ring paints last, on top of everything
+    for (std::size_t i = 0; i < rec.ops.size(); ++i)
+      if (rec.ops[i].kind == Op::Kind::Stroke)
+        ring = static_cast<int>(i);
     assert(slot >= 0 && ring >= 0);
     assert(slot < ring);
-    assert(findOp(Op::Kind::PushGlass, 0) < 0);  // no glass in hero
+    assert(findOp(Op::Kind::PushGlass, 0) < 0);
+    // Gel speculars ride a Plus scope: additive light, not SrcOver
+    // wash. The archive round-trip below covers the new op codec.
+    assert(findOp(Op::Kind::PushBlend, 0) >= 0);
     assert(
         rec.ops[static_cast<std::size_t>(slot)].slot == kShowcaseSeatId
     );
-    assert(findEntry("Card") >= 0 && findEntry("Button.primary") >= 0);
+    {
+      int card = -1;
+      for (std::size_t i = 0; i < rec.ops.size(); ++i)
+        if (rec.ops[i].kind == Op::Kind::FillGradient &&
+            rec.ops[i].rgba == Tokens::kCardTop &&
+            rec.ops[i].rgba2 == Tokens::kCardBottom) {
+          card = static_cast<int>(i);
+          break;
+        }
+      assert(card >= 0);
+    }
+    {
+      int grad = -1;
+      for (std::size_t i = 0; i < rec.ops.size(); ++i)
+        if (rec.ops[i].kind == Op::Kind::FillGradient &&
+            rec.ops[i].rgba == Tokens::kButtonPrimaryTop &&
+            rec.ops[i].rgba2 == Tokens::kButtonPrimaryBottom) {
+          grad = static_cast<int>(i);
+          break;
+        }
+      assert(grad >= 0);
+    }
     // Seat reconcile: the slot box is the Seat's placed box — the
     // tree owns it, no harness-supplied rect.
     {
@@ -447,9 +453,9 @@ int main(int argc, char** argv) {
     ctx.setSize({720, 480});
     ctx.beginFrame();
     {
-      VideoFeed feed;
-      ContextSink sink{ctx};
-      paintShowcaseInto(screen, dbox, sink, feed);
+      host::LayerFeed feed;
+      Engine pe2;
+      host::paintScreen(ctx, screen, dbox, pe2, feed, 0);
     }
     ctx.finish();
     const glim::paint::Scene& scene = ctx.scene();
@@ -511,7 +517,7 @@ int main(int argc, char** argv) {
     Block probe = toBlock(Probe{});
     Box pbox = place(probe, {0, 720, 0, 480});
     OpsRecorder prec;
-    VideoFeed stubFeed;
+    host::LayerFeed stubFeed;
     Engine pe;
     paintTree(probe, pbox, pe, prec, stubFeed);
     assert(prec.ops.size() == 1 && prec.ops[0].kind == Op::Kind::Entry);
@@ -529,8 +535,8 @@ int main(int argc, char** argv) {
     pctx.setSize({720, 480});
     pctx.beginFrame();
     {
-      VideoFeed pf;
-      ContextSink ps{pctx};
+      host::LayerFeed pf;
+      host::ContextSink ps{pctx};
       Engine pe;
       paintTree(cp, cbox, pe, ps, pf);
     }
@@ -549,7 +555,7 @@ int main(int argc, char** argv) {
     assert(strokes == 1 && fills == 0);
     OpsRecorder cr;
     {
-      VideoFeed pf;
+      host::LayerFeed pf;
       Engine pe;
       paintTree(cp, cbox, pe, cr, pf);
     }

@@ -11,6 +11,11 @@
       "options": {
         "preset": "macos-metal-debug",
         "target": "glim-showcase"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
       }
     },
     "run": {
@@ -20,6 +25,11 @@
       "options": {
         "preset": "macos-metal-debug",
         "binary": "examples/showcase/glim-showcase"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
       }
     },
     "test": {
@@ -28,6 +38,42 @@
         "preset": "macos-metal-debug",
         "target": "glim-showcase-golden",
         "ctestRegex": "glim-showcase-golden"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-showcase"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/showcase/glim-showcase.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.showcase"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-showcase"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/showcase/glim-showcase.apk",
+        "android": true,
+        "packageName": "com.glim.showcase"
       }
     }
   }

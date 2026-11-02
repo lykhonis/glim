@@ -80,7 +80,6 @@ int run(
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
   Vec2 paintedSize{0.0f, 0.0f};
-  bool resizeDirty = false;
   // Build engine: measuring env from the caller plus this run's Store,
   // so tree functions allocate scoped state where they render. Trees
   // rebuild per event/paint — place() is cheap; the compositor
@@ -230,29 +229,31 @@ int run(
     }
     if (e.type() == T::WindowResized) {
       const Vec2 size = window.size();
-      if (size.x == paintedSize.x && size.y == paintedSize.y && !resizeDirty) {
+      if (size.x == paintedSize.x && size.y == paintedSize.y) {
         return;
       }
-      // Mark dirty only — the Frame tick does the paint. Painting
-      // here (event phase) lands at random phase against vsync, so
-      // per-frame lag oscillates and the drag judders; paints locked
-      // to the vsync tick hold constant one-frame lag, which reads
-      // as smooth trailing. The tick below is the single ordered
-      // paint source; drag-end converges on its next tick.
-      resizeDirty = true;
+      // Paint synchronously inside the tracking iteration and gate
+      // the present on its commit (view toggles
+      // presentsWithTransaction): paint, geometry, and seat frames
+      // all land in the same commit by construction, so background
+      // and seats cannot skew a frame apart. Only in-iteration
+      // paints glue this way — tick paints fire outside iterations,
+      // where a gated present chases a later commit and skews worse.
+      const auto now = std::chrono::steady_clock::now();
+      paintBody(now);
+      paintedSize = window.size();
       return;
     }
     if (e.type() == T::Frame) {
       // Clock ticks every vsync (cheap); the scene only re-records
-      // when Screen's revision moved, the overlay snapshot turned
-      // over, or a resize arrived without painting (safety net;
-      // normally the sync path above already covered it).
-      // Idle frames do no rebuild, no record, no encode.
+      // when Screen's revision moved or the overlay snapshot turned
+      // over. Idle frames do no rebuild, no record, no encode. Resize
+      // work lives in the sync path above; the tick must not repaint
+      // it or the two sources interleave phases and judder.
       const auto now = tickClock();
-      if (screen.needsPaint(store) || overlay.statsDirty() || resizeDirty) {
+      if (screen.needsPaint(store) || overlay.statsDirty()) {
         paintBody(now);
         paintedSize = window.size();
-        resizeDirty = false;
       }
     }
   });

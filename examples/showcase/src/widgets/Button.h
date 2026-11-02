@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 
+#include "Gel.h"
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -46,27 +47,7 @@ struct Button : WithGap,
           t.buttonPrimaryBottom,
           semantic
       );
-      if (box.h > 10.0f && box.w > 8.0f) {
-        Box sheen{
-            detail::snapHalf(box.x + 2.0f),
-            detail::snapHalf(box.y + 2.0f),
-            box.w - 4.0f,
-            box.h * 0.42f
-        };
-        sink.fillRounded(
-            sheen,
-            t.buttonRadius > 2 ? t.buttonRadius - 2 : 1,
-            t.glossSheen,
-            semantic
-        );
-        Box line{
-            detail::snapHalf(box.x + 3.0f),
-            detail::snapHalf(box.y + 1.0f),
-            box.w - 6.0f,
-            1.0f
-        };
-        sink.fillRounded(line, 1, t.glossLine, semantic);
-      }
+      gelCoat(sink, box, t.buttonRadius, semantic);
       sink.stroke(box, t.buttonRadius, 1.0f, t.cardStroke, semantic);
     } else {
       sink.fillGradient(
@@ -76,15 +57,7 @@ struct Button : WithGap,
           t.buttonSecondaryBottom,
           semantic
       );
-      if (box.w > 8.0f) {
-        Box line{
-            detail::snapHalf(box.x + 3.0f),
-            detail::snapHalf(box.y + 1.0f),
-            box.w - 6.0f,
-            1.0f
-        };
-        sink.fillRounded(line, 1, t.glossLine, semantic);
-      }
+      gelCoat(sink, box, t.buttonRadius, semantic);
       sink.stroke(box, t.buttonRadius, 1.0f, t.cardStroke, semantic);
     }
     sink.text(

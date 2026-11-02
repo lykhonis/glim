@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "Gel.h"
 #include "Slider.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -36,21 +37,16 @@ struct Progress : WithSemantic {
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const Theme& t = theme(e);
     float v = Slider::clamp01(*value);
+    // Groove: no stroke — the fill contrast alone shapes it.
     sink.fillGradient(box, 6, t.trackTop, t.trackBottom, semantic);
     if (box.w * v > 0.5f) {
       Box fill{box.x, box.y, box.w * v, box.h};
+      // Square the leading cap: it hides under nothing here, so a
+      // round cap would bulge past the value. Paint the fill body
+      // then cap the start round only via the track beneath.
       sink.fillGradient(fill, 6, t.accentTop, t.accentBottom, semantic);
-      if (fill.w > 10.0f) {
-        Box sheen{
-            detail::snapHalf(fill.x + 2.0f),
-            detail::snapHalf(fill.y + 1.0f),
-            fill.w - 4.0f,
-            1.0f
-        };
-        sink.fillRounded(sheen, 1, t.glossLine, semantic);
-      }
+      gelCoat(sink, fill, 6, semantic);
     }
-    sink.stroke(box, 6, 1.0f, t.cardStroke, semantic);
   }
 };
 

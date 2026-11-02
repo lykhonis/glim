@@ -1,130 +1,44 @@
-root box: 720x480
-Roll.v [0,0 720x480]
-  Column [0,0 720x764]
-    Row [16,16 329.232x56]
-      Card [16,16 281.232x56]
-        Row [28,28 257.232x32]
-          Tap [28,30 35.6554x28]
-            Lines [42,37 8x14] <
-          Hairline [75.6554,28 2x32]
-          Lines [89.6554,37 64x14] Jun 2025
-          Lines [153.469,37 8x14] -
-          Lines [170.791,37 64x14] Sep 2025
-          Hairline [235.576,28 2x32]
-          Tap [249.576,30 35.6554x28]
-            Lines [263.576,37 8x14] >
-      Card [305.232,16 40x40]
-        Tap [305.232,16 40x40]
-          Bar [324.232,26 2x10]
-          Lines [321.232,32 24x14] v
-    Row [16,92 443.644x40]
-      Card [16,92 40x40]
-        Tap [16,92 40x40]
-          Ring [27,103 18x18]
-          Bar [35,100 2x5]
-          Bar [35,119 2x5]
-          Bar [24,111 5x2]
-          Bar [43,111 5x2]
-          Dot [33,109 6x6]
-      Hairline [68,96 2x32]
-      Button.primary [82,98 92.3051x28] v Export CSV
-      Hairline [186.305,96 2x32]
-      Seg [200.305,94 193.339x36]
-      Seg.active [200.305,96 64.4463x32]
-        Tap [200.305,94 64.4463x36]
-          Lines [216.305,104 40x14] Split
-        Tap [264.751,94 64.4463x36]
-          Lines [280.751,104 40x14] Board
-        Tap [329.198,94 64.4463x36]
-          Lines [345.198,104 32x14] List
-      Hairline [405.644,96 2x32]
-      Card [419.644,92 40x40]
-        Tap [419.644,92 40x40]
-          Bar [430.644,103 6x2]
-          Bar [430.644,103 2x6]
-          Bar [442.644,103 6x2]
-          Bar [446.644,103 2x6]
-          Bar [430.644,119 6x2]
-          Bar [430.644,115 2x6]
-          Bar [442.644,119 6x2]
-          Bar [446.644,115 2x6]
-    Row [16,152 553.599x40]
-      Seg [16,154 126.328x36]
-      Seg.active [16,156 63.1638x32]
-        Tap [16,154 63.1638x36]
-          Lines [32,164 32x14] Moon
-        Tap [79.1638,154 63.1638x36]
-          Lines [95.1638,164 24x14] Sun
-      Card [154.328,152 40x40]
-        Tap [154.328,152 40x40]
-          Dot [169.328,162 10x10]
-          Bar [169.328,167 10x9]
-          Dot [172.328,177 4x4]
-      Tile [206.328,152 40x40]
-      Lines [218.328,165 16x14] AR
-      Seg [258.328,154 311.271x36]
-      Seg.active [258.328,156 103.757x32]
-        Tap [258.328,154 103.757x36]
-          Lines [274.328,164 64x14] Overview
-        Tap [362.085,154 103.757x36]
-          Lines [378.085,164 104x14] User Insights
-        Tap [465.842,154 103.757x36]
-          Lines [481.842,164 64x14] Behavior
-    Card [16,212 429.966x68]
-      Row [28,224 405.966x44]
-        Row [28,224 108.418x44]
-          Bar [30,241 20x10]
-          Dot.bg [28,244 4x4]
-          Dot.bg [48,244 4x4]
-          Column [64,224 72.4181x44]
-            Lines.dim [64,224 46.4689x14] ORDERS
-            Display [64,240 72.4181x28] 10,367
-        Hairline [152.418,230 2x32]
-        Row [170.418,224 107.367x44]
-          Dot [178.418,236 8x8]
-          Bar [175.418,246 14x8]
-          Column [206.418,224 71.3672x44]
-            Lines.dim [206.418,224 52.8079x14] VISITORS
-            Display [206.418,240 71.3672x28] 12,567
-        Hairline [293.785,230 2x32]
-        Row [311.785,224 122.181x44]
-          Dot [314.785,237 18x18]
-          Bar.bg [323.785,237 2x9]
-          Bar.bg [323.785,246 9x2]
-          Column [347.785,224 86.1808x44]
-            Lines.dim [347.785,224 80.2881x14] AVR REVENUE
-            Display [347.785,240 86.1808x28] $12,875
-    Column [16,300 688x120]
-      Lines [16,300 80x14] Text field
-      Column [16,320 688x100]
-        Lines [16,320 32x14] Name
-        Card [16,338 688x64]
-          Seat [28,350 664x40]
-        Lines [16,406 152x14] First and last name
-    Column [16,440 52x48]
-      Lines [16,440 48x14] Switch
-      Switch.on [16,460 52x28]
-      Switch.thumb [44,464 20x20]
-    Column [16,508 67.1243x44]
-      Lines [16,508 64x14] Checkbox
-      Check [16,528 24x24]
-      Lines [48,533 35.1243x14] Sound
-    Column [16,572 200.559x56]
-      Lines [16,572 72x14] Segmented
-      Seg [16,592 200.559x36]
-      Seg.active [82.8531,594 66.8531x32]
-        Tap [16,592 66.8531x36]
-          Lines [32,602 24x14] Day
-        Tap [82.8531,592 66.8531x36]
-          Lines [98.8531,602 32x14] Week
-        Tap [149.706,592 66.8531x36]
-          Lines [165.706,602 40x14] Month
-    Column [16,648 240x48]
-      Lines [16,648 48x14] Slider
-      Slide [16,679 240x6]
-      Slide.fill [16,679 98x6]
-      Slide.thumb [104,672 20x20]
-    Column [16,716 240x32]
-      Lines [16,716 64x14] Progress
-      Slide [16,736 240x12]
-      Slide.fill [16,736 96x12]
+root box: 656x480
+Roll.v [0,0 656x480]
+  Column [0,0 656x570]
+    Column [16,16 121.379x70]
+      Lines [16,16 48x14] Button
+      Column [16,36 121.379x50]
+        Row [16,36 121.379x28]
+          Button.primary [16,36 55.435x28] Export
+          Button [79.435,36 57.9435x28] Cancel
+        Lines [16,72 120x14] Pressed 0 times
+    Column [16,106 624x120]
+      Lines [16,106 80x14] Text field
+      Column [16,126 624x100]
+        Lines [16,126 32x14] Name
+        Card [16,144 624x64]
+          Seat [28,156 600x40]
+        Lines [16,212 152x14] First and last name
+    Column [16,246 52x48]
+      Lines [16,246 48x14] Switch
+      Switch.on [16,266 52x28]
+      Switch.thumb [44,270 20x20]
+    Column [16,314 67.1243x44]
+      Lines [16,314 64x14] Checkbox
+      Check [16,334 24x24]
+      Lines [48,339 35.1243x14] Sound
+    Column [16,378 200.559x56]
+      Lines [16,378 72x14] Segmented
+      Seg [16,398 200.559x36]
+      Seg.active [82.8531,400 66.8531x32]
+        Tap [16,398 66.8531x36]
+          Lines [32,408 24x14] Day
+        Tap [82.8531,398 66.8531x36]
+          Lines [98.8531,408 32x14] Week
+        Tap [149.706,398 66.8531x36]
+          Lines [165.706,408 40x14] Month
+    Column [16,454 240x48]
+      Lines [16,454 48x14] Slider
+      Slide [16,484 240x8]
+      Slide.fill [16,484 98x8]
+      Slide.thumb [104,478 20x20]
+    Column [16,522 240x32]
+      Lines [16,522 64x14] Progress
+      Slide [16,542 240x12]
+      Slide.fill [16,542 96x12]

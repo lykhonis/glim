@@ -33,12 +33,18 @@ void* makeDefaultSeatView(SeatRequest request) {
 #if TARGET_OS_OSX
   NSTextField* field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, w, h)];
   field.placeholderString = @"Type here";
+  // Chromeless: the toolkit card behind the hole is the visible
+  // chrome. A bezel or background here would double-frame it.
+  field.bezeled = NO;
+  field.drawsBackground = NO;
+  field.focusRingType = NSFocusRingTypeNone;
   live[key] = field;
   return (__bridge void*)field;
 #else
   UITextField* field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, w, h)];
   field.placeholder = @"Type here";
-  field.borderStyle = UITextBorderStyleRoundedRect;
+  field.borderStyle = UITextBorderStyleNone;
+  field.backgroundColor = [UIColor clearColor];
   live[key] = field;
   return (__bridge void*)field;
 #endif

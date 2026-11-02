@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "Gel.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -63,6 +64,15 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const Theme& t = theme(e);
     sink.fillGradient(box, radius, t.cardTop, t.cardBottom, semantic);
+    // Aqua panel top light: one soft inner hairline, not a gloss
+    // dome — large faces stay calm, edges still catch light.
+    if (box.w > static_cast<float>(radius) + 6.0f) {
+      const float inset = static_cast<float>(radius) * 0.5f + 2.0f;
+      Box light{
+          box.x + inset, box.y + 1.0f, box.w - inset * 2.0f, 1.0f
+      };
+      sink.fillRounded(light, 1, t.glossSheen, semantic);
+    }
     sink.stroke(box, radius, 1.0f, t.cardStroke, semantic);
   }
 };

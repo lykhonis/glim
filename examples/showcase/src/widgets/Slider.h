@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "Gel.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -10,6 +11,7 @@
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
 #include "glim/toolkit/Theme.h"
+#include "glim/toolkit/Tokens.h"
 
 namespace glim {
 namespace toolkit {
@@ -42,48 +44,45 @@ struct Slider : WithSemantic {
   void geometry(const Box& box, Box& track, Box& fill, Box& thumb)
       const {
     float v = clamp01(*value);
-    float ty = box.y + (box.h - 6.0f) * 0.5f;
-    track = {box.x, ty, box.w, 6.0f};
+    float ty = box.y + (box.h - 8.0f) * 0.5f;
+    track = {box.x, ty, box.w, 8.0f};
     float cx = box.x + kThumb * 0.5f + v * (box.w - kThumb);
-    fill = {box.x, ty, 0, 6.0f};
-    if (cx > box.x + 0.5f) fill = {box.x, ty, cx - box.x, 6.0f};
-    thumb = {
-        cx - kThumb * 0.5f,
-        box.y + (box.h - kThumb) * 0.5f,
-        kThumb,
-        kThumb
-    };
+    fill = {box.x, ty, 0, 8.0f};
+    if (cx > box.x + 0.5f) fill = {box.x, ty, cx - box.x, 8.0f};
+    // Knob snaps to the half-logical grid (one device px at 2x) while
+    // the fill keeps the exact value: a fractional knob stacks four
+    // AA fringes (shadow, face, crown, rim) out of phase and reads
+    // muddy; the fill cap hides under the knob either way. Clamped to
+    // the track so the snap never spills past the ends by ±0.25px.
+    float nx = detail::snapHalf(cx - kThumb * 0.5f);
+    float ny = detail::snapHalf(box.y + (box.h - kThumb) * 0.5f);
+    nx = std::max(box.x, std::min(nx, box.x + box.w - kThumb));
+    ny = std::max(box.y, std::min(ny, box.y + box.h - kThumb));
+    thumb = {nx, ny, kThumb, kThumb};
   }
   void record(const Box& box, Rec& rec) const {
     Box track, fill, thumb;
     geometry(box, track, fill, thumb);
-    rec.push(kKind, track, {}, semantic, 3);
-    if (fill.w > 0) rec.push(kKindFill, fill, {}, semantic, 3);
+    rec.push(kKind, track, {}, semantic, 4);
+    if (fill.w > 0) rec.push(kKindFill, fill, {}, semantic, 4);
     rec.push(kKindThumb, thumb, {}, semantic, 10);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const Theme& t = theme(e);
     Box track, fill, thumb;
     geometry(box, track, fill, thumb);
-    sink.fillGradient(track, 3, t.trackTop, t.trackBottom, semantic);
+    // Groove: no stroke — the fill contrast alone shapes it.
+    sink.fillGradient(track, 4, t.trackTop, t.trackBottom, semantic);
     if (fill.w > 0.5f) {
-      sink.fillGradient(fill, 3, t.accentTop, t.accentBottom, semantic);
-      // Gloss stops a thumb radius before the fill cap so it never
-      // slides under the thumb.
-      const float end = fill.x + fill.w - kThumb * 0.5f;
-      if (end > fill.x + 4.0f) {
-        Box sheen{
-            detail::snapHalf(fill.x + 2.0f),
-            detail::snapHalf(fill.y + 1.0f),
-            end - fill.x - 2.0f,
-            1.0f
-        };
-        sink.fillRounded(sheen, 1, t.glossLine, semantic);
-      }
+      sink.fillGradient(fill, 4, t.accentTop, t.accentBottom, semantic);
+      gelCoat(sink, fill, 4, semantic);
     }
-    Box shade{thumb.x, thumb.y + 1.0f, thumb.w, thumb.h};
-    sink.fillRounded(shade, 10, t.thumbRim, semantic);
+    // Thumb: shadow, face, gloss crown, single gray rim. No sheen
+    // rect — the old 1px line slid under the cap and read as a step.
+    Box shade{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
+    sink.fillRounded(shade, 10, Tokens::kShadow, semantic);
     sink.fillGradient(thumb, 10, t.thumbTop, t.thumbBottom, semantic);
+    knobGloss(sink, thumb, semantic);
     sink.stroke(thumb, 10, 1.0f, t.thumbRim, semantic);
   }
   bool handleAt(const Box& box, const Event& ev) const {

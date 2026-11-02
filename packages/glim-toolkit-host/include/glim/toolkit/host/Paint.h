@@ -114,6 +114,15 @@ struct ContextSink {
     p.clip = toRect(b);
     ctx.pushGroup(p);
   }
+  // Additive scope for speculars (gel domes, glare lines): Plus adds
+  // light instead of washing toward gray like SrcOver white does.
+  // Merge keeps blend-only groups pass-local (no isolate), so this
+  // stays a pipeline switch, not an offscreen.
+  void pushBlend(BlendMode m) {
+    ::glim::paint::GroupParams p;
+    p.blend = m == BlendMode::Plus ? ::glim::paint::Blend::Plus : ::glim::paint::Blend::SrcOver;
+    ctx.pushGroup(p);
+  }
   void pop() { ctx.popGroup(); }
   void slot(const Box& b, std::uint32_t id) { ctx.slot(toRect(b), id); }
   void stroke(const Box& b, int radius, float width, std::uint32_t rgba, const std::string& = {}) {

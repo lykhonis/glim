@@ -1,24 +1,17 @@
 #pragma once
 
-#include "glim/toolkit/State.h"
+#include <cstdint>
+
+#include "glim/toolkit/Scope.h"
 
 namespace glim {
 namespace toolkit {
 
-// Retained handles for the showcase screen. Trees borrow them,
-// never own them.
-struct Showcase {
-  State<std::string> out;
-  State<bool> wifi;
-  State<bool> sound;
-  State<int> range;
-  State<float> level;
-  State<int> span;
-  State<int> mode;
-  State<int> viewSel;
-  State<int> tabSel;
-  State<std::string> notice;
-};
+// The showcase screen: one free function of Scope. States allocate
+// where they render; the host owns the Store (or tests inject one).
+Block showcaseTree(Scope app);
+
+inline constexpr std::uint32_t kShowcaseSeatId = 7;
 
 }  // namespace toolkit
 }  // namespace glim

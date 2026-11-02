@@ -41,7 +41,7 @@ int glimRunExample(
   glim::paint::Overlay overlay;
   overlay.setEnabled(true);
   const auto start = std::chrono::steady_clock::now();
-  auto lastPaint = start;
+  auto lastTick = start;
   bool reduceTransparency = false;
 
   const auto frameAt = [&](float t) {
@@ -58,49 +58,60 @@ int glimRunExample(
     };
   };
 
-  const auto paint = [&] {
+  const auto tickClock = [&] {
     const auto now = std::chrono::steady_clock::now();
     const float dt =
-        std::chrono::duration<float>(now - lastPaint).count();
-    lastPaint = now;
-    const glim::Vec2 size = window.size();
-    context.setSize(size);
-    context.beginFrame();
-    ExampleFrame frame =
-        frameAt(std::chrono::duration<float>(now - start).count());
-    if (record) {
-      record(frame);
-    }
-    if (overlay.enabled()) {
-      overlay.tick(dt);
+        std::chrono::duration<float>(now - lastTick).count();
+    lastTick = now;
+    overlay.tick(dt);
+    return now;
+  };
+
+  const auto paintBody =
+      [&](const std::chrono::steady_clock::time_point& now) {
+        const glim::Vec2 size = window.size();
+        context.setSize(size);
+        context.beginFrame();
+        ExampleFrame frame =
+            frameAt(std::chrono::duration<float>(now - start).count());
+        if (record) {
+          record(frame);
+        }
+        if (overlay.enabled()) {
 #if GLIM_SOFTWARE
-      if (renderer) {
-        overlay.setStats(renderer->stats());
-      }
+          if (renderer) {
+            overlay.setStats(renderer->stats());
+          }
 #else
-      overlay.setStats(renderer.stats());
+          overlay.setStats(renderer.stats());
 #endif
-      overlay.record(context, window.safeArea());
-    }
-    context.finish();
+          overlay.record(context, window.safeArea());
+        }
+        context.finish();
 #if GLIM_SOFTWARE
-    const int w = std::max(1, static_cast<int>(size.x));
-    const int h = std::max(1, static_cast<int>(size.y));
-    std::uint8_t* pixels = window.mapSoftware(w, h);
-    if (!renderer) {
-      renderer = std::make_unique<glim::paint::Renderer>(pixels, w, h);
-    } else {
-      renderer->setTarget(pixels, w, h);
-    }
-    renderer->draw(context.scene());
-    window.presentSoftware();
+        const int w = std::max(1, static_cast<int>(size.x));
+        const int h = std::max(1, static_cast<int>(size.y));
+        std::uint8_t* pixels = window.mapSoftware(w, h);
+        if (!renderer) {
+          renderer =
+              std::make_unique<glim::paint::Renderer>(pixels, w, h);
+        } else {
+          renderer->setTarget(pixels, w, h);
+        }
+        renderer->draw(context.scene());
+        window.presentSoftware();
 #else
-    const glim::Vec2 drawable = window.drawableSize();
-    device.setDrawableSize(
-        static_cast<int>(drawable.x), static_cast<int>(drawable.y)
-    );
-    renderer.draw(context.scene());
+        const glim::Vec2 drawable = window.drawableSize();
+        device.setDrawableSize(
+            static_cast<int>(drawable.x), static_cast<int>(drawable.y)
+        );
+        renderer.draw(context.scene());
 #endif
+      };
+
+  const auto paint = [&] {
+    const auto now = tickClock();
+    paintBody(now);
   };
 
   window.setEventCallback([&](const glim::shell::Event& e) {
@@ -130,7 +141,13 @@ int glimRunExample(
       paint();
       return;
     }
-    if (e.type() == T::WindowResized || e.type() == T::Frame) {
+    if (e.type() == T::WindowResized) {
+      paint();
+    }
+    if (e.type() == T::Frame) {
+      // Legacy harness: every Frame repaints. Toolkit apps use the
+      // host loop (packages/glim-toolkit-host) for revision-gated
+      // idle skip; this path stays frozen for toolkit-free apps.
       paint();
     }
   });
