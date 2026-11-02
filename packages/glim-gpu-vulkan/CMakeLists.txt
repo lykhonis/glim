@@ -25,7 +25,7 @@ set(_glim_glsl_dir "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(_glim_spv_dir "${CMAKE_CURRENT_BINARY_DIR}/spirv")
 set(_glim_spirv_script "${CMAKE_SOURCE_DIR}/tools/scripts/compile-spirv.sh")
 set(_glim_spv_outputs)
-foreach(_shader solid.vert solid.frag blit.vert blit.frag rounded.vert rounded.frag glyph.vert
+foreach(_shader solid.vert solid.frag blit.vert blit.frag blit_linear.vert blit_linear.frag rounded.vert rounded.frag glyph.vert
                  glyph.frag blur.vert blur.frag blur1d.vert blur1d.frag glass.vert glass.frag
                  gradient.vert gradient.frag)
     set(_spv "${_glim_spv_dir}/${_shader}.spv")

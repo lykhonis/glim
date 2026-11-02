@@ -34,7 +34,8 @@ float coverageAt(float2 p, float4 rect, float4 radii) {
     }
     const float2 d = abs(q) - b + float2(r, r);
     const float outside = length(max(d, float2(0.0))) + min(max(d.x, d.y), 0.0) - r;
-    return saturate(0.5 - outside);
+    // Half-pixel ramp (see Strip.cpp): crisp edges, still antialiased.
+    return saturate(0.5 - outside * 2.0);
 }
 
 float coverage(float2 p, Instance inst) {

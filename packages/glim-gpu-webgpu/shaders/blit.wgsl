@@ -1,44 +1,51 @@
 struct BlitInstance {
-    rect: vec4<f32>,
-    uv: vec4<f32>,
-    extra: vec4<f32>,
+  rect : vec4<f32>, uv : vec4<f32>, extra : vec4<f32>,
 };
 
 struct Uniforms {
-    projection: mat4x4<f32>,
+  projection : mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<storage, read> instances: array<BlitInstance>;
-@group(0) @binding(1) var<storage, read> uniforms: Uniforms;
-@group(0) @binding(2) var tex: texture_2d<f32>;
-@group(0) @binding(6) var texSampler: sampler;
+@group(0) @binding(0) var<storage, read> instances : array<BlitInstance>;
+@group(0) @binding(1) var<storage, read> uniforms : Uniforms;
+@group(0) @binding(2) var tex : texture_2d<f32>;
+@group(0) @binding(6) var texSampler : sampler;
 
 struct VSOut {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-    @location(1) tint: vec4<f32>,
+  @builtin(position) position : vec4<f32>,
+                                @location(0) uv : vec2<f32>,
+                                                  @location(1) tint : vec4<f32>,
 };
 
-@vertex
-fn vs_main(
-    @builtin(vertex_index) vid: u32,
-    @builtin(instance_index) iid: u32,
-) -> VSOut {
-    var unit = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0),
-        vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0),
-    );
-    let p = unit[vid];
-    let inst = instances[iid];
-    let pos = inst.rect.xy + p * inst.rect.zw;
-    var out: VSOut;
-    out.position = uniforms.projection * vec4<f32>(pos, 0.0, 1.0);
-    out.uv = mix(inst.uv.xy, inst.uv.zw, p);
-    out.tint = inst.extra;
-    return out;
+@vertex fn vs_main(@builtin(vertex_index) vid
+                   : u32, @builtin(instance_index) iid
+                   : u32, ) -> VSOut {
+  var unit = array<vec2<f32>, 6>(
+      vec2<f32>(0.0, 0.0),
+      vec2<f32>(1.0, 0.0),
+      vec2<f32>(0.0, 1.0),
+      vec2<f32>(0.0, 1.0),
+      vec2<f32>(1.0, 0.0),
+      vec2<f32>(1.0, 1.0),
+  );
+  let p = unit[vid];
+  let inst = instances[iid];
+  let pos = inst.rect.xy + p * inst.rect.zw;
+  var out : VSOut;
+  out.position = uniforms.projection * vec4<f32>(pos, 0.0, 1.0);
+  out.uv = mix(inst.uv.xy, inst.uv.zw, p);
+  out.tint = inst.extra;
+  return out;
 }
 
-@fragment
-fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
-    return textureSample(tex, texSampler, in.uv) * in.tint;
+@fragment fn fs_main(in : VSOut) -> @location(0) vec4<f32> {
+  // Image bytes are sRGB in a UNORM texture (no hardware decode),
+  // so decode manually to the linear working space. Frame targets
+  // are sRGB views (hardware decodes on sample) and must use
+  // blit_linear instead — never this shader.
+  var s = textureSample(tex, texSampler, in.uv);
+  let lo = s.rgb / 12.92;
+  let hi = pow((s.rgb + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
+  s.rgb = mix(hi, lo, step(s.rgb, vec3<f32>(0.04045)));
+  return s * in.tint;
 }

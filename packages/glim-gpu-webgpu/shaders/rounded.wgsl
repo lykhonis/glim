@@ -34,7 +34,8 @@ fn coverageAt(p: vec2<f32>, rect: vec4<f32>, radii: vec4<f32>) -> f32 {
     }
     let d = abs(q) - b + vec2<f32>(r, r);
     let outside = length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0) - r;
-    return saturate(0.5 - outside);
+    // Half-pixel ramp (see Strip.cpp): crisp edges, still antialiased.
+    return saturate(0.5 - outside * 2.0);
 }
 
 fn coverage(p: vec2<f32>, inst: Instance) -> f32 {

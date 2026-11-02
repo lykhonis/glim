@@ -132,7 +132,12 @@ struct Device::Impl {
   bool vsync = true;
   bool haveAhb = false;
 
-  VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+  // Linear working space end to end: surfaces are sRGB-encoded,
+  // shaders output linear (instance colors arrive linearized,
+  // sampled bytes linearize in-shader), hardware converts on write
+  // and blends against a decoded destination. Offscreen targets
+  // share the format, so readPixels hands back sRGB bytes directly.
+  VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
   VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
   VkExtent2D extent{1, 1};
   uint32_t wantedWidth = 0;
@@ -502,6 +507,20 @@ struct Device::Impl {
     vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &count, formats.data());
     if (formats.empty()) {
       return false;
+    }
+    for (const auto& f : formats) {
+      if (f.format == VK_FORMAT_B8G8R8A8_SRGB) {
+        format = f.format;
+        colorSpace = f.colorSpace;
+        return true;
+      }
+    }
+    for (const auto& f : formats) {
+      if (f.format == VK_FORMAT_R8G8B8A8_SRGB) {
+        format = f.format;
+        colorSpace = f.colorSpace;
+        return true;
+      }
     }
     for (const auto& f : formats) {
       if (f.format == VK_FORMAT_B8G8R8A8_UNORM) {
@@ -2272,7 +2291,7 @@ bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t by
   img->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   const std::uint8_t* src = static_cast<const std::uint8_t*>(d.readStaging.mapped);
   std::uint8_t* dst = static_cast<std::uint8_t*>(rgba8);
-  const bool bgra = (d.format == VK_FORMAT_B8G8R8A8_UNORM);
+  const bool bgra = (d.format == VK_FORMAT_B8G8R8A8_UNORM || d.format == VK_FORMAT_B8G8R8A8_SRGB);
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
       const std::uint8_t* p = src + (static_cast<std::size_t>(y) * w + x) * 4;
