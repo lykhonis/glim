@@ -14,6 +14,7 @@ namespace toolkit {
 struct Roll : WithGap, WithAxis, WithScrollOffset {
   static constexpr const char* kKindH = "Roll.h";
   static constexpr const char* kKindV = "Roll.v";
+  static constexpr bool kClipsChildren = true;
   const char* kind() const { return axis == kAxisHorizontal ? kKindH : kKindV; }
   std::vector<Block> children;
   Box place(Constraints c, const Engine& e) const {

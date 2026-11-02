@@ -2,20 +2,23 @@
 
 #include <type_traits>
 
+#include "glim/toolkit/Tokens.h"
+
 namespace glim {
 namespace toolkit {
 
-// Glass chrome marker: card(glassClear(), ...) wraps the card box in a
-// Clear glass group at paint time. Plain glass() is Regular. Slot tag —
-// parents never learn it, the paint bridge reads has<GlassTag>() off the
-// child Block. Nearest wins via env if nested.
+// Glass chrome marker: card(glass(), ...) wraps the card box in a
+// Regular glass group at paint time. Slot tag — parents never learn
+// it, the emitter reads it off the child Block. Nearest wins via env
+// if nested. Radius rides the tag so chrome needs no element query.
 struct GlassTag {
   bool clear = false;
+  int radius = Tokens::kCardRadius;
 };
 
-inline GlassTag glass() { return {false}; }
+inline GlassTag glass(int radius = Tokens::kCardRadius) { return {false, radius}; }
 
-inline GlassTag glassClear() { return {true}; }
+inline GlassTag glassClear(int radius = Tokens::kCardRadius) { return {true, radius}; }
 
 template <>
 struct is_tag<GlassTag> : std::true_type {};

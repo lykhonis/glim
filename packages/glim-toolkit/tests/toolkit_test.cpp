@@ -334,6 +334,99 @@ int main() {
     assert(rb0.x == 10 && rb0.y == 4);
   }
 
+  // Store revision: idle-skip signal. make() does not bump; every set
+  // does (all four spellings); copies share the cell so either alias
+  // bumps; independent stores track independently.
+  {
+    Store rs;
+    assert(rs.revision() == 0);
+    State<int> a = rs.make<int>(1);
+    State<int> alias = a;
+    assert(rs.revision() == 0);
+    a = 2;
+    assert(rs.revision() == 1 && *alias == 2);
+    alias.set(3);
+    assert(rs.revision() == 2 && *a == 3);
+    State<std::string> s = rs.make<std::string>("x");
+    s.set(std::string("y"));
+    assert(rs.revision() == 3);
+    s = "z";
+    assert(rs.revision() == 4);
+    Store other;
+    assert(other.revision() == 0);
+  }
+
+  // DirtyGate: toolkit-owned idle-skip policy. First check paints;
+  // acknowledge silences until the revision moves; invalidate forces
+  // (non-State pixel changes, future T7 tweens).
+  {
+    Store gs;
+    DirtyGate gate;
+    assert(gate.check(gs.revision()));
+    gate.acknowledge(gs.revision());
+    assert(!gate.check(gs.revision()));
+    State<int> gv = gs.make<int>(0);
+    gv = 1;
+    assert(gate.check(gs.revision()));
+    gate.acknowledge(gs.revision());
+    assert(!gate.check(gs.revision()));
+    gate.invalidate();
+    assert(gate.check(gs.revision()));
+    gate.acknowledge(gs.revision());
+    assert(!gate.check(gs.revision()));
+  }
+
+  // Screen: toolkit-owned interaction state. Pointer sets focus
+  // silently and captures the target; a second finger never hijacks;
+  // keyboard shows the ring; revision alone is the Frame signal.
+  {
+    Store hs;
+    State<int> picked = hs.make<int>(-1);
+    Block st = row(gap(0), tap(lines("a"), [picked] { picked = 0; }), tap(lines("b"), [picked] {
+                     picked = 1;
+                   }));
+    Box sbox = place(st, {0, 720, 0, 480});
+    Screen screen;
+    assert(screen.focus == -1 && !screen.focusVisible);
+    // First paint: gate fires with no state change.
+    assert(screen.needsPaint(hs));
+    screen.painted(hs);
+    assert(!screen.needsPaint(hs));
+    // PointerDown on the first tap: consumed, focus + capture land,
+    // ring stays silent.
+    assert(screen.pointerDown(st, sbox, 1, 1, 7));
+    assert(screen.focus == 0 && screen.drag == 0 && screen.dragId == 7);
+    assert(!screen.focusVisible);
+    assert(*picked == 0);
+    // Captured drag far outside routes (no re-hit-test) and defers:
+    // Tap ignores moves, capture retained, no immediate paint.
+    assert(!screen.pointerMove(st, sbox, 500, 400, true, 7));
+    assert(screen.drag == 0 && *picked == 0);
+    // Second finger while dragging is ignored, never hijacked.
+    assert(!screen.pointerMove(st, sbox, 500, 400, true, 8));
+    assert(screen.drag == 0);
+    // Hover never dispatches.
+    assert(!screen.pointerMove(st, sbox, 1, 1, false, 7));
+    // Release clears the capture.
+    screen.pointerUp(st, sbox, 500, 400);
+    assert(screen.drag == -1);
+    // The tap's write dirtied the gate (correct); re-baseline.
+    assert(screen.needsPaint(hs));
+    screen.painted(hs);
+    // Missed down captures nothing and keeps previous focus.
+    assert(!screen.pointerDown(st, sbox, 500, 400, 9));
+    assert(screen.focus == 0 && screen.drag == -1);
+    // Keyboard: nav moves focus, ring shows.
+    assert(screen.key(st, sbox, Key::Next));
+    assert(screen.focus == 1 && screen.focusVisible);
+    // State write is the only automatic Frame signal.
+    assert(!screen.needsPaint(hs));
+    picked = 1;
+    assert(screen.needsPaint(hs));
+    screen.painted(hs);
+    assert(!screen.needsPaint(hs));
+  }
+
   // Wrap is opt-in: plain Lines spills single-line, wrapped Lines reflows.
   {
     // No wrap tag → single 160px line spills past a 100px budget (T1 lock).
@@ -581,6 +674,58 @@ int main() {
     assert(*tapped == 1);
     assert(!dispatchPointer(actionable, abox, 900, 900, Event::borrow(PointerDown{900, 900})));
     assert(!handle(actionable, Event::borrow(PointerMove{1, 1})));
+  }
+
+  // Scoped state: get-or-make by key, stable across builds, set bumps
+  // the revision for the host tree cache. String, type-tag, and
+  // positional spellings share one map; child scopes namespace.
+  {
+    Store scoped;
+    Engine se;
+    se.store = &scoped;
+    Scope root = rootScope(se);
+    auto a = root.state("level", 0.4f);
+    auto b = root.state("level", 0.9f);
+    assert(*a == 0.4f && *b == 0.4f);  // second init ignored
+    a = 0.7f;
+    assert(*b == 0.7f && scoped.revision() == 1);
+    struct LevelTag {};
+    auto t1 = root.state<LevelTag>(1);
+    auto t2 = root.state<LevelTag>(2);
+    assert(*t1 == 1 && *t2 == 1);
+    auto p1 = root.next<int>(10);
+    auto p2 = root.next<int>(20);
+    assert(*p1 == 10 && *p2 == 20);
+    // Fresh scope, same order: positional reopens the same cells.
+    Scope root2 = rootScope(se);
+    assert(*root2.next<int>(99) == 10 && *root2.next<int>(99) == 20);
+    // Child scope namespaces: same key, distinct cells.
+    auto c1 = root.child("toolbar").state("notice", std::string("a"));
+    auto c2 = root.state("notice", std::string("b"));
+    assert(*c1 == "a" && *c2 == "b");
+    c1 = std::string("c");
+    assert(*c1 == "c" && *c2 == "b" && scoped.revision() == 2);
+  }
+
+  // Struct state with explicit immutable update: one copy, one bump,
+  // no copy-out/mutate/assign dance at the call site.
+  {
+    struct Filters {
+      int span = 0;
+      int mode = 0;
+    };
+    Store states;
+    State<Filters> filters = states.make<Filters>();
+    const std::uint64_t base = states.revision();
+    filters.update([](Filters& f) { f.span = 2; });
+    assert(filters->span == 2 && filters->mode == 0);
+    assert(states.revision() == base + 1);
+    filters.update([](Filters& f) {
+      f.span = -1;
+      f.mode = 1;
+    });
+    assert(filters->span == -1 && filters->mode == 1);
+    assert(states.revision() == base + 2);
   }
 
   std::cout << "toolkit tests ok\n";

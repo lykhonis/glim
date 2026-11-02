@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
@@ -10,6 +11,11 @@ namespace toolkit {
 constexpr float kUnbounded = std::numeric_limits<float>::infinity();
 
 inline bool isUnbounded(float v) { return v >= kUnbounded / 2; }
+
+// Blend modes a widget can request for a scoped group. Core-level
+// vocabulary (paint-free); ContextSink maps these onto paint::Blend.
+// Only SrcOver and Plus exist in v1.
+enum class BlendMode : std::uint8_t { SrcOver, Plus };
 
 struct Constraints {
   float minW = 0, maxW = 0, minH = 0, maxH = 0;

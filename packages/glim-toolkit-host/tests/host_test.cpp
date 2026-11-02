@@ -1,0 +1,85 @@
+#include <glim/toolkit/Ops.h>
+#include <glim/toolkit/Theme.h>
+#include <glim/toolkit/host/Host.h>
+#include <glim/toolkit/host/SeatView.h>
+
+#include <cassert>
+#include <iostream>
+#include <typeinfo>
+#include <vector>
+
+int main() {
+  using glim::shell::Key;
+  using glim::toolkit::host::mapKey;
+
+  assert(mapKey(Key::DpadLeft) == glim::toolkit::Key::Left);
+  assert(mapKey(Key::DpadRight) == glim::toolkit::Key::Right);
+  assert(mapKey(Key::DpadUp) == glim::toolkit::Key::Up);
+  assert(mapKey(Key::DpadDown) == glim::toolkit::Key::Down);
+  assert(mapKey(Key::Enter) == glim::toolkit::Key::Activate);
+  assert(mapKey(Key::DpadCenter) == glim::toolkit::Key::Activate);
+  assert(!mapKey(Key::Escape));
+  assert(!mapKey(Key::Unknown));
+
+  // Seat factory: id 0 never creates a view; request carries bounds.
+  using glim::toolkit::host::makeDefaultSeatView;
+  using glim::toolkit::host::SeatRequest;
+  assert(makeDefaultSeatView(SeatRequest{}) == nullptr);
+  SeatRequest named{7, glim::Rect{{10, 20}, {100, 40}}};
+  assert(named.id == 7 && named.bounds.size.x == 100);
+  // Factory ownership: same id returns the same live view (the
+  // factory retains; Glim never does). Guards the attachSlot
+  // use-after-free where a scope-local __bridge pointer dangled.
+  void* first = makeDefaultSeatView(named);
+  void* second = makeDefaultSeatView(named);
+#if defined(__APPLE__)
+  assert(first != nullptr && first == second);
+#else
+  assert(first == nullptr && second == nullptr);
+#endif
+
+  // Primitive ops: elements serialize without new codec edits.
+  {
+    using glim::toolkit::Box;
+    using glim::toolkit::Op;
+    using glim::toolkit::OpsRecorder;
+    OpsRecorder rec;
+    rec.fill({0, 0, 10, 10}, 0xff0000ff, "m1");
+    rec.fillRounded({0, 0, 10, 10}, 3, 0x00ff00ff);
+    rec.fillGradient({0, 0, 10, 10}, 7, 0x111111ff, 0x222222ff, "m2");
+    rec.stroke({0, 0, 10, 10}, 4, 2.0f, 0xffffffff);
+    rec.text(1.0f, 2.0f, "hi", 0xffffffff, 14.0f, "m3");
+    rec.image({0, 0, 10, 10}, 9, true);
+    rec.pushGlass({0, 0, 10, 10}, 12, true);
+    rec.pushClip({0, 0, 10, 10});
+    rec.pop();
+    rec.slot({0, 0, 10, 10}, 7);
+    std::vector<std::uint8_t> bytes;
+    glim::toolkit::encodeOps(rec.ops, bytes);
+    std::vector<Op> back;
+    assert(glim::toolkit::decodeOps(bytes.data(), bytes.size(), back));
+    assert(back == rec.ops);
+    assert(!glim::toolkit::decodeOps(bytes.data(), bytes.size() - 1, back));
+    bytes[3] ^= 0xff;
+    assert(!glim::toolkit::decodeOps(bytes.data(), bytes.size(), back));
+  }
+
+  // Theme defaults mirror Tokens; an override reaches elements.
+  {
+    using glim::toolkit::Engine;
+    using glim::toolkit::Theme;
+    using glim::toolkit::theme;
+    using glim::toolkit::Tokens;
+    glim::toolkit::Env env{nullptr, nullptr, nullptr};
+    Engine plain{&env};
+    assert(theme(plain).cardFill == Tokens::kCardFill);
+    Theme custom{};
+    custom.cardFill = 0x123456ff;
+    glim::toolkit::Env slot{&custom, &typeid(Theme), nullptr};
+    Engine themed{&slot};
+    assert(theme(themed).cardFill == 0x123456ff);
+  }
+
+  std::cout << "host_test ok\n";
+  return EXIT_SUCCESS;
+}

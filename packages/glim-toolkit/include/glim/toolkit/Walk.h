@@ -68,16 +68,50 @@ inline bool canHandle(const Block& b) {
   return found;
 }
 
-// True when the Custom arm paints itself (opt-in escape hatch for
-// visuals entries can't carry). Paint is written once against AnySink
-// and runs on every sink — pixels on interpreters, ops on recorders —
-// so custom-painted elements archive without a fallback path.
-inline bool paintsCustom(const Block& b) {
-  if (const Custom* c = b.get<Custom>()) return c->paints();
-  return false;
+// True when the node's children paint inside a clip group (Roll).
+// Wrapper-transparent: Tagged forwards the flag, Custom carries it in
+// the vtable, so slot tags never break the scroll clip.
+inline bool clipsChildren(const Block& b) {
+  if (const Custom* c = b.get<Custom>()) return c->clipsChildren();
+  bool found = false;
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_clip_flag<T>::value) found = true;
+      },
+      b.v
+  );
+  return found;
 }
-inline void paintCustom(const Block& b, const Box& box, AnySink& sink, const Engine& e) {
-  if (const Custom* c = b.get<Custom>()) c->paint(box, sink, e);
+// Per-node self paint (no recursion). Prefers the element's own paint
+// over its record entries; kind-only containers paint nothing;
+// record-only peers keep the legacy entry path.
+template <class S, class F>
+void paintSelf(const Block& b, const Box& box, S& sink, F& feed, const Engine& e) {
+  AnySink any = wrapSink(sink, feed);
+  if (const Custom* c = b.get<Custom>()) {
+    if (c->paints()) {
+      c->paint(box, any, e);
+      return;
+    }
+    Rec tmp;
+    c->record(box, tmp);
+    for (const auto& en : tmp.entries) sink.entry(en, feed);
+    return;
+  }
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_paint<T>::value) {
+          el.paint(box, any, e);
+        } else if constexpr (has_record<T>::value) {
+          Rec tmp;
+          el.record(box, tmp);
+          for (const auto& en : tmp.entries) sink.entry(en, feed);
+        }
+      },
+      b.v
+  );
 }
 // Tap-like builtins own their hit region (a hit on the child — even
 // spilled past the chrome — resolves to the arm). Customs never claim.

@@ -16,6 +16,7 @@ template <class Tag, class Inner>
 struct Tagged {
   using tag_type = Tag;
   using inner_type = Inner;
+  static constexpr bool kClipsChildren = has_clip_flag<Inner>::value;
   Inner inner_;
   Tag tag_;
   const char* kind() const { return inner_.kind(); }

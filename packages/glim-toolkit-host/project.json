@@ -1,0 +1,22 @@
+{
+  "name": "toolkit-host",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/glim-toolkit-host",
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-toolkit-host"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-toolkit-host-test",
+        "ctestRegex": "glim-toolkit-host-test"
+      }
+    }
+  }
+}

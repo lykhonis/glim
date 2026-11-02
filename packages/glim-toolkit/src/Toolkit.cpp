@@ -660,5 +660,68 @@ int moveFocus(const Block& root, const Box& box, int current, FocusDir dir, cons
   return best;
 }
 
+bool Screen::pointerDown(
+    const Block& tree, const Box& box, float x, float y, int pointerId, const Engine& engine
+) {
+  Event down = Event::borrow(PointerDown{x, y});
+  if (dispatchPointer(tree, box, x, y, down, engine)) {
+    // Capture only when the point truly lands in a focus box;
+    // otherwise keep the previous focus and clear any stale capture
+    // (a handled non-focusable must not keep routing moves to the
+    // previous drag index).
+    int hit = focusAt(tree, box, x, y, engine);
+    if (hit >= 0) {
+      focus = hit;
+      drag = hit;
+      dragId = pointerId;
+    } else {
+      drag = -1;
+    }
+    focusVisible = false;
+    return true;
+  }
+  drag = -1;
+  return false;
+}
+
+bool Screen::pointerUp(const Block& tree, const Box& box, float x, float y, const Engine& engine) {
+  Event up = Event::borrow(PointerUp{x, y});
+  drag = -1;
+  return dispatchPointer(tree, box, x, y, up, engine);
+}
+
+bool Screen::pointerMove(
+    const Block& tree,
+    const Box& box,
+    float x,
+    float y,
+    bool pressed,
+    int pointerId,
+    const Engine& engine
+) {
+  if (!pressed) return false;
+  PointerMove move{x, y, pressed};
+  Event moved = Event::borrow(move);
+  if (drag >= 0) {
+    // A second finger while dragging is ignored, never hijacked.
+    if (pointerId != dragId) return false;
+    // Routed (not consumed) keeps the drag; stale falls back to a
+    // fresh hit-test.
+    if (dispatchCaptured(tree, box, drag, moved, engine)) return false;
+    drag = -1;
+  }
+  return dispatchPointer(tree, box, x, y, moved, engine);
+}
+
+bool Screen::key(const Block& tree, const Box& box, Key key, const Engine& engine) {
+  focus = deliverKey(tree, box, focus, key, engine);
+  focusVisible = true;
+  return true;
+}
+
+bool Screen::needsPaint(const Store& store) const { return dirty.check(store.revision()); }
+
+void Screen::painted(const Store& store) { dirty.acknowledge(store.revision()); }
+
 }  // namespace toolkit
 }  // namespace glim

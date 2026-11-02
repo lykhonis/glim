@@ -54,26 +54,83 @@ template <class T>
 struct has_kind<T, std::void_t<decltype(std::declval<const T&>().kind())>>
     : std::is_same<decltype(std::declval<const T&>().kind()), const char*> {};
 
-// Type-erased paint sink: the six concept methods as plain data calls.
-// Custom paint() is written once against AnySink and runs on every
-// sink — interpreting sinks paint pixels, recording sinks append ops,
-// so custom-painted elements archive without a fallback path.
+// Clip intent for containers whose children paint inside a clip group
+// (Roll). Detected without strings so Tagged wrappers keep working;
+// the emitter pushes the clip around children, never in self paint.
+template <class T, class = void>
+struct has_clip_flag : std::false_type {};
+template <class T>
+struct has_clip_flag<T, std::void_t<decltype(T::kClipsChildren)>>
+    : std::bool_constant<T::kClipsChildren> {};
+
+// Ambient layer binding for one paint pass: the host ensures the feed
+// before the walk, the binding carries only id + foreign after that.
+// Feed types stay host-owned; the binding is plain data.
+struct LayerSource {
+  std::uint32_t id = 0;
+  bool foreign = false;
+};
+
+// Type-erased paint sink: primitives plus structure. Elements paint
+// once against AnySink and run on every sink — pixels on interpreters,
+// ops on recorders — so elements archive without a fallback path.
+// Marks ride every op for semantics/a11y; pixels ignore them.
 struct AnySink {
   void* sink = nullptr;
   const void* feed = nullptr;
+  LayerSource layer{};
   void (*entryFn)(void*, const void*, const Rec::Entry&) = nullptr;
+  void (*fillFn)(void*, const Box&, std::uint32_t, const std::string&) = nullptr;
+  void (*fillRoundedFn)(void*, const Box&, int, std::uint32_t, const std::string&) = nullptr;
+  void (*fillGradientFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
+      nullptr;
+  void (*textFn)(void*, float, float, const std::string&, std::uint32_t, float, const std::string&) =
+      nullptr;
+  void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
   void (*pushGlassFn)(void*, const Box&, int, bool) = nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
+  void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*popFn)(void*) = nullptr;
   void (*slotFn)(void*, const Box&, std::uint32_t) = nullptr;
-  void (*strokeFn)(void*, const Box&, int, float, std::uint32_t) = nullptr;
+  void (*strokeFn)(void*, const Box&, int, float, std::uint32_t, const std::string&) = nullptr;
   void entry(const Rec::Entry& en) { entryFn(sink, feed, en); }
+  void fill(const Box& b, std::uint32_t rgba, const std::string& mark = {}) {
+    fillFn(sink, b, rgba, mark);
+  }
+  void fillRounded(const Box& b, int radius, std::uint32_t rgba, const std::string& mark = {}) {
+    fillRoundedFn(sink, b, radius, rgba, mark);
+  }
+  void fillGradient(
+      const Box& b,
+      int radius,
+      std::uint32_t top,
+      std::uint32_t bottom,
+      const std::string& mark = {}
+  ) {
+    fillGradientFn(sink, b, radius, top, bottom, mark);
+  }
+  void text(
+      float x,
+      float y,
+      const std::string& s,
+      std::uint32_t rgba,
+      float size,
+      const std::string& mark = {}
+  ) {
+    textFn(sink, x, y, s, rgba, size, mark);
+  }
+  void image(const Box& b, std::uint32_t id, bool foreign, const std::string& mark = {}) {
+    imageFn(sink, b, id, foreign, mark);
+  }
   void pushGlass(const Box& b, int radius, bool clear) { pushGlassFn(sink, b, radius, clear); }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
+  void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
-  void stroke(const Box& b, int radius, float width, std::uint32_t rgba) {
-    strokeFn(sink, b, radius, width, rgba);
+  void stroke(
+      const Box& b, int radius, float width, std::uint32_t rgba, const std::string& mark = {}
+  ) {
+    strokeFn(sink, b, radius, width, rgba, mark);
   }
 };
 
@@ -82,18 +139,44 @@ AnySink wrapSink(S& sink, F& feed) {
   AnySink a;
   a.sink = &sink;
   a.feed = &feed;
+  a.layer = LayerSource{feed.id, feed.foreign};
   a.entryFn = [](void* s, const void* f, const Rec::Entry& en) {
     static_cast<S*>(s)->entry(en, *static_cast<F*>(const_cast<void*>(f)));
+  };
+  a.fillFn = [](void* s, const Box& b, std::uint32_t rgba, const std::string& mark) {
+    static_cast<S*>(s)->fill(b, rgba, mark);
+  };
+  a.fillRoundedFn = [](void* s, const Box& b, int radius, std::uint32_t rgba, const std::string& m
+                    ) { static_cast<S*>(s)->fillRounded(b, radius, rgba, m); };
+  a.fillGradientFn = [](void* s,
+                        const Box& b,
+                        int radius,
+                        std::uint32_t top,
+                        std::uint32_t bottom,
+                        const std::string& m) {
+    static_cast<S*>(s)->fillGradient(b, radius, top, bottom, m);
+  };
+  a.textFn = [](void* s,
+                float x,
+                float y,
+                const std::string& str,
+                std::uint32_t rgba,
+                float size,
+                const std::string& m) { static_cast<S*>(s)->text(x, y, str, rgba, size, m); };
+  a.imageFn = [](void* s, const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
+    static_cast<S*>(s)->image(b, id, foreign, m);
   };
   a.pushGlassFn = [](void* s, const Box& b, int radius, bool clear) {
     static_cast<S*>(s)->pushGlass(b, radius, clear);
   };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
+  a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };
   a.slotFn = [](void* s, const Box& b, std::uint32_t id) { static_cast<S*>(s)->slot(b, id); };
-  a.strokeFn = [](void* s, const Box& b, int radius, float width, std::uint32_t rgba) {
-    static_cast<S*>(s)->stroke(b, radius, width, rgba);
-  };
+  a.strokeFn =
+      [](void* s, const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
+        static_cast<S*>(s)->stroke(b, radius, width, rgba, m);
+      };
   return a;
 }
 
@@ -148,6 +231,7 @@ struct Custom {
     bool (*handle)(const void* s, bool heap, const Event& ev);
     bool (*handleAt)(const void* s, bool heap, const Box& b, const Event& ev);
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
+    bool (*clips)(const void* s, bool heap);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
     Box (*childBox)(const void* s, bool heap, std::size_t i, const Box& b, const Engine& e);
@@ -290,6 +374,7 @@ struct Custom {
   void paint(const Box& b, AnySink& sink, const Engine& e) const {
     if (vt && vt->paint) vt->paint(buf, onHeap, b, sink, e);
   }
+  bool clipsChildren() const { return vt && vt->clips ? vt->clips(buf, onHeap) : false; }
 
  private:
   template <class U>
@@ -402,6 +487,11 @@ struct Custom {
   }
 
   template <class U>
+  static bool (*clipsFor())(const void*, bool) {
+    return [](const void*, bool) -> bool { return has_clip_flag<U>::value; };
+  }
+
+  template <class U>
   static const VTable* vtableFor() {
     static const VTable v{
         []() -> const std::type_info& { return typeid(U); },
@@ -419,6 +509,7 @@ struct Custom {
         handleFor<U>(),
         handleAtFor<U>(),
         paintFor<U>(),
+        clipsFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),
         childBoxFn<U>(),

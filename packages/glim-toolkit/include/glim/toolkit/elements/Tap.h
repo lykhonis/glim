@@ -5,6 +5,7 @@
 
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/ConfigureFwd.h"
+#include "glim/toolkit/Custom.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Tags.h"
 
@@ -22,6 +23,7 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
   Action onTap;
   Box place(Constraints c, const Engine& e) const;
   void record(const Box& box, Rec& rec) const;
+  void paint(const Box&, AnySink&, const Engine&) const;
   bool handle(const Event& ev) const {
     if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
     return false;
@@ -62,6 +64,8 @@ inline Box Tap::place(Constraints c, const Engine& e) const {
 inline void Tap::record(const Box& box, Rec& rec) const {
   rec.push(isPrimary ? kKindPrimary : kKind, box, {}, semantic);
 }
+
+inline void Tap::paint(const Box&, AnySink&, const Engine&) const {}
 
 }  // namespace toolkit
 }  // namespace glim

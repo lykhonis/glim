@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <iosfwd>
 #include <string>
 #include <typeinfo>
@@ -12,6 +13,8 @@ namespace glim {
 namespace toolkit {
 
 struct Block;
+
+class Store;
 
 struct Env {
   const void* ptr = nullptr;
@@ -27,6 +30,7 @@ bool handleAt(const Block& b, const Box& box, const Event& ev);
 
 struct Engine {
   const Env* env = nullptr;
+  Store* store = nullptr;
   Box place(const Block& b, Constraints c) const;
   void record(const Block& b, const Box& box, Rec& r) const;
   template <class T>
@@ -61,6 +65,10 @@ void dump(
 namespace detail {
 
 float clampF(float v, float lo, float hi);
+// Half-logical snap for 1px paint chrome: 0.5 logical is exactly one
+// device pixel at 2x, so gloss lines and rims never straddle rows.
+// Layout boxes stay untouched; only paint-time overlays snap.
+inline float snapHalf(float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; }
 Box measureText(const std::string& text, Constraints c, const Engine& e);
 // Greedy word wrap at maxW (unbounded → single line). Words longer than a
 // line split at char boundaries. Spaces collapse to one separator.
