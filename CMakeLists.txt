@@ -90,6 +90,6 @@ if(TARGET glim::shell)
     target_link_libraries(glim INTERFACE glim::shell)
 endif()
 
-if(NOT GLIM_SHELL STREQUAL "none" AND NOT GLIM_SHELL STREQUAL "web")
+if(NOT GLIM_SHELL STREQUAL "none")
     add_subdirectory(packages/glim-toolkit-host)
 endif()
