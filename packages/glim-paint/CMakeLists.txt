@@ -32,6 +32,7 @@ set(_glim_wgsl_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-webgpu/shaders")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_wgsl_dir}/solid.wgsl"
     "${_glim_wgsl_dir}/blit.wgsl"
+    "${_glim_wgsl_dir}/blit_linear.wgsl"
     "${_glim_wgsl_dir}/rounded.wgsl"
     "${_glim_wgsl_dir}/glyph.wgsl"
     "${_glim_wgsl_dir}/blur.wgsl"
@@ -40,6 +41,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_wgsl_dir}/gradient.wgsl")
 file(READ "${_glim_wgsl_dir}/solid.wgsl" GLIM_SOLID_WGSL)
 file(READ "${_glim_wgsl_dir}/blit.wgsl" GLIM_BLIT_WGSL)
+file(READ "${_glim_wgsl_dir}/blit_linear.wgsl" GLIM_BLIT_LINEAR_WGSL)
 file(READ "${_glim_wgsl_dir}/rounded.wgsl" GLIM_ROUNDED_WGSL)
 file(READ "${_glim_wgsl_dir}/glyph.wgsl" GLIM_GLYPH_WGSL)
 file(READ "${_glim_wgsl_dir}/blur.wgsl" GLIM_BLUR_WGSL)
@@ -55,6 +57,7 @@ set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${_glim_shader_dir}/solid.metal"
     "${_glim_shader_dir}/blit.metal"
+    "${_glim_shader_dir}/blit_linear.metal"
     "${_glim_shader_dir}/rounded.metal"
     "${_glim_shader_dir}/glyph.metal"
     "${_glim_shader_dir}/blur.metal"
@@ -64,6 +67,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/vendor/inter/Inter-Latin.ttf")
 file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
 file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
+file(READ "${_glim_shader_dir}/blit_linear.metal" GLIM_BLIT_LINEAR_METAL)
 file(READ "${_glim_shader_dir}/rounded.metal" GLIM_ROUNDED_METAL)
 file(READ "${_glim_shader_dir}/glyph.metal" GLIM_GLYPH_METAL)
 file(READ "${_glim_shader_dir}/blur.metal" GLIM_BLUR_METAL)

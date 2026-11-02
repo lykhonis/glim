@@ -1,5 +1,7 @@
 #include "Strip.h"
 
+#include <glim/paint/ColorSpace.h>
+
 #include <algorithm>
 #include <cmath>
 
@@ -123,7 +125,7 @@ void flattenCoverage(int x0, int y0, int x1, int y1, std::vector<Strip>& out, Co
 }
 
 BlitQuad toBlitQuad(const Blit& b) {
-  const Vec4 p = b.matter.color.premul();
+  const Vec4 p = premulLinear(b.matter.color);
   BlitQuad q;
   q.x = b.rect.origin.x;
   q.y = b.rect.origin.y;
@@ -143,7 +145,7 @@ BlitQuad toBlitQuad(const Blit& b) {
 }
 
 void appendGlyphs(std::vector<BlitQuad>& blits, const GlyphRun& run) {
-  const Vec4 p = run.color.premul();
+  const Vec4 p = premulLinear(run.color);
   for (const GlyphQuad& g : run.glyphs) {
     BlitQuad q;
     q.x = g.dest.origin.x;
@@ -280,7 +282,10 @@ float roundedCoverage(const Rect& rect, Radius radius, float px, float py) {
   const float ox = std::max(qx, 0.f);
   const float oy = std::max(qy, 0.f);
   const float outside = std::hypot(ox, oy) + std::min(std::max(qx, qy), 0.f) - r;
-  const float aa = 0.5f - outside;
+  // Half-pixel ramp: edge transitions over 0.5 logical px (one
+  // device px at 2x) instead of a full logical px, so corners and
+  // hairlines read crisp. Same factor in all GPU rounded shaders.
+  const float aa = 0.5f - outside * 2.0f;
   if (aa <= 0.f) {
     return 0.f;
   }
@@ -527,7 +532,7 @@ void appendGradientQuad(
   q.stopCount = static_cast<std::uint8_t>(m.gradientStopCount);
   for (int i = 0; i < m.gradientStopCount; ++i) {
     const GradientStop& s = m.gradientStops[i];
-    const Vec4 p = s.color.premul();
+    const Vec4 p = premulLinear(s.color);
     q.offsets[i] = s.offset;
     q.r[i] = p.x;
     q.g[i] = p.y;
@@ -578,7 +583,7 @@ void appendShape(
       return;
     }
     if (!clip.active) {
-      const Vec4 p = f->matter.color.premul();
+      const Vec4 p = premulLinear(f->matter.color);
       Quad q;
       q.x = f->rect.origin.x;
       q.y = f->rect.origin.y;
@@ -594,7 +599,7 @@ void appendShape(
     std::vector<Strip> strips;
     flattenRounded(f->rect, Radius{}, strips);
     clipStrips(strips, clip);
-    stripsToQuads(strips, f->matter.color.premul(), quads);
+    stripsToQuads(strips, premulLinear(f->matter.color), quads);
   } else if (const auto* r = std::get_if<FillRounded>(&shape)) {
     if (r->matter.isGradient()) {
       std::vector<Strip> strips;
@@ -606,7 +611,7 @@ void appendShape(
     std::vector<Strip> strips;
     flattenRounded(r->rect, r->radius, strips);
     clipStrips(strips, clip);
-    stripsToQuads(strips, r->matter.color.premul(), quads);
+    stripsToQuads(strips, premulLinear(r->matter.color), quads);
   } else if (const auto* s = std::get_if<Stroke>(&shape)) {
     if (s->matter.isGradient()) {
       std::vector<Strip> strips;
@@ -618,7 +623,7 @@ void appendShape(
     std::vector<Strip> strips;
     flattenStroke(s->rect, s->radius, s->width, strips);
     clipStrips(strips, clip);
-    stripsToQuads(strips, s->matter.color.premul(), quads);
+    stripsToQuads(strips, premulLinear(s->matter.color), quads);
   } else if (const auto* b = std::get_if<Blit>(&shape)) {
     if (clip.active && (clip.rect.size.x <= 0.f || clip.rect.size.y <= 0.f)) {
       return;

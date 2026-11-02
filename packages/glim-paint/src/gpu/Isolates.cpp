@@ -314,7 +314,7 @@ void blitTexture(
   blit.extra[1] = g;
   blit.extra[2] = b;
   blit.extra[3] = a;
-  p.setPipeline(pipes.blit);
+  p.setPipeline(pipes.blitLinear);
   p.setBytes(0, &blit, sizeof(blit));
   p.setFragmentTexture(0, src);
   p.setFragmentSampler(0, sampler);
@@ -446,7 +446,7 @@ void* snapshotBackdrop(
   blit.extra[1] = 1.f;
   blit.extra[2] = 1.f;
   blit.extra[3] = 1.f;
-  dp.setPipeline(pipes.blit);
+  dp.setPipeline(pipes.blitLinear);
   dp.setBytes(0, &blit, sizeof(blit));
   dp.setFragmentTexture(0, src);
   dp.setFragmentSampler(0, sampler);

@@ -6,6 +6,20 @@
 
 namespace glim::paint {
 
+void Overlay::setAvoid(const Rect* rects, int count) {
+  avoidCount_ = 0;
+  if (!rects || count <= 0) {
+    return;
+  }
+  if (count > kMaxAvoid) {
+    count = kMaxAvoid;
+  }
+  for (int i = 0; i < count; ++i) {
+    avoid_[i] = rects[i];
+  }
+  avoidCount_ = count;
+}
+
 void Overlay::tick(float dtSeconds) {
   if (!started_) {
     started_ = true;
@@ -28,6 +42,16 @@ void Overlay::tick(float dtSeconds) {
     windowFrames_ = 0;
   } else if (fps_ <= 0.f) {
     fps_ = 1.f / dtSeconds;
+  }
+  // Snapshot throttle (paint policy, not harness policy): stats text
+  // promotes at 2 Hz so consecutive records are bit-identical and the
+  // reuse hash stays stable between promotions. setStats only stages
+  // pending; the display lags one snapshot by design (debug HUD).
+  statsAge_ += dtSeconds;
+  while (statsAge_ >= kStatsInterval) {
+    statsDisplayed_ = statsPending_;
+    statsAge_ -= kStatsInterval;
+    statsChanged_ = true;
   }
 }
 
@@ -67,9 +91,38 @@ void Overlay::record(Context& context, Rect safeArea) {
     const TextSize m = context.measureText(line, kRowPx);
     const float chipW = (m.width > 0.f ? m.width : 120.f) + kPad * 2.f;
     const float chipH = kRowPx + kPad;
+    // Native seats composite above the scene, so a scrolled field can
+    // cover the default top-left chip. Walk TL→TR→BL→BR and take the
+    // first corner with no seat under it.
+    const float height = size.y > 0.f ? size.y : safeArea.size.y;
+    const Vec2 spots[4] = {
+        {kPad, y0 + kPad},
+        {width - kPad - chipW, y0 + kPad},
+        {kPad, y0 + height - kPad - chipH},
+        {width - kPad - chipW, y0 + height - kPad - chipH},
+    };
+    Vec2 at = spots[0];
+    for (const Vec2& s : spots) {
+      const Rect chip{s, {chipW, chipH}};
+      bool hit = false;
+      for (int i = 0; i < avoidCount_; ++i) {
+        const Rect& a = avoid_[i];
+        const float mgn = 4.f;
+        if (s.x < a.origin.x + a.size.x + mgn && s.x + chipW + mgn > a.origin.x &&
+            s.y < a.origin.y + a.size.y + mgn && s.y + chipH + mgn > a.origin.y) {
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) {
+        at = s;
+        break;
+      }
+    }
     context.setFillColor(0x0d1117b3);
-    context.fillRounded({{kPad, y0 + kPad}, {chipW, chipH}}, Radius{8.f});
-    drawText(context, {kPad * 2.f, y0 + kPad + (chipH - kRowPx) * 0.5f}, line, kRowPx, kWhite);
+    context.fillRounded({at, {chipW, chipH}}, Radius{8.f});
+    drawText(context, {at.x + kPad, at.y + (chipH - kRowPx) * 0.5f}, line, kRowPx, kWhite);
+    statsChanged_ = false;
     return;
   }
   const int rows = 13;
@@ -90,16 +143,16 @@ void Overlay::record(Context& context, Rect safeArea) {
   };
   row("FPS %d", fpsI);
   row("frame %.1f ms", static_cast<double>(lastFrameMs_));
-  row("encode %.1f ms", static_cast<double>(stats_.encodeMs));
+  row("encode %.1f ms", static_cast<double>(statsDisplayed_.encodeMs));
   row2("size %.0f x %.0f", static_cast<double>(size.x), static_cast<double>(size.y));
-  row("draws %u", stats_.draws);
-  row("instances %u", stats_.instances);
-  row("isolates %u", stats_.isolateCount);
-  row("merged %u", stats_.mergedGroupCount);
-  row2("tiles %u (dirty %u)", stats_.tileCount, stats_.dirtyTiles);
-  row("backdrop %u", stats_.backdropCount);
-  row2("glass %u x %u pills", stats_.glassPassCount, stats_.glassPillCount);
-  row2("reuse %u / %u miss", stats_.reuseHits, stats_.reuseMisses);
+  row("draws %u", statsDisplayed_.draws);
+  row("instances %u", statsDisplayed_.instances);
+  row("isolates %u", statsDisplayed_.isolateCount);
+  row("merged %u", statsDisplayed_.mergedGroupCount);
+  row2("tiles %u (dirty %u)", statsDisplayed_.tileCount, statsDisplayed_.dirtyTiles);
+  row("backdrop %u", statsDisplayed_.backdropCount);
+  row2("glass %u x %u pills", statsDisplayed_.glassPassCount, statsDisplayed_.glassPillCount);
+  row2("reuse %u / %u miss", statsDisplayed_.reuseHits, statsDisplayed_.reuseMisses);
   std::snprintf(
       line,
       sizeof(line),
@@ -124,6 +177,7 @@ void Overlay::record(Context& context, Rect safeArea) {
       context.fill({{kPad + static_cast<float>(i) * bar, y + kSparkH - h}, {bar, h}});
     }
   }
+  statsChanged_ = false;
 }
 
 }  // namespace glim::paint

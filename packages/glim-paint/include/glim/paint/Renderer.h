@@ -75,6 +75,7 @@ class Renderer {
     gpu::Pipeline solid{};
     gpu::Pipeline rounded{};
     gpu::Pipeline blit{};
+    gpu::Pipeline blitLinear{};
     gpu::Pipeline glyph{};
     gpu::Pipeline blur{};
     gpu::Pipeline blur1d{};

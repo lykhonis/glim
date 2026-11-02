@@ -1,4 +1,5 @@
 #include <glim/assert.h>
+#include <glim/paint/ColorSpace.h>
 #include <glim/paint/Renderer.h>
 #include <glim/paint/Reuse.h>
 
@@ -287,7 +288,7 @@ void Renderer::encodeGroup(
             inst.radii[1] = radius->rt;
             inst.radii[2] = radius->lb;
             inst.radii[3] = radius->rb;
-            const Vec4 premul = matter->color.premul();
+            const Vec4 premul = premulLinear(matter->color);
             inst.color[0] = premul.x;
             inst.color[1] = premul.y;
             inst.color[2] = premul.z;
@@ -324,7 +325,7 @@ void Renderer::encodeGroup(
           return;
         }
         if (!clip.active) {
-          const Vec4 p = fill->matter.color.premul();
+          const Vec4 p = premulLinear(fill->matter.color);
           Quad q;
           q.x = fill->rect.origin.x;
           q.y = fill->rect.origin.y;
@@ -610,7 +611,7 @@ void Renderer::encodeGroup(
                 pills,
                 n
             );
-            gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blit);
+            gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blitLinear);
             gp.setBytes(0, &back, sizeof(back));
             gp.setFragmentBytes(0, &back, sizeof(back));
             gp.setFragmentTexture(0, backdropTex);
@@ -719,7 +720,7 @@ void Renderer::encodeGroup(
                 shadowTex = blurred;
               }
             }
-            const Vec4 tint = sb.color.premul();
+            const Vec4 tint = premulLinear(sb.color);
             BlitInstance sh{};
             sh.rect[0] = dest.origin.x + sb.offset.x;
             sh.rect[1] = dest.origin.y + sb.offset.y;
@@ -733,7 +734,7 @@ void Renderer::encodeGroup(
             sh.extra[1] = tint.y;
             sh.extra[2] = tint.z;
             sh.extra[3] = tint.w;
-            pass.setPipeline(pipes_.blit);
+            pass.setPipeline(pipes_.blitLinear);
             pass.setBytes(0, &sh, sizeof(sh));
             pass.setFragmentTexture(0, shadowTex);
             pass.setFragmentSampler(0, device_.nativeSampler());
@@ -755,7 +756,7 @@ void Renderer::encodeGroup(
           blit.extra[1] = child->params.opacity;
           blit.extra[2] = child->params.opacity;
           blit.extra[3] = child->params.opacity;
-          pass.setPipeline(pipes_.blit);
+          pass.setPipeline(pipes_.blitLinear);
           pass.setBytes(0, &blit, sizeof(blit));
           pass.setFragmentTexture(0, ft->native());
           pass.setFragmentSampler(0, device_.nativeSampler());

@@ -1,4 +1,5 @@
 #include <glim/assert.h>
+#include <glim/paint/ColorSpace.h>
 #include <glim/paint/Software.h>
 
 #include <algorithm>
@@ -308,7 +309,6 @@ void blitImage(
   const float du = b.matter.uv.size.x;
   const float dv = b.matter.uv.size.y;
   const float iw = static_cast<float>(img->width);
-  const float ih = static_cast<float>(img->height);
   const float texelsPerPx = b.rect.size.x > 1e-6f ? (std::fabs(du) * iw) / b.rect.size.x : 1.f;
   const float aa = std::max(
       0.03f,
@@ -338,9 +338,10 @@ void blitImage(
         const float a = t * t * (3.f - 2.f * t);
         src = {tint.x * a, tint.y * a, tint.z * a, tint.w * a};
       } else {
-        const float r = sampleChannel(*img, u, v, 0);
-        const float g = sampleChannel(*img, u, v, 1);
-        const float b = sampleChannel(*img, u, v, 2);
+        // Image bytes are sRGB; the working buffer is linear.
+        const float r = srgbToLinear(sampleChannel(*img, u, v, 0));
+        const float g = srgbToLinear(sampleChannel(*img, u, v, 1));
+        const float b = srgbToLinear(sampleChannel(*img, u, v, 2));
         const float a = sampleChannel(*img, u, v, 3);
         src = {r, g, b, a};
         src.r *= src.a * tint.x;
@@ -851,14 +852,20 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
     p.b = p.b + (1.f - p.b) * rim;
   } else {
     const bool regular = mat.variant == GlassVariant::Regular;
-    const float milk = regular ? 0.22f : 0.08f;
+    // Milk lift retuned for linear light: 0.04 linear ≈ the old 0.22
+    // sRGB wash (0.008 for Clear). Same look, correct space.
+    const float milk = regular ? 0.04f : 0.008f;
     p.r = p.r + (1.f - p.r) * milk;
     p.g = p.g + (1.f - p.g) * milk;
     p.b = p.b + (1.f - p.b) * milk;
     const float ta = mat.tint.alpha() * 0.12f;
-    p.r = p.r + (mat.tint.red() - p.r) * ta;
-    p.g = p.g + (mat.tint.green() - p.g) * ta;
-    p.b = p.b + (mat.tint.blue() - p.b) * ta;
+    // Plate is linear; convert the sRGB tint constants to match.
+    const float tr = srgbToLinear(mat.tint.red());
+    const float tg = srgbToLinear(mat.tint.green());
+    const float tb = srgbToLinear(mat.tint.blue());
+    p.r = p.r + (tr - p.r) * ta;
+    p.g = p.g + (tg - p.g) * ta;
+    p.b = p.b + (tb - p.b) * ta;
     if (mask > 0.85f && f.d > -5.f) {
       const float inside = std::max(-f.d, 0.f);
       const float hair = std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f);
@@ -1067,7 +1074,9 @@ void paintShapes(
         const Shape xf = transformShape(world, s);
         const Blend blend = g.params.blend;
         if (const auto* blit = std::get_if<Blit>(&xf)) {
-          blitImage(dest, w, h, *blit, images, blit->matter.color.premul(), clip, false, blend);
+          blitImage(
+              dest, w, h, *blit, images, premulLinear(blit->matter.color), clip, false, blend
+          );
           return;
         }
         if (std::get_if<SlotHole>(&xf)) {
@@ -1214,7 +1223,7 @@ void rasterGroup(
       }
       if (shadow && g.params.shadow.has_value()) {
         const ShadowBlur& sb = *g.params.shadow;
-        const Vec4 tint = sb.color.premul();
+        const Vec4 tint = premulLinear(sb.color);
         std::vector<Pixel> sh(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
         for (std::size_t i = 0; i < card.size() && i < sh.size(); ++i) {
           const float a = card[i].a;
@@ -1346,7 +1355,7 @@ void rasterIsolate(
       blurCheap(card, iso.contentW, iso.contentH, iso.contentSigma * pixelRatio * 0.5f);
     }
     if (iso.hasShadow) {
-      const Vec4 tint = iso.shadow.color.premul();
+      const Vec4 tint = premulLinear(iso.shadow.color);
       std::vector<Pixel> sh(
           static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
       );
@@ -1395,10 +1404,11 @@ void rasterIsolate(
 
 void toRgba(const std::vector<Pixel>& buf, std::uint8_t* rgba) {
   for (std::size_t i = 0; i < buf.size(); ++i) {
-    rgba[i * 4 + 0] = static_cast<std::uint8_t>(std::round(std::min(1.f, buf[i].r) * 255.f));
-    rgba[i * 4 + 1] = static_cast<std::uint8_t>(std::round(std::min(1.f, buf[i].g) * 255.f));
-    rgba[i * 4 + 2] = static_cast<std::uint8_t>(std::round(std::min(1.f, buf[i].b) * 255.f));
-    rgba[i * 4 + 3] = static_cast<std::uint8_t>(std::round(std::min(1.f, buf[i].a) * 255.f));
+    // Working buffer is linear; encode once at the edge.
+    rgba[i * 4 + 0] = static_cast<std::uint8_t>(std::round(linearToSrgb(buf[i].r) * 255.f));
+    rgba[i * 4 + 1] = static_cast<std::uint8_t>(std::round(linearToSrgb(buf[i].g) * 255.f));
+    rgba[i * 4 + 2] = static_cast<std::uint8_t>(std::round(linearToSrgb(buf[i].b) * 255.f));
+    rgba[i * 4 + 3] = static_cast<std::uint8_t>(std::round(std::clamp(buf[i].a, 0.f, 1.f) * 255.f));
   }
 }
 

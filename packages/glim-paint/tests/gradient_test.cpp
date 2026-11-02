@@ -147,9 +147,12 @@ int main() {
     std::vector<std::uint8_t> px(100 * 10 * 4, 0);
     rasterScene(ctx.scene(), 100, 10, px.data());
     const auto at = [&](int x) -> float { return static_cast<float>(px[(5 * 100 + x) * 4]); };
-    expect(at(1) < 8.f, "left edge near black");
+    // Linear lift-off: 1.5% light encodes to ~33 sRGB, not ~4.
+    expect(at(1) < 40.f, "left edge near black");
     expect(at(98) > 247.f, "right edge near white");
-    expect(near(at(50), 127.5f, 3.f), "middle near half gray");
+    // Linear working space: the ramp interpolates in linear light,
+    // so the sRGB-encoded midpoint is ~188, not gamma-127.
+    expect(near(at(50), 188.f, 4.f), "middle near linear-half");
   }
 
   // 6. CPU: radial red->blue disc.
@@ -172,7 +175,7 @@ int main() {
     const auto blue = [&](int x, int y) -> float {
       return static_cast<float>(px[(y * 100 + x) * 4 + 2]);
     };
-    expect(red(50, 50) > 247.f && blue(50, 50) < 8.f, "center is red");
+    expect(red(50, 50) > 247.f && blue(50, 50) < 40.f, "center is red");
     expect(blue(50, 95) > 247.f && red(50, 95) < 8.f, "rim clamps to blue");
   }
 

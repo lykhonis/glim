@@ -38,6 +38,9 @@ std::string loadShader(const char* name) {
   if (std::strcmp(name, "blit.metal") == 0) {
     return glim::metal_shaders::blit;
   }
+  if (std::strcmp(name, "blit_linear.metal") == 0) {
+    return glim::metal_shaders::blitLinear;
+  }
   if (std::strcmp(name, "rounded.metal") == 0) {
     return glim::metal_shaders::rounded;
   }
@@ -72,6 +75,9 @@ const char* webgpuSource(const char* name) {
   if (std::strcmp(name, "blit") == 0) {
     return glim::webgpu_shaders::blit;
   }
+  if (std::strcmp(name, "blit_linear") == 0) {
+    return glim::webgpu_shaders::blitLinear;
+  }
   if (std::strcmp(name, "rounded") == 0) {
     return glim::webgpu_shaders::rounded;
   }
@@ -105,6 +111,13 @@ auto makeVertex(gpu::Device& device, const char* name) {
         gpu::ShaderStage::Vertex,
         reinterpret_cast<const char*>(glim::vulkan_shaders::blit_vert),
         sizeof(glim::vulkan_shaders::blit_vert)
+    );
+  }
+  if (std::strcmp(name, "blit_linear") == 0) {
+    return device.createShader(
+        gpu::ShaderStage::Vertex,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_linear_vert),
+        sizeof(glim::vulkan_shaders::blit_linear_vert)
     );
   }
   if (std::strcmp(name, "rounded") == 0) {
@@ -172,6 +185,13 @@ auto makeFragment(gpu::Device& device, const char* name) {
         sizeof(glim::vulkan_shaders::blit_frag)
     );
   }
+  if (std::strcmp(name, "blit_linear") == 0) {
+    return device.createShader(
+        gpu::ShaderStage::Fragment,
+        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_linear_frag),
+        sizeof(glim::vulkan_shaders::blit_linear_frag)
+    );
+  }
   if (std::strcmp(name, "rounded") == 0) {
     return device.createShader(
         gpu::ShaderStage::Fragment,
@@ -236,6 +256,7 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
   } entries[] = {
       {"solid", true, &solid},
       {"blit", true, &blit},
+      {"blit_linear", true, &blitLinear},
       {"rounded", false, &rounded},
       {"glyph", true, &glyph},
       {"blur", true, &blur},
@@ -250,7 +271,7 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
     bool vsOk = false;
     bool fsOk = false;
   };
-  Cached cached[8]{};
+  Cached cached[9]{};
   for (std::size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); ++i) {
     const Entry& e = entries[i];
     auto vs = makeVertex(device, e.name);

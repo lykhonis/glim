@@ -75,6 +75,43 @@ int main() {
   expect(hasFill, "panel fill");
   expect(hasGlyphs, "latin glyph runs");
 
+  // Avoid: a seat over the default corner pushes the chip away.
+  {
+    glim::paint::Overlay dodged;
+    dodged.setEnabled(true);
+    glim::Rect seat{{0.f, 0.f}, {200.f, 60.f}};
+    dodged.setAvoid(&seat, 1);
+    glim::paint::Context dodgeCtx;
+    dodgeCtx.setSize({200, 120});
+    dodgeCtx.beginFrame();
+    dodged.record(dodgeCtx, glim::Rect::fromSize({200.f, 120.f}));
+    dodgeCtx.finish();
+    float chipY = -1.f;
+    for (const glim::paint::Shape& s : dodgeCtx.scene().root.shapes) {
+      if (const auto* r = std::get_if<glim::paint::FillRounded>(&s)) {
+        chipY = r->rect.origin.y;
+        break;
+      }
+    }
+    expect(chipY > 60.f, "chip dodges below the seat");
+  }
+
+  {
+    glim::paint::Overlay gated;
+    gated.setEnabled(true);
+    expect(gated.statsDirty(), "fresh overlay is dirty (first paint)");
+    glim::paint::Context gatedCtx;
+    gatedCtx.setSize({200, 120});
+    gatedCtx.beginFrame();
+    gated.record(gatedCtx, glim::Rect::fromSize({200.f, 120.f}));
+    gatedCtx.finish();
+    expect(!gated.statsDirty(), "record clears snapshot flag");
+    gated.tick(0.1f);
+    expect(!gated.statsDirty(), "no promotion inside interval");
+    gated.tick(0.5f);
+    expect(gated.statsDirty(), "promotion at interval marks dirty");
+  }
+
   if (failures != 0) {
     std::cerr << failures << " overlay tests failed\n";
     return EXIT_FAILURE;

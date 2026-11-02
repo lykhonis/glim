@@ -1,3 +1,4 @@
+#include <glim/paint/ColorSpace.h>
 #include <glim/paint/Renderer.h>
 
 #include <algorithm>
@@ -337,7 +338,7 @@ void Renderer::submitLayer(
               blit.uv[2] = 1.f;
               blit.uv[3] = 1.f;
               blit.extra[0] = blit.extra[1] = blit.extra[2] = blit.extra[3] = 1.f;
-              dp.setPipeline(pipes_.blit);
+              dp.setPipeline(pipes_.blitLinear);
               dp.setBytes(0, &blit, sizeof(blit));
               dp.setFragmentTexture(0, src);
               dp.setFragmentSampler(0, device_.nativeSampler());
@@ -386,7 +387,7 @@ void Renderer::submitLayer(
             iso.backdropPills.empty() ? nullptr : iso.backdropPills.data(),
             static_cast<int>(iso.backdropPills.size())
         );
-        gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blit);
+        gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blitLinear);
         gp.setBytes(0, &back, sizeof(back));
         gp.setFragmentBytes(0, &back, sizeof(back));
         gp.setFragmentTexture(0, targets_.backdrop.native());
@@ -491,7 +492,7 @@ void Renderer::submitLayer(
           shadowTex = blurred;
         }
       }
-      const Vec4 tint = iso.shadow.color.premul();
+      const Vec4 tint = premulLinear(iso.shadow.color);
       BlitInstance sh{};
       sh.rect[0] = iso.destX + iso.shadow.offset.x;
       sh.rect[1] = iso.destY + iso.shadow.offset.y;
@@ -505,7 +506,7 @@ void Renderer::submitLayer(
       sh.extra[1] = tint.y;
       sh.extra[2] = tint.z;
       sh.extra[3] = tint.w;
-      pass.setPipeline(pipes_.blit);
+      pass.setPipeline(pipes_.blitLinear);
       pass.setBytes(0, &sh, sizeof(sh));
       pass.setFragmentTexture(0, shadowTex);
       pass.setFragmentSampler(0, device_.nativeSampler());
@@ -527,7 +528,7 @@ void Renderer::submitLayer(
     blit.extra[1] = iso.opacity;
     blit.extra[2] = iso.opacity;
     blit.extra[3] = iso.opacity;
-    pass.setPipeline(pipes_.blit);
+    pass.setPipeline(pipes_.blitLinear);
     pass.setBytes(0, &blit, sizeof(blit));
     pass.setFragmentTexture(0, ft->native());
     pass.setFragmentSampler(0, device_.nativeSampler());
