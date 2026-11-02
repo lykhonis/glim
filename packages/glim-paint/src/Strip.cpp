@@ -282,10 +282,12 @@ float roundedCoverage(const Rect& rect, Radius radius, float px, float py) {
   const float ox = std::max(qx, 0.f);
   const float oy = std::max(qy, 0.f);
   const float outside = std::hypot(ox, oy) + std::min(std::max(qx, qy), 0.f) - r;
-  // Half-pixel ramp: edge transitions over 0.5 logical px (one
-  // device px at 2x) instead of a full logical px, so corners and
-  // hairlines read crisp. Same factor in all GPU rounded shaders.
-  const float aa = 0.5f - outside * 2.0f;
+  // Full-pixel ramp: for straight edges 0.5 - outside IS the exact
+  // area fraction, matching the CPU tile overlap in fillQuad. A
+  // sharper ramp desyncs CPU/GPU on every fractional edge (the tiles
+  // stay exact-area), so crispness must come from device pixels, not
+  // from narrowing this ramp. Same factor in all GPU rounded shaders.
+  const float aa = 0.5f - outside;
   if (aa <= 0.f) {
     return 0.f;
   }

@@ -23,8 +23,11 @@ float coverageAt(vec2 p, vec4 rect, vec4 radii) {
     }
     const vec2 d = abs(q) - b + vec2(r);
     const float outside = length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0) - r;
-    // Half-pixel ramp (see Strip.cpp): crisp edges, still antialiased.
-    return clamp(0.5 - outside * 2.0, 0.0, 1.0);
+    // Full-pixel ramp: for straight edges this is the exact area
+    // fraction, matching CPU tile overlap (see Strip.cpp). Do NOT
+    // sharpen: a narrower ramp desyncs GPU from CPU on fractional
+    // edges.
+    return clamp(0.5 - outside, 0.0, 1.0);
 }
 
 void main() {
