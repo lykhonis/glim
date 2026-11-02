@@ -64,23 +64,89 @@ struct ContextSink {
     const std::string& k = en.kind;
     if (k == "Button" || k == "Button.primary") {
       bool primary = (k == "Button.primary");
-      fillRounded(
-          en.box,
-          Tokens::kButtonRadius,
-          primary ? Tokens::kButtonPrimaryFill : Tokens::kButtonFill
-      );
+      if (primary) {
+        ::glim::paint::GradientStop stops[2] = {
+            {0.0f, ::glim::Color{Tokens::kButtonPrimaryTop}},
+            {1.0f, ::glim::Color{Tokens::kButtonPrimaryBottom}},
+        };
+        ctx.setFill(::glim::paint::Matter::linearGradient(
+            {en.box.x, en.box.y},
+            {en.box.x, en.box.y + en.box.h},
+            stops,
+            2
+        ));
+        ctx.fillRounded(
+            toRect(en.box),
+            Radius{static_cast<float>(Tokens::kButtonRadius)}
+        );
+      } else {
+        fillRounded(en.box, Tokens::kButtonRadius, Tokens::kButtonFill);
+      }
       text(
           en.box.x + static_cast<float>(Tokens::kButtonPadH),
           en.box.y + (en.box.h - Tokens::kTypeLine) * 0.5f,
           en.text,
-          primary ? Tokens::kInkOnDark : Tokens::kInkOnLight
+          Tokens::kInkOnLight
       );
     } else if (k == "Card") {
       fillRounded(en.box, en.radius, Tokens::kCardFill);
+      stroke(en.box, en.radius, 1.0f, Tokens::kCardStroke);
     } else if (k == "Lines") {
       text(en.box.x, en.box.y, en.text, Tokens::kInkOnLight);
+    } else if (k == "Lines.dim") {
+      text(en.box.x, en.box.y, en.text, Tokens::kInkSecondary);
     } else if (k == "Video") {
       blitVideo(en.box, feed);
+    } else if (k == "Switch") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Switch.on") {
+      fillRounded(en.box, en.radius, Tokens::kAccent);
+    } else if (k == "Switch.thumb") {
+      fillRounded(en.box, en.radius, Tokens::kInkOnLight);
+    } else if (k == "Check") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+      Box inner{
+          en.box.x + 3.0f,
+          en.box.y + 3.0f,
+          en.box.w - 6.0f,
+          en.box.h - 6.0f
+      };
+      fillRounded(inner, en.radius - 3, Tokens::kWindowBg);
+    } else if (k == "Check.on") {
+      fillRounded(en.box, en.radius, Tokens::kAccent);
+    } else if (k == "Seg") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Seg.active") {
+      fillRounded(en.box, en.radius, Tokens::kButtonFill);
+    } else if (k == "Slide") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Slide.fill") {
+      if (en.box.w > 0.5f)
+        fillRounded(en.box, en.radius, Tokens::kAccent);
+    } else if (k == "Slide.thumb") {
+      fillRounded(en.box, en.radius, Tokens::kInkOnLight);
+    } else if (k == "Dot") {
+      fillRounded(en.box, en.radius, Tokens::kInkOnLight);
+    } else if (k == "Dot.bg") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Ring") {
+      stroke(en.box, en.radius, 2.0f, Tokens::kInkOnLight);
+    } else if (k == "Bar") {
+      fillRounded(en.box, en.radius, Tokens::kInkOnLight);
+    } else if (k == "Bar.bg") {
+      fillRounded(en.box, en.radius, Tokens::kCardFill);
+    } else if (k == "Hairline") {
+      fill(en.box, Tokens::kHairline);
+    } else if (k == "Display") {
+      text(
+          en.box.x,
+          en.box.y + (en.box.h - Tokens::kTypeDisplay) * 0.5f,
+          en.text,
+          Tokens::kInkOnLight,
+          Tokens::kTypeDisplay
+      );
+    } else if (k == "Tile") {
+      fillRounded(en.box, en.radius, Tokens::kButtonFill);
     }
   }
   void blitVideo(const Box& b, VideoFeed& feed) {
@@ -98,10 +164,18 @@ struct ContextSink {
     ctx.fillRounded(toRect(b), Radius{static_cast<float>(radius)});
   }
   void text(
-      float x, float y, const std::string& s, std::uint32_t rgba
+      float x,
+      float y,
+      const std::string& s,
+      std::uint32_t rgba,
+      float size = Tokens::kTypeLine
   ) {
+    // y is the TOP of the line box; Context::text takes a BASELINE
+    // origin (Overlay::drawText adds ascent for the same reason).
+    // Without this every label sits one ascent too high.
+    ::glim::paint::TextSize m = ctx.measureText(s.c_str(), size);
     ctx.setFillColor(rgba);
-    ctx.text({x, y}, s.c_str(), Tokens::kTypeLine);
+    ctx.text({x, y + m.ascent}, s.c_str(), size);
   }
   void blit(const Box& b, std::uint32_t imageId, bool foreign) {
     ctx.blit(

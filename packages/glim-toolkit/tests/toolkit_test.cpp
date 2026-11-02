@@ -20,6 +20,8 @@ static_assert(has_kind<Seat>::value, "");
 static_assert(!has_record<Seat>::value, "");
 static_assert(has_inner_box<Tap>::value, "");
 static_assert(!has_inner_box<Row>::value, "");
+static_assert(!has_handle_at<Tap>::value, "");
+static_assert(!has_handle_at<Row>::value, "");
 
 namespace glim {
 namespace toolkit {
@@ -116,6 +118,23 @@ glim::toolkit::Block myRadial(glim::toolkit::State<int> sel, As&&... as) {
   return finish(std::move(m), std::forward<As>(as)...);
 }
 
+// handleAt peer: records the laid-out box dispatch hands it (test
+// capture only — production elements never mutate in handlers).
+struct AtBox {
+  const char* kind() const { return "AtBox"; }
+  mutable Box seen{0, 0, 0, 0};
+  Box place(Constraints c, const Engine&) const {
+    return glim::toolkit::detail::resolveSize(50.0f, 20.0f, c);
+  }
+  bool handleAt(const Box& b, const Event& ev) const {
+    if (ev.is<PointerDown>()) {
+      seen = b;
+      return true;
+    }
+    return false;
+  }
+};
+
 }  // namespace
 
 int main() {
@@ -155,6 +174,13 @@ int main() {
   assert(mm && mm->gap == 8 && mm->radius == 6 && mm->children.size() == 2);
   Box mb = place(m, {0, 720, 0, 480});
   assert(mb.w > 0 && mb.h > 0);
+  // Fallback metrics: headless (no Measurer in env) measures the
+  // fixed advance — deterministic, and the golden binary proves the
+  // real path.
+  {
+    Box fb3 = place(lines("MMM"), {0, 720, 0, 480});
+    assert(fb3.w == 24 && fb3.h == 14);
+  }
   // Custom children are transparent to focus: the tap inside Radial is found.
   assert(focusables(m, mb).size() == 1);
 
@@ -174,6 +200,17 @@ int main() {
     assert(
         dispatchPointer(m, mb, tb.x + 1, tb.y + 1, Event::borrow(PointerDown{tb.x + 1, tb.y + 1}))
     );
+  }
+
+  // handleAt receives the node's laid-out box: tapping inside the
+  // 50x20 peer reports the placed box back.
+  {
+    Block ab = toBlock(AtBox{});
+    Box abox = place(ab, {0, 720, 0, 480});
+    assert(dispatchPointer(ab, abox, 11, 6, Event::borrow(PointerDown{11, 6})));
+    const AtBox* ap = ab.get<Custom>()->as<AtBox>();
+    assert(ap && ap->seen.x == abox.x && ap->seen.y == abox.y);
+    assert(ap->seen.w == 50 && ap->seen.h == 20);
   }
 
   // expand splits the remainder equally: 4 expanded in 720 with gap 8
@@ -275,6 +312,27 @@ int main() {
   assert(pp && pp->padH == 6 && pp->padV == 2);
   Box pb = place(p, {0, 720, 0, 480});
   assert(pb.w == 16 + 12 && pb.h == 14 + 4);
+
+  // Row/Column pad insets content: layout grows by the inset and
+  // children shift by it (outer screen margin without a painting
+  // Card; zero pad keeps every existing box).
+  {
+    Block pc = column(gap(0), pad(16), lines("ab"));
+    Box pcb = place(pc, {0, 720, 0, 480});
+    assert(pcb.w == 16 + 32 && pcb.h == 14 + 32);
+    const Column* pcp = pc.get<Column>();
+    assert(pcp);
+    Engine e;
+    Box cb0 = pcp->childBox(0, pcb, e);
+    assert(cb0.x == 16 && cb0.y == 16);
+    Block pr = row(gap(0), pad(10, 4), lines("ab"));
+    Box prb = place(pr, {0, 720, 0, 480});
+    assert(prb.w == 16 + 20 && prb.h == 14 + 8);
+    const Row* prp = pr.get<Row>();
+    assert(prp);
+    Box rb0 = prp->childBox(0, prb, e);
+    assert(rb0.x == 10 && rb0.y == 4);
+  }
 
   // Wrap is opt-in: plain Lines spills single-line, wrapped Lines reflows.
   {
@@ -472,6 +530,29 @@ int main() {
     Box ebox = place(empty, {0, 720, 0, 480});
     assert(deliverKey(empty, ebox, 0, Key::Right) == 0);
     assert(deliverKey(empty, ebox, 0, Key::Activate) == 0);
+  }
+
+  // Pointer capture: focusAt maps a point to its focusable; the
+  // captured index routes events anywhere (no re-hit-test), and a
+  // stale index reads false so the caller falls back to hit-testing.
+  {
+    State<int> tapped = store.make<int>(0);
+    Block cap = row(gap(0), tap(lines("a"), [tapped] { tapped = 1; }), tap(lines("b"), [tapped] {
+                      tapped = 2;
+                    }));
+    Box cbox = place(cap, {0, 720, 0, 480});
+    int ai = focusAt(cap, cbox, 1, 1);
+    assert(ai == 0);
+    assert(focusAt(cap, cbox, 500, 400) == -1);
+    // Captured move far outside still routes (true) but a Tap
+    // ignores moves — count unchanged, capture retained.
+    assert(dispatchCaptured(cap, cbox, ai, Event::borrow(PointerMove{500, 400, true})));
+    assert(*tapped == 0);
+    // Captured down activates in place, wherever the pointer now is.
+    assert(dispatchCaptured(cap, cbox, ai, Event::borrow(PointerDown{500, 400})));
+    assert(*tapped == 1);
+    assert(!dispatchCaptured(cap, cbox, 7, Event::borrow(PointerDown{1, 1})));
+    assert(!dispatchCaptured(cap, cbox, -1, Event::borrow(PointerDown{1, 1})));
   }
 
   // Focus ring: expanded overlay box appended last by recordFocusRing.

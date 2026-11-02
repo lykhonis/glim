@@ -16,8 +16,8 @@ struct Lines : WithAlign, WithSemantic, WithWrap {
   static constexpr const char* kKind = "Lines";
   const char* kind() const { return kKind; }
   std::string text;
-  Box place(Constraints c, const Engine&) const {
-    if (!wrap) return detail::measureText(text, c);
+  Box place(Constraints c, const Engine& e) const {
+    if (!wrap) return detail::measureText(text, c, e);
     // Wrapped natural size: full wrap at maxW (unbounded → single line),
     // no ellipsis on the layout pass (overflow spills; Roll re-flows).
     std::vector<std::string> lines = detail::wrapText(text, c.maxW);

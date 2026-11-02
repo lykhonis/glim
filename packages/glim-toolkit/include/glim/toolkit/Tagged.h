@@ -35,6 +35,10 @@ struct Tagged {
   bool handle(const Event& ev) const {
     return inner_.handle(ev);
   }
+  template <class I = Inner, std::enable_if_t<has_handle_at<I>::value, int> = 0>
+  bool handleAt(const Box& box, const Event& ev) const {
+    return inner_.handleAt(box, ev);
+  }
   template <class I = Inner, std::enable_if_t<has_paint<I>::value, int> = 0>
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     inner_.paint(box, sink, e);

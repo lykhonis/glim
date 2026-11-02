@@ -18,6 +18,10 @@ struct PointerUp {
 struct PointerMove {
   float x = 0;
   float y = 0;
+  // Set when the pointer is held (drag) vs hovering. Shells that
+  // cannot tell (touch) set it on every move; hover moves arrive
+  // clear and elements must ignore them.
+  bool pressed = false;
 };
 struct KeyPress {
   Key key = Key::Activate;

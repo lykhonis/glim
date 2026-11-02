@@ -23,8 +23,9 @@ struct Button : WithGap,
   static constexpr const char* kKindPrimary = "Button.primary";
   std::string label;
   Action onTap;
-  Box place(Constraints c, const Engine&) const {
-    Box t = detail::measureText(label, {0, kUnbounded, 0, kUnbounded});
+  Box place(Constraints c, const Engine& e) const {
+    Box t =
+        detail::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
     return detail::resolveSize(
         t.w + static_cast<float>(2 * padH),
         t.h + static_cast<float>(2 * padV),

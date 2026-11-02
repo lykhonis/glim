@@ -8,6 +8,7 @@
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Focus.h"
 #include "glim/toolkit/Layout.h"
+#include "glim/toolkit/Measure.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tagged.h"

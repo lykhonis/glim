@@ -54,13 +54,14 @@ inline bool walkHasChildren(const Block& b) {
 }
 
 // True when the node handles events (duck-typed, no dispatch).
+// Either spelling counts: plain handle or position-aware handleAt.
 inline bool canHandle(const Block& b) {
   if (const Custom* c = b.get<Custom>()) return c->handles();
   bool found = false;
   std::visit(
       [&](const auto& el) {
         using T = std::decay_t<decltype(el)>;
-        if constexpr (has_handle<T>::value) found = true;
+        if constexpr (has_handle<T>::value || has_handle_at<T>::value) found = true;
       },
       b.v
   );

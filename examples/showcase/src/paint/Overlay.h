@@ -19,11 +19,12 @@ void paintShowcaseInto(
     const Box& box,
     S& sink,
     VideoFeed& feed,
-    int focus = 0
+    int focus = 0,
+    const Engine& e = Engine{},
+    bool focusVisible = true
 ) {
-  Engine e;
   paintTree(screen, box, e, sink, feed);
-  paintFocusRing(screen, box, focus, sink);
+  paintFocusRing(screen, box, focus, sink, e, focusVisible);
 }
 
 }  // namespace paint

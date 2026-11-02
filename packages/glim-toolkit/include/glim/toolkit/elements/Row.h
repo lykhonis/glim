@@ -11,22 +11,36 @@
 namespace glim {
 namespace toolkit {
 
-struct Row : WithGap {
+struct Row : WithGap, WithCenter, WithPad {
   static constexpr const char* kKind = "Row";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
   Box place(Constraints c, const Engine& e) const {
-    return detail::flowRow(children, gap, c, e).size;
+    Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
+    detail::Flow f = detail::flowRow(children, gap, ic, e);
+    if (centered) detail::centerRow(f);
+    f.size.w = detail::clampF(f.size.w + static_cast<float>(2 * padH), c.minW, c.maxW);
+    f.size.h = detail::clampF(f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH);
+    return f.size;
   }
   template <class F>
   void eachChild(F&& f) const {
     detail::forEachBlock(children, std::forward<F>(f));
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
-    detail::Flow f = detail::flowRow(children, gap, {0, box.w, 0, box.h}, e);
+    Box inner{
+        box.x + static_cast<float>(padH),
+        box.y + static_cast<float>(padV),
+        box.w - static_cast<float>(2 * padH),
+        box.h - static_cast<float>(2 * padV)
+    };
+    if (inner.w < 0) inner.w = 0;
+    if (inner.h < 0) inner.h = 0;
+    detail::Flow f = detail::flowRow(children, gap, {0, inner.w, 0, inner.h}, e);
+    if (centered) detail::centerRow(f);
     Box b = f.children[i];
-    b.x += box.x;
-    b.y += box.y;
+    b.x += inner.x;
+    b.y += inner.y;
     return b;
   }
 };

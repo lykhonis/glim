@@ -17,8 +17,12 @@ namespace detail {
 
 float clampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-Box measureText(const std::string& text, Constraints c) {
-  return resolveSize(static_cast<float>(text.size()) * Tokens::kTypeAdvance, Tokens::kTypeLine, c);
+Box measureText(const std::string& text, Constraints c, const Engine& e) {
+  float w = static_cast<float>(text.size()) * Tokens::kTypeAdvance;
+  if (const Measurer* m = e.get<Measurer>()) {
+    if (m->measure) w = m->measure(text.c_str(), Tokens::kTypeLine);
+  }
+  return resolveSize(w, Tokens::kTypeLine, c);
 }
 
 std::vector<std::string> wrapText(const std::string& text, float maxW) {
@@ -321,7 +325,10 @@ void Engine::record(const Block& b, const Box& box, Rec& r) const {
 
 Box place(const Block& b, Constraints c) { return Engine{}.place(b, c); }
 
-void record(const Block& b, const Box& box, Rec& r) { Engine{}.record(b, box, r); }
+void record(const Block& b, const Box& box, Rec& r, const Engine& e) {
+  Engine ee = e;
+  ee.record(b, box, r);
+}
 
 namespace {
 
@@ -331,8 +338,7 @@ bool contains(const Box& b, float x, float y) {
 
 }  // namespace
 
-const Block* hit(const Block& b, const Box& box, float x, float y) {
-  Engine e;
+const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
   const Block* found = nullptr;
   int matches = 0;
   struct Claim {
@@ -423,14 +429,48 @@ bool handle(const Block& b, const Event& ev) {
   return consumed;
 }
 
-bool dispatchPointer(const Block& b, const Box& box, float x, float y, const Event& ev) {
-  const Block* t = hit(b, box, x, y);
-  if (!t) return false;
-  return handle(*t, ev);
+bool handleAt(const Block& b, const Box& box, const Event& ev) {
+  if (const auto* c = b.get<Custom>()) return c->handleAt(box, ev);
+  bool consumed = false;
+  std::visit(
+      [&](const auto& el) {
+        using T = std::decay_t<decltype(el)>;
+        if constexpr (has_handle_at<T>::value)
+          consumed = el.handleAt(box, ev);
+        else if constexpr (has_handle<T>::value)
+          consumed = el.handle(ev);
+      },
+      b.v
+  );
+  return consumed;
 }
 
-bool broadcastEvent(const Block& b, const Box& box, const Event& ev) {
-  Engine e;
+bool dispatchPointer(
+    const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e
+) {
+  const Block* t = hit(b, box, x, y, e);
+  if (!t) return false;
+  // The hit node is known; its laid-out box is found with one more
+  // walk (pointer identity — the tree outlives this call).
+  Box hitBox{0, 0, 0, 0};
+  bool found = false;
+  walk(
+      b,
+      box,
+      e,
+      [&](const Block& n, const Box& bx) -> bool {
+        if (!found && &n == t) {
+          hitBox = bx;
+          found = true;
+        }
+        return true;
+      },
+      [](const Block&, const Box&) {}
+  );
+  return handleAt(*t, hitBox, ev);
+}
+
+bool broadcastEvent(const Block& b, const Box& box, const Event& ev, const Engine& e) {
   bool consumed = false;
   walk(
       b,
@@ -470,8 +510,7 @@ void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<F
 
 }  // namespace
 
-std::vector<const Block*> focusables(const Block& root, const Box& box) {
-  Engine e;
+std::vector<const Block*> focusables(const Block& root, const Box& box, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   std::vector<const Block*> out;
@@ -479,20 +518,50 @@ std::vector<const Block*> focusables(const Block& root, const Box& box) {
   return out;
 }
 
-Box focusBox(const Block& root, const Box& box, int index) {
-  Engine e;
+Box focusBox(const Block& root, const Box& box, int index, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return {0, 0, 0, 0};
   return found[static_cast<std::size_t>(index)].box;
 }
 
-int deliverKey(const Block& root, const Box& box, int current, Key key) {
-  Engine e;
+int focusAt(const Block& root, const Box& box, float x, float y, const Engine& e) {
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  for (std::size_t i = 0; i < found.size(); ++i) {
+    const Box& b = found[i].box;
+    if (b.x <= x && x < b.x + b.w && b.y <= y && y < b.y + b.h) return static_cast<int>(i);
+  }
+  return -1;
+}
+
+bool dispatchCaptured(
+    const Block& root, const Box& box, int index, const Event& ev, const Engine& e
+) {
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return false;
+  const FocusedBox& f = found[static_cast<std::size_t>(index)];
+  // Unlike dispatchPointer, the return reports routing, not
+  // consumption: a routed-but-ignored move (slider value unchanged)
+  // must NOT read as stale, or slow drags would drop the capture.
+  handleAt(*f.block, f.box, ev);
+  return true;
+}
+
+int deliverKey(const Block& root, const Box& box, int current, Key key, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   if (found.empty()) return 0;
   int n = static_cast<int>(found.size());
+  // Focus-visible entry: Tab from "nothing" lands on the first item
+  // (Shift+Tab on the last), not one past it.
+  if (current < 0) {
+    if (key == Key::Prev) return n - 1;
+    if (key == Key::Next || key == Key::Down || key == Key::Right || key == Key::Up ||
+        key == Key::Left)
+      return 0;
+  }
   int i = current < 0 ? 0 : (current >= n ? n - 1 : current);
   if (key == Key::Activate) {
     handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(Activate{}));
@@ -501,24 +570,23 @@ int deliverKey(const Block& root, const Box& box, int current, Key key) {
   if (handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(KeyPress{key}))) return i;
   switch (key) {
     case Key::Left:
-      return moveFocus(root, box, i, FocusDir::Left);
+      return moveFocus(root, box, i, FocusDir::Left, e);
     case Key::Right:
-      return moveFocus(root, box, i, FocusDir::Right);
+      return moveFocus(root, box, i, FocusDir::Right, e);
     case Key::Up:
-      return moveFocus(root, box, i, FocusDir::Up);
+      return moveFocus(root, box, i, FocusDir::Up, e);
     case Key::Down:
-      return moveFocus(root, box, i, FocusDir::Down);
+      return moveFocus(root, box, i, FocusDir::Down, e);
     case Key::Next:
-      return moveFocus(root, box, i, FocusDir::Next);
+      return moveFocus(root, box, i, FocusDir::Next, e);
     case Key::Prev:
-      return moveFocus(root, box, i, FocusDir::Prev);
+      return moveFocus(root, box, i, FocusDir::Prev, e);
     default:
       return i;
   }
 }
 
-Box focusRingBox(const Block& root, const Box& box, int index, float pad) {
-  Engine e;
+Box focusRingBox(const Block& root, const Box& box, int index, float pad, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return {0, 0, 0, 0};
@@ -526,16 +594,16 @@ Box focusRingBox(const Block& root, const Box& box, int index, float pad) {
   return {b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad};
 }
 
-void recordFocusRing(Rec& rec, const Block& root, const Box& box, int index, float pad) {
-  Engine e;
+void recordFocusRing(
+    Rec& rec, const Block& root, const Box& box, int index, float pad, const Engine& e
+) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return;
-  rec.push(kFocusRingKind, focusRingBox(root, box, index, pad));
+  rec.push(kFocusRingKind, focusRingBox(root, box, index, pad, e));
 }
 
-int moveFocus(const Block& root, const Box& box, int current, FocusDir dir) {
-  Engine e;
+int moveFocus(const Block& root, const Box& box, int current, FocusDir dir, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   if (found.empty()) return 0;

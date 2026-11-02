@@ -35,7 +35,8 @@ void paintShowcaseScene(
     glim::paint::Context& ctx,
     VideoFeed& feed,
     Showcase s,
-    int focus = 0
+    int focus = -1,
+    bool focusVisible = true
 );
 
 namespace {
@@ -105,7 +106,18 @@ int checkGolden(
 
 Showcase makeShown() {
   static Store store;
-  return Showcase{store.make<std::string>("12+3")};
+  return Showcase{
+      store.make<std::string>("12+3"),
+      store.make<bool>(true),
+      store.make<bool>(false),
+      store.make<int>(1),
+      store.make<float>(0.4f),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<std::string>("")
+  };
 }
 
 }  // namespace
@@ -151,12 +163,74 @@ int main(int argc, char** argv) {
   // Touch end to end on the real screen. First focusable is the "7"
   // button; firing it appends through the cell.
   Store store;
-  Showcase t{store.make<std::string>("12+3")};
+  Showcase t{
+      store.make<std::string>("12+3"),
+      store.make<bool>(true),
+      store.make<bool>(false),
+      store.make<int>(1),
+      store.make<float>(0.4f),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<int>(0),
+      store.make<std::string>("")
+  };
   Block tree = showcaseTree(t);
   Box box = place(tree, {0, 720, 0, 480});
   auto focusableList = focusables(tree, box);
-  assert(focusableList.size() == 4);  // 3 buttons + Seat field anchor
-  Box first = focusBox(tree, box, 0);
+  // Range 3 + toolbar 6 + mode 6 + seat + switch + checkbox +
+  // 3 segments + slider (progress, avatar, stats, dim labels are
+  // read-only, never focusable).
+  assert(focusableList.size() == 22);
+  // Range chevrons shift the month window; download/export/bell
+  // set the toolbar notice; tabs move selection.
+  {
+    assert(*t.span == 0);
+    Box prev = focusBox(tree, box, 0);
+    assert(dispatchPointer(
+        tree,
+        box,
+        prev.x + 1,
+        prev.y + 1,
+        Event::borrow(PointerDown{prev.x + 1, prev.y + 1})
+    ));
+    assert(*t.span == -1);
+  }
+  {
+    Box dl = focusBox(tree, box, 2);
+    assert(dispatchPointer(
+        tree,
+        box,
+        dl.x + 1,
+        dl.y + 1,
+        Event::borrow(PointerDown{dl.x + 1, dl.y + 1})
+    ));
+    assert(*t.notice == "Download started");
+  }
+  {
+    Box ex = focusBox(tree, box, 4);
+    assert(dispatchPointer(
+        tree,
+        box,
+        ex.x + 1,
+        ex.y + 1,
+        Event::borrow(PointerDown{ex.x + 1, ex.y + 1})
+    ));
+    assert(*t.notice == "Exported 10,367 rows");
+  }
+  {
+    assert(*t.tabSel == 0);
+    Box tb = focusBox(tree, box, 14);
+    assert(dispatchPointer(
+        tree,
+        box,
+        tb.x + 1,
+        tb.y + 1,
+        Event::borrow(PointerDown{tb.x + 1, tb.y + 1})
+    ));
+    assert(*t.tabSel == 2);
+  }
+  Box first = focusBox(tree, box, 12);
   assert(dispatchPointer(
       tree,
       box,
@@ -164,20 +238,93 @@ int main(int argc, char** argv) {
       first.y + 1,
       Event::borrow(PointerDown{first.x + 1, first.y + 1})
   ));
-  assert(*t.out == "12+37");
-  assert(moveFocus(tree, box, 0, FocusDir::Right) == 1);
+  assert(*t.tabSel == 0);
+  assert(moveFocus(tree, box, 12, FocusDir::Right) == 13);
   {
-    int ki = deliverKey(tree, box, 0, Key::Right);
-    assert(ki == 1);
-    std::string before = *t.out;
+    int ki = deliverKey(tree, box, 12, Key::Right);
+    assert(ki == 13);
     ki = deliverKey(tree, box, ki, Key::Activate);
-    assert(ki == 1 && *t.out == before + "8");
+    assert(ki == 13 && *t.tabSel == 1);
   }
-  // Seat anchor is focusable last; tapping it claims focus for the
-  // native field (no toolkit action).
+  // Switch + checkbox flip their cells on tap; the segmented row
+  // moves selection per segment tap.
   {
-    Box seatFocus = focusBox(tree, box, 3);
-    assert(seatFocus.w == 688 && seatFocus.h == 40);
+    assert(*t.wifi == true);
+    Box sw = focusBox(tree, box, 16);
+    assert(sw.w == 52 && sw.h == 28);
+    assert(dispatchPointer(
+        tree,
+        box,
+        sw.x + 1,
+        sw.y + 1,
+        Event::borrow(PointerDown{sw.x + 1, sw.y + 1})
+    ));
+    assert(*t.wifi == false);
+  }
+  {
+    assert(*t.sound == false);
+    Box cb = focusBox(tree, box, 17);
+    assert(dispatchPointer(
+        tree,
+        box,
+        cb.x + 1,
+        cb.y + 1,
+        Event::borrow(PointerDown{cb.x + 1, cb.y + 1})
+    ));
+    assert(*t.sound == true);
+  }
+  {
+    assert(*t.range == 1);
+    Box sg = focusBox(tree, box, 20);
+    assert(dispatchPointer(
+        tree,
+        box,
+        sg.x + 1,
+        sg.y + 1,
+        Event::borrow(PointerDown{sg.x + 1, sg.y + 1})
+    ));
+    assert(*t.range == 2);
+  }
+  // Slider: tap maps x to value through the laid-out box (handleAt);
+  // a pressed drag scrubs, hover moves are ignored, arrows nudge.
+  {
+    assert(*t.level > 0.39f && *t.level < 0.41f);
+    Box sl = focusBox(tree, box, 21);
+    assert(sl.w == 240 && sl.h == 28);
+    assert(dispatchPointer(
+        tree,
+        box,
+        sl.x + 10,
+        sl.y + 14,
+        Event::borrow(PointerDown{sl.x + 10, sl.y + 14})
+    ));
+    assert(*t.level == 0.0f);
+    assert(dispatchPointer(
+        tree,
+        box,
+        sl.x + sl.w - 10,
+        sl.y + 14,
+        Event::borrow(PointerDown{sl.x + sl.w - 10, sl.y + 14})
+    ));
+    assert(*t.level == 1.0f);
+    PointerMove hover{sl.x + 120, sl.y + 14, false};
+    assert(!dispatchPointer(
+        tree, box, hover.x, hover.y, Event::borrow(hover)
+    ));
+    assert(*t.level == 1.0f);
+    PointerMove drag{sl.x + 120, sl.y + 14, true};
+    assert(
+        dispatchPointer(tree, box, drag.x, drag.y, Event::borrow(drag))
+    );
+    assert(*t.level > 0.49f && *t.level < 0.51f);
+    int ki = deliverKey(tree, box, 21, Key::Right);
+    assert(ki == 21 && *t.level > 0.59f && *t.level < 0.61f);
+  }
+  // Seat anchor is focusable after the tab row; tapping it claims
+  // focus for the native field (no toolkit action).
+  {
+    Box seatFocus = focusBox(tree, box, 15);
+    assert(seatFocus.w == 664 && seatFocus.h == 40);
     assert(dispatchPointer(
         tree,
         box,
@@ -216,11 +363,11 @@ int main(int argc, char** argv) {
     assert(spilled);
   }
 
-  // Bridge ops: Entry(Video) < glass < slot < ring, all from the
-  // tree (Seat paints the slot via AnySink); the archive round-trips
-  // byte-identically (rejects truncation/magic); the Scene has the
-  // Blit before the one Clear glass group, and the SlotHole as a root
-  // sibling — never inside glass.
+  // Bridge ops: slot < ring, all from the tree (Seat paints the
+  // slot via AnySink); the archive round-trips byte-identically
+  // (rejects truncation/magic); the SlotHole is a root sibling.
+  // (The video-under-glass ordering proof lives in git history —
+  // the hero no longer ships a video plate or frosted card.)
   {
     Block screen = showcaseTree(t);
     Box dbox = place(screen, {0, 720, 0, 480});
@@ -249,19 +396,15 @@ int main(int argc, char** argv) {
           return static_cast<int>(i);
       return -1;
     };
-    int video = findEntry("Video");
-    int glass = findOp(Op::Kind::PushGlass);
     int slot = findOp(Op::Kind::Slot);
     int ring = findOp(Op::Kind::Stroke);
-    assert(video >= 0 && glass >= 0 && slot >= 0 && ring >= 0);
-    assert(video < glass && glass < slot && slot < ring);
-    assert(findOp(Op::Kind::PushGlass, 1) < 0);  // one glass group
-    assert(rec.ops[static_cast<std::size_t>(glass)].clear);
+    assert(slot >= 0 && ring >= 0);
+    assert(slot < ring);
+    assert(findOp(Op::Kind::PushGlass, 0) < 0);  // no glass in hero
     assert(
         rec.ops[static_cast<std::size_t>(slot)].slot == kShowcaseSeatId
     );
-    assert(findEntry("Video", 1) < 0);
-    assert(findEntry("Card") >= 0 && findEntry("Button") >= 0);
+    assert(findEntry("Card") >= 0 && findEntry("Button.primary") >= 0);
     // Seat reconcile: the slot box is the Seat's placed box — the
     // tree owns it, no harness-supplied rect.
     {
@@ -310,10 +453,7 @@ int main(int argc, char** argv) {
     }
     ctx.finish();
     const glim::paint::Scene& scene = ctx.scene();
-    int glassGroups = 0;
-    bool glassClear = true;
     bool slotInGlass = false;
-    bool blitInGlass = false;
     int glyphRuns = 0;
     std::vector<std::string> rootSeq;
     std::function<void(const glim::paint::Group&, int, bool)>
@@ -323,11 +463,7 @@ int main(int argc, char** argv) {
           glim::paint::visitGroup(
               g,
               [&](const glim::paint::Shape& s) {
-                if (std::holds_alternative<glim::paint::Blit>(s)) {
-                  rootSeq.push_back("Blit");
-                  if (inGlass) blitInGlass = true;
-                } else if (std::holds_alternative<
-                               glim::paint::SlotHole>(s)) {
+                if (std::holds_alternative<glim::paint::SlotHole>(s)) {
                   rootSeq.push_back("Slot");
                   if (depth == 0) {
                     const auto& hole =
@@ -347,30 +483,27 @@ int main(int argc, char** argv) {
               },
               [&](const glim::paint::Group& c) {
                 bool cg = glim::paint::hasGlass(c);
-                if (cg) {
-                  ++glassGroups;
-                  glassClear = glassClear && c.params.glass &&
-                               c.params.glass->variant ==
-                                   glim::paint::GlassVariant::Clear;
-                  rootSeq.push_back("Glass");
-                }
+                if (cg) rootSeq.push_back("Glass");
                 walkGroups(c, depth + 1, inGlass || cg);
               }
           );
         };
     walkGroups(scene.root, 0, false);
-    assert(glassGroups == 1 && glassClear);
-    assert(!slotInGlass && !blitInGlass);
+    assert(!slotInGlass);
     assert(glyphRuns > 0);
     auto pos = [&](const char* k) -> int {
       for (std::size_t i = 0; i < rootSeq.size(); ++i)
         if (rootSeq[i] == k) return static_cast<int>(i);
       return -1;
     };
-    int rBlit = pos("Blit"), rGlass = pos("Glass"), rSlot = pos("Slot"),
-        rStroke = pos("Stroke");
-    assert(rBlit >= 0 && rGlass >= 0 && rSlot >= 0 && rStroke >= 0);
-    assert(rBlit < rGlass && rGlass < rSlot && rSlot < rStroke);
+    int rSlot = pos("Slot");
+    assert(rSlot >= 0);
+    // Icon rings stroke inline; the focus ring is the LAST stroke
+    // on top of everything.
+    int rRing = -1;
+    for (std::size_t i = 0; i < rootSeq.size(); ++i)
+      if (rootSeq[i] == "Stroke") rRing = static_cast<int>(i);
+    assert(rRing > rSlot);
   }
 
   // Zero-codec peer and paint-hook peer, as before.

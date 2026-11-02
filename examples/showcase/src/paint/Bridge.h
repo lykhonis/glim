@@ -102,11 +102,23 @@ void paintTree(
 
 // Focus ring composes as an overlay: the caller paints the tree first,
 // then the ring last (on top) — same order as recordFocusRing appends.
+//
+// Modern policy is focus-visible: pointer sets focus silently (no
+// ring), keyboard shows it. Desktop users never see a stuck teal box
+// on click; keyboard/a11y users keep a high-contrast ring. The test
+// path passes visible=true explicitly; the runtime threads its
+// modality flag.
 template <class S>
 void paintFocusRing(
-    const Block& root, const Box& box, int index, S& sink
+    const Block& root,
+    const Box& box,
+    int index,
+    S& sink,
+    const Engine& e = Engine{},
+    bool visible = true
 ) {
-  Box rb = focusRingBox(root, box, index);
+  if (!visible) return;
+  Box rb = focusRingBox(root, box, index, 2.0f, e);
   if (rb.w <= 0 || rb.h <= 0) return;
   sink.stroke(rb, 4, 2.0f, Tokens::kFocusRing);
 }

@@ -21,6 +21,21 @@ struct has_handle<
     : std::is_same<decltype(std::declval<const T&>().handle(std::declval<const Event&>())), bool> {
 };
 
+// Opt-in position-aware handling: handleAt(box, ev) sees the node's
+// laid-out box (sliders map x → value). Nodes with only handle keep
+// working — dispatch prefers handleAt and falls back to handle.
+template <class T, class = void>
+struct has_handle_at : std::false_type {};
+template <class T>
+struct has_handle_at<
+    T,
+    std::void_t<decltype(std::declval<const T&>()
+                             .handleAt(std::declval<const Box&>(), std::declval<const Event&>()))>>
+    : std::is_same<
+          decltype(std::declval<const T&>()
+                       .handleAt(std::declval<const Box&>(), std::declval<const Event&>())),
+          bool> {};
+
 template <class T, class = void>
 struct has_record : std::false_type {};
 template <class T>
@@ -131,6 +146,7 @@ struct Custom {
     Box (*place)(const void* s, bool heap, Constraints c, const Engine& e);
     void (*record)(const void* s, bool heap, const Box& b, Rec& r);
     bool (*handle)(const void* s, bool heap, const Event& ev);
+    bool (*handleAt)(const void* s, bool heap, const Box& b, const Event& ev);
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
@@ -221,7 +237,13 @@ struct Custom {
   bool handle(const Event& ev) const {
     return vt && vt->handle ? vt->handle(buf, onHeap, ev) : false;
   }
-  bool handles() const { return vt && vt->handle != nullptr; }
+  // Position-aware dispatch: prefers the node's own handleAt, falls
+  // back to plain handle. Nodes with only handle work unchanged.
+  bool handleAt(const Box& b, const Event& ev) const {
+    if (vt && vt->handleAt) return vt->handleAt(buf, onHeap, b, ev);
+    return handle(ev);
+  }
+  bool handles() const { return vt && (vt->handle != nullptr || vt->handleAt != nullptr); }
   bool hasTag(const std::type_info& t) const {
     return vt && vt->hasTag ? vt->hasTag(buf, onHeap, t) : false;
   }
@@ -279,6 +301,17 @@ struct Custom {
     if constexpr (has_handle<U>::value) {
       return [](const void* s, bool heap, const Event& ev) -> bool {
         return static_cast<const U*>(addr<U>(s, heap))->handle(ev);
+      };
+    } else {
+      return nullptr;
+    }
+  }
+
+  template <class U>
+  static bool (*handleAtFor())(const void*, bool, const Box&, const Event&) {
+    if constexpr (has_handle_at<U>::value) {
+      return [](const void* s, bool heap, const Box& b, const Event& ev) -> bool {
+        return static_cast<const U*>(addr<U>(s, heap))->handleAt(b, ev);
       };
     } else {
       return nullptr;
@@ -384,6 +417,7 @@ struct Custom {
           }
         },
         handleFor<U>(),
+        handleAtFor<U>(),
         paintFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),
