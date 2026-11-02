@@ -52,6 +52,30 @@ Block showcaseTree(Scope app) {
               "Text field",
               fieldRow("Name", "First and last name", kShowcaseSeatId)
           ),
+          section(
+              "Multiline text",
+              column(
+                  gap(8),
+                  lines(
+                      "Glim lays out text in logical pixels and wraps "
+                      "greedy word by word. Long words split at char "
+                      "boundaries when they cannot fit on one line.",
+                      wrap()
+                  ),
+                  row(lines(
+                      "Centered caption",
+                      wrap(),
+                      alignCenter(),
+                      expand()
+                  )),
+                  row(lines(
+                      "Right-aligned caption",
+                      wrap(),
+                      alignRight(),
+                      expand()
+                  ))
+              )
+          ),
           section("Switch", toggle(wifi)),
           section("Checkbox", checkbox("Sound", sound)),
           section(

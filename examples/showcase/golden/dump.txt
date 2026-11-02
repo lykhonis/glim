@@ -1,6 +1,6 @@
-root box: 656x480
-Roll.v [0,0 656x480]
-  Column [0,0 656x570]
+root box: 720x480
+Roll.v [0,0 720x480]
+  Column [0,0 720x682]
     Column [16,16 121.379x70]
       Lines [16,16 48x14] Button
       Column [16,36 121.379x50]
@@ -15,30 +15,39 @@ Roll.v [0,0 656x480]
         Card [16,144 624x64]
           Seat [28,156 600x40]
         Lines [16,212 152x14] First and last name
-    Column [16,246 52x48]
-      Lines [16,246 48x14] Switch
-      Switch.on [16,266 52x28]
-      Switch.thumb [44,270 20x20]
-    Column [16,314 67.1243x44]
-      Lines [16,314 64x14] Checkbox
-      Check [16,334 24x24]
-      Lines [48,339 35.1243x14] Sound
-    Column [16,378 200.559x56]
-      Lines [16,378 72x14] Segmented
-      Seg [16,398 200.559x36]
-      Seg.active [82.8531,400 66.8531x32]
-        Tap [16,398 66.8531x36]
-          Lines [32,408 24x14] Day
-        Tap [82.8531,398 66.8531x36]
-          Lines [98.8531,408 32x14] Week
-        Tap [149.706,398 66.8531x36]
-          Lines [165.706,408 40x14] Month
-    Column [16,454 240x48]
-      Lines [16,454 48x14] Slider
-      Slide [16,484 240x8]
-      Slide.fill [16,484 98x8]
-      Slide.thumb [104,478 20x20]
-    Column [16,522 240x32]
-      Lines [16,522 64x14] Progress
-      Slide [16,542 240x12]
-      Slide.fill [16,542 96x12]
+    Column [16,246 688x92]
+      Lines [16,246 112x14] Multiline text
+      Column [16,266 688x72]
+        Lines [16,266 672x14] Glim lays out text in logical pixels and wraps greedy word by word. Long words split
+        Lines [16,280 416x14] at char boundaries when they cannot fit on one line.
+        Row [16,302 688x14]
+          Lines [296,302 128x14] Centered caption [expand]
+        Row [16,324 688x14]
+          Lines [536,324 168x14] Right-aligned caption [expand]
+    Column [16,358 52x48]
+      Lines [16,358 48x14] Switch
+      Switch.on [16,378 52x28]
+      Switch.thumb [44,382 20x20]
+    Column [16,426 67.1243x44]
+      Lines [16,426 64x14] Checkbox
+      Check [16,446 24x24]
+      Lines [48,451 35.1243x14] Sound
+    Column [16,490 200.559x56]
+      Lines [16,490 72x14] Segmented
+      Seg [16,510 200.559x36]
+      Seg.active [82.8531,512 66.8531x32]
+        Tap [16,510 66.8531x36]
+          Lines [32,520 24x14] Day
+        Tap [82.8531,510 66.8531x36]
+          Lines [98.8531,520 32x14] Week
+        Tap [149.706,510 66.8531x36]
+          Lines [165.706,520 40x14] Month
+    Column [16,566 240x48]
+      Lines [16,566 48x14] Slider
+      Slide [16,596 240x8]
+      Slide.fill [16,596 98x8]
+      Slide.thumb [104,590 20x20]
+    Column [16,634 240x32]
+      Lines [16,634 64x14] Progress
+      Slide [16,654 240x12]
+      Slide.fill [16,654 96x12]
