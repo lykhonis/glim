@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "Slider.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -25,13 +26,9 @@ struct Progress : WithSemantic {
   }
   void record(const Box& box, Rec& rec) const {
     float v = Slider::clamp01(*value);
-    rec.push(Slider::kKind, box, {}, semantic, 6);
+    rec.push(Slider::kKind, box, {}, {}, 6);
     rec.push(
-        Slider::kKindFill,
-        {box.x, box.y, box.w * v, box.h},
-        {},
-        semantic,
-        6
+        Slider::kKindFill, {box.x, box.y, box.w * v, box.h}, {}, {}, 6
     );
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
@@ -40,9 +37,8 @@ struct Progress : WithSemantic {
     sink.fillGradient(
         box,
         6,
-        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
-        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
-        semantic
+        themeColor(e, kShowTrackTop, Show::kTrackTop),
+        themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
     if (box.w * v > 0.5f) {
       Box fill{box.x, box.y, box.w * v, box.h};
@@ -52,11 +48,10 @@ struct Progress : WithSemantic {
       sink.fillGradient(
           fill,
           6,
-          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
-          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
-          semantic
+          themeColor(e, kShowAccentTop, Show::kAccentTop),
+          themeColor(e, kShowAccentBottom, Show::kAccentBottom)
       );
-      gelCoat(sink, fill, 6, semantic);
+      gelCoat(sink, fill, 6);
     }
   }
 };

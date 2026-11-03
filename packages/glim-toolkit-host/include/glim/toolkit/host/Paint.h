@@ -85,13 +85,13 @@ struct ContextSink {
       const std::string& = {}
   ) {
     // y is the TOP of the line box; Context::text takes a BASELINE
-    // origin. Without this every label sits one ascent too high.
-    // Snapped to half-logical (one device pixel at 2x) so glyph
-    // edges never straddle rows; layout boxes stay untouched.
-    auto snap = [](float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; };
+    // origin. Snapped to half-logical (one device pixel at 2x) so
+    // glyph edges never straddle rows; layout boxes stay untouched.
     ::glim::paint::TextSize m = ctx.measureText(s.c_str(), size);
     ctx.setFillColor(rgba);
-    ctx.text({snap(x), snap(y + m.ascent)}, s.c_str(), size);
+    ctx.text(
+        {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)}, s.c_str(), size
+    );
   }
   void image(const Box& b, std::uint32_t imageId, bool foreign, const std::string& = {}) {
     if (imageId == 0) return;
@@ -165,14 +165,18 @@ inline void paintScrollbars(
       w = w < 24.0f ? 24.0f : (w > m.viewport ? m.viewport : w);
       const float x = bx.x + (m.offset / m.maxOff) * (m.viewport - w);
       sink.fillRounded(
-          {detail::snapHalf(x), detail::snapHalf(bx.y + bx.h - 6.0f), w, 4.0f}, 2, 0xffffff40
+          {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(bx.y + bx.h - 6.0f), w, 4.0f},
+          2,
+          0xffffff40
       );
     } else {
       float h = m.viewport * m.viewport / m.content;
       h = h < 24.0f ? 24.0f : (h > m.viewport ? m.viewport : h);
       const float y = bx.y + (m.offset / m.maxOff) * (m.viewport - h);
       sink.fillRounded(
-          {detail::snapHalf(bx.x + bx.w - 6.0f), detail::snapHalf(y), 4.0f, h}, 2, 0xffffff40
+          {toolkit::detail::snapHalf(bx.x + bx.w - 6.0f), toolkit::detail::snapHalf(y), 4.0f, h},
+          2,
+          0xffffff40
       );
     }
   });

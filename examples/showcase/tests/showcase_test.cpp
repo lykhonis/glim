@@ -1,5 +1,6 @@
 #include "Showcase.h"
 
+#include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -19,8 +20,10 @@
 #include <vector>
 
 #include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit/host/Codec.h"
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
+#include "widgets/ShowcaseTheme.h"
 
 using namespace glim::toolkit;
 
@@ -83,6 +86,10 @@ int checkGolden(
 ) {
   std::string path = dir + "/" + name;
   if (!fileExists(path)) {
+    if (glim::image::goldenStrict()) {
+      std::cerr << "missing golden " << path << " (strict mode)\n";
+      return EXIT_FAILURE;
+    }
     std::ofstream out(path, std::ios::binary);
     if (!out) {
       std::cerr << "could not write golden " << path << '\n';
@@ -96,6 +103,35 @@ int checkGolden(
     std::cerr << "golden mismatch: dump differs from " << path << '\n';
     return EXIT_FAILURE;
   }
+  return EXIT_SUCCESS;
+}
+
+int checkPngGolden(
+    const std::string& dir,
+    const std::string& name,
+    const glim::image::Image& got,
+    const char* argv0
+) {
+  std::string path = dir + "/" + name;
+  if (!fileExists(path)) {
+    if (glim::image::goldenStrict()) {
+      std::cerr << "missing golden " << path << " (strict mode)\n";
+      return EXIT_FAILURE;
+    }
+    if (!glim::image::Png::write(path.c_str(), got)) {
+      std::cerr << "could not write golden " << path << '\n';
+      return EXIT_FAILURE;
+    }
+    std::cout << "wrote golden " << path << '\n';
+    return EXIT_SUCCESS;
+  }
+  glim::image::Image want;
+  if (!glim::image::Png::read(path.c_str(), &want)) {
+    std::cerr << "could not read golden " << path << '\n';
+    return EXIT_FAILURE;
+  }
+  if (!glim::image::checkCpuGolden(got, want, argv0, "showcase"))
+    return EXIT_FAILURE;
   return EXIT_SUCCESS;
 }
 
@@ -167,6 +203,23 @@ int main(int argc, char** argv) {
   if (int rc = checkGolden(dir, "dump.txt", showcaseDump(s))) return rc;
   if (int rc = checkGolden(dir, "focus.txt", showcaseFocusDump(s)))
     return rc;
+  // Asserted CPU raster gate (harness H1): the same scene --paint
+  // writes, compared strictly against golden/showcase.png. Fresh
+  // store, no focus ring, overlay off — deterministic by
+  // construction (no clock, no stats overlay in the paint path).
+  {
+    glim::paint::Context pctx;
+    pctx.setSize({720, 480});
+    pctx.beginFrame();
+    host::LayerFeed pfeed;
+    Store pstore;
+    paintShowcaseScene(pctx, pfeed, pstore, -1, false);
+    pctx.finish();
+    glim::image::Image pgot = glim::image::Image::rgba8(720, 480);
+    glim::paint::rasterScene(pctx.scene(), 720, 480, pgot.rgba.data());
+    if (int rc = checkPngGolden(dir, "showcase.png", pgot, argv[0]))
+      return rc;
+  }
 
   // Touch end to end on the real screen. Two buttons, seat anchor,
   // switch, checkbox, three segments, slider: progress and labels are
@@ -361,14 +414,9 @@ int main(int argc, char** argv) {
   }
   // Ring overlay rides last on the screen record.
   {
-    Rec recr;
-    record(tree, box, recr);
-    std::size_t base = recr.entries.size();
-    recordFocusRing(recr, tree, box, 0);
-    assert(recr.entries.size() == base + 1);
-    assert(recr.entries.back().kind == kFocusRingKind);
     Box first2 = focusBox(tree, box, 0);
-    assert(recr.entries.back().box.x == first2.x - 2);
+    Box rb = focusRingBox(tree, box, 0);
+    assert(rb.x == first2.x - 2);
   }
 
   // List scroll (direct, tight viewport): content taller than the
@@ -432,8 +480,8 @@ int main(int argc, char** argv) {
       int card = -1;
       for (std::size_t i = 0; i < rec.ops.size(); ++i)
         if (rec.ops[i].kind == Op::Kind::FillGradient &&
-            rec.ops[i].rgba == Tokens::kCardTop &&
-            rec.ops[i].rgba2 == Tokens::kCardBottom) {
+            rec.ops[i].rgba == Show::kCardTop &&
+            rec.ops[i].rgba2 == Show::kCardBottom) {
           card = static_cast<int>(i);
           break;
         }
@@ -443,8 +491,8 @@ int main(int argc, char** argv) {
       int grad = -1;
       for (std::size_t i = 0; i < rec.ops.size(); ++i)
         if (rec.ops[i].kind == Op::Kind::FillGradient &&
-            rec.ops[i].rgba == Tokens::kButtonPrimaryTop &&
-            rec.ops[i].rgba2 == Tokens::kButtonPrimaryBottom) {
+            rec.ops[i].rgba == Show::kButtonPrimaryTop &&
+            rec.ops[i].rgba2 == Show::kButtonPrimaryBottom) {
           grad = static_cast<int>(i);
           break;
         }
@@ -480,13 +528,13 @@ int main(int argc, char** argv) {
     }
 
     std::vector<std::uint8_t> bytes;
-    encodeOps(rec.ops, bytes);
+    host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;
-    assert(decodeOps(bytes.data(), bytes.size(), back));
+    assert(host::decodeOps(bytes.data(), bytes.size(), back));
     assert(back == rec.ops);
-    assert(!decodeOps(bytes.data(), bytes.size() - 1, back));
+    assert(!host::decodeOps(bytes.data(), bytes.size() - 1, back));
     bytes[3] ^= 0xff;  // corrupt magic
-    assert(!decodeOps(bytes.data(), bytes.size(), back));
+    assert(!host::decodeOps(bytes.data(), bytes.size(), back));
 
     glim::paint::Context ctx;
     ctx.setSize({720, 480});
@@ -562,9 +610,9 @@ int main(int argc, char** argv) {
     assert(prec.ops.size() == 1 && prec.ops[0].kind == Op::Kind::Entry);
     assert(prec.ops[0].entry.kind == "Probe");
     std::vector<std::uint8_t> pbytes;
-    encodeOps(prec.ops, pbytes);
+    host::encodeOps(prec.ops, pbytes);
     std::vector<Op> pback;
-    assert(decodeOps(pbytes.data(), pbytes.size(), pback));
+    assert(host::decodeOps(pbytes.data(), pbytes.size(), pback));
     assert(pback == prec.ops);
   }
   {

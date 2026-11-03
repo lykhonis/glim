@@ -1,4 +1,5 @@
 #include <glim/gpu/Device.h>
+#include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -17,6 +18,9 @@ void recordGlass(
     bool = false
 );
 
+// Per-scene GPU parity band (harness H3): glass uses SDF smoothing
+// that legitimately differs per backend, so the band is wide. Pinned
+// 2026-11-03; tighten only with a measured justification.
 constexpr std::size_t kMaxOverDelta = 280000;
 constexpr int kMaxChannelDelta = 224;
 
@@ -111,15 +115,8 @@ int main(int argc, char** argv) {
                 << kMaxChannelDelta << ")\n";
     }
     if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
-      std::string name =
-          (argc > 0 && argv[0]) ? argv[0] : "vulkan-golden";
-      const std::size_t slash = name.find_last_of('/');
-      if (slash != std::string::npos) {
-        name = name.substr(slash + 1);
-      }
-      glim::image::Png::write(
-          (std::string(dir) + "/" + name + "-got.png").c_str(), got
-      );
+      (void)dir;
+      glim::image::writeGot(argv[0], got);
     }
     return EXIT_FAILURE;
   }

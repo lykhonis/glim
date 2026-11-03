@@ -17,6 +17,12 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
   static constexpr bool kClipsChildren = true;
   const char* kind() const { return axis == kAxisHorizontal ? kKindH : kKindV; }
   std::vector<Block> children;
+  // Shared-handle write through a const view: scrollOff is a State
+  // cell, so this names the mutation instead of hiding it behind
+  // `r->scrollOff = next` at call sites.
+  void scrollTo(float v) const {
+    if (scrollOff) scrollOff = v;
+  }
   Box place(Constraints c, const Engine& e) const {
     if (axis == kAxisHorizontal) {
       Constraints content{0, kUnbounded, 0, c.maxH};

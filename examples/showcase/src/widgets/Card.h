@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -55,15 +56,14 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
     return b;
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(kKind, box, {}, semantic, radius);
+    rec.push(kKind, box, {}, {}, radius);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     sink.fillGradient(
         box,
         radius,
-        themeColor(e, kThemeCardTop, Tokens::kCardTop),
-        themeColor(e, kThemeCardBottom, Tokens::kCardBottom),
-        semantic
+        themeColor(e, kShowCardTop, Show::kCardTop),
+        themeColor(e, kShowCardBottom, Show::kCardBottom)
     );
     // Aqua panel top light: one soft inner hairline, not a gloss
     // dome — large faces stay calm, edges still catch light.
@@ -73,18 +73,14 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
           box.x + inset, box.y + 1.0f, box.w - inset * 2.0f, 1.0f
       };
       sink.fillRounded(
-          light,
-          1,
-          themeColor(e, kThemeGlossSheen, Tokens::kGlossSheen),
-          semantic
+          light, 1, themeColor(e, kShowGlossSheen, Show::kGlossSheen)
       );
     }
     sink.stroke(
         box,
         radius,
         1.0f,
-        themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
-        semantic
+        themeColor(e, kShowCardStroke, Show::kCardStroke)
     );
   }
 };
@@ -92,8 +88,8 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
 template <class... As>
 Block card(As&&... as) {
   Card c;
-  c.padH = Tokens::kPadCard;
-  c.padV = Tokens::kPadCard;
+  c.padH = Show::kPadCard;
+  c.padV = Show::kPadCard;
   configure(c, c.children, std::forward<As>(as)...);
   assert(!c.children.empty());
   return finish(std::move(c), std::forward<As>(as)...);

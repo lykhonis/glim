@@ -56,21 +56,13 @@ bool dispatchCaptured(
     const Block& root, const Box& box, int index, const Event& ev, const Engine& e = Engine{}
 );
 
-// Focus-ring overlay. The ring composes as an overlay: the caller records the
-// tree first, then appends the ring entry last (on top) via recordFocusRing.
+// Focus-ring overlay. The ring composes as an overlay: the caller paints
+// the tree first, then the ring last (on top).
 // focusRingBox expands the focused box by pad on all sides (default 2px).
 // Out-of-range index (or empty focus set) yields a zero box / no entry.
 inline constexpr const char* kFocusRingKind = "FocusRing";
 Box focusRingBox(
     const Block& root, const Box& box, int index, float pad = 2.0f, const Engine& e = Engine{}
-);
-void recordFocusRing(
-    Rec& rec,
-    const Block& root,
-    const Box& box,
-    int index,
-    float pad = 2.0f,
-    const Engine& e = Engine{}
 );
 
 }  // namespace toolkit

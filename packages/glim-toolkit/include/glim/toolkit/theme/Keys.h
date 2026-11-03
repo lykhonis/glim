@@ -53,38 +53,14 @@ inline constexpr ThemeKey themeKey(const char* name) {
   return ThemeKey{detail::themeFNV1a(name) | 0x80000000u};
 }
 
-// Builtin ramp keys (mirror the old Theme fields, now extendable).
+// Builtin ramp keys for toolkit-owned surfaces: the host window,
+// the Lines text ink/size, and the focus ring. Everything else is
+// user space — apps add keys via themeKey("app.surface") (constexpr
+// FNV-1a, high-bit range so builtins never collide). No registry.
 inline constexpr ThemeKey kThemeWindowBg{1};
-inline constexpr ThemeKey kThemeCardFill{2};
-inline constexpr ThemeKey kThemeCardStroke{3};
-inline constexpr ThemeKey kThemeButtonFill{4};
-inline constexpr ThemeKey kThemeButtonPrimaryTop{5};
-inline constexpr ThemeKey kThemeButtonPrimaryBottom{6};
-inline constexpr ThemeKey kThemeAccent{7};
 inline constexpr ThemeKey kThemeInkOnLight{8};
-inline constexpr ThemeKey kThemeInkSecondary{9};
-inline constexpr ThemeKey kThemeHairline{10};
 inline constexpr ThemeKey kThemeFocusRing{11};
-inline constexpr ThemeKey kThemeLayerFallback{12};
 inline constexpr ThemeKey kThemeTypeLine{13};
-inline constexpr ThemeKey kThemeTypeDisplay{14};
-inline constexpr ThemeKey kThemeGlassThickness{15};
-inline constexpr ThemeKey kThemeButtonRadius{16};
-inline constexpr ThemeKey kThemeGlossLine{17};
-inline constexpr ThemeKey kThemeThumbRim{18};
-inline constexpr ThemeKey kThemeGlossSheen{19};
-inline constexpr ThemeKey kThemeCardTop{20};
-inline constexpr ThemeKey kThemeCardBottom{21};
-inline constexpr ThemeKey kThemeButtonSecondaryTop{22};
-inline constexpr ThemeKey kThemeButtonSecondaryBottom{23};
-inline constexpr ThemeKey kThemeThumbTop{24};
-inline constexpr ThemeKey kThemeThumbBottom{25};
-inline constexpr ThemeKey kThemeTrackTop{26};
-inline constexpr ThemeKey kThemeTrackBottom{27};
-inline constexpr ThemeKey kThemeAccentTop{28};
-inline constexpr ThemeKey kThemeAccentBottom{29};
-inline constexpr ThemeKey kThemeGelGloss{30};
-inline constexpr ThemeKey kThemeGelEdge{31};
 
 struct ThemeEntry {
   ThemeKey key;

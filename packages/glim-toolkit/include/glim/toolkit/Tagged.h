@@ -23,7 +23,7 @@ struct Tagged {
   const char* kind() const { return inner_.kind(); }
   Box place(Constraints c, const Engine& e) const {
     Env node{&tag_, &typeid(Tag), e.env};
-    Engine ce{&node};
+    Engine ce{&node, e.store};
     return inner_.place(c, ce);
   }
   void record(const Box& box, Rec& rec) const {
@@ -52,7 +52,7 @@ struct Tagged {
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     if constexpr (has_children<Inner>::value) {
       Env node{&tag_, &typeid(Tag), e.env};
-      Engine ce{&node};
+      Engine ce{&node, e.store};
       return inner_.childBox(i, box, ce);
     }
     return box;

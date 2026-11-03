@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -36,52 +37,47 @@ struct Button : WithGap,
     );
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(isPrimary ? kKindPrimary : kKind, box, label, semantic);
+    rec.push(isPrimary ? kKindPrimary : kKind, box, label);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const int radius =
-        themeInt(e, kThemeButtonRadius, Tokens::kButtonRadius);
+        themeInt(e, kShowButtonRadius, Show::kButtonRadius);
     const std::uint32_t stroke =
-        themeColor(e, kThemeCardStroke, Tokens::kCardStroke);
+        themeColor(e, kShowCardStroke, Show::kCardStroke);
     const float line = themeFloat(e, kThemeTypeLine, Tokens::kTypeLine);
     if (isPrimary) {
       sink.fillGradient(
           box,
           radius,
+          themeColor(e, kShowButtonPrimaryTop, Show::kButtonPrimaryTop),
           themeColor(
-              e, kThemeButtonPrimaryTop, Tokens::kButtonPrimaryTop
-          ),
-          themeColor(
-              e, kThemeButtonPrimaryBottom, Tokens::kButtonPrimaryBottom
-          ),
-          semantic
+              e, kShowButtonPrimaryBottom, Show::kButtonPrimaryBottom
+          )
       );
-      gelCoat(sink, box, radius, semantic);
-      sink.stroke(box, radius, 1.0f, stroke, semantic);
+      gelCoat(sink, box, radius);
+      sink.stroke(box, radius, 1.0f, stroke);
     } else {
       sink.fillGradient(
           box,
           radius,
           themeColor(
-              e, kThemeButtonSecondaryTop, Tokens::kButtonSecondaryTop
+              e, kShowButtonSecondaryTop, Show::kButtonSecondaryTop
           ),
           themeColor(
               e,
-              kThemeButtonSecondaryBottom,
-              Tokens::kButtonSecondaryBottom
-          ),
-          semantic
+              kShowButtonSecondaryBottom,
+              Show::kButtonSecondaryBottom
+          )
       );
-      gelCoat(sink, box, radius, semantic);
-      sink.stroke(box, radius, 1.0f, stroke, semantic);
+      gelCoat(sink, box, radius);
+      sink.stroke(box, radius, 1.0f, stroke);
     }
     sink.text(
         box.x + static_cast<float>(padH),
         box.y + (box.h - line) * 0.5f,
         label,
         themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
-        line,
-        semantic
+        line
     );
   }
   bool handle(const Event& ev) const {
@@ -96,8 +92,8 @@ Block button(std::string label, Action onTap, As&&... as) {
   Button b;
   b.label = std::move(label);
   b.onTap = std::move(onTap);
-  b.padH = Tokens::kButtonPadH;
-  b.padV = Tokens::kButtonPadV;
+  b.padH = Show::kButtonPadH;
+  b.padV = Show::kButtonPadV;
   configureTags(b, std::forward<As>(as)...);
   return finish(std::move(b), std::forward<As>(as)...);
 }

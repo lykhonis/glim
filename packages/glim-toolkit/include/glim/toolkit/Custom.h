@@ -217,30 +217,10 @@ const std::string* elementSemanticPtr(const T& x) {
 }
 
 // Opt-in child transparency: an element exposing its composed children
-// (a `children` member or eachChild visitor, plus per-child box in a
-// laid-out parent box) is traversed by focus enumeration and hit-testing instead of treated as an
-// opaque leaf.
-//
-// Contract: eachChild must call the visitor with references to STORED child
-// Blocks owned by the element (e.g. elements of a `children` vector) — never
-// temporaries. The engine holds the resulting references only for the
-// duration of the visitor callback (see `visit`), but `childAt` callers must
-// use the pointer immediately before any mutation; synthesizing children on
-// the fly dangles. Containers are small; count+index is O(n^2) worst case.
-// Opt-in child transparency: an element exposing its composed children
-// plus per-child box in a laid-out parent box is traversed by focus
-// enumeration and hit-testing instead of treated as an opaque leaf.
-//
-// Two spellings, one contract. Method spelling: eachChild(visitor).
-// Member spelling: a `children` Block range (usually
-// `std::vector<Block>`); traversal is automatic, no method to write.
-// Either way the contract is the same: the visitor gets references to
-// STORED child Blocks owned by the element — never temporaries. The
-// engine holds the resulting references only for the duration of the
-// visitor callback (see `visit`), but `childAt` callers must use the
-// pointer immediately before any mutation; synthesizing children on
-// the fly dangles. Through the method spelling count+index is O(n^2)
-// worst case; the member spelling indexes directly.
+// (a `children` member or eachChild visitor, plus per-child box) is
+// traversed instead of treated as an opaque leaf. The visitor gets
+// references to STORED child Blocks owned by the element — never
+// temporaries; use the pointer immediately, before any mutation.
 template <class T, class = void>
 struct has_eachChild : std::false_type {};
 template <class T>

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Custom.h"
 #include "glim/toolkit/Tokens.h"
 
@@ -15,22 +16,20 @@ namespace toolkit {
 // Paint after the base gradient, pop before the rim stroke. One home
 // for the gel rule; widgets supply their own box and radius.
 // Faces shorter than 7px are too thin to dome — they stay flat.
-inline void gelCoat(
-    AnySink& sink, const Box& box, int radius, const std::string& mark
-) {
+inline void gelCoat(AnySink& sink, const Box& box, int radius) {
   if (box.h <= 6.0f || box.w <= 6.0f) {
     return;
   }
   sink.pushBlend(BlendMode::Plus);
   const int inner = radius > 3 ? radius - 2 : 1;
   Box dome{box.x + 1.0f, box.y + 1.0f, box.w - 2.0f, box.h * 0.48f};
-  sink.fillRounded(dome, inner, Tokens::kGelGloss, mark);
+  sink.fillRounded(dome, inner, Show::kGelGloss);
   // The 1px light only on tall faces: on thin fills (slider,
   // progress) it reads as a white wire instead of a highlight.
   const float inset = static_cast<float>(radius) * 0.6f + 2.0f;
   if (box.h > 12.0f && box.w > inset * 2.0f + 4.0f) {
     Box light{box.x + inset, box.y + 1.0f, box.w - inset * 2.0f, 1.0f};
-    sink.fillRounded(light, 1, Tokens::kGelEdge, mark);
+    sink.fillRounded(light, 1, Show::kGelEdge);
   }
   sink.pop();
 }
@@ -39,9 +38,7 @@ inline void gelCoat(
 // the crown so the face reads glossy, not chalky. The rim stays a
 // mid gray, never black — a black ring around white on near-black
 // backgrounds is what reads as a dirty halo at native size.
-inline void knobGloss(
-    AnySink& sink, const Box& knob, const std::string& mark
-) {
+inline void knobGloss(AnySink& sink, const Box& knob) {
   if (knob.w < 12.0f || knob.h < 12.0f) {
     return;
   }
@@ -52,7 +49,7 @@ inline void knobGloss(
       knob.w * 0.5f,
       knob.h * 0.32f
   };
-  sink.fillRounded(crown, 3, Tokens::kGelGloss, mark);
+  sink.fillRounded(crown, 3, Show::kGelGloss);
   sink.pop();
 }
 

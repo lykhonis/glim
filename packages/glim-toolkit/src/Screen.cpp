@@ -69,8 +69,7 @@ bool Screen::wheel(
     Box box;
   };
   std::vector<Candidate> found;
-  std::vector<Box> clips;
-  std::vector<bool> pushed;
+  detail::ClipStack clip;
   walk(
       tree,
       box,
@@ -78,11 +77,8 @@ bool Screen::wheel(
       [&](const Block& n, const Box& bx, const Engine&) -> bool {
         // Ancestor clips gate candidacy; the node's own clip (pushed
         // below) trivially contains any point inside its box.
-        bool parentVisible = clips.empty() || detail::boxContains(clips.back(), x, y);
-        pushed.push_back(clipsChildren(n));
-        if (clipsChildren(n)) {
-          clips.push_back(clips.empty() ? bx : detail::intersectBox(clips.back(), bx));
-        }
+        bool parentVisible = clip.visible(x, y);
+        clip.enter(n, bx);
         if (parentVisible) {
           if (const Roll* r = n.get<Roll>()) {
             if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({r, bx});
@@ -90,12 +86,7 @@ bool Screen::wheel(
         }
         return true;
       },
-      [&](const Block&, const Box&, const Engine&) {
-        if (!pushed.empty()) {
-          if (pushed.back() && !clips.empty()) clips.pop_back();
-          pushed.pop_back();
-        }
-      }
+      [&](const Block&, const Box&, const Engine&) { clip.exit(); }
   );
   // Innermost first; an edge-clamped inner roll chains outward.
   for (auto it = found.rbegin(); it != found.rend(); ++it) {
@@ -109,7 +100,7 @@ bool Screen::wheel(
     if (delta == 0.0f || m.maxOff <= 0.0f) continue;
     const float next = detail::clampF(m.offset + delta, 0.0f, m.maxOff);
     if (next != m.offset) {
-      r->scrollOff = next;
+      r->scrollTo(next);
       return true;
     }
   }

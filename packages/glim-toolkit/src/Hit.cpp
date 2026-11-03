@@ -22,10 +22,31 @@ Box intersectBox(const Box& a, const Box& b) {
   return {x0, y0, std::max(0.f, x1 - x0), std::max(0.f, y1 - y0)};
 }
 
+void ClipStack::enter(const Block& n, const Box& bx) {
+  pushed.push_back(clipsChildren(n));
+  if (clipsChildren(n)) {
+    clips.push_back(clips.empty() ? bx : intersectBox(clips.back(), bx));
+  }
+}
+
+void ClipStack::exit() {
+  if (!pushed.empty()) {
+    if (pushed.back() && !clips.empty()) clips.pop_back();
+    pushed.pop_back();
+  }
+}
+
+bool ClipStack::visible(float x, float y) const {
+  return clips.empty() || boxContains(clips.back(), x, y);
+}
+
 }  // namespace detail
 
-const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
+std::pair<const Block*, Box> hitWithBox(
+    const Block& b, const Box& box, float x, float y, const Engine& e
+) {
   const Block* found = nullptr;
+  Box foundBox{0, 0, 0, 0};
   int matches = 0;
   struct Claim {
     const Block* node;
@@ -33,24 +54,19 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
   };
   std::vector<Claim> claims;
   // Clip stack parallel to the walk: containers whose children paint
-  // inside a clip group (Roll) bound their subtree's hits. Only fully
-  // clipped points miss — partially visible controls still hit, and
-  // paints through ContextSink push the same groups.
-  std::vector<Box> clips;
-  std::vector<bool> pushed;
-  const auto visible = [&]() { return clips.empty() || detail::boxContains(clips.back(), x, y); };
+  // inside a clip group (Roll) bound their subtree's hits.
+  detail::ClipStack clip;
+  const auto visible = [&]() { return clip.visible(x, y); };
   walk(
       b,
       box,
       e,
       [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        pushed.push_back(clipsChildren(n));
-        if (clipsChildren(n)) {
-          clips.push_back(clips.empty() ? bx : detail::intersectBox(clips.back(), bx));
-        }
+        clip.enter(n, bx);
         if (claimsHit(n)) {
           if (detail::boxContains(bx, x, y) && visible()) {
             found = &n;
+            foundBox = bx;
             ++matches;
             return false;  // claimed: whole region resolves here
           }
@@ -60,23 +76,28 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
         if (detail::boxContains(bx, x, y) && visible()) {
           if (hitParticipates(n)) {
             found = &n;
+            foundBox = bx;
             ++matches;
           }
         }
         return true;
       },
-      [&](const Block& n, const Box&, const Engine&) {
-        if (!pushed.empty()) {
-          if (pushed.back() && !clips.empty()) clips.pop_back();
-          pushed.pop_back();
-        }
+      [&](const Block& n, const Box& bx, const Engine&) {
+        clip.exit();
         if (!claims.empty() && claims.back().node == &n) {
-          if (matches > claims.back().entered && visible()) found = &n;
+          if (matches > claims.back().entered && visible()) {
+            found = &n;
+            foundBox = bx;
+          }
           claims.pop_back();
         }
       }
   );
-  return found;
+  return {found, foundBox};
+}
+
+const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
+  return hitWithBox(b, box, x, y, e).first;
 }
 
 void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, int indent) {

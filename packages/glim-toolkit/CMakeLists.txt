@@ -1,6 +1,6 @@
 add_library(glim-toolkit STATIC
     src/Toolkit.cpp
-    src/TextLayout.cpp
+    src/Geometry.cpp
     src/text/Text.cpp
     src/Flow.cpp
     src/Hit.cpp

@@ -39,25 +39,8 @@ bool handleAt(const Block& b, const Box& box, const Event& ev) {
 bool dispatchPointer(
     const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e
 ) {
-  const Block* t = hit(b, box, x, y, e);
+  auto [t, hitBox] = hitWithBox(b, box, x, y, e);
   if (!t) return false;
-  // The hit node is known; its laid-out box is found with one more
-  // walk (pointer identity — the tree outlives this call).
-  Box hitBox{0, 0, 0, 0};
-  bool found = false;
-  walk(
-      b,
-      box,
-      e,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        if (!found && &n == t) {
-          hitBox = bx;
-          found = true;
-        }
-        return true;
-      },
-      [](const Block&, const Box&, const Engine&) {}
-  );
   return handleAt(*t, hitBox, ev);
 }
 

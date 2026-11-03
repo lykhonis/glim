@@ -53,7 +53,7 @@ struct VeilCard : WithGap, WithSemantic {
     return b;
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(kKind, box, {}, semantic);
+    rec.push(kKind, box, {});
   }
   void paint(const Box&, AnySink&, const Engine&) const {
     // No fills: the frost plate (masked by this box's pill) carries
@@ -79,7 +79,7 @@ struct VeilOrb : WithSemantic {
     return detail::resolveSize(kDiameter, kDiameter, c);
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(kKind, box, {}, semantic);
+    rec.push(kKind, box, {});
   }
   void paint(const Box&, AnySink&, const Engine&) const {
     // No fills: the frost plate (masked by this circle's pill) carries

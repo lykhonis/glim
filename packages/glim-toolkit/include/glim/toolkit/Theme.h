@@ -54,51 +54,14 @@ struct Themed {
   }
 };
 
-// Named builders for the builtin ramp (values-DSL, no builder
-// object): themed(accent(0xff5a1fff), lines("hi")). Custom keys go
-// through themeColor/themeFloat/themeInt directly. Later entries
-// shadow earlier ones within one scope.
+// Named builders for the toolkit-owned keys (values-DSL, no builder
+// object): themed(windowBg(...), lines("hi")). Custom keys go through
+// themeColor/themeFloat/themeInt directly. Later entries shadow
+// earlier ones within one scope.
 inline ThemeEntry windowBg(std::uint32_t rgba) { return themeColor(kThemeWindowBg, rgba); }
-inline ThemeEntry cardFill(std::uint32_t rgba) { return themeColor(kThemeCardFill, rgba); }
-inline ThemeEntry cardStroke(std::uint32_t rgba) { return themeColor(kThemeCardStroke, rgba); }
-inline ThemeEntry buttonFill(std::uint32_t rgba) { return themeColor(kThemeButtonFill, rgba); }
-inline ThemeEntry buttonPrimaryTop(std::uint32_t rgba) {
-  return themeColor(kThemeButtonPrimaryTop, rgba);
-}
-inline ThemeEntry buttonPrimaryBottom(std::uint32_t rgba) {
-  return themeColor(kThemeButtonPrimaryBottom, rgba);
-}
-inline ThemeEntry accent(std::uint32_t rgba) { return themeColor(kThemeAccent, rgba); }
 inline ThemeEntry inkOnLight(std::uint32_t rgba) { return themeColor(kThemeInkOnLight, rgba); }
-inline ThemeEntry inkSecondary(std::uint32_t rgba) { return themeColor(kThemeInkSecondary, rgba); }
-inline ThemeEntry hairline(std::uint32_t rgba) { return themeColor(kThemeHairline, rgba); }
 inline ThemeEntry focusRing(std::uint32_t rgba) { return themeColor(kThemeFocusRing, rgba); }
-inline ThemeEntry layerFallback(std::uint32_t rgba) {
-  return themeColor(kThemeLayerFallback, rgba);
-}
 inline ThemeEntry typeLine(float v) { return themeFloat(kThemeTypeLine, v); }
-inline ThemeEntry typeDisplay(float v) { return themeFloat(kThemeTypeDisplay, v); }
-inline ThemeEntry glassThickness(float v) { return themeFloat(kThemeGlassThickness, v); }
-inline ThemeEntry buttonRadius(int v) { return themeInt(kThemeButtonRadius, v); }
-inline ThemeEntry glossLine(std::uint32_t rgba) { return themeColor(kThemeGlossLine, rgba); }
-inline ThemeEntry thumbRim(std::uint32_t rgba) { return themeColor(kThemeThumbRim, rgba); }
-inline ThemeEntry glossSheen(std::uint32_t rgba) { return themeColor(kThemeGlossSheen, rgba); }
-inline ThemeEntry cardTop(std::uint32_t rgba) { return themeColor(kThemeCardTop, rgba); }
-inline ThemeEntry cardBottom(std::uint32_t rgba) { return themeColor(kThemeCardBottom, rgba); }
-inline ThemeEntry buttonSecondaryTop(std::uint32_t rgba) {
-  return themeColor(kThemeButtonSecondaryTop, rgba);
-}
-inline ThemeEntry buttonSecondaryBottom(std::uint32_t rgba) {
-  return themeColor(kThemeButtonSecondaryBottom, rgba);
-}
-inline ThemeEntry thumbTop(std::uint32_t rgba) { return themeColor(kThemeThumbTop, rgba); }
-inline ThemeEntry thumbBottom(std::uint32_t rgba) { return themeColor(kThemeThumbBottom, rgba); }
-inline ThemeEntry trackTop(std::uint32_t rgba) { return themeColor(kThemeTrackTop, rgba); }
-inline ThemeEntry trackBottom(std::uint32_t rgba) { return themeColor(kThemeTrackBottom, rgba); }
-inline ThemeEntry accentTop(std::uint32_t rgba) { return themeColor(kThemeAccentTop, rgba); }
-inline ThemeEntry accentBottom(std::uint32_t rgba) { return themeColor(kThemeAccentBottom, rgba); }
-inline ThemeEntry gelGloss(std::uint32_t rgba) { return themeColor(kThemeGelGloss, rgba); }
-inline ThemeEntry gelEdge(std::uint32_t rgba) { return themeColor(kThemeGelEdge, rgba); }
 
 }  // namespace toolkit
 }  // namespace glim

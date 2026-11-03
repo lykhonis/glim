@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -45,9 +46,9 @@ struct Checkbox : WithSemantic {
   void record(const Box& box, Rec& rec) const {
     Box out, inner;
     outer(box, out, inner);
-    rec.push(*value ? kKindOn : kKind, out, {}, semantic, 6);
+    rec.push(*value ? kKindOn : kKind, out, {}, {}, 6);
     Box lb = labelBox(box);
-    rec.push("Lines", lb, label, semantic);
+    rec.push("Lines", lb, label);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     Box out, inner;
@@ -56,39 +57,35 @@ struct Checkbox : WithSemantic {
       sink.fillGradient(
           out,
           6,
-          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
-          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
-          semantic
+          themeColor(e, kShowAccentTop, Show::kAccentTop),
+          themeColor(e, kShowAccentBottom, Show::kAccentBottom)
       );
-      gelCoat(sink, out, 6, semantic);
+      gelCoat(sink, out, 6);
       sink.stroke(
           out,
           6,
           1.0f,
-          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
-          semantic
+          themeColor(e, kShowCardStroke, Show::kCardStroke)
       );
     } else {
       sink.fillGradient(
           out,
           6,
           themeColor(
-              e, kThemeButtonSecondaryTop, Tokens::kButtonSecondaryTop
+              e, kShowButtonSecondaryTop, Show::kButtonSecondaryTop
           ),
           themeColor(
               e,
-              kThemeButtonSecondaryBottom,
-              Tokens::kButtonSecondaryBottom
-          ),
-          semantic
+              kShowButtonSecondaryBottom,
+              Show::kButtonSecondaryBottom
+          )
       );
-      gelCoat(sink, out, 6, semantic);
+      gelCoat(sink, out, 6);
       sink.stroke(
           out,
           6,
           1.0f,
-          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
-          semantic
+          themeColor(e, kShowCardStroke, Show::kCardStroke)
       );
     }
     if (*value) {
@@ -99,10 +96,7 @@ struct Checkbox : WithSemantic {
           out.x + (out.w - s) * 0.5f, out.y + (out.h - s) * 0.5f, s, s
       };
       sink.fillRounded(
-          mark,
-          3,
-          themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
-          semantic
+          mark, 3, themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight)
       );
     }
     Box lb = labelBox(box);
@@ -111,8 +105,7 @@ struct Checkbox : WithSemantic {
         lb.y,
         label,
         themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
-        themeFloat(e, kThemeTypeLine, Tokens::kTypeLine),
-        semantic
+        themeFloat(e, kThemeTypeLine, Tokens::kTypeLine)
     );
   }
   bool handle(const Event& ev) const {

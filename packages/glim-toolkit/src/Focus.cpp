@@ -114,15 +114,6 @@ Box focusRingBox(const Block& root, const Box& box, int index, float pad, const 
   return {b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad};
 }
 
-void recordFocusRing(
-    Rec& rec, const Block& root, const Box& box, int index, float pad, const Engine& e
-) {
-  std::vector<FocusedBox> found;
-  collectFocus(root, box, e, found);
-  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return;
-  rec.push(kFocusRingKind, focusRingBox(root, box, index, pad, e));
-}
-
 int moveFocus(const Block& root, const Box& box, int current, FocusDir dir, const Engine& e) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);

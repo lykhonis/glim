@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -44,8 +45,8 @@ struct Segmented : WithSemantic {
     return {box.x + static_cast<float>(i) * w, box.y, w, kSegH};
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(kKind, box, {}, semantic, 18);
-    rec.push(kKindActive, activeBox(box), {}, semantic, 16);
+    rec.push(kKind, box, {}, {}, 18);
+    rec.push(kKindActive, activeBox(box), {}, {}, 16);
   }
   Box activeBox(const Box& box) const {
     int n = static_cast<int>(options.size());
@@ -60,9 +61,8 @@ struct Segmented : WithSemantic {
     sink.fillGradient(
         box,
         18,
-        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
-        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
-        semantic
+        themeColor(e, kShowTrackTop, Show::kTrackTop),
+        themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
     Box act = activeBox(box);
     // Pill is the track inset by 2px: radius 16 keeps corners
@@ -70,17 +70,12 @@ struct Segmented : WithSemantic {
     sink.fillGradient(
         act,
         16,
-        themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
-        themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
-        semantic
+        themeColor(e, kShowAccentTop, Show::kAccentTop),
+        themeColor(e, kShowAccentBottom, Show::kAccentBottom)
     );
-    gelCoat(sink, act, 16, semantic);
+    gelCoat(sink, act, 16);
     sink.stroke(
-        act,
-        16,
-        1.0f,
-        themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
-        semantic
+        act, 16, 1.0f, themeColor(e, kShowCardStroke, Show::kCardStroke)
     );
   }
 };

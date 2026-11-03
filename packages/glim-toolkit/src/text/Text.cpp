@@ -81,11 +81,8 @@ std::vector<std::string> greedyWrap(const std::string& text, float maxW) {
 
 }  // namespace
 
-std::vector<std::string> wrapText(const std::string& text, float maxW, const Engine& e) {
+std::vector<std::string> wrapText(const std::string& text, float maxW, const Engine&) {
   if (isUnbounded(maxW)) return {text};
-  if (const Breaker* b = e.get<Breaker>()) {
-    if (b->wrap) return b->wrap(text, maxW, Tokens::kTypeAdvance);
-  }
   return greedyWrap(text, maxW);
 }
 

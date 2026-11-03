@@ -66,8 +66,8 @@ void paintTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed
   detail::emitTree(b, box, e, sink, feed);
 }
 
-// Focus ring composes as an overlay: paint the tree first, then the
-// ring last (on top) — the same order recordFocusRing appends.
+// Focus ring is a paint-time overlay (never a record entry): paint
+// the tree first, then the ring last (on top).
 template <class S>
 void paintFocusRing(
     const Block& root,

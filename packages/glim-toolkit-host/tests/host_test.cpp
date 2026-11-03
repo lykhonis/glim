@@ -1,5 +1,6 @@
 #include <glim/toolkit/Ops.h>
 #include <glim/toolkit/Theme.h>
+#include <glim/toolkit/host/Codec.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/theme/Themed.h>
@@ -56,37 +57,39 @@ int main() {
     rec.pop();
     rec.slot({0, 0, 10, 10}, 7);
     std::vector<std::uint8_t> bytes;
-    glim::toolkit::encodeOps(rec.ops, bytes);
+    glim::toolkit::host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;
-    assert(glim::toolkit::decodeOps(bytes.data(), bytes.size(), back));
+    assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back));
     assert(back == rec.ops);
-    assert(!glim::toolkit::decodeOps(bytes.data(), bytes.size() - 1, back));
+    assert(!glim::toolkit::host::decodeOps(bytes.data(), bytes.size() - 1, back));
     bytes[3] ^= 0xff;
-    assert(!glim::toolkit::decodeOps(bytes.data(), bytes.size(), back));
+    assert(!glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back));
   }
 
-  // Theme defaults mirror Tokens; a themed scope overrides them.
+  // Theme defaults mirror the fallback; a themed scope overrides them.
+  // The key is user space (themeKey) — the toolkit owns only
+  // window/ink/type/focus builtins.
   {
-    using glim::toolkit::cardFill;
     using glim::toolkit::Engine;
-    using glim::toolkit::kThemeCardFill;
     using glim::toolkit::themeColor;
     using glim::toolkit::themed;
-    using glim::toolkit::Tokens;
+    constexpr static glim::toolkit::ThemeKey kTestCard{glim::toolkit::themeKey("test.card")};
+    constexpr std::uint32_t kTestCardDefault = 0x2c2c2eff;
     glim::toolkit::Env env{nullptr, nullptr, nullptr};
     Engine plain{&env};
-    assert(themeColor(plain, kThemeCardFill, Tokens::kCardFill) == Tokens::kCardFill);
+    assert(themeColor(plain, kTestCard, kTestCardDefault) == kTestCardDefault);
     struct Probe {
       const char* kind() const { return "Probe"; }
       std::uint32_t* out = nullptr;
       glim::toolkit::Box place(glim::toolkit::Constraints c, const Engine& e) const {
-        *out = themeColor(e, kThemeCardFill, Tokens::kCardFill);
+        *out = themeColor(e, kTestCard, kTestCardDefault);
         return glim::toolkit::detail::resolveSize(10, 10, c);
       }
     };
     std::uint32_t seen = 0;
-    auto tree =
-        themed(cardFill(0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{&seen}}});
+    auto tree = themed(
+        themeColor(kTestCard, 0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{&seen}}}
+    );
     glim::toolkit::place(tree, {0, 720, 0, 480});
     assert(seen == 0x123456ff);
   }

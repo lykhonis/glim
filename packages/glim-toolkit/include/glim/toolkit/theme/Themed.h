@@ -2,7 +2,7 @@
 
 // themed() factory: partitions ThemeEntry args (stored inline, later
 // shadows earlier) from children, leaving slot tags for finish to
-// wrap — so themed(accent(...), expand(), child) keeps its scope
+// wrap — so themed(typeLine(...), expand(), child) keeps its scope
 // through the Tagged wrapper (see Tagged::themeScope).
 
 #include <cassert>

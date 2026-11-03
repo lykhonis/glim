@@ -35,5 +35,16 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: CI
+        env:
+          GLIM_GOLDEN_STRICT: "1"
+          GLIM_GOT_DIR: ${{ github.workspace }}/got
         run: |
+          mkdir -p "${{ github.workspace }}/got"
           ${{ inputs.nx }}
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: got-${{ inputs.runs-on }}
+          path: ${{ github.workspace }}/got
+          if-no-files-found: ignore

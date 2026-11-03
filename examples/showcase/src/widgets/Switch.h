@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
@@ -32,12 +33,12 @@ struct Switch : WithSemantic {
     return *value ? box.x + box.w - 4.0f - kThumb : box.x + 4.0f;
   }
   void record(const Box& box, Rec& rec) const {
-    rec.push(*value ? kKindOn : kKind, box, {}, semantic, 14);
+    rec.push(*value ? kKindOn : kKind, box, {}, {}, 14);
     rec.push(
         kKindThumb,
         {thumbX(box), box.y + 4.0f, kThumb, kThumb},
         {},
-        semantic,
+        {},
         10
     );
   }
@@ -46,26 +47,23 @@ struct Switch : WithSemantic {
       sink.fillGradient(
           box,
           14,
-          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
-          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
-          semantic
+          themeColor(e, kShowAccentTop, Show::kAccentTop),
+          themeColor(e, kShowAccentBottom, Show::kAccentBottom)
       );
-      gelCoat(sink, box, 14, semantic);
+      gelCoat(sink, box, 14);
       sink.stroke(
           box,
           14,
           1.0f,
-          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
-          semantic
+          themeColor(e, kShowCardStroke, Show::kCardStroke)
       );
     } else {
       // Groove: no stroke — the fill contrast alone shapes it.
       sink.fillGradient(
           box,
           14,
-          themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
-          themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
-          semantic
+          themeColor(e, kShowTrackTop, Show::kTrackTop),
+          themeColor(e, kShowTrackBottom, Show::kTrackBottom)
       );
     }
     // No 1px gloss line: it clipped the thumb crown and read as a
@@ -75,21 +73,16 @@ struct Switch : WithSemantic {
     // around white on near-black reads as a dirty halo).
     Box thumb{thumbX(box), box.y + 4.0f, kThumb, kThumb};
     Box shadow{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
-    sink.fillRounded(shadow, 10, Tokens::kShadow, semantic);
+    sink.fillRounded(shadow, 10, Show::kShadow);
     sink.fillGradient(
         thumb,
         10,
-        themeColor(e, kThemeThumbTop, Tokens::kThumbTop),
-        themeColor(e, kThemeThumbBottom, Tokens::kThumbBottom),
-        semantic
+        themeColor(e, kShowThumbTop, Show::kThumbTop),
+        themeColor(e, kShowThumbBottom, Show::kThumbBottom)
     );
-    knobGloss(sink, thumb, semantic);
+    knobGloss(sink, thumb);
     sink.stroke(
-        thumb,
-        10,
-        1.0f,
-        themeColor(e, kThemeThumbRim, Tokens::kThumbRim),
-        semantic
+        thumb, 10, 1.0f, themeColor(e, kShowThumbRim, Show::kThumbRim)
     );
   }
   bool handle(const Event& ev) const {

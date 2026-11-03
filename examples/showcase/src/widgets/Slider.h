@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "Gel.h"
+#include "ShowcaseTheme.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/Custom.h"
@@ -63,9 +64,9 @@ struct Slider : WithSemantic {
   void record(const Box& box, Rec& rec) const {
     Box track, fill, thumb;
     geometry(box, track, fill, thumb);
-    rec.push(kKind, track, {}, semantic, 4);
-    if (fill.w > 0) rec.push(kKindFill, fill, {}, semantic, 4);
-    rec.push(kKindThumb, thumb, {}, semantic, 10);
+    rec.push(kKind, track, {}, {}, 4);
+    if (fill.w > 0) rec.push(kKindFill, fill, {}, {}, 4);
+    rec.push(kKindThumb, thumb, {}, {}, 10);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     Box track, fill, thumb;
@@ -74,38 +75,31 @@ struct Slider : WithSemantic {
     sink.fillGradient(
         track,
         4,
-        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
-        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
-        semantic
+        themeColor(e, kShowTrackTop, Show::kTrackTop),
+        themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
     if (fill.w > 0.5f) {
       sink.fillGradient(
           fill,
           4,
-          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
-          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
-          semantic
+          themeColor(e, kShowAccentTop, Show::kAccentTop),
+          themeColor(e, kShowAccentBottom, Show::kAccentBottom)
       );
-      gelCoat(sink, fill, 4, semantic);
+      gelCoat(sink, fill, 4);
     }
     // Thumb: shadow, face, gloss crown, single gray rim. No sheen
     // rect — the old 1px line slid under the cap and read as a step.
     Box shade{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
-    sink.fillRounded(shade, 10, Tokens::kShadow, semantic);
+    sink.fillRounded(shade, 10, Show::kShadow);
     sink.fillGradient(
         thumb,
         10,
-        themeColor(e, kThemeThumbTop, Tokens::kThumbTop),
-        themeColor(e, kThemeThumbBottom, Tokens::kThumbBottom),
-        semantic
+        themeColor(e, kShowThumbTop, Show::kThumbTop),
+        themeColor(e, kShowThumbBottom, Show::kThumbBottom)
     );
-    knobGloss(sink, thumb, semantic);
+    knobGloss(sink, thumb);
     sink.stroke(
-        thumb,
-        10,
-        1.0f,
-        themeColor(e, kThemeThumbRim, Tokens::kThumbRim),
-        semantic
+        thumb, 10, 1.0f, themeColor(e, kShowThumbRim, Show::kThumbRim)
     );
   }
   bool handleAt(const Box& box, const Event& ev) const {

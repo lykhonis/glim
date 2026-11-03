@@ -1,4 +1,5 @@
 #include <glim/gpu/Device.h>
+#include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -107,15 +108,8 @@ int main(int argc, char** argv) {
                 << kMaxChannelDelta << ")\n";
     }
     if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
-      std::string name =
-          (argc > 0 && argv[0]) ? argv[0] : "vulkan-golden";
-      const std::size_t slash = name.find_last_of('/');
-      if (slash != std::string::npos) {
-        name = name.substr(slash + 1);
-      }
-      glim::image::Png::write(
-          (std::string(dir) + "/" + name + "-got.png").c_str(), got
-      );
+      (void)dir;
+      glim::image::writeGot(argv[0], got);
     }
     return EXIT_FAILURE;
   }

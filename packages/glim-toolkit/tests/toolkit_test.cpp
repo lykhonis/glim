@@ -734,23 +734,13 @@ int main() {
     assert(!dispatchCaptured(cap, cbox, -1, Event::borrow(PointerDown{1, 1})));
   }
 
-  // Focus ring: expanded overlay box appended last by recordFocusRing.
+  // Focus ring: expanded overlay box, painted last by paintFocusRing.
   {
     Box ring = focusRingBox(grid, gridBox, 4);
     assert(ring.x == fbox.x - 2 && ring.y == fbox.y - 2);
     assert(ring.w == fbox.w + 4 && ring.h == fbox.h + 4);
-    Rec recr;
-    record(grid, gridBox, recr);
-    std::size_t base = recr.entries.size();
-    recordFocusRing(recr, grid, gridBox, 4);
-    assert(recr.entries.size() == base + 1);
-    assert(recr.entries.back().kind == kFocusRingKind);
-    assert(recr.entries.back().box.x == ring.x && recr.entries.back().box.y == ring.y);
-    // Out-of-range index: zero box, no entry.
+    // Out-of-range index: zero box.
     assert(focusRingBox(grid, gridBox, 99).w == 0);
-    Rec empty;
-    recordFocusRing(empty, grid, gridBox, 99);
-    assert(empty.entries.empty());
   }
   {
     State<int> tapped = store.make<int>(0);
@@ -817,19 +807,23 @@ int main() {
   // Theme: dynamic keys — override, nested inner-wins, sibling isolation.
   // Probes read via themeColor in place (Themed::place/childBox push
   // the scope) and in paint (the walk threads the scoped engine).
+  // User space defines its own keys (themeKey); the toolkit owns
+  // only window/ink/type/focus builtins.
   {
+    constexpr static ThemeKey kTestAccent = themeKey("test.accent");
+    constexpr std::uint32_t kTestAccentDefault = 0xff5a1fff;
     struct AccentProbe {
       const char* kind() const { return "AccentProbe"; }
       std::uint32_t* out = nullptr;
       Box place(Constraints c, const Engine& e) const {
-        *out = themeColor(e, kThemeAccent, Tokens::kAccent);
+        *out = themeColor(e, kTestAccent, kTestAccentDefault);
         return detail::resolveSize(10, 10, c);
       }
     };
     // Override wins over ambient.
     {
       std::uint32_t seen = 0;
-      Block t = themed(accent(0x11223344), toBlock(AccentProbe{&seen}));
+      Block t = themed(themeColor(kTestAccent, 0x11223344), toBlock(AccentProbe{&seen}));
       place(t, {0, 720, 0, 480});
       assert(seen == 0x11223344);
     }
@@ -837,12 +831,15 @@ int main() {
     {
       std::uint32_t seen = 0;
       place(toBlock(AccentProbe{&seen}), {0, 720, 0, 480});
-      assert(seen == Tokens::kAccent);
+      assert(seen == kTestAccentDefault);
     }
     // Nested overrides compose inner-wins.
     {
       std::uint32_t seen = 0;
-      Block t = themed(accent(0x11111111), themed(accent(0x22222222), toBlock(AccentProbe{&seen})));
+      Block t = themed(
+          themeColor(kTestAccent, 0x11111111),
+          themed(themeColor(kTestAccent, 0x22222222), toBlock(AccentProbe{&seen}))
+      );
       place(t, {0, 720, 0, 480});
       assert(seen == 0x22222222);
     }
@@ -851,8 +848,8 @@ int main() {
       std::uint32_t sa = 0, sb = 0;
       Block t =
           row(gap(0),
-              themed(accent(0xaaaaaaaa), toBlock(AccentProbe{&sa})),
-              themed(accent(0xbbbbbbbb), toBlock(AccentProbe{&sb})));
+              themed(themeColor(kTestAccent, 0xaaaaaaaa), toBlock(AccentProbe{&sa})),
+              themed(themeColor(kTestAccent, 0xbbbbbbbb), toBlock(AccentProbe{&sb})));
       place(t, {0, 720, 0, 480});
       assert(sa == 0xaaaaaaaa && sb == 0xbbbbbbbb);
     }

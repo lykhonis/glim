@@ -3,11 +3,10 @@
 // Text measure → break → layout, inside the toolkit until a second
 // consumer appears (then promote to glim-text). Boundary: measure
 // (advances) → break (wrap/truncate) → layout (placed boxes).
-// Pluggable breaker/shaper behind env injection, Measurer-style:
-// custom advances today (Measurer), custom breaking via Breaker next
-// to it; per-glyph raster stays paint-side, this module only places
-// boxes. Align offsets stay fixed-advance even when the Measurer
-// sized the box (see layoutPlacedLines).
+// Custom advances publish via the Measurer env (Measurer-style);
+// per-glyph raster stays paint-side, this module only places boxes.
+// Align offsets stay fixed-advance even when the Measurer sized the
+// box (see layoutPlacedLines).
 
 #include <string>
 #include <vector>
@@ -20,13 +19,6 @@
 namespace glim {
 namespace toolkit {
 namespace text {
-
-// Custom line breaking (locale-aware, hyphenation, ...). Published
-// into the Engine env like Measurer; wrapText uses it when present
-// and falls back to the greedy fixed-advance break otherwise.
-struct Breaker {
-  std::vector<std::string> (*wrap)(const std::string& text, float maxW, float advance) = nullptr;
-};
 
 struct PlacedLine {
   Box box;

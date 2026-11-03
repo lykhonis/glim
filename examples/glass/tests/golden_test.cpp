@@ -1,3 +1,4 @@
+#include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -43,6 +44,11 @@ int main(int argc, char** argv) {
   );
 
   if (!fileExists(goldenPath)) {
+    if (glim::image::goldenStrict()) {
+      std::cerr << "missing golden " << goldenPath
+                << " (strict mode)\n";
+      return EXIT_FAILURE;
+    }
     if (!glim::image::Png::write(goldenPath, got)) {
       std::cerr << "could not write golden " << goldenPath << '\n';
       return EXIT_FAILURE;
@@ -57,16 +63,8 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  const glim::image::Diff diff = glim::image::compare(got, want);
-  if (!diff.match()) {
-    if (!diff.sameSize) {
-      std::cerr << "golden size mismatch\n";
-    } else {
-      std::cerr << "golden mismatch: " << diff.overDelta
-                << " channels differ by >2\n";
-    }
+  if (!glim::image::checkCpuGolden(got, want, argv[0], "glass"))
     return EXIT_FAILURE;
-  }
   std::cout << "golden_test ok\n";
   return EXIT_SUCCESS;
 }

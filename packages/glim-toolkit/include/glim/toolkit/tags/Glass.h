@@ -13,12 +13,12 @@ namespace toolkit {
 // if nested. Radius rides the tag so chrome needs no element query.
 struct GlassTag {
   bool clear = false;
-  int radius = Tokens::kCardRadius;
+  int radius = Tokens::kGlassRadius;
 };
 
-inline GlassTag glass(int radius = Tokens::kCardRadius) { return {false, radius}; }
+inline GlassTag glass(int radius = Tokens::kGlassRadius) { return {false, radius}; }
 
-inline GlassTag glassClear(int radius = Tokens::kCardRadius) { return {true, radius}; }
+inline GlassTag glassClear(int radius = Tokens::kGlassRadius) { return {true, radius}; }
 
 template <>
 struct is_tag<GlassTag> : std::true_type {};
