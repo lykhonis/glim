@@ -447,6 +447,115 @@ Rect contentBounds(const Group& g) {
   return b;
 }
 
+namespace {
+
+// Authored identity matrices compare bit-equal; transformed ones do not.
+bool isIdentityMatrix(const Mat4& t) {
+  const Mat4 id = Mat4::identity();
+  for (int i = 0; i < 16; ++i) {
+    if (t.m[i] != id.m[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool sameGlassMaterial(const Glass& a, const Glass& b) {
+  return a.variant == b.variant && a.tint.rgba == b.tint.rgba && a.interactive == b.interactive &&
+         a.ior == b.ior && a.thicknessPx == b.thicknessPx && a.mergeKPx == b.mergeKPx &&
+         a.refDistance == b.refDistance && a.dispersion == b.dispersion && a.flatten == b.flatten;
+}
+
+// Slot-tag glass markers: empty leaf groups carrying only glass params
+// plus explicit bounds (see toolkit Emit: paint, pushGlass, pop, then
+// children). Anything else keeps the legacy solo-plate path —
+// reinterpretation must not touch shapeful or configured groups.
+bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Glass& mat) {
+  if (!c || !hasGlass(*c)) {
+    return false;
+  }
+  const GroupParams& p = c->params;
+  if (p.glassContainer) {
+    return false;
+  }
+  if (!c->shapes.empty() || !c->children.empty()) {
+    return false;
+  }
+  if (p.opacity < 1.0f - 1e-5f) {
+    return false;
+  }
+  if (p.blend != Blend::SrcOver) {
+    return false;
+  }
+  if (p.semantic != 0) {
+    return false;
+  }
+  if (p.contentBlur > 0.0f || hasBackdrop(*c) || hasShadow(*c)) {
+    return false;
+  }
+  if (!isIdentityMatrix(p.transform)) {
+    return false;
+  }
+  return p.glass.has_value() && sameGlassMaterial(*p.glass, mat);
+}
+
+// Fold maximal runs of adjacent slot-tag glass markers into one
+// glassContainer: a single isolate whose plate is masked by the merged
+// pill field, instead of one plate per marker. Runs broken by any
+// other group keep the legacy path. Shapes between markers are
+// untouched — they keep their order slots and paint as before, so the
+// plate still sees the same backdrop.
+void fuseGlassRuns(Group& out) {
+  std::size_t i = 0;
+  while (i < out.children.size()) {
+    if (!out.children[i] || !out.children[i]->params.glass.has_value() ||
+        !hasGlass(*out.children[i])) {
+      ++i;
+      continue;
+    }
+    const Glass& mat = *out.children[i]->params.glass;
+    std::size_t j = i;
+    while (j < out.children.size() && fusibleGlassMarker(out.children[j], mat)) {
+      ++j;
+    }
+    if (j - i < 2) {
+      i = j > i ? j : i + 1;
+      continue;
+    }
+    Group box;
+    box.params.glassContainer = true;
+    Rect bounds{};
+    for (std::size_t k = i; k < j; ++k) {
+      const Group& m = *out.children[k];
+      Rect mb = (m.params.bounds.size.x > 0 && m.params.bounds.size.y > 0) ? m.params.bounds
+                                                                           : contentBounds(m);
+      bounds = unionRect(bounds, mb);
+      box.order.push_back({GroupItem::Child, static_cast<std::uint32_t>(box.children.size())});
+      box.children.push_back(std::move(out.children[k]));
+    }
+    box.params.bounds = bounds;
+    out.children[i] = std::make_unique<Group>(std::move(box));
+    out.children.erase(out.children.begin() + i + 1, out.children.begin() + j);
+    const std::size_t removed = j - i - 1;
+    std::vector<GroupItem> order;
+    order.reserve(out.order.size());
+    for (const GroupItem& item : out.order) {
+      if (item.kind == GroupItem::Child && item.index > i && item.index < j) {
+        continue;
+      }
+      if (item.kind == GroupItem::Child && item.index >= j) {
+        order.push_back({GroupItem::Child, static_cast<std::uint32_t>(item.index - removed)});
+        continue;
+      }
+      order.push_back(item);
+    }
+    out.order = std::move(order);
+    ++i;
+  }
+}
+
+}  // namespace
+
 Group merge(Group g, Stats* stats) {
   Group out;
   out.params = g.params;
@@ -497,6 +606,13 @@ Group merge(Group g, Stats* stats) {
   }
   if (out.params.bounds.size.x <= 0 || out.params.bounds.size.y <= 0) {
     out.params.bounds = contentBounds(out);
+  }
+  // Never inside an existing glass scope: hand-built containers (see
+  // the glass demo) already own their pill collection, and folding
+  // their markers into a nested container would hide the pills from
+  // it. Fusion only assembles runs of bare markers in plain groups.
+  if (!hasGlass(g) && !g.params.glassContainer) {
+    fuseGlassRuns(out);
   }
   return out;
 }

@@ -265,6 +265,113 @@ int main() {
   merged = glim::paint::merge(std::move(mixedCtx.scene().root), &stats);
   expect(merged.children.size() == 1, "Plus child does not merge into SrcOver parent");
 
+  // Glass fusion: adjacent slot-tag markers (empty glass groups) fold
+  // into one glassContainer so the compositor shades a single plate
+  // masked by the merged pills, instead of one plate per marker.
+  auto glassMarker = [](glim::paint::Context& c, float x, float w, bool clear = false) {
+    glim::paint::GroupParams gp;
+    gp.glass = clear ? glim::paint::Glass::clear() : glim::paint::Glass{};
+    gp.bounds = glim::Rect{{x, 10}, {w, 60}};
+    gp.clip = gp.bounds;
+    c.pushGroup(gp);
+    c.popGroup();
+  };
+  {
+    glim::paint::Context fuseCtx;
+    fuseCtx.setSize({200, 100});
+    fuseCtx.beginFrame();
+    fuseCtx.setFillColor(0x202020ff);
+    fuseCtx.fill(glim::Rect::fromSize({200, 100}));
+    glassMarker(fuseCtx, 10, 40);
+    glassMarker(fuseCtx, 60, 40);
+    fuseCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(fuseCtx.scene().root), &stats);
+    expect(merged.children.size() == 1, "adjacent glass markers fuse into one node");
+    expect(
+        merged.children.size() == 1 && merged.children[0]->params.glassContainer,
+        "fused node is a glassContainer"
+    );
+    expect(
+        merged.children.size() == 1 && merged.children[0]->children.size() == 2,
+        "container keeps both markers as pill sources"
+    );
+    expect(
+        merged.children.size() == 1 && !glim::paint::hasGlass(*merged.children[0]),
+        "container itself carries no glass params"
+    );
+    expect(
+        merged.children.size() == 1 && merged.children[0]->params.bounds.size.x >= 89.f,
+        "container bounds span both markers"
+    );
+    expect(
+        merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
+        "fused container isolates"
+    );
+  }
+  // Different materials never fuse: clear and regular frost are
+  // different plates by construction.
+  {
+    glim::paint::Context splitCtx;
+    splitCtx.setSize({200, 100});
+    splitCtx.beginFrame();
+    splitCtx.setFillColor(0x202020ff);
+    splitCtx.fill(glim::Rect::fromSize({200, 100}));
+    glassMarker(splitCtx, 10, 40, false);
+    glassMarker(splitCtx, 60, 40, true);
+    splitCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(splitCtx.scene().root), &stats);
+    expect(merged.children.size() == 2, "mismatched glass materials stay separate");
+  }
+  // A blend group between markers breaks the run: speculars and other
+  // overlay work must keep its own pass.
+  {
+    glim::paint::Context brokenCtx;
+    brokenCtx.setSize({200, 100});
+    brokenCtx.beginFrame();
+    brokenCtx.setFillColor(0x202020ff);
+    brokenCtx.fill(glim::Rect::fromSize({200, 100}));
+    glassMarker(brokenCtx, 10, 40);
+    glim::paint::GroupParams plusKid;
+    plusKid.blend = glim::paint::Blend::Plus;
+    brokenCtx.pushGroup(plusKid);
+    brokenCtx.setFillColor(0xffffffff);
+    brokenCtx.fill(glim::Rect::fromSize({10, 10}));
+    brokenCtx.popGroup();
+    glassMarker(brokenCtx, 60, 40);
+    brokenCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(brokenCtx.scene().root), &stats);
+    expect(merged.children.size() == 3, "blend group breaks the glass run");
+  }
+  // Shapeful glass groups keep the legacy solo-plate path: their fills
+  // must not be reinterpreted as container pills.
+  {
+    glim::paint::Context manualCtx;
+    manualCtx.setSize({200, 100});
+    manualCtx.beginFrame();
+    manualCtx.setFillColor(0x202020ff);
+    manualCtx.fill(glim::Rect::fromSize({200, 100}));
+    glim::paint::GroupParams shaped;
+    shaped.glass = glim::paint::Glass{};
+    shaped.bounds = glim::Rect{{10, 10}, {40, 60}};
+    manualCtx.pushGroup(shaped);
+    manualCtx.setFillColor(0xffffff88);
+    manualCtx.fill(glim::Rect{{10, 10}, {40, 60}});
+    manualCtx.popGroup();
+    glassMarker(manualCtx, 60, 40);
+    manualCtx.finish();
+    stats = {};
+    merged = glim::paint::merge(std::move(manualCtx.scene().root), &stats);
+    expect(merged.children.size() == 2, "shapeful glass group does not fuse");
+    expect(
+        merged.children.size() == 2 && !merged.children[0]->params.glassContainer &&
+            !merged.children[1]->params.glassContainer,
+        "no container synthesized around manual glass"
+    );
+  }
+
   if (failures != 0) {
     std::cerr << failures << " failure(s)\n";
     return EXIT_FAILURE;
