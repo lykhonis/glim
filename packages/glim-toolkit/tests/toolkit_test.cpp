@@ -11,6 +11,10 @@ static_assert(has_children<Stack>::value, "");
 static_assert(has_children<List>::value, "");
 static_assert(has_children<Roll>::value, "");
 static_assert(has_children<Tap>::value, "");
+// Member spelling: containers traverse without an eachChild method.
+static_assert(has_child_vector<Row>::value, "");
+static_assert(!has_eachChild<Row>::value, "");
+static_assert(has_child_vector<Tap>::value && has_childBox<Tap>::value, "");
 static_assert(!has_children<Empty>::value, "");
 static_assert(!has_children<Lines>::value, "");
 static_assert(!has_children<Seat>::value, "");
@@ -42,10 +46,6 @@ struct Radial : WithGap, WithRadius {
     if (d < c.minW) d = c.minW;
     if (d > c.maxW) d = c.maxW;
     return {0, 0, d, d};
-  }
-  template <class F>
-  void eachChild(F&& f) const {
-    for (const auto& child : children) f(child);
   }
   Box childBox(std::size_t i, const Box& b, const Engine& e) const {
     float y = b.y;
@@ -569,7 +569,7 @@ int main() {
   {
     Block li = list(3, [](int i) { return lines("row" + std::to_string(i)); });
     const List* lp = li.get<List>();
-    assert(lp && lp->items.size() == 3);
+    assert(lp && lp->children.size() == 3);
     Box lb = place(li, {0, 720, 0, 480});
     assert(lb.h == 42 && lb.w == 32);
     Rec lr;
@@ -588,7 +588,7 @@ int main() {
     assert(deliverKey(lt, ltb, 1, Key::Activate) == 1 && *picked == 1);
     // Negative count → empty list, no crash.
     Block le = list(-1, [](int) { return lines("x"); });
-    assert(le.get<List>() && le.get<List>()->items.empty());
+    assert(le.get<List>() && le.get<List>()->children.empty());
   }
 
   {
@@ -812,6 +812,69 @@ int main() {
     });
     assert(filters->span == -1 && filters->mode == 1);
     assert(states.revision() == base + 2);
+  }
+
+  // Theme: dynamic keys — override, nested inner-wins, sibling isolation.
+  // Probes read via themeColor in place (Themed::place/childBox push
+  // the scope) and in paint (the walk threads the scoped engine).
+  {
+    struct AccentProbe {
+      const char* kind() const { return "AccentProbe"; }
+      std::uint32_t* out = nullptr;
+      Box place(Constraints c, const Engine& e) const {
+        *out = themeColor(e, kThemeAccent, Tokens::kAccent);
+        return detail::resolveSize(10, 10, c);
+      }
+    };
+    // Override wins over ambient.
+    {
+      std::uint32_t seen = 0;
+      Block t = themed(accent(0x11223344), toBlock(AccentProbe{&seen}));
+      place(t, {0, 720, 0, 480});
+      assert(seen == 0x11223344);
+    }
+    // Ambient fallback when unscoped.
+    {
+      std::uint32_t seen = 0;
+      place(toBlock(AccentProbe{&seen}), {0, 720, 0, 480});
+      assert(seen == Tokens::kAccent);
+    }
+    // Nested overrides compose inner-wins.
+    {
+      std::uint32_t seen = 0;
+      Block t = themed(accent(0x11111111), themed(accent(0x22222222), toBlock(AccentProbe{&seen})));
+      place(t, {0, 720, 0, 480});
+      assert(seen == 0x22222222);
+    }
+    // Siblings are isolated.
+    {
+      std::uint32_t sa = 0, sb = 0;
+      Block t =
+          row(gap(0),
+              themed(accent(0xaaaaaaaa), toBlock(AccentProbe{&sa})),
+              themed(accent(0xbbbbbbbb), toBlock(AccentProbe{&sb})));
+      place(t, {0, 720, 0, 480});
+      assert(sa == 0xaaaaaaaa && sb == 0xbbbbbbbb);
+    }
+    // Paint sees the scope too: ink override reaches the Text op.
+    {
+      OpsRecorder rec;
+      struct Feed {
+        std::uint32_t id = 0;
+        bool foreign = false;
+      } feed;
+      Block t = themed(inkOnLight(0x123456ff), lines("hi"));
+      Box tb = place(t, {0, 720, 0, 480});
+      paintTree(t, tb, Engine{}, rec, feed);
+      bool foundText = false;
+      for (const auto& o : rec.ops) {
+        if (o.kind == Op::Kind::Text) {
+          foundText = true;
+          assert(o.rgba == 0x123456ff);
+        }
+      }
+      assert(foundText);
+    }
   }
 
   std::cout << "toolkit tests ok\n";

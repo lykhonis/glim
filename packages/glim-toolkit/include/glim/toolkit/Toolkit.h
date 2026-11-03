@@ -21,3 +21,4 @@
 #include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
 #include "glim/toolkit/Walk.h"
+#include "glim/toolkit/theme/Themed.h"

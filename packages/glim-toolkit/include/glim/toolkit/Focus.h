@@ -22,8 +22,8 @@ enum class FocusDir { Next, Prev, Up, Down, Left, Right };
 int deliverKey(const Block& root, const Box& box, int current, Key key, const Engine& e = Engine{});
 
 // Depth-first focusables: handling elements (Tap, handleful Customs).
-// Customs exposing children (eachChild + childBox, e.g. `Card`) are
-// transparent and recursed; a handling Custom WITH children contributes
+// Customs exposing children (a `children` member or eachChild, plus
+// childBox, e.g. `Card`) are transparent and recursed; a handling Custom WITH children contributes
 // itself (pre-order) plus its children, so container actions stay reachable.
 // Lifetime: returned pointers borrow from `root` — same rule as `hit` in
 // Place.h. The tree must outlive the vector; never call on a temporary.

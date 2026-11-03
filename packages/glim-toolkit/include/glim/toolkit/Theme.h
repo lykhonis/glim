@@ -1,62 +1,104 @@
 #pragma once
 
-#include <cstdint>
+// Subtree theme scope (values-DSL spirit). The element owns its Env
+// slot lifetime internally: place/childBox push the entries on the
+// stack for layout, the walk pushes them for record/paint/hit/focus
+// (see Walk.h). Callers never retain slots. Siblings are isolated by
+// construction (each scope is its own Env node); nested scopes
+// compose inner-wins via chain order.
+//
+// Layout is a gapless column (transparent stacking); theme never
+// affects geometry, so any container shape would do — column reads
+// naturally for a themed section.
 
+#include <cstddef>
+#include <cstdint>
+#include <typeinfo>
+#include <utility>
+#include <vector>
+
+#include "glim/toolkit/ConfigureFwd.h"
 #include "glim/toolkit/Place.h"
-#include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/Tags.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
 
-// Default look. Values mirror Tokens; elements read these through the
-// engine instead of naming Tokens at paint time, so an app re-skins by
-// passing a themed engine (see withTheme) with zero element edits.
-struct Theme {
-  std::uint32_t windowBg = Tokens::kWindowBg;
-  std::uint32_t cardFill = Tokens::kCardFill;
-  std::uint32_t cardStroke = Tokens::kCardStroke;
-  std::uint32_t buttonFill = Tokens::kButtonFill;
-  std::uint32_t buttonPrimaryTop = Tokens::kButtonPrimaryTop;
-  std::uint32_t buttonPrimaryBottom = Tokens::kButtonPrimaryBottom;
-  std::uint32_t accent = Tokens::kAccent;
-  std::uint32_t inkOnLight = Tokens::kInkOnLight;
-  std::uint32_t inkSecondary = Tokens::kInkSecondary;
-  std::uint32_t hairline = Tokens::kHairline;
-  std::uint32_t focusRing = Tokens::kFocusRing;
-  std::uint32_t layerFallback = Tokens::kLayerFallback;
-  float typeLine = Tokens::kTypeLine;
-  float typeDisplay = Tokens::kTypeDisplay;
-  float glassThickness = Tokens::kGlassThickness;
-  int buttonRadius = Tokens::kButtonRadius;
-  std::uint32_t glossLine = Tokens::kGlossLine;
-  std::uint32_t thumbRim = Tokens::kThumbRim;
-  std::uint32_t glossSheen = Tokens::kGlossSheen;
-  std::uint32_t cardTop = Tokens::kCardTop;
-  std::uint32_t cardBottom = Tokens::kCardBottom;
-  std::uint32_t buttonSecondaryTop = Tokens::kButtonSecondaryTop;
-  std::uint32_t buttonSecondaryBottom = Tokens::kButtonSecondaryBottom;
-  std::uint32_t thumbTop = Tokens::kThumbTop;
-  std::uint32_t thumbBottom = Tokens::kThumbBottom;
-  std::uint32_t trackTop = Tokens::kTrackTop;
-  std::uint32_t trackBottom = Tokens::kTrackBottom;
-  std::uint32_t accentTop = Tokens::kAccentTop;
-  std::uint32_t accentBottom = Tokens::kAccentBottom;
-  // Aqua gel coat + bright inner top edge for gel faces.
-  std::uint32_t gelGloss = Tokens::kGelGloss;
-  std::uint32_t gelEdge = Tokens::kGelEdge;
+inline constexpr std::size_t kMaxThemeEntries = 8;
+
+struct Themed {
+  static constexpr const char* kKind = "Themed";
+  const char* kind() const { return kKind; }
+  ThemeEntry entries[kMaxThemeEntries]{};
+  std::size_t count = 0;
+  std::vector<Block> children;
+  ThemeScope themeScope() const { return {entries, count}; }
+  Box place(Constraints c, const Engine& e) const {
+    ThemeScope s{entries, count};
+    Env node{&s, &typeid(ThemeScope), e.env};
+    Engine de = e;
+    de.env = &node;
+    return detail::flowColumn(children, 0, c, de).size;
+  }
+  Box childBox(std::size_t i, const Box& box, const Engine& e) const {
+    ThemeScope s{entries, count};
+    Env node{&s, &typeid(ThemeScope), e.env};
+    Engine de = e;
+    de.env = &node;
+    detail::Flow f = detail::flowColumn(children, 0, {0, box.w, 0, box.h}, de);
+    Box b = f.children[i];
+    b.x += box.x;
+    b.y += box.y;
+    return b;
+  }
 };
 
-inline const Theme& theme(const Engine& e) {
-  if (const Theme* t = e.get<Theme>()) return *t;
-  static const Theme def{};
-  return def;
+// Named builders for the builtin ramp (values-DSL, no builder
+// object): themed(accent(0xff5a1fff), lines("hi")). Custom keys go
+// through themeColor/themeFloat/themeInt directly. Later entries
+// shadow earlier ones within one scope.
+inline ThemeEntry windowBg(std::uint32_t rgba) { return themeColor(kThemeWindowBg, rgba); }
+inline ThemeEntry cardFill(std::uint32_t rgba) { return themeColor(kThemeCardFill, rgba); }
+inline ThemeEntry cardStroke(std::uint32_t rgba) { return themeColor(kThemeCardStroke, rgba); }
+inline ThemeEntry buttonFill(std::uint32_t rgba) { return themeColor(kThemeButtonFill, rgba); }
+inline ThemeEntry buttonPrimaryTop(std::uint32_t rgba) {
+  return themeColor(kThemeButtonPrimaryTop, rgba);
 }
-
-// Borrowed theme for one walk; the caller retains t and slot.
-inline Engine withTheme(const Engine& e, const Theme& t, Env& slot) {
-  slot = Env{&t, &typeid(Theme), e.env};
-  return Engine{&slot};
+inline ThemeEntry buttonPrimaryBottom(std::uint32_t rgba) {
+  return themeColor(kThemeButtonPrimaryBottom, rgba);
 }
+inline ThemeEntry accent(std::uint32_t rgba) { return themeColor(kThemeAccent, rgba); }
+inline ThemeEntry inkOnLight(std::uint32_t rgba) { return themeColor(kThemeInkOnLight, rgba); }
+inline ThemeEntry inkSecondary(std::uint32_t rgba) { return themeColor(kThemeInkSecondary, rgba); }
+inline ThemeEntry hairline(std::uint32_t rgba) { return themeColor(kThemeHairline, rgba); }
+inline ThemeEntry focusRing(std::uint32_t rgba) { return themeColor(kThemeFocusRing, rgba); }
+inline ThemeEntry layerFallback(std::uint32_t rgba) {
+  return themeColor(kThemeLayerFallback, rgba);
+}
+inline ThemeEntry typeLine(float v) { return themeFloat(kThemeTypeLine, v); }
+inline ThemeEntry typeDisplay(float v) { return themeFloat(kThemeTypeDisplay, v); }
+inline ThemeEntry glassThickness(float v) { return themeFloat(kThemeGlassThickness, v); }
+inline ThemeEntry buttonRadius(int v) { return themeInt(kThemeButtonRadius, v); }
+inline ThemeEntry glossLine(std::uint32_t rgba) { return themeColor(kThemeGlossLine, rgba); }
+inline ThemeEntry thumbRim(std::uint32_t rgba) { return themeColor(kThemeThumbRim, rgba); }
+inline ThemeEntry glossSheen(std::uint32_t rgba) { return themeColor(kThemeGlossSheen, rgba); }
+inline ThemeEntry cardTop(std::uint32_t rgba) { return themeColor(kThemeCardTop, rgba); }
+inline ThemeEntry cardBottom(std::uint32_t rgba) { return themeColor(kThemeCardBottom, rgba); }
+inline ThemeEntry buttonSecondaryTop(std::uint32_t rgba) {
+  return themeColor(kThemeButtonSecondaryTop, rgba);
+}
+inline ThemeEntry buttonSecondaryBottom(std::uint32_t rgba) {
+  return themeColor(kThemeButtonSecondaryBottom, rgba);
+}
+inline ThemeEntry thumbTop(std::uint32_t rgba) { return themeColor(kThemeThumbTop, rgba); }
+inline ThemeEntry thumbBottom(std::uint32_t rgba) { return themeColor(kThemeThumbBottom, rgba); }
+inline ThemeEntry trackTop(std::uint32_t rgba) { return themeColor(kThemeTrackTop, rgba); }
+inline ThemeEntry trackBottom(std::uint32_t rgba) { return themeColor(kThemeTrackBottom, rgba); }
+inline ThemeEntry accentTop(std::uint32_t rgba) { return themeColor(kThemeAccentTop, rgba); }
+inline ThemeEntry accentBottom(std::uint32_t rgba) { return themeColor(kThemeAccentBottom, rgba); }
+inline ThemeEntry gelGloss(std::uint32_t rgba) { return themeColor(kThemeGelGloss, rgba); }
+inline ThemeEntry gelEdge(std::uint32_t rgba) { return themeColor(kThemeGelEdge, rgba); }
 
 }  // namespace toolkit
 }  // namespace glim

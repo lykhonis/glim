@@ -8,6 +8,7 @@
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -46,7 +47,7 @@ struct Tagged {
   }
   template <class F>
   void eachChild(F&& f) const {
-    if constexpr (has_children<Inner>::value) inner_.eachChild(std::forward<F>(f));
+    if constexpr (has_children<Inner>::value) eachChildOf(inner_, std::forward<F>(f));
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     if constexpr (has_children<Inner>::value) {
@@ -55,6 +56,12 @@ struct Tagged {
       return inner_.childBox(i, box, ce);
     }
     return box;
+  }
+  // Theme scopes ride through slot tags the way clip flags do: a
+  // themed subtree wrapped in expand()/etc. keeps its entries.
+  ThemeScope themeScope() const {
+    if constexpr (has_theme_entries<Inner>::value) return inner_.themeScope();
+    return {nullptr, 0};
   }
 };
 

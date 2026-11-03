@@ -18,11 +18,11 @@ void Engine::record(const Block& b, const Box& box, Rec& r) const {
       b,
       box,
       *this,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         describeSelf(n, bx, r);
         return true;
       },
-      [](const Block&, const Box&) {}
+      [](const Block&, const Box&, const Engine&) {}
   );
 }
 

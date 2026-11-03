@@ -75,7 +75,7 @@ bool Screen::wheel(
       tree,
       box,
       engine,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         // Ancestor clips gate candidacy; the node's own clip (pushed
         // below) trivially contains any point inside its box.
         bool parentVisible = clips.empty() || detail::boxContains(clips.back(), x, y);
@@ -90,7 +90,7 @@ bool Screen::wheel(
         }
         return true;
       },
-      [&](const Block&, const Box&) {
+      [&](const Block&, const Box&, const Engine&) {
         if (!pushed.empty()) {
           if (pushed.back() && !clips.empty()) clips.pop_back();
           pushed.pop_back();

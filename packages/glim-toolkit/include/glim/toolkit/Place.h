@@ -74,15 +74,6 @@ Box intersectBox(const Box& a, const Box& b);
 // device pixel at 2x, so gloss lines and rims never straddle rows.
 // Layout boxes stay untouched; only paint-time overlays snap.
 inline float snapHalf(float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; }
-Box measureText(const std::string& text, Constraints c, const Engine& e);
-// Greedy word wrap at maxW (unbounded → single line). Words longer than a
-// line split at char boundaries. Spaces collapse to one separator.
-std::vector<std::string> wrapText(const std::string& text, float maxW);
-// Truncate wrapped lines to maxH with a "..." ellipsis on the last visible
-// line, keeping at least one line.
-std::vector<std::string> truncateLines(std::vector<std::string> lines, float maxW, float maxH);
-// Full visual layout for an allotted box: wrap (iff wrap) then truncate.
-std::vector<std::string> layoutLines(const std::string& text, float maxW, float maxH, bool wrap);
 // Tight proposal forces exact size; loose max never truncates —
 // rigid children spill past the budget, containers clamp their own box.
 Box resolveSize(float naturalW, float naturalH, Constraints c);

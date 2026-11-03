@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
@@ -8,6 +9,8 @@
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
+#include "glim/toolkit/Tags.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -192,9 +195,31 @@ struct has_paint<
 template <class T>
 struct is_tagged : std::false_type {};
 
+// Single-source a11y id for any element: unwraps Tagged wrappers
+// (e.g. lines("a", expand(), semantic("x")) → Tagged<ExpandTag,
+// Lines>) and reads WithSemantic storage. A SemanticTag wrapper wins
+// over an inner element id. Returns nullptr when absent or empty —
+// callers treat that as "no mark". Borrows from the element; the tree
+// must outlive the pointer.
+template <class T>
+const std::string* elementSemanticPtr(const T& x) {
+  if constexpr (is_tagged<T>::value) {
+    if constexpr (std::is_same<typename T::tag_type, SemanticTag>::value) {
+      return x.tag_.id.empty() ? nullptr : &x.tag_.id;
+    } else {
+      return elementSemanticPtr(x.inner_);
+    }
+  } else if constexpr (has_semantic<T>::value) {
+    return x.semantic.empty() ? nullptr : &x.semantic;
+  } else {
+    return nullptr;
+  }
+}
+
 // Opt-in child transparency: an element exposing its composed children
-// (eachChild visitor + per-child box in a laid-out parent box) is traversed
-// by focus enumeration and hit-testing instead of treated as an opaque leaf.
+// (a `children` member or eachChild visitor, plus per-child box in a
+// laid-out parent box) is traversed by focus enumeration and hit-testing instead of treated as an
+// opaque leaf.
 //
 // Contract: eachChild must call the visitor with references to STORED child
 // Blocks owned by the element (e.g. elements of a `children` vector) — never
@@ -202,16 +227,67 @@ struct is_tagged : std::false_type {};
 // duration of the visitor callback (see `visit`), but `childAt` callers must
 // use the pointer immediately before any mutation; synthesizing children on
 // the fly dangles. Containers are small; count+index is O(n^2) worst case.
+// Opt-in child transparency: an element exposing its composed children
+// plus per-child box in a laid-out parent box is traversed by focus
+// enumeration and hit-testing instead of treated as an opaque leaf.
+//
+// Two spellings, one contract. Method spelling: eachChild(visitor).
+// Member spelling: a `children` Block range (usually
+// `std::vector<Block>`); traversal is automatic, no method to write.
+// Either way the contract is the same: the visitor gets references to
+// STORED child Blocks owned by the element — never temporaries. The
+// engine holds the resulting references only for the duration of the
+// visitor callback (see `visit`), but `childAt` callers must use the
+// pointer immediately before any mutation; synthesizing children on
+// the fly dangles. Through the method spelling count+index is O(n^2)
+// worst case; the member spelling indexes directly.
 template <class T, class = void>
-struct has_children : std::false_type {};
+struct has_eachChild : std::false_type {};
 template <class T>
-struct has_children<
+struct has_eachChild<
+    T,
+    std::void_t<decltype(std::declval<const T&>().eachChild(std::declval<void (*)(const Block&)>())
+    )>> : std::true_type {};
+
+template <class T, class = void>
+struct has_child_vector : std::false_type {};
+template <class T>
+struct has_child_vector<
     T,
     std::void_t<
-        decltype(std::declval<const T&>().eachChild(std::declval<void (*)(const Block&)>())),
-        decltype(std::declval<const T&>().childBox(
-            std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
-        ))>> : std::true_type {};
+        decltype(std::declval<const T&>().children.begin()),
+        decltype(std::declval<const T&>().children.end())>> : std::true_type {};
+
+template <class T, class = void>
+struct has_childBox : std::false_type {};
+template <class T>
+struct has_childBox<
+    T,
+    std::void_t<decltype(std::declval<const T&>().childBox(
+        std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
+    ))>>
+    : std::is_same<
+          decltype(std::declval<const T&>().childBox(
+              std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
+          )),
+          Box> {};
+
+template <class T>
+struct has_children
+    : std::bool_constant<
+          (has_eachChild<T>::value || has_child_vector<T>::value) && has_childBox<T>::value> {};
+
+// One traversal for both spellings: the method when the element
+// customizes iteration, the member range otherwise.
+template <class T, class F>
+void eachChildOf(const T& el, F&& f) {
+  static_assert(has_children<T>::value, "element has no traversable children");
+  if constexpr (has_eachChild<T>::value) {
+    el.eachChild(std::forward<F>(f));
+  } else {
+    for (const auto& c : el.children) f(c);
+  }
+}
 
 template <class T, class = void>
 struct has_inner_box : std::false_type {};
@@ -232,6 +308,8 @@ struct Custom {
     bool (*handleAt)(const void* s, bool heap, const Box& b, const Event& ev);
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     bool (*clips)(const void* s, bool heap);
+    const std::string* (*semantic)(const void* s, bool heap);
+    ThemeScope (*themeScope)(const void* s, bool heap);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
     Box (*childBox)(const void* s, bool heap, std::size_t i, const Box& b, const Engine& e);
@@ -375,6 +453,17 @@ struct Custom {
     if (vt && vt->paint) vt->paint(buf, onHeap, b, sink, e);
   }
   bool clipsChildren() const { return vt && vt->clips ? vt->clips(buf, onHeap) : false; }
+  // Borrowed a11y id for this node (see elementSemanticPtr). Null when
+  // absent or empty; the tree must outlive the pointer.
+  const std::string* semanticPtr() const {
+    return vt && vt->semantic ? vt->semantic(buf, onHeap) : nullptr;
+  }
+  // Borrowed theme entries for this node (empty when none); the tree
+  // must outlive the view.
+  ThemeScope themeScope() const {
+    if (vt && vt->themeScope) return vt->themeScope(buf, onHeap);
+    return {nullptr, 0};
+  }
 
  private:
   template <class U>
@@ -418,9 +507,14 @@ struct Custom {
   static std::size_t (*childCountFn())(const void*, bool) {
     if constexpr (has_children<U>::value) {
       return [](const void* s, bool heap) -> std::size_t {
-        std::size_t n = 0;
-        static_cast<const U*>(addr<U>(s, heap))->eachChild([&](const Block&) { ++n; });
-        return n;
+        const U* u = static_cast<const U*>(addr<U>(s, heap));
+        if constexpr (has_child_vector<U>::value) {
+          return u->children.size();
+        } else {
+          std::size_t n = 0;
+          u->eachChild([&](const Block&) { ++n; });
+          return n;
+        }
       };
     } else {
       return nullptr;
@@ -431,12 +525,17 @@ struct Custom {
   static const Block* (*childAtFn())(const void*, bool, std::size_t) {
     if constexpr (has_children<U>::value) {
       return [](const void* s, bool heap, std::size_t want) -> const Block* {
-        const Block* found = nullptr;
-        std::size_t i = 0;
-        static_cast<const U*>(addr<U>(s, heap))->eachChild([&](const Block& c) {
-          if (i++ == want) found = &c;
-        });
-        return found;
+        const U* u = static_cast<const U*>(addr<U>(s, heap));
+        if constexpr (has_child_vector<U>::value) {
+          return want < u->children.size() ? &u->children[want] : nullptr;
+        } else {
+          const Block* found = nullptr;
+          std::size_t i = 0;
+          u->eachChild([&](const Block& c) {
+            if (i++ == want) found = &c;
+          });
+          return found;
+        }
       };
     } else {
       return nullptr;
@@ -492,6 +591,24 @@ struct Custom {
   }
 
   template <class U>
+  static const std::string* (*semanticFor())(const void*, bool) {
+    return [](const void* s, bool heap) -> const std::string* {
+      return elementSemanticPtr(*static_cast<const U*>(addr<U>(s, heap)));
+    };
+  }
+
+  template <class U>
+  static ThemeScope (*themeScopeFor())(const void*, bool) {
+    return [](const void* s, bool heap) -> ThemeScope {
+      if constexpr (has_theme_entries<U>::value) {
+        return static_cast<const U*>(addr<U>(s, heap))->themeScope();
+      } else {
+        return {nullptr, 0};
+      }
+    };
+  }
+
+  template <class U>
   static const VTable* vtableFor() {
     static const VTable v{
         []() -> const std::type_info& { return typeid(U); },
@@ -510,6 +627,8 @@ struct Custom {
         handleAtFor<U>(),
         paintFor<U>(),
         clipsFor<U>(),
+        semanticFor<U>(),
+        themeScopeFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),
         childBoxFn<U>(),

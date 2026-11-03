@@ -20,11 +20,11 @@ void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<F
       b,
       box,
       e,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         if (canHandle(n)) out.push_back({&n, bx});
         return walkHasChildren(n);
       },
-      [](const Block&, const Box&) {}
+      [](const Block&, const Box&, const Engine&) {}
   );
 }
 

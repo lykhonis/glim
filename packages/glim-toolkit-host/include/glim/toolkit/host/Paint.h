@@ -12,10 +12,10 @@
 #include "glim/toolkit/Emit.h"
 #include "glim/toolkit/Measure.h"
 #include "glim/toolkit/Place.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
 #include "glim/toolkit/Toolkit.h"
 #include "glim/toolkit/elements/Roll.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -105,8 +105,12 @@ struct ContextSink {
     p.bounds = toRect(b);
     p.clip = toRect(b);
     p.clipRadius = Radius{static_cast<float>(radius)};
+    // Glass thickness is a physical constant, not a scoped token: the
+    // walk engine is now the theme source, but thickness never varies
+    // per subtree, so read the default directly instead of plumbing an
+    // engine through the sink.
     ::glim::paint::Glass g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
-    g.thicknessPx = theme(Engine{}).glassThickness;
+    g.thicknessPx = Tokens::kGlassThickness;
     p.glass = g;
     ctx.pushGroup(p);
   }
@@ -184,7 +188,7 @@ inline void paintScreen(
     bool focusVisible = true
 ) {
   feed.ensure(ctx);
-  ctx.setFillColor(theme(engine).windowBg);
+  ctx.setFillColor(themeColor(engine, kThemeWindowBg, Tokens::kWindowBg));
   ctx.fill(glim::Rect{{0, 0}, ctx.size()});
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);

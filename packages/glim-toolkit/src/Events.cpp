@@ -49,14 +49,14 @@ bool dispatchPointer(
       b,
       box,
       e,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         if (!found && &n == t) {
           hitBox = bx;
           found = true;
         }
         return true;
       },
-      [](const Block&, const Box&) {}
+      [](const Block&, const Box&, const Engine&) {}
   );
   return handleAt(*t, hitBox, ev);
 }
@@ -67,14 +67,14 @@ bool broadcastEvent(const Block& b, const Box& box, const Event& ev, const Engin
       b,
       box,
       e,
-      [&](const Block& n, const Box&) -> bool {
+      [&](const Block& n, const Box&, const Engine&) -> bool {
         if (handle(n, ev)) {
           consumed = true;
           return false;  // handling node prunes its own subtree, not siblings
         }
         return true;
       },
-      [](const Block&, const Box&) {}
+      [](const Block&, const Box&, const Engine&) {}
   );
   return consumed;
 }

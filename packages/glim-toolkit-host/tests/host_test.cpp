@@ -2,6 +2,7 @@
 #include <glim/toolkit/Theme.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/SeatView.h>
+#include <glim/toolkit/theme/Themed.h>
 
 #include <cassert>
 #include <iostream>
@@ -64,20 +65,30 @@ int main() {
     assert(!glim::toolkit::decodeOps(bytes.data(), bytes.size(), back));
   }
 
-  // Theme defaults mirror Tokens; an override reaches elements.
+  // Theme defaults mirror Tokens; a themed scope overrides them.
   {
+    using glim::toolkit::cardFill;
     using glim::toolkit::Engine;
-    using glim::toolkit::Theme;
-    using glim::toolkit::theme;
+    using glim::toolkit::kThemeCardFill;
+    using glim::toolkit::themeColor;
+    using glim::toolkit::themed;
     using glim::toolkit::Tokens;
     glim::toolkit::Env env{nullptr, nullptr, nullptr};
     Engine plain{&env};
-    assert(theme(plain).cardFill == Tokens::kCardFill);
-    Theme custom{};
-    custom.cardFill = 0x123456ff;
-    glim::toolkit::Env slot{&custom, &typeid(Theme), nullptr};
-    Engine themed{&slot};
-    assert(theme(themed).cardFill == 0x123456ff);
+    assert(themeColor(plain, kThemeCardFill, Tokens::kCardFill) == Tokens::kCardFill);
+    struct Probe {
+      const char* kind() const { return "Probe"; }
+      std::uint32_t* out = nullptr;
+      glim::toolkit::Box place(glim::toolkit::Constraints c, const Engine& e) const {
+        *out = themeColor(e, kThemeCardFill, Tokens::kCardFill);
+        return glim::toolkit::detail::resolveSize(10, 10, c);
+      }
+    };
+    std::uint32_t seen = 0;
+    auto tree =
+        themed(cardFill(0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{&seen}}});
+    glim::toolkit::place(tree, {0, 720, 0, 480});
+    assert(seen == 0x123456ff);
   }
 
   std::cout << "host_test ok\n";

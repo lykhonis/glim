@@ -31,10 +31,6 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
         0, 0, detail::clampF(f.size.w, c.minW, c.maxW), detail::clampF(f.size.h, c.minH, c.maxH)
     };
   }
-  template <class F>
-  void eachChild(F&& f) const {
-    detail::forEachBlock(children, std::forward<F>(f));
-  }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     float off = scrollOff ? *scrollOff : 0.0f;
     if (axis == kAxisHorizontal) {

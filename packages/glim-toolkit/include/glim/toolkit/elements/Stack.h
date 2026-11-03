@@ -15,10 +15,6 @@ struct Stack {
   const char* kind() const { return kKind; }
   std::vector<Block> children;
   Box place(Constraints c, const Engine& e) const { return detail::flowStack(children, c, e).size; }
-  template <class F>
-  void eachChild(F&& f) const {
-    detail::forEachBlock(children, std::forward<F>(f));
-  }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     detail::Flow f = detail::flowStack(children, {0, box.w, 0, box.h}, e);
     Box b = f.children[i];

@@ -29,10 +29,6 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
     return false;
   }
   Box innerBox(const Box& box) const;
-  template <class F>
-  void eachChild(F&& f) const {
-    detail::forEachBlock(children, std::forward<F>(f));
-  }
   Box childBox(std::size_t, const Box& box, const Engine&) const { return innerBox(box); }
 };
 
@@ -62,7 +58,7 @@ inline Box Tap::place(Constraints c, const Engine& e) const {
 }
 
 inline void Tap::record(const Box& box, Rec& rec) const {
-  rec.push(isPrimary ? kKindPrimary : kKind, box, {}, semantic);
+  rec.push(isPrimary ? kKindPrimary : kKind, box);
 }
 
 inline void Tap::paint(const Box&, AnySink&, const Engine&) const {}

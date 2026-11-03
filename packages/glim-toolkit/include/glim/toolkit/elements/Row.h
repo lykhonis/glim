@@ -23,10 +23,6 @@ struct Row : WithGap, WithCenter, WithPad {
     f.size.h = detail::clampF(f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH);
     return f.size;
   }
-  template <class F>
-  void eachChild(F&& f) const {
-    detail::forEachBlock(children, std::forward<F>(f));
-  }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     Box inner{
         box.x + static_cast<float>(padH),

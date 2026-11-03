@@ -9,8 +9,9 @@
 #include "glim/toolkit/Measure.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/text/Text.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -28,11 +29,14 @@ struct Display : WithSemantic {
     }
     return detail::resolveSize(w, Tokens::kTypeDisplay, c);
   }
-  void record(const Box& box, Rec& rec) const { rec.push(kKind, box, text, semantic); }
+  void record(const Box& box, Rec& rec) const { rec.push(kKind, box, text); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     sink.text(
-        box.x, box.y + (box.h - t.typeDisplay) * 0.5f, text, t.inkOnLight, t.typeDisplay, semantic
+        box.x,
+        box.y + (box.h - themeFloat(e, kThemeTypeDisplay, Tokens::kTypeDisplay)) * 0.5f,
+        text,
+        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
+        themeFloat(e, kThemeTypeDisplay, Tokens::kTypeDisplay)
     );
   }
 };
@@ -50,9 +54,9 @@ Block display(std::string text, As&&... as) {
 struct Divider : WithSemantic {
   static constexpr const char* kKind = "Hairline";
   Box place(Constraints c, const Engine&) const { return detail::resolveSize(2.0f, 32.0f, c); }
-  void record(const Box& box, Rec& rec) const { rec.push(kKind, box, {}, semantic); }
+  void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    sink.fill(box, theme(e).hairline, semantic);
+    sink.fill(box, themeColor(e, kThemeHairline, Tokens::kHairline));
   }
 };
 
@@ -69,11 +73,16 @@ struct DimLines {
   static constexpr const char* kKind = "Lines.dim";
   const char* kind() const { return kKind; }
   std::string text;
-  Box place(Constraints c, const Engine& e) const { return detail::measureText(text, c, e); }
+  Box place(Constraints c, const Engine& e) const { return text::measureText(text, c, e); }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box, text, {}); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
-    sink.text(box.x, box.y, text, t.inkSecondary, t.typeLine);
+    sink.text(
+        box.x,
+        box.y,
+        text,
+        themeColor(e, kThemeInkSecondary, Tokens::kInkSecondary),
+        themeFloat(e, kThemeTypeLine, Tokens::kTypeLine)
+    );
   }
 };
 

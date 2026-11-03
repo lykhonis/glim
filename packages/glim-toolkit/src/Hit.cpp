@@ -43,7 +43,7 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
       b,
       box,
       e,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         pushed.push_back(clipsChildren(n));
         if (clipsChildren(n)) {
           clips.push_back(clips.empty() ? bx : detail::intersectBox(clips.back(), bx));
@@ -58,12 +58,14 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
           return true;  // missed chrome: a spilled child may still hit
         }
         if (detail::boxContains(bx, x, y) && visible()) {
-          found = &n;
-          ++matches;
+          if (hitParticipates(n)) {
+            found = &n;
+            ++matches;
+          }
         }
         return true;
       },
-      [&](const Block& n, const Box&) {
+      [&](const Block& n, const Box&, const Engine&) {
         if (!pushed.empty()) {
           if (pushed.back() && !clips.empty()) clips.pop_back();
           pushed.pop_back();
@@ -91,7 +93,7 @@ void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, i
       b,
       box,
       e,
-      [&](const Block& n, const Box& bx) -> bool {
+      [&](const Block& n, const Box& bx, const Engine&) -> bool {
         const char* mark = n.has<ExpandTag>() ? "[expand]" : "";
         Rec tmp;
         describeSelf(n, bx, tmp);
@@ -109,7 +111,7 @@ void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, i
         ++depth;
         return walkHasChildren(n);
       },
-      [&](const Block&, const Box&) { --depth; }
+      [&](const Block&, const Box&, const Engine&) { --depth; }
   );
 }
 
