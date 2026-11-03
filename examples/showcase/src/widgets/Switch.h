@@ -10,8 +10,8 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -42,14 +42,31 @@ struct Switch : WithSemantic {
     );
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     if (*value) {
-      sink.fillGradient(box, 14, t.accentTop, t.accentBottom, semantic);
+      sink.fillGradient(
+          box,
+          14,
+          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
+          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
+          semantic
+      );
       gelCoat(sink, box, 14, semantic);
-      sink.stroke(box, 14, 1.0f, t.cardStroke, semantic);
+      sink.stroke(
+          box,
+          14,
+          1.0f,
+          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
+          semantic
+      );
     } else {
       // Groove: no stroke — the fill contrast alone shapes it.
-      sink.fillGradient(box, 14, t.trackTop, t.trackBottom, semantic);
+      sink.fillGradient(
+          box,
+          14,
+          themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
+          themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
+          semantic
+      );
     }
     // No 1px gloss line: it clipped the thumb crown and read as a
     // cut. The gel dome alone carries the track.
@@ -59,9 +76,21 @@ struct Switch : WithSemantic {
     Box thumb{thumbX(box), box.y + 4.0f, kThumb, kThumb};
     Box shadow{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
     sink.fillRounded(shadow, 10, Tokens::kShadow, semantic);
-    sink.fillGradient(thumb, 10, t.thumbTop, t.thumbBottom, semantic);
+    sink.fillGradient(
+        thumb,
+        10,
+        themeColor(e, kThemeThumbTop, Tokens::kThumbTop),
+        themeColor(e, kThemeThumbBottom, Tokens::kThumbBottom),
+        semantic
+    );
     knobGloss(sink, thumb, semantic);
-    sink.stroke(thumb, 10, 1.0f, t.thumbRim, semantic);
+    sink.stroke(
+        thumb,
+        10,
+        1.0f,
+        themeColor(e, kThemeThumbRim, Tokens::kThumbRim),
+        semantic
+    );
   }
   bool handle(const Event& ev) const {
     if (ev.is<PointerDown>() || ev.is<Activate>()) {

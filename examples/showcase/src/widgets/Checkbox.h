@@ -10,8 +10,9 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/text/Text.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -24,8 +25,7 @@ struct Checkbox : WithSemantic {
   State<bool> value;
   std::string label;
   Box place(Constraints c, const Engine& e) const {
-    Box t =
-        detail::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
+    Box t = text::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
     return detail::resolveSize(t.w + kBox + 8.0f, kBox, c);
   }
   void outer(const Box& box, Box& out, Box& inner) const {
@@ -50,23 +50,46 @@ struct Checkbox : WithSemantic {
     rec.push("Lines", lb, label, semantic);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     Box out, inner;
     outer(box, out, inner);
     if (*value) {
-      sink.fillGradient(out, 6, t.accentTop, t.accentBottom, semantic);
+      sink.fillGradient(
+          out,
+          6,
+          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
+          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
+          semantic
+      );
       gelCoat(sink, out, 6, semantic);
-      sink.stroke(out, 6, 1.0f, t.cardStroke, semantic);
+      sink.stroke(
+          out,
+          6,
+          1.0f,
+          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
+          semantic
+      );
     } else {
       sink.fillGradient(
           out,
           6,
-          t.buttonSecondaryTop,
-          t.buttonSecondaryBottom,
+          themeColor(
+              e, kThemeButtonSecondaryTop, Tokens::kButtonSecondaryTop
+          ),
+          themeColor(
+              e,
+              kThemeButtonSecondaryBottom,
+              Tokens::kButtonSecondaryBottom
+          ),
           semantic
       );
       gelCoat(sink, out, 6, semantic);
-      sink.stroke(out, 6, 1.0f, t.cardStroke, semantic);
+      sink.stroke(
+          out,
+          6,
+          1.0f,
+          themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
+          semantic
+      );
     }
     if (*value) {
       // Check block: centered white inset reads checked at small
@@ -75,10 +98,22 @@ struct Checkbox : WithSemantic {
       Box mark{
           out.x + (out.w - s) * 0.5f, out.y + (out.h - s) * 0.5f, s, s
       };
-      sink.fillRounded(mark, 3, t.inkOnLight, semantic);
+      sink.fillRounded(
+          mark,
+          3,
+          themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
+          semantic
+      );
     }
     Box lb = labelBox(box);
-    sink.text(lb.x, lb.y, label, t.inkOnLight, t.typeLine, semantic);
+    sink.text(
+        lb.x,
+        lb.y,
+        label,
+        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
+        themeFloat(e, kThemeTypeLine, Tokens::kTypeLine),
+        semantic
+    );
   }
   bool handle(const Event& ev) const {
     if (ev.is<PointerDown>() || ev.is<Activate>()) {

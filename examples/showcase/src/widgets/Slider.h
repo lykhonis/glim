@@ -10,8 +10,8 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -68,22 +68,45 @@ struct Slider : WithSemantic {
     rec.push(kKindThumb, thumb, {}, semantic, 10);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     Box track, fill, thumb;
     geometry(box, track, fill, thumb);
     // Groove: no stroke — the fill contrast alone shapes it.
-    sink.fillGradient(track, 4, t.trackTop, t.trackBottom, semantic);
+    sink.fillGradient(
+        track,
+        4,
+        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
+        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
+        semantic
+    );
     if (fill.w > 0.5f) {
-      sink.fillGradient(fill, 4, t.accentTop, t.accentBottom, semantic);
+      sink.fillGradient(
+          fill,
+          4,
+          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
+          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
+          semantic
+      );
       gelCoat(sink, fill, 4, semantic);
     }
     // Thumb: shadow, face, gloss crown, single gray rim. No sheen
     // rect — the old 1px line slid under the cap and read as a step.
     Box shade{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
     sink.fillRounded(shade, 10, Tokens::kShadow, semantic);
-    sink.fillGradient(thumb, 10, t.thumbTop, t.thumbBottom, semantic);
+    sink.fillGradient(
+        thumb,
+        10,
+        themeColor(e, kThemeThumbTop, Tokens::kThumbTop),
+        themeColor(e, kThemeThumbBottom, Tokens::kThumbBottom),
+        semantic
+    );
     knobGloss(sink, thumb, semantic);
-    sink.stroke(thumb, 10, 1.0f, t.thumbRim, semantic);
+    sink.stroke(
+        thumb,
+        10,
+        1.0f,
+        themeColor(e, kThemeThumbRim, Tokens::kThumbRim),
+        semantic
+    );
   }
   bool handleAt(const Box& box, const Event& ev) const {
     if (const auto* d = ev.as<PointerDown>()) {

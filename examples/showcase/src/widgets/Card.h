@@ -11,8 +11,8 @@
 #include "glim/toolkit/Custom.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -32,10 +32,6 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
         f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH
     );
     return f.size;
-  }
-  template <class F>
-  void eachChild(F&& f) const {
-    for (const auto& child : children) f(child);
   }
   Box innerBox(const Box& box) const {
     float w = box.w - static_cast<float>(2 * padH);
@@ -62,8 +58,13 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
     rec.push(kKind, box, {}, semantic, radius);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
-    sink.fillGradient(box, radius, t.cardTop, t.cardBottom, semantic);
+    sink.fillGradient(
+        box,
+        radius,
+        themeColor(e, kThemeCardTop, Tokens::kCardTop),
+        themeColor(e, kThemeCardBottom, Tokens::kCardBottom),
+        semantic
+    );
     // Aqua panel top light: one soft inner hairline, not a gloss
     // dome — large faces stay calm, edges still catch light.
     if (box.w > static_cast<float>(radius) + 6.0f) {
@@ -71,9 +72,20 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
       Box light{
           box.x + inset, box.y + 1.0f, box.w - inset * 2.0f, 1.0f
       };
-      sink.fillRounded(light, 1, t.glossSheen, semantic);
+      sink.fillRounded(
+          light,
+          1,
+          themeColor(e, kThemeGlossSheen, Tokens::kGlossSheen),
+          semantic
+      );
     }
-    sink.stroke(box, radius, 1.0f, t.cardStroke, semantic);
+    sink.stroke(
+        box,
+        radius,
+        1.0f,
+        themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
+        semantic
+    );
   }
 };
 

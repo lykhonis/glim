@@ -9,6 +9,7 @@
 #include "widgets/Button.h"
 #include "widgets/Checkbox.h"
 #include "widgets/Field.h"
+#include "widgets/Glass.h"
 #include "widgets/Progress.h"
 #include "widgets/Segmented.h"
 #include "widgets/Slider.h"
@@ -39,17 +40,23 @@ Block showcaseTree(Scope app) {
           pad(16),
           section(
               "Button",
-              column(
-                  gap(8),
-                  row(gap(8),
-                      button(
-                          "Export",
-                          [t = taps] { t.update([](int& v) { ++v; }); },
-                          primary()
-                      ),
-                      button("Cancel", [t = taps] { t = 0; })),
-                  lines(count)
-              )
+              row(gap(24),
+                  center(),
+                  veilOrb(glass(36)),
+                  veilCard(
+                      glass(16),
+                      gap(8),
+                      row(gap(8),
+                          button(
+                              "Export",
+                              [t = taps] {
+                                t.update([](int& v) { ++v; });
+                              },
+                              primary()
+                          ),
+                          button("Cancel", [t = taps] { t = 0; })),
+                      lines(count)
+                  ))
           ),
           section(
               "Text field",

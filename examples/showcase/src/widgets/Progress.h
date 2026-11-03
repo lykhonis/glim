@@ -10,7 +10,7 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -35,16 +35,27 @@ struct Progress : WithSemantic {
     );
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     float v = Slider::clamp01(*value);
     // Groove: no stroke — the fill contrast alone shapes it.
-    sink.fillGradient(box, 6, t.trackTop, t.trackBottom, semantic);
+    sink.fillGradient(
+        box,
+        6,
+        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
+        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
+        semantic
+    );
     if (box.w * v > 0.5f) {
       Box fill{box.x, box.y, box.w * v, box.h};
       // Square the leading cap: it hides under nothing here, so a
       // round cap would bulge past the value. Paint the fill body
       // then cap the start round only via the track beneath.
-      sink.fillGradient(fill, 6, t.accentTop, t.accentBottom, semantic);
+      sink.fillGradient(
+          fill,
+          6,
+          themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
+          themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
+          semantic
+      );
       gelCoat(sink, fill, 6, semantic);
     }
   }

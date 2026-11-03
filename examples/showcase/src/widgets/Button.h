@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -10,8 +11,9 @@
 #include "glim/toolkit/Custom.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/text/Text.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -26,8 +28,7 @@ struct Button : WithGap,
   std::string label;
   Action onTap;
   Box place(Constraints c, const Engine& e) const {
-    Box t =
-        detail::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
+    Box t = text::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
     return detail::resolveSize(
         t.w + static_cast<float>(2 * padH),
         t.h + static_cast<float>(2 * padV),
@@ -38,34 +39,48 @@ struct Button : WithGap,
     rec.push(isPrimary ? kKindPrimary : kKind, box, label, semantic);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
+    const int radius =
+        themeInt(e, kThemeButtonRadius, Tokens::kButtonRadius);
+    const std::uint32_t stroke =
+        themeColor(e, kThemeCardStroke, Tokens::kCardStroke);
+    const float line = themeFloat(e, kThemeTypeLine, Tokens::kTypeLine);
     if (isPrimary) {
       sink.fillGradient(
           box,
-          t.buttonRadius,
-          t.buttonPrimaryTop,
-          t.buttonPrimaryBottom,
+          radius,
+          themeColor(
+              e, kThemeButtonPrimaryTop, Tokens::kButtonPrimaryTop
+          ),
+          themeColor(
+              e, kThemeButtonPrimaryBottom, Tokens::kButtonPrimaryBottom
+          ),
           semantic
       );
-      gelCoat(sink, box, t.buttonRadius, semantic);
-      sink.stroke(box, t.buttonRadius, 1.0f, t.cardStroke, semantic);
+      gelCoat(sink, box, radius, semantic);
+      sink.stroke(box, radius, 1.0f, stroke, semantic);
     } else {
       sink.fillGradient(
           box,
-          t.buttonRadius,
-          t.buttonSecondaryTop,
-          t.buttonSecondaryBottom,
+          radius,
+          themeColor(
+              e, kThemeButtonSecondaryTop, Tokens::kButtonSecondaryTop
+          ),
+          themeColor(
+              e,
+              kThemeButtonSecondaryBottom,
+              Tokens::kButtonSecondaryBottom
+          ),
           semantic
       );
-      gelCoat(sink, box, t.buttonRadius, semantic);
-      sink.stroke(box, t.buttonRadius, 1.0f, t.cardStroke, semantic);
+      gelCoat(sink, box, radius, semantic);
+      sink.stroke(box, radius, 1.0f, stroke, semantic);
     }
     sink.text(
         box.x + static_cast<float>(padH),
-        box.y + (box.h - t.typeLine) * 0.5f,
+        box.y + (box.h - line) * 0.5f,
         label,
-        t.inkOnLight,
-        t.typeLine,
+        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight),
+        line,
         semantic
     );
   }

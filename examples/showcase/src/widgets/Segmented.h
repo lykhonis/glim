@@ -12,8 +12,9 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
+#include "glim/toolkit/text/Text.h"
+#include "glim/toolkit/theme/Keys.h"
 
 namespace glim {
 namespace toolkit {
@@ -29,7 +30,7 @@ struct Segmented : WithSemantic {
   float segWidth(const Engine& e) const {
     float w = 0;
     for (const auto& o : options) {
-      Box t = detail::measureText(o, {0, kUnbounded, 0, kUnbounded}, e);
+      Box t = text::measureText(o, {0, kUnbounded, 0, kUnbounded}, e);
       if (t.w > w) w = t.w;
     }
     return w + 32.0f;
@@ -37,10 +38,6 @@ struct Segmented : WithSemantic {
   Box place(Constraints c, const Engine& e) const {
     float w = segWidth(e) * static_cast<float>(options.size());
     return detail::resolveSize(w, kSegH, c);
-  }
-  template <class F>
-  void eachChild(F&& f) const {
-    detail::forEachBlock(children, std::forward<F>(f));
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     float w = segWidth(e);
@@ -59,15 +56,32 @@ struct Segmented : WithSemantic {
     };
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const Theme& t = theme(e);
     // Groove: no stroke — the fill contrast alone shapes it.
-    sink.fillGradient(box, 18, t.trackTop, t.trackBottom, semantic);
+    sink.fillGradient(
+        box,
+        18,
+        themeColor(e, kThemeTrackTop, Tokens::kTrackTop),
+        themeColor(e, kThemeTrackBottom, Tokens::kTrackBottom),
+        semantic
+    );
     Box act = activeBox(box);
     // Pill is the track inset by 2px: radius 16 keeps corners
     // concentric. Gel face with a light airy rim.
-    sink.fillGradient(act, 16, t.accentTop, t.accentBottom, semantic);
+    sink.fillGradient(
+        act,
+        16,
+        themeColor(e, kThemeAccentTop, Tokens::kAccentTop),
+        themeColor(e, kThemeAccentBottom, Tokens::kAccentBottom),
+        semantic
+    );
     gelCoat(sink, act, 16, semantic);
-    sink.stroke(act, 16, 1.0f, t.cardStroke, semantic);
+    sink.stroke(
+        act,
+        16,
+        1.0f,
+        themeColor(e, kThemeCardStroke, Tokens::kCardStroke),
+        semantic
+    );
   }
 };
 

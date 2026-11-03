@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
   // tree (the 480px golden viewport clips Segmented and below — see
   // the pinned miss below). Focus order and box sizes are unaffected,
   // only y positions shift with the taller fold.
-  Box box = place(tree, {0, 720, 0, 800});
+  Box box = place(tree, {0, 720, 0, 1200});
   auto focusableList = focusables(tree, box);
   assert(focusableList.size() == 9);
   // Clip contract, pinned in context: at the 480px window the
@@ -201,15 +201,15 @@ int main(int argc, char** argv) {
     // Wheel scrolls the outer roll: the offset moves, and the same
     // segmented row becomes reachable at its shifted viewport point.
     Screen ws;
-    assert(ws.wheel(tree, clipped, 360, 240, 0.0f, 150.0f, te));
+    assert(ws.wheel(tree, clipped, 360, 240, 0.0f, 300.0f, te));
     State<float> vs = t.state("vscroll", 0.0f);
-    assert(*vs == 150.0f);
+    assert(*vs == 300.0f);
     assert(dispatchPointer(
         tree,
         clipped,
         sg.x + 1,
-        sg.y + 1 - 150.0f,
-        Event::borrow(PointerDown{sg.x + 1, sg.y + 1 - 150.0f})
+        sg.y + 1 - 300.0f,
+        Event::borrow(PointerDown{sg.x + 1, sg.y + 1 - 300.0f})
     ));
     assert(*h.range == 2);
     // Reset the probed states: later blocks reuse this store/tree at
@@ -322,7 +322,7 @@ int main(int argc, char** argv) {
     Store u;
     Engine ue = engineFor(u);
     Block stree = showcaseTree(rootScope(ue));
-    Box sbox = place(stree, {0, 720, 0, 800});
+    Box sbox = place(stree, {0, 720, 0, 1200});
     Shown uh = shownStates(u);
     Screen scr;
     Box sl = focusBox(stree, sbox, 8);
@@ -390,10 +390,10 @@ int main(int argc, char** argv) {
   }
 
   // Bridge ops: slot < ring, elements paint primitives (no widget
-  // switch); the archive round-trips byte-identically (rejects
-  // truncation/magic); the SlotHole is a root sibling. (The
-  // video-under-glass ordering proof lives in git history — the hero
-  // no longer ships a video plate or frosted card.)
+  // switch); the frosted glass card ships one PushGlass group (veil
+  // paints, backdrop melts, children stay sharp); the archive
+  // round-trips byte-identically (rejects truncation/magic); the
+  // SlotHole is a root sibling.
   {
     Block screen = showcaseTree(rootScope(te));
     Box dbox = place(screen, {0, 720, 0, 480});
@@ -421,7 +421,7 @@ int main(int argc, char** argv) {
         ring = static_cast<int>(i);
     assert(slot >= 0 && ring >= 0);
     assert(slot < ring);
-    assert(findOp(Op::Kind::PushGlass, 0) < 0);
+    assert(findOp(Op::Kind::PushGlass, 0) >= 0);
     // Gel speculars ride a Plus scope: additive light, not SrcOver
     // wash. The archive round-trip below covers the new op codec.
     assert(findOp(Op::Kind::PushBlend, 0) >= 0);
@@ -460,7 +460,7 @@ int main(int argc, char** argv) {
           screen,
           dbox,
           e2,
-          [&](const Block& n, const Box& bx) -> bool {
+          [&](const Block& n, const Box& bx, const Engine&) -> bool {
             if (const Seat* s = n.get<Seat>()) {
               if (s->id == kShowcaseSeatId) {
                 seatBox = bx;
@@ -469,7 +469,7 @@ int main(int argc, char** argv) {
             }
             return true;
           },
-          [](const Block&, const Box&) {}
+          [](const Block&, const Box&, const Engine&) {}
       );
       assert(sawSeat);
       const Box& slotBox = rec.ops[static_cast<std::size_t>(slot)].box;
