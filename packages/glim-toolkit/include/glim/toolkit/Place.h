@@ -65,6 +65,11 @@ void dump(
 namespace detail {
 
 float clampF(float v, float lo, float hi);
+// Point-in-box and box intersection for hit-testing and scroll
+// routing (one home: defined in Hit.cpp, shared by Screen::wheel so
+// hit-feel and scroll-feel agree on the same geometry).
+bool boxContains(const Box& b, float x, float y);
+Box intersectBox(const Box& a, const Box& b);
 // Half-logical snap for 1px paint chrome: 0.5 logical is exactly one
 // device pixel at 2x, so gloss lines and rims never straddle rows.
 // Layout boxes stay untouched; only paint-time overlays snap.
