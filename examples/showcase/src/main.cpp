@@ -25,12 +25,15 @@ Block showcaseTree(Scope app) {
   auto range = app.state("range", 1);
   auto level = app.state("level", 0.4f);
   auto taps = app.state("taps", 0);
+  auto vscroll = app.state("vscroll", 0.0f);
+  auto hscroll = app.state("hscroll", 0.0f);
   auto section = [&](const char* label, Block content) -> Block {
     return column(gap(6), lines(label), std::move(content));
   };
   std::string count = "Pressed " + std::to_string(*taps) + " times";
   return roll(
       vertical(),
+      scrollOffset(vscroll),
       column(
           gap(20),
           pad(16),
@@ -78,6 +81,33 @@ Block showcaseTree(Scope app) {
           ),
           section("Switch", toggle(wifi)),
           section("Checkbox", checkbox("Sound", sound)),
+          section(
+              "Overflow & horizontal scroll",
+              column(
+                  gap(8),
+                  lines(
+                      "The row below is wider than the viewport. "
+                      "Wheel over it to pan sideways.",
+                      wrap()
+                  ),
+                  [&] {
+                    // Ten chips as direct children: List is
+                    // column-only, so a horizontal strip builds its
+                    // Roll imperatively (the same plain struct the
+                    // roll() factory configures).
+                    Roll strip;
+                    strip.axis = kAxisHorizontal;
+                    strip.gap = 8;
+                    strip.scrollOff = hscroll;
+                    for (int i = 0; i < 12; ++i) {
+                      strip.children.push_back(toBlock(
+                          lines("chip-" + std::to_string(i) + "-pill")
+                      ));
+                    }
+                    return toBlock(std::move(strip));
+                  }()
+              )
+          ),
           section(
               "Segmented", segmented({"Day", "Week", "Month"}, range)
           ),

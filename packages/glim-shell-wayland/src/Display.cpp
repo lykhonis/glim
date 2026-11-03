@@ -24,6 +24,8 @@ namespace {
 thread_local Wayland gWl;
 thread_local std::unordered_map<wl_surface*, Window*> gSurfaces;
 thread_local Window* gPointerFocus = nullptr;
+thread_local double gPointerX = 0;
+thread_local double gPointerY = 0;
 
 Key mapKey(uint32_t code) {
   switch (code) {
@@ -101,8 +103,10 @@ void pointerEnter(void*, wl_pointer*, uint32_t, wl_surface* surface, wl_fixed_t 
   if (!gPointerFocus) {
     return;
   }
+  gPointerX = wl_fixed_to_double(x);
+  gPointerY = wl_fixed_to_double(y);
   Event e(EventType::PointerMove);
-  e.setPoint(wl_fixed_to_double(x), wl_fixed_to_double(y));
+  e.setPoint(gPointerX, gPointerY);
   gPointerFocus->dispatch(e);
 }
 void pointerLeave(void*, wl_pointer*, uint32_t, wl_surface*) { gPointerFocus = nullptr; }
@@ -110,8 +114,10 @@ void pointerMotion(void*, wl_pointer*, uint32_t, wl_fixed_t x, wl_fixed_t y) {
   if (!gPointerFocus) {
     return;
   }
+  gPointerX = wl_fixed_to_double(x);
+  gPointerY = wl_fixed_to_double(y);
   Event e(EventType::PointerMove);
-  e.setPoint(wl_fixed_to_double(x), wl_fixed_to_double(y));
+  e.setPoint(gPointerX, gPointerY);
   gPointerFocus->dispatch(e);
 }
 void pointerButton(void*, wl_pointer*, uint32_t, uint32_t, uint32_t button, uint32_t state) {
@@ -122,7 +128,26 @@ void pointerButton(void*, wl_pointer*, uint32_t, uint32_t, uint32_t button, uint
   e.setButton(mapButton(button));
   gPointerFocus->dispatch(e);
 }
-void pointerAxis(void*, wl_pointer*, uint32_t, uint32_t, wl_fixed_t) {}
+// Axis values arrive in compositor units (10 per wheel tick is the
+// common step); the step scales one tick to a 40px page nudge.
+// Positive vertical is scroll-down (content up), matching the shell
+// Wheel convention — flip here, not in the toolkit, if a compositor
+// disagrees.
+void pointerAxis(void*, wl_pointer*, uint32_t, uint32_t axis, wl_fixed_t value) {
+  if (!gPointerFocus) {
+    return;
+  }
+  constexpr double kAxisStep = 4.0;
+  const double v = wl_fixed_to_double(value) * kAxisStep;
+  Event e(EventType::Wheel);
+  e.setPoint(gPointerX, gPointerY);
+  if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+    e.setScroll(v, 0.0);
+  } else {
+    e.setScroll(0.0, v);
+  }
+  gPointerFocus->dispatch(e);
+}
 
 const wl_pointer_listener kPointerListener = [] {
   wl_pointer_listener l{};

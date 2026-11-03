@@ -12,6 +12,7 @@ enum class EventType {
   PointerDown,
   PointerUp,
   PointerMove,
+  Wheel,
 };
 
 enum class Key {
@@ -46,6 +47,12 @@ class Event {
   Key key() const { return key_; }
   PointerButton button() const { return button_; }
   int pointerId() const { return pointerId_; }
+  // Wheel deltas in logical pixels. Positive dx scrolls content left
+  // (reveals right), positive dy scrolls content up (reveals below) —
+  // matches web WheelEvent sign; AppKit's scrollWheel deltas arrive
+  // negated into this convention.
+  float dx() const { return dx_; }
+  float dy() const { return dy_; }
 
   Event& setSize(int w, int h) {
     width_ = w;
@@ -74,6 +81,12 @@ class Event {
     return *this;
   }
 
+  Event& setScroll(float dx, float dy) {
+    dx_ = dx;
+    dy_ = dy;
+    return *this;
+  }
+
   explicit operator bool() const { return type_ != EventType::None; }
 
  private:
@@ -85,6 +98,8 @@ class Event {
   Key key_ = Key::Unknown;
   PointerButton button_ = PointerButton::None;
   int pointerId_ = 0;
+  float dx_ = 0;
+  float dy_ = 0;
 };
 
 }  // namespace glim::shell

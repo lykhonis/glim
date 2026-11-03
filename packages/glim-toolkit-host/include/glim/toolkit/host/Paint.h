@@ -15,6 +15,7 @@
 #include "glim/toolkit/Theme.h"
 #include "glim/toolkit/Tokens.h"
 #include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit/elements/Roll.h"
 
 namespace glim {
 namespace toolkit {
@@ -142,6 +143,37 @@ inline Engine measureEngine() {
   return Engine{&node};
 }
 
+inline void paintScrollbars(
+    glim::paint::Context& ctx, const Block& tree, const Box& box, const Engine& engine
+) {
+  // Thin overlay thumbs for scrollable rolls, drawn last so they sit
+  // above content. Only when content exceeds the viewport; geometry
+  // shares rollMetrics with Screen::wheel, so thumb-feel and
+  // hit-feel agree by construction.
+  ContextSink sink{ctx};
+  walk(tree, box, engine, [&](const Block& n, const Box& bx) {
+    const Roll* r = n.get<Roll>();
+    if (!r || !r->scrollOff) return;
+    RollMetrics m = rollMetrics(*r, bx, engine);
+    if (m.maxOff <= 0.0f || m.viewport <= 0.0f) return;
+    if (m.horizontal) {
+      float w = m.viewport * m.viewport / m.content;
+      w = w < 24.0f ? 24.0f : (w > m.viewport ? m.viewport : w);
+      const float x = bx.x + (m.offset / m.maxOff) * (m.viewport - w);
+      sink.fillRounded(
+          {detail::snapHalf(x), detail::snapHalf(bx.y + bx.h - 6.0f), w, 4.0f}, 2, 0xffffff40
+      );
+    } else {
+      float h = m.viewport * m.viewport / m.content;
+      h = h < 24.0f ? 24.0f : (h > m.viewport ? m.viewport : h);
+      const float y = bx.y + (m.offset / m.maxOff) * (m.viewport - h);
+      sink.fillRounded(
+          {detail::snapHalf(bx.x + bx.w - 6.0f), detail::snapHalf(y), 4.0f, h}, 2, 0xffffff40
+      );
+    }
+  });
+}
+
 inline void paintScreen(
     glim::paint::Context& ctx,
     const Block& tree,
@@ -157,6 +189,7 @@ inline void paintScreen(
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);
   paintFocusRing(tree, box, focus, sink, engine, focusVisible);
+  paintScrollbars(ctx, tree, box, engine);
 }
 
 }  // namespace host

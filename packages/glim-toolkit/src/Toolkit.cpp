@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "glim/toolkit/Place.h"
+#include "glim/toolkit/elements/Roll.h"
 
 namespace glim {
 namespace toolkit {
@@ -336,6 +337,14 @@ bool contains(const Box& b, float x, float y) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 }
 
+Box intersectBox(const Box& a, const Box& b) {
+  const float x0 = std::max(a.x, b.x);
+  const float y0 = std::max(a.y, b.y);
+  const float x1 = std::min(a.x + a.w, b.x + b.w);
+  const float y1 = std::min(a.y + a.h, b.y + b.h);
+  return {x0, y0, std::max(0.f, x1 - x0), std::max(0.f, y1 - y0)};
+}
+
 }  // namespace
 
 const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
@@ -346,13 +355,24 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
     int entered;
   };
   std::vector<Claim> claims;
+  // Clip stack parallel to the walk: containers whose children paint
+  // inside a clip group (Roll) bound their subtree's hits. Only fully
+  // clipped points miss — partially visible controls still hit, and
+  // paints through ContextSink push the same groups.
+  std::vector<Box> clips;
+  std::vector<bool> pushed;
+  const auto visible = [&]() { return clips.empty() || contains(clips.back(), x, y); };
   walk(
       b,
       box,
       e,
       [&](const Block& n, const Box& bx) -> bool {
+        pushed.push_back(clipsChildren(n));
+        if (clipsChildren(n)) {
+          clips.push_back(clips.empty() ? bx : intersectBox(clips.back(), bx));
+        }
         if (claimsHit(n)) {
-          if (contains(bx, x, y)) {
+          if (contains(bx, x, y) && visible()) {
             found = &n;
             ++matches;
             return false;  // claimed: whole region resolves here
@@ -360,15 +380,19 @@ const Block* hit(const Block& b, const Box& box, float x, float y, const Engine&
           claims.push_back({&n, matches});
           return true;  // missed chrome: a spilled child may still hit
         }
-        if (contains(bx, x, y)) {
+        if (contains(bx, x, y) && visible()) {
           found = &n;
           ++matches;
         }
         return true;
       },
       [&](const Block& n, const Box&) {
+        if (!pushed.empty()) {
+          if (pushed.back() && !clips.empty()) clips.pop_back();
+          pushed.pop_back();
+        }
         if (!claims.empty() && claims.back().node == &n) {
-          if (matches > claims.back().entered) found = &n;
+          if (matches > claims.back().entered && visible()) found = &n;
           claims.pop_back();
         }
       }
@@ -711,6 +735,62 @@ bool Screen::pointerMove(
     drag = -1;
   }
   return dispatchPointer(tree, box, x, y, moved, engine);
+}
+
+bool Screen::wheel(
+    const Block& tree, const Box& box, float x, float y, float dx, float dy, const Engine& engine
+) {
+  if (dx == 0 && dy == 0) return false;
+  struct Candidate {
+    const Roll* roll;
+    Box box;
+  };
+  std::vector<Candidate> found;
+  std::vector<Box> clips;
+  std::vector<bool> pushed;
+  walk(
+      tree,
+      box,
+      engine,
+      [&](const Block& n, const Box& bx) -> bool {
+        // Ancestor clips gate candidacy; the node's own clip (pushed
+        // below) trivially contains any point inside its box.
+        bool parentVisible = clips.empty() || contains(clips.back(), x, y);
+        pushed.push_back(clipsChildren(n));
+        if (clipsChildren(n)) {
+          clips.push_back(clips.empty() ? bx : intersectBox(clips.back(), bx));
+        }
+        if (parentVisible) {
+          if (const Roll* r = n.get<Roll>()) {
+            if (r->scrollOff && contains(bx, x, y)) found.push_back({r, bx});
+          }
+        }
+        return true;
+      },
+      [&](const Block&, const Box&) {
+        if (!pushed.empty()) {
+          if (pushed.back() && !clips.empty()) clips.pop_back();
+          pushed.pop_back();
+        }
+      }
+  );
+  // Innermost first; an edge-clamped inner roll chains outward.
+  for (auto it = found.rbegin(); it != found.rend(); ++it) {
+    const Roll* r = it->roll;
+    const Box rb = it->box;
+    // Strict axis match: a vertical wheel over a horizontal strip
+    // bubbles to the outer vertical roll (browser behavior) instead
+    // of trapping the gesture in the strip.
+    const RollMetrics m = rollMetrics(*r, rb, engine);
+    const float delta = m.horizontal ? dx : dy;
+    if (delta == 0.0f || m.maxOff <= 0.0f) continue;
+    const float next = detail::clampF(m.offset + delta, 0.0f, m.maxOff);
+    if (next != m.offset) {
+      r->scrollOff = next;
+      return true;
+    }
+  }
+  return false;
 }
 
 bool Screen::key(const Block& tree, const Box& box, Key key, const Engine& engine) {

@@ -59,5 +59,34 @@ auto roll(As&&... as) {
   return finish(std::move(r), std::forward<As>(as)...);
 }
 
+// One home for scroll geometry: content extent (unbounded-axis flow),
+// viewport (the laid-out box), live offset, and clamp range. Screen
+// routing and the host scrollbar indicator both derive from here, so
+// hit-feel and thumb-feel can never disagree.
+struct RollMetrics {
+  float content = 0.0f;
+  float viewport = 0.0f;
+  float offset = 0.0f;
+  float maxOff = 0.0f;
+  bool horizontal = false;
+};
+
+inline RollMetrics rollMetrics(const Roll& r, const Box& box, const Engine& e) {
+  RollMetrics m;
+  m.horizontal = r.axis == kAxisHorizontal;
+  m.offset = r.scrollOff ? *r.scrollOff : 0.0f;
+  if (m.horizontal) {
+    detail::Flow f = detail::flowRow(r.children, r.gap, {0, kUnbounded, 0, box.h}, e);
+    m.content = f.size.w;
+    m.viewport = box.w;
+  } else {
+    detail::Flow f = detail::flowColumn(r.children, r.gap, {0, box.w, 0, kUnbounded}, e);
+    m.content = f.size.h;
+    m.viewport = box.h;
+  }
+  m.maxOff = m.content - m.viewport;
+  return m;
+}
+
 }  // namespace toolkit
 }  // namespace glim

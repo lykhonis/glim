@@ -283,6 +283,92 @@ int main() {
     assert(top && top->get<Lines>() && top->get<Lines>()->text == "12345678901234567890");
   }
 
+  // Clip-aware hit: points fully outside a Roll's viewport miss even
+  // though the content spills there; partially visible controls still
+  // hit. Paint pushes the same clip group, so dispatch agrees with
+  // what the user sees.
+  {
+    auto filler = [](int i) { return lines("filler" + std::to_string(i) + "-filler-filler"); };
+    State<float> zero = store.make<float>(0.0f);
+    Block tall = roll(
+        vertical(),
+        scrollOffset(zero),
+        tap(lines("top"), [] {}),
+        list(10, filler),
+        tap(lines("buried"), [] {})
+    );
+    // top [0,14), fillers [14,154), buried [154,168); viewport 100.
+    Box tallBox = place(tall, {0, 720, 0, 100});
+    assert(tallBox.h == 100);
+    const Block* vis = hit(tall, tallBox, 4, 4);
+    assert(vis && vis->get<Tap>());
+    // y=120 sits inside a laid-out filler line but outside the
+    // viewport: paint clips it, so hit must miss instead of
+    // dispatching to an invisible line. Same for the buried tap.
+    assert(!hit(tall, tallBox, 4, 120));
+    assert(!hit(tall, tallBox, 4, 160));
+    // Scrolled down by 60: filler 0 sits fully above the viewport
+    // ([-46,-32)) and must miss, while filler 4 ([10,24) shifted)
+    // is visible and still hits at y=20.
+    State<float> down = store.make<float>(60.0f);
+    Block moved = roll(vertical(), scrollOffset(down), tap(lines("top"), [] {}), list(10, filler));
+    Box movedBox = place(moved, {0, 720, 0, 100});
+    assert(!hit(moved, movedBox, 4, -40));
+    const Block* part = hit(moved, movedBox, 4, 20);
+    assert(part && part->get<Lines>());
+  }
+
+  // Wheel scroll: offset advances by the delta, clamps to
+  // content-viewport, chains from an edge-clamped inner roll to the
+  // outer one, and ignores points outside the viewport.
+  {
+    auto filler = [](int i) { return lines("filler" + std::to_string(i) + "-filler-filler"); };
+    Screen scr;
+    Engine e;
+    State<float> outer = store.make<float>(0.0f);
+    Block tree = roll(vertical(), scrollOffset(outer), list(12, filler));
+    // 12 fillers x 14px = 168 content; viewport 100 → max 68.
+    Box tb = place(tree, {0, 720, 0, 100});
+    assert(scr.wheel(tree, tb, 4, 50, 0.0f, 30.0f, e));
+    assert(*outer == 30.0f);
+    // Overshoot clamps instead of spilling.
+    assert(scr.wheel(tree, tb, 4, 50, 0.0f, 100.0f, e));
+    assert(*outer == 68.0f);
+    // At the edge there is nowhere to go: no paint requested.
+    assert(!scr.wheel(tree, tb, 4, 50, 0.0f, 10.0f, e));
+    // Scroll back up; zero delta is a no-op.
+    assert(scr.wheel(tree, tb, 4, 50, 0.0f, -20.0f, e));
+    assert(*outer == 48.0f);
+    assert(!scr.wheel(tree, tb, 4, 50, 0.0f, 0.0f, e));
+    // Outside the viewport: missed, offset untouched.
+    assert(!scr.wheel(tree, tb, 4, 150, 0.0f, 10.0f, e));
+    assert(*outer == 48.0f);
+    // No offset state wired: unscrollable, never consumes.
+    Block bare = roll(vertical(), list(12, filler));
+    Box bb = place(bare, {0, 720, 0, 100});
+    assert(!scr.wheel(bare, bb, 4, 50, 0.0f, 10.0f, e));
+    // Nested: inner horizontal roll takes dx, the outer vertical
+    // takes dy at the same point.
+    State<float> hout = store.make<float>(0.0f);
+    State<float> vout = store.make<float>(0.0f);
+    Block nested = roll(
+        vertical(),
+        scrollOffset(vout),
+        roll(
+            horizontal(),
+            scrollOffset(hout),
+            lines("12345678901234567890"),
+            lines("12345678901234567890")
+        ),
+        list(12, filler)
+    );
+    Box nb = place(nested, {0, 120, 0, 60});
+    assert(scr.wheel(nested, nb, 10, 10, 25.0f, 0.0f, e));
+    assert(*hout == 25.0f && *vout == 0.0f);
+    assert(scr.wheel(nested, nb, 10, 10, 0.0f, 12.0f, e));
+    assert(*vout == 12.0f);
+  }
+
   // Column expand splits vertical remainder equally.
   Block fc = column(gap(0), lines("a", expand()), lines("b", expand()));
   Box fcb = place(fc, {0, 720, 0, 100});

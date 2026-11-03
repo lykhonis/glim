@@ -213,6 +213,13 @@ int run(
       }
       return;
     }
+    if (e.type() == T::Wheel) {
+      auto [tree, box] = buildFresh(window.size());
+      if (screen.wheel(tree, box, e.x(), e.y(), e.dx(), e.dy(), active)) {
+        paint();
+      }
+      return;
+    }
     if (e.type() == T::KeyDown) {
       if (auto key = mapKey(e.key())) {
         auto [tree, box] = buildFresh(window.size());

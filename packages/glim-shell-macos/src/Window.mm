@@ -103,6 +103,25 @@ using glim::shell::Window;
   eventCallback_(e);
 }
 
+- (void)scrollWheel:(NSEvent*)event {
+  if (!eventCallback_) {
+    return;
+  }
+  const NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
+  // AppKit deltas are positive for up/left; the shell convention is
+  // web-like (positive dy reveals content below). Line scrolls
+  // arrive imprecise: expand by a line step in logical pixels.
+  const bool precise = event.hasPreciseScrollingDeltas;
+  const CGFloat step = precise ? 1.0 : 20.0;
+  Event e(EventType::Wheel);
+  e.setPoint(static_cast<float>(p.x), static_cast<float>(p.y));
+  e.setScroll(
+      static_cast<float>(-event.scrollingDeltaX * step),
+      static_cast<float>(-event.scrollingDeltaY * step)
+  );
+  eventCallback_(e);
+}
+
 - (void)viewDidMoveToWindow {
   [super viewDidMoveToWindow];
   self.postsFrameChangedNotifications = YES;

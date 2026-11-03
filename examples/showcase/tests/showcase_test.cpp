@@ -175,9 +175,48 @@ int main(int argc, char** argv) {
   Engine te = engineFor(t);
   Block tree = showcaseTree(rootScope(te));
   Shown h = shownStates(t);
-  Box box = place(tree, {0, 720, 0, 480});
+  // Interaction runs in a viewport tall enough to show the whole
+  // tree (the 480px golden viewport clips Segmented and below — see
+  // the pinned miss below). Focus order and box sizes are unaffected,
+  // only y positions shift with the taller fold.
+  Box box = place(tree, {0, 720, 0, 800});
   auto focusableList = focusables(tree, box);
   assert(focusableList.size() == 9);
+  // Clip contract, pinned in context: at the 480px window the
+  // segmented row lays out below the fold, so dispatch misses it
+  // instead of actuating an invisible control. Reachable again once
+  // the outer roll gets a scroll offset (see input-scroll-notes).
+  {
+    Box clipped = place(tree, {0, 720, 0, 480});
+    Box sg = focusBox(tree, clipped, 7);
+    assert(sg.y >= 480);
+    assert(!dispatchPointer(
+        tree,
+        clipped,
+        sg.x + 1,
+        sg.y + 1,
+        Event::borrow(PointerDown{sg.x + 1, sg.y + 1})
+    ));
+    assert(*h.range == 1);
+    // Wheel scrolls the outer roll: the offset moves, and the same
+    // segmented row becomes reachable at its shifted viewport point.
+    Screen ws;
+    assert(ws.wheel(tree, clipped, 360, 240, 0.0f, 150.0f, te));
+    State<float> vs = t.state("vscroll", 0.0f);
+    assert(*vs == 150.0f);
+    assert(dispatchPointer(
+        tree,
+        clipped,
+        sg.x + 1,
+        sg.y + 1 - 150.0f,
+        Event::borrow(PointerDown{sg.x + 1, sg.y + 1 - 150.0f})
+    ));
+    assert(*h.range == 2);
+    // Reset the probed states: later blocks reuse this store/tree at
+    // zero offset with the default selection.
+    h.range = 1;
+    vs = 0.0f;
+  }
   // Primary counts up, secondary resets.
   {
     assert(*h.taps == 0);
@@ -283,7 +322,7 @@ int main(int argc, char** argv) {
     Store u;
     Engine ue = engineFor(u);
     Block stree = showcaseTree(rootScope(ue));
-    Box sbox = place(stree, {0, 720, 0, 480});
+    Box sbox = place(stree, {0, 720, 0, 800});
     Shown uh = shownStates(u);
     Screen scr;
     Box sl = focusBox(stree, sbox, 8);

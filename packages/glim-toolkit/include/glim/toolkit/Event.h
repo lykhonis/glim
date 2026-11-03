@@ -23,6 +23,13 @@ struct PointerMove {
   // clear and elements must ignore them.
   bool pressed = false;
 };
+struct Wheel {
+  float x = 0;
+  float y = 0;
+  // Logical-pixel deltas; positive dy reveals content below.
+  float dx = 0;
+  float dy = 0;
+};
 struct KeyPress {
   Key key = Key::Activate;
 };

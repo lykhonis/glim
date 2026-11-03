@@ -1,6 +1,6 @@
 root box: 720x480
 Roll.v [0,0 720x480]
-  Column [0,0 720x682]
+  Column [0,0 720x758]
     Column [16,16 121.379x70]
       Lines [16,16 48x14] Button
       Column [16,36 121.379x50]
@@ -32,22 +32,39 @@ Roll.v [0,0 720x480]
       Lines [16,426 64x14] Checkbox
       Check [16,446 24x24]
       Lines [48,451 35.1243x14] Sound
-    Column [16,490 200.559x56]
-      Lines [16,490 72x14] Segmented
-      Seg [16,510 200.559x36]
-      Seg.active [82.8531,512 66.8531x32]
-        Tap [16,510 66.8531x36]
-          Lines [32,520 24x14] Day
-        Tap [82.8531,510 66.8531x36]
-          Lines [98.8531,520 32x14] Week
-        Tap [149.706,510 66.8531x36]
-          Lines [165.706,520 40x14] Month
-    Column [16,566 240x48]
-      Lines [16,566 48x14] Slider
-      Slide [16,596 240x8]
-      Slide.fill [16,596 98x8]
-      Slide.thumb [104,590 20x20]
-    Column [16,634 240x32]
-      Lines [16,634 64x14] Progress
-      Slide [16,654 240x12]
-      Slide.fill [16,654 96x12]
+    Column [16,490 688x56]
+      Lines [16,490 224x14] Overflow & horizontal scroll
+      Column [16,510 688x36]
+        Lines [16,510 576x14] The row below is wider than the viewport. Wheel over it to pan sideways.
+        Roll.h [16,532 688x14]
+          Lines [16,532 88x14] chip-0-pill
+          Lines [80.774,532 88x14] chip-1-pill
+          Lines [142.955,532 88x14] chip-2-pill
+          Lines [207.486,532 88x14] chip-3-pill
+          Lines [272.107,532 88x14] chip-4-pill
+          Lines [337.057,532 88x14] chip-5-pill
+          Lines [401.396,532 88x14] chip-6-pill
+          Lines [466.045,532 88x14] chip-7-pill
+          Lines [530.068,532 88x14] chip-8-pill
+          Lines [594.701,532 88x14] chip-9-pill
+          Lines [659.35,532 96x14] chip-10-pill
+          Lines [728.831,532 96x14] chip-11-pill
+    Column [16,566 200.559x56]
+      Lines [16,566 72x14] Segmented
+      Seg [16,586 200.559x36]
+      Seg.active [82.8531,588 66.8531x32]
+        Tap [16,586 66.8531x36]
+          Lines [32,596 24x14] Day
+        Tap [82.8531,586 66.8531x36]
+          Lines [98.8531,596 32x14] Week
+        Tap [149.706,586 66.8531x36]
+          Lines [165.706,596 40x14] Month
+    Column [16,642 240x48]
+      Lines [16,642 48x14] Slider
+      Slide [16,672 240x8]
+      Slide.fill [16,672 98x8]
+      Slide.thumb [104,666 20x20]
+    Column [16,710 240x32]
+      Lines [16,710 64x14] Progress
+      Slide [16,730 240x12]
+      Slide.fill [16,730 96x12]

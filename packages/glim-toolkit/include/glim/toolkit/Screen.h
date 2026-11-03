@@ -55,6 +55,19 @@ struct Screen {
       const Engine& engine = Engine{}
   );
   bool key(const Block& tree, const Box& box, Key key, const Engine& engine = Engine{});
+  // Wheel/trackpad scroll at a point. Routes to the innermost
+  // scrollable Roll under the point whose axis can move, then chains
+  // outward when the inner one is already at its edge. Returns true
+  // when an offset changed (caller paints).
+  bool wheel(
+      const Block& tree,
+      const Box& box,
+      float x,
+      float y,
+      float dx,
+      float dy,
+      const Engine& engine = Engine{}
+  );
 
   bool needsPaint(const Store& store) const;
   void painted(const Store& store);
