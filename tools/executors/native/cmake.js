@@ -55,44 +55,66 @@ function emscriptenToolchain() {
   return { file: toolchain };
 }
 
-function withBuildLock(lockFile, fn) {
-  fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+function withBuildLock(lockPath, fn) {
+  // Serializes concurrent configure+build+test of one build dir (nx
+  // runs every project target in parallel against the same preset
+  // dir). The lock is a directory: mkdir is atomic, so acquisition
+  // has no create-then-write window. Only a lock whose owner wrote a
+  // pid and died is cleared; anything else (including a pid not yet
+  // written) means wait. Fail-closed: an unclearable lock times out
+  // instead of letting two configures race (ninja "failed
+  // recompaction"). A plain file at the path is a leftover of the
+  // pre-mkdir scheme and is never a live lock.
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const pidFile = path.join(lockPath, "pid");
   const deadline = Date.now() + 120000;
-  let fd;
   for (;;) {
     try {
-      fd = fs.openSync(lockFile, "wx");
+      fs.mkdirSync(lockPath);
       break;
     } catch (err) {
       if (err.code !== "EEXIST") {
         throw err;
       }
       try {
-        const pid = parseInt(fs.readFileSync(lockFile, "utf8"), 10);
-        if (Number.isFinite(pid)) {
-          process.kill(pid, 0);
-        } else {
-          throw new Error("no pid");
+        if (!fs.statSync(lockPath).isDirectory()) {
+          fs.unlinkSync(lockPath);
+          continue;
         }
       } catch {
+        continue;
+      }
+      let stale = false;
+      try {
+        const pid = parseInt(fs.readFileSync(pidFile, "utf8"), 10);
+        if (Number.isFinite(pid)) {
+          try {
+            process.kill(pid, 0);
+          } catch {
+            stale = true; // ESRCH: owner dead
+          }
+        }
+      } catch {
+        // No pid yet — owner is acquiring. Not stale: wait.
+      }
+      if (stale) {
         try {
-          fs.unlinkSync(lockFile);
+          fs.rmSync(lockPath, { recursive: true, force: true });
         } catch {}
         continue;
       }
       if (Date.now() > deadline) {
-        throw new Error(`timed out waiting for ${lockFile}`);
+        throw new Error(`timed out waiting for ${lockPath}`);
       }
       spawnSync("sleep", ["0.2"]);
     }
   }
   try {
-    fs.writeSync(fd, String(process.pid));
+    fs.writeFileSync(pidFile, String(process.pid));
     return fn();
   } finally {
-    fs.closeSync(fd);
     try {
-      fs.unlinkSync(lockFile);
+      fs.rmSync(lockPath, { recursive: true, force: true });
     } catch {
       // ignore
     }
