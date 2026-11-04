@@ -18,6 +18,13 @@ struct List : WithGap {
   static constexpr const char* kKind = "List";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  List();
+  ~List();
+  List(const List&);
+  List& operator=(const List&);
+  List(List&&);
+  List& operator=(List&&);
   Box place(Constraints c, const Engine& e) const {
     return detail::flowColumn(children, gap, c, e).size;
   }

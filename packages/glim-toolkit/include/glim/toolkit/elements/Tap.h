@@ -20,6 +20,13 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
   static constexpr const char* kKindPrimary = "Tap.primary";
   const char* kind() const { return isPrimary ? kKindPrimary : kKind; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  Tap();
+  ~Tap();
+  Tap(const Tap&);
+  Tap& operator=(const Tap&);
+  Tap(Tap&&);
+  Tap& operator=(Tap&&);
   Action onTap;
   Box place(Constraints c, const Engine& e) const;
   void record(const Box& box, Rec& rec) const;
@@ -49,13 +56,7 @@ inline Box Tap::innerBox(const Box& box) const {
   return {box.x + static_cast<float>(padH), box.y + static_cast<float>(padV), w, h};
 }
 
-inline Box Tap::place(Constraints c, const Engine& e) const {
-  Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
-  Box inner = e.place(children[0], ic);
-  return detail::resolveSize(
-      inner.w + static_cast<float>(2 * padH), inner.h + static_cast<float>(2 * padV), c
-  );
-}
+// place lives in Elements.cpp (it indexes children).
 
 inline void Tap::record(const Box& box, Rec& rec) const {
   rec.push(isPrimary ? kKindPrimary : kKind, box);

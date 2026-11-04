@@ -17,6 +17,13 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
   static constexpr bool kClipsChildren = true;
   const char* kind() const { return axis == kAxisHorizontal ? kKindH : kKindV; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  Roll();
+  ~Roll();
+  Roll(const Roll&);
+  Roll& operator=(const Roll&);
+  Roll(Roll&&);
+  Roll& operator=(Roll&&);
   // Shared-handle write through a const view: scrollOff is a State
   // cell, so this names the mutation instead of hiding it behind
   // `r->scrollOff = next` at call sites.

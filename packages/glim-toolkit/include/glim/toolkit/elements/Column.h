@@ -15,6 +15,13 @@ struct Column : WithGap, WithCenter, WithPad {
   static constexpr const char* kKind = "Column";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  Column();
+  ~Column();
+  Column(const Column&);
+  Column& operator=(const Column&);
+  Column(Column&&);
+  Column& operator=(Column&&);
   Box place(Constraints c, const Engine& e) const {
     Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
     detail::Flow f = detail::flowColumn(children, gap, ic, e);

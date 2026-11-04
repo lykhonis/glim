@@ -14,6 +14,13 @@ struct Stack {
   static constexpr const char* kKind = "Stack";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  Stack();
+  ~Stack();
+  Stack(const Stack&);
+  Stack& operator=(const Stack&);
+  Stack(Stack&&);
+  Stack& operator=(Stack&&);
   Box place(Constraints c, const Engine& e) const { return detail::flowStack(children, c, e).size; }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     detail::Flow f = detail::flowStack(children, {0, box.w, 0, box.h}, e);

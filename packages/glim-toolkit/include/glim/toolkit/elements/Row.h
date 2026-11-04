@@ -15,6 +15,13 @@ struct Row : WithGap, WithCenter, WithPad {
   static constexpr const char* kKind = "Row";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
+  // Defaulted in Elements.cpp (Block is incomplete here).
+  Row();
+  ~Row();
+  Row(const Row&);
+  Row& operator=(const Row&);
+  Row(Row&&);
+  Row& operator=(Row&&);
   Box place(Constraints c, const Engine& e) const {
     Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
     detail::Flow f = detail::flowRow(children, gap, ic, e);
