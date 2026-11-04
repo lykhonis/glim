@@ -14,3 +14,5 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Check formatting
         run: tools/format-check.sh
+      - name: Check factory form
+        run: python3 tools/scripts/check-factories.py
