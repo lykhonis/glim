@@ -23,8 +23,8 @@ struct Checkbox : WithSemantic {
   static constexpr const char* kKind = "Check";
   static constexpr const char* kKindOn = "Check.on";
   static constexpr float kBox = 24.0f;
-  State<bool> value;
   std::string label;
+  State<bool> value;
   Box place(Constraints c, const Engine& e) const {
     Box t = text::measureText(label, {0, kUnbounded, 0, kUnbounded}, e);
     return detail::resolveSize(t.w + kBox + 8.0f, kBox, c);
@@ -118,10 +118,7 @@ struct Checkbox : WithSemantic {
 };
 
 template <class... As>
-Block checkbox(std::string label, State<bool> v, As&&... as) {
-  Checkbox c;
-  c.label = std::move(label);
-  c.value = std::move(v);
+Block checkbox(Checkbox c, As&&... as) {
   configureTags(c, std::forward<As>(as)...);
   return finish(std::move(c), std::forward<As>(as)...);
 }

@@ -81,16 +81,11 @@ struct Segmented : WithSemantic {
 };
 
 template <class... As>
-Block segmented(
-    std::vector<std::string> options, State<int> sel, As&&... as
-) {
-  Segmented s;
-  s.options = options;
-  s.selected = std::move(sel);
-  for (std::size_t i = 0; i < options.size(); ++i) {
+Block segmented(Segmented s, As&&... as) {
+  for (std::size_t i = 0; i < s.options.size(); ++i) {
     State<int> cell = s.selected;
     s.children.push_back(tap(
-        lines(options[i]),
+        lines(s.options[i]),
         [cell, i] { cell = static_cast<int>(i); },
         pad(16, 10)
     ));

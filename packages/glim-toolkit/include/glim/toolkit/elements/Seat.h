@@ -37,11 +37,7 @@ struct Seat : WithSemantic {
 };
 
 template <class... As>
-auto seat(std::uint32_t id, float w, float h, As&&... as) {
-  Seat s;
-  s.id = id;
-  s.width = w;
-  s.height = h;
+auto seat(Seat s, As&&... as) {
   configureTags(s, std::forward<As>(as)...);
   return finish(std::move(s), std::forward<As>(as)...);
 }

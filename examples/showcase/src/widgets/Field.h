@@ -17,14 +17,25 @@ namespace toolkit {
 // the toolkit tree owns geometry and focus, never pixels.
 // Committed text syncs back in a later slice; the hint documents what
 // belongs there meanwhile.
-inline Block fieldRow(
-    std::string label, std::string hint, std::uint32_t id
-) {
+// Two adjacent strings — positional would confuse them.
+struct FieldRow {
+  std::string label;
+  std::string hint;
+  std::uint32_t id = 0;
+};
+
+inline Block fieldRow(FieldRow f) {
   return column(
       gap(4),
-      lines(std::move(label)),
-      card(radius(12), seat(id, 600.0f, 40.0f, semantic("field"))),
-      lines(std::move(hint))
+      lines(std::move(f.label)),
+      card(
+          radius(12),
+          seat(
+              {.id = f.id, .width = 600.0f, .height = 40.0f},
+              semantic("field")
+          )
+      ),
+      lines(std::move(f.hint))
   );
 }
 

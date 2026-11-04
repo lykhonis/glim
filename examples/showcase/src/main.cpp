@@ -48,19 +48,27 @@ Block showcaseTree(Scope app) {
                       gap(8),
                       row(gap(8),
                           button(
-                              "Export",
-                              [t = taps] {
-                                t.update([](int& v) { ++v; });
-                              },
+                              {.label = "Export",
+                               .onTap =
+                                   [t = taps] {
+                                     t.update([](int& v) { ++v; });
+                                   }},
                               primary()
                           ),
-                          button("Cancel", [t = taps] { t = 0; })),
+                          button(
+                              {.label = "Cancel",
+                               .onTap = [t = taps] { t = 0; }}
+                          )),
                       lines(count)
                   ))
           ),
           section(
               "Text field",
-              fieldRow("Name", "First and last name", kShowcaseSeatId)
+              fieldRow(
+                  {.label = "Name",
+                   .hint = "First and last name",
+                   .id = kShowcaseSeatId}
+              )
           ),
           section(
               "Multiline text",
@@ -87,7 +95,9 @@ Block showcaseTree(Scope app) {
               )
           ),
           section("Switch", toggle(wifi)),
-          section("Checkbox", checkbox("Sound", sound)),
+          section(
+              "Checkbox", checkbox({.label = "Sound", .value = sound})
+          ),
           section(
               "Overflow & horizontal scroll",
               column(
@@ -116,7 +126,11 @@ Block showcaseTree(Scope app) {
               )
           ),
           section(
-              "Segmented", segmented({"Day", "Week", "Month"}, range)
+              "Segmented",
+              segmented(
+                  {.options = {"Day", "Week", "Month"},
+                   .selected = range}
+              )
           ),
           section("Slider", slider(level)),
           section("Progress", progress(level))

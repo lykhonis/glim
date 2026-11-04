@@ -186,7 +186,7 @@ int main() {
 
   // Seat: fixed reserve, kind-described (no record), focusable anchor
   // that claims tap/activate for the native field.
-  Block f = seat(7, 688, 40, semantic("field"));
+  Block f = seat({.id = 7, .width = 688, .height = 40}, semantic("field"));
   const Seat* fs = f.get<Seat>();
   assert(fs && fs->id == 7 && fs->semantic == "field");
   Box fb2 = place(f, {0, 720, 0, 480});

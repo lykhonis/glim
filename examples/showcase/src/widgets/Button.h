@@ -87,11 +87,9 @@ struct Button : WithGap,
   }
 };
 
+// Identity arrives as the element; pads stay tag-driven.
 template <class... As>
-Block button(std::string label, Action onTap, As&&... as) {
-  Button b;
-  b.label = std::move(label);
-  b.onTap = std::move(onTap);
+Block button(Button b, As&&... as) {
   b.padH = Show::kButtonPadH;
   b.padV = Show::kButtonPadV;
   configureTags(b, std::forward<As>(as)...);
