@@ -46,7 +46,8 @@ int run(
     const Engine& engine,
     Build build,
     Record record,
-    SeatViewFactory makeSeatView
+    SeatViewFactory makeSeatView,
+    A11ySink a11ySink
 ) {
   SeatViewFactory effective = makeSeatView != nullptr ? makeSeatView : &makeDefaultSeatView;
   shell::Application host;
@@ -118,6 +119,9 @@ int run(
   const auto paintBody = [&](const std::chrono::steady_clock::time_point& now) {
     const Vec2 size = window.size();
     auto [tree, box] = buildFresh(size);
+    if (a11ySink) {
+      a11ySink(a11yNodes(tree, box, active), screen.focus);
+    }
     context.setSize(size);
     context.beginFrame();
     Frame frame = frameAt(std::chrono::duration<float>(now - start).count());
@@ -269,7 +273,13 @@ int run(
   return 0;
 }
 
-int run(const Config& config, Build build, Record record, SeatViewFactory makeSeatView) {
+int run(
+    const Config& config,
+    Build build,
+    Record record,
+    SeatViewFactory makeSeatView,
+    A11ySink a11ySink
+) {
   // Owned defaults: the loop borrows these, so locals outlive it.
   Store store;
   Screen screen;
@@ -283,7 +293,7 @@ int run(const Config& config, Build build, Record record, SeatViewFactory makeSe
       paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
     };
   }
-  return run(config, screen, store, engine, build, effective, makeSeatView);
+  return run(config, screen, store, engine, build, effective, makeSeatView, a11ySink);
 }
 
 }  // namespace host

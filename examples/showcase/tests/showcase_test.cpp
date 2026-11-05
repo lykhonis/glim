@@ -29,6 +29,7 @@ using namespace glim::toolkit;
 
 std::string showcaseDump(Store& store);
 std::string showcaseFocusDump(Store& store);
+std::string showcaseA11yDump(Store& store);
 void paintShowcaseScene(
     glim::paint::Context& ctx,
     glim::toolkit::host::LayerFeed& feed,
@@ -202,6 +203,8 @@ int main(int argc, char** argv) {
   assert(showcaseDump(s).find("Seat") != std::string::npos);
   if (int rc = checkGolden(dir, "dump.txt", showcaseDump(s))) return rc;
   if (int rc = checkGolden(dir, "focus.txt", showcaseFocusDump(s)))
+    return rc;
+  if (int rc = checkGolden(dir, "a11y.txt", showcaseA11yDump(s)))
     return rc;
   // Asserted CPU raster gate (harness H1): the same scene --paint
   // writes, compared strictly against golden/showcase.png. Fresh

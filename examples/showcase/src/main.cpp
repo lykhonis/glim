@@ -180,6 +180,15 @@ std::string showcaseFocusDump(Store& store) {
   return os.str();
 }
 
+std::string showcaseA11yDump(Store& store) {
+  Engine e = engineFor(store);
+  Block tree = showcaseTree(rootScope(e));
+  Box box = e.place(tree, {0, 720, 0, 480});
+  std::ostringstream os;
+  dumpA11y(os, a11yNodes(tree, box, e));
+  return os.str();
+}
+
 void paintShowcaseScene(
     glim::paint::Context& ctx,
     host::LayerFeed& feed,

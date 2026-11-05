@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <sstream>
 
 using namespace glim::toolkit;
 
@@ -184,6 +185,32 @@ int main() {
   // Custom children are transparent to focus: the tap inside Radial is found.
   assert(focusables(m, mb).size() == 1);
 
+  // A11y node map: role from kind, label from entry text, id from
+  // mark. Column wrapper stays out (layout-only); tap carries the
+  // mark, its Lines child the label, seat both, bare Lines the text.
+  {
+    Block at = column(
+        tap(
+            lines("OK"), [] {}, semantic("ok-btn")
+        ),
+        seat({.id = 3, .width = 200.0f, .height = 40.0f}, semantic("field")),
+        lines("Name")
+    );
+    Box ab = place(at, {0, 720, 0, 480});
+    std::vector<A11yNode> nodes = a11yNodes(at, ab);
+    assert(nodes.size() == 4);
+    assert(nodes[0].role == "Tap" && nodes[0].id == "ok-btn" && nodes[0].focusable);
+    assert(nodes[1].role == "Lines" && nodes[1].label == "OK" && !nodes[1].focusable);
+    assert(nodes[2].role == "Seat" && nodes[2].id == "field" && nodes[2].focusable);
+    assert(nodes[2].box.w == 200 && nodes[2].box.h == 40);
+    assert(nodes[3].role == "Lines" && nodes[3].label == "Name" && nodes[3].id.empty());
+    assert(a11yFind(nodes, "field") == &nodes[2]);
+    assert(a11yFind(nodes, "nope") == nullptr);
+    std::ostringstream ad;
+    dumpA11y(ad, nodes);
+    assert(ad.str().find("Tap") != std::string::npos);
+    assert(ad.str().find("*") != std::string::npos);
+  }
   // Seat: fixed reserve, kind-described (no record), focusable anchor
   // that claims tap/activate for the native field.
   Block f = seat({.id = 7, .width = 688, .height = 40}, semantic("field"));

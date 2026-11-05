@@ -12,7 +12,9 @@
 
 #include <functional>
 #include <optional>
+#include <vector>
 
+#include "glim/toolkit/A11y.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Screen.h"
 #include "glim/toolkit/State.h"
@@ -50,6 +52,10 @@ std::optional<Key> mapKey(shell::Key key);
 
 using Build = std::function<Block(const Engine&)>;
 using Record = std::function<void(Frame&, const Block&, const Box&)>;
+// A11y publish seam (T6): shells bridge the node map to OS a11y APIs
+// later (NSAccessibility, UIAccessibility, ...). Null sink (default)
+// skips the walk entirely — zero cost when unused.
+using A11ySink = std::function<void(const std::vector<A11yNode>& nodes, int focused)>;
 
 // Null factory means the platform default. Embedders pass their own to
 // create views inside an existing hierarchy.
@@ -60,7 +66,8 @@ int run(
     const Engine& engine,
     Build build,
     Record record,
-    SeatViewFactory makeSeatView = nullptr
+    SeatViewFactory makeSeatView = nullptr,
+    A11ySink a11ySink = nullptr
 );
 
 // Getting-started path: the host owns Store, Screen, measuring Engine,
@@ -71,7 +78,8 @@ int run(
     const Config& config,
     Build build,
     Record record = Record{},
-    SeatViewFactory makeSeatView = nullptr
+    SeatViewFactory makeSeatView = nullptr,
+    A11ySink a11ySink = nullptr
 );
 
 }  // namespace host
