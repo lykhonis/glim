@@ -7,6 +7,7 @@
 #include <glim/paint/Scene.h>
 #include <glim/paint/Software.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -102,6 +103,24 @@ int checkGolden(
   }
   if (got != readFile(path)) {
     std::cerr << "golden mismatch: dump differs from " << path << '\n';
+    // Line diff so CI logs show what moved without artifacts.
+    std::istringstream wg(got), eg(readFile(path));
+    std::vector<std::string> wl, el;
+    for (std::string l; std::getline(wg, l);) wl.push_back(l);
+    for (std::string l; std::getline(eg, l);) el.push_back(l);
+    std::cerr << "got " << wl.size() << " lines, want " << el.size()
+              << " lines\n";
+    std::size_t n = std::max(wl.size(), el.size());
+    std::size_t shown = 0;
+    for (std::size_t i = 0; i < n && shown < 20; ++i) {
+      std::string w = i < wl.size() ? wl[i] : "<missing>";
+      std::string e = i < el.size() ? el[i] : "<missing>";
+      if (w != e) {
+        std::cerr << "line " << (i + 1) << ":\n  got  " << w
+                  << "\n  want " << e << '\n';
+        ++shown;
+      }
+    }
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
