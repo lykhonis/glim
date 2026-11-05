@@ -125,15 +125,21 @@ TextSize Context::measureText(const char* latin, float sizePx) const {
   if (!latin) {
     return out;
   }
-  float w = 0.f;
+  // Double accumulation: every float x float product is exact in
+  // double, so FMA contraction (Clang/ARM fuses, GCC/x86 at -O0 does
+  // not) cannot change the sum. The final narrowing is then bitwise
+  // identical on every platform; text goldens must not depend on a
+  // 1-ULP codegen difference (see showcase a11y 49.096 vs 49.0961).
+  double w = 0.0;
+  const double ds = static_cast<double>(s);
   for (const char* p = latin; *p; ++p) {
     const unsigned char c = static_cast<unsigned char>(*p);
     if (c >= 128 || !atlas.glyphs[c].present) {
       continue;
     }
-    w += atlas.glyphs[c].advance * s;
+    w += static_cast<double>(atlas.glyphs[c].advance) * ds;
   }
-  out.width = w;
+  out.width = static_cast<float>(w);
   return out;
 }
 

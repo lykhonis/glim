@@ -44,8 +44,8 @@ Roll.v [0,0 720x480]
           Lines [142.955,580 88x14] chip-2-pill
           Lines [207.486,580 88x14] chip-3-pill
           Lines [272.107,580 88x14] chip-4-pill
-          Lines [337.057,580 88x14] chip-5-pill
-          Lines [401.396,580 88x14] chip-6-pill
+          Lines [337.056,580 88x14] chip-5-pill
+          Lines [401.395,580 88x14] chip-6-pill
           Lines [466.045,580 88x14] chip-7-pill
           Lines [530.068,580 88x14] chip-8-pill
           Lines [594.701,580 88x14] chip-9-pill

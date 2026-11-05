@@ -21,8 +21,8 @@ Lines [80.774,580 54.1808x14] chip-1-pill
 Lines [142.955,580 56.5311x14] chip-2-pill
 Lines [207.486,580 56.6215x14] chip-3-pill
 Lines [272.107,580 56.9492x14] chip-4-pill
-Lines [337.057,580 56.339x14] chip-5-pill
-Lines [401.396,580 56.6497x14] chip-6-pill
+Lines [337.056,580 56.339x14] chip-5-pill
+Lines [401.395,580 56.6497x14] chip-6-pill
 Lines [466.045,580 56.0226x14] chip-7-pill
 Lines [530.068,580 56.6328x14] chip-8-pill
 Lines [594.701,580 56.6497x14] chip-9-pill
