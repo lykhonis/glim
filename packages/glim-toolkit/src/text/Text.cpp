@@ -15,8 +15,8 @@ namespace text {
 
 Box measureText(const std::string& text, Constraints c, const Engine& e) {
   float w = static_cast<float>(text.size()) * Tokens::kTypeAdvance;
-  if (const Measurer* m = e.get<Measurer>()) {
-    if (m->measure) w = m->measure(text.c_str(), Tokens::kTypeLine);
+  if (auto m = e.get<Measurer>()) {
+    if (m->get().measure) w = m->get().measure(text.c_str(), Tokens::kTypeLine);
   }
   return detail::resolveSize(w, Tokens::kTypeLine, c);
 }
@@ -27,7 +27,6 @@ std::vector<std::string> greedyWrap(const std::string& text, float maxW) {
   float adv = Tokens::kTypeAdvance;
   int per = static_cast<int>(maxW / adv);
   if (per < 1) per = 1;
-  // Split on spaces (collapse runs); empty text is one empty line.
   std::vector<std::string> words;
   std::string cur;
   for (char ch : text) {
@@ -64,7 +63,6 @@ std::vector<std::string> greedyWrap(const std::string& text, float maxW) {
     if (static_cast<float>(w.size()) * adv <= maxW + 0.001f) {
       flushWord(w);
     } else {
-      // Long word: chunk at char boundaries.
       std::size_t k = 0;
       while (k < w.size()) {
         std::size_t n = static_cast<std::size_t>(per);
@@ -105,7 +103,6 @@ std::vector<std::string> truncateLines(std::vector<std::string> lines, float max
   if (per < 0) per = 0;
   int keep = per - static_cast<int>(dots.size());
   if (keep < 0) {
-    // Narrower than "...": as many dots as fit.
     int n = per < 0 ? 0 : per;
     last = dots.substr(0, static_cast<std::size_t>(n));
     return lines;

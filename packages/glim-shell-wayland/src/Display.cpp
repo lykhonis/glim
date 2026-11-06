@@ -128,11 +128,8 @@ void pointerButton(void*, wl_pointer*, uint32_t, uint32_t, uint32_t button, uint
   e.setButton(mapButton(button));
   gPointerFocus->dispatch(e);
 }
-// Axis values arrive in compositor units (10 per wheel tick is the
-// common step); the step scales one tick to a 40px page nudge.
-// Positive vertical is scroll-down (content up), matching the shell
-// Wheel convention — flip here, not in the toolkit, if a compositor
-// disagrees.
+// Axis in compositor units (10/tick); step scales one tick to a 40px nudge.
+// Positive vertical is scroll-down; flip here per-compositor, not in the toolkit.
 void pointerAxis(void*, wl_pointer*, uint32_t, uint32_t axis, wl_fixed_t value) {
   if (!gPointerFocus) {
     return;

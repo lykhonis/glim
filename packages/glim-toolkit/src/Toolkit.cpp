@@ -5,10 +5,6 @@
 namespace glim {
 namespace toolkit {
 
-// Engine entry points: visitation dispatches per node kind; every
-// other concern lives in its own TU (TextLayout, Flow, Hit, Events,
-// Focus, Screen).
-
 Box Engine::place(const Block& b, Constraints c) const {
   return std::visit([&](const auto& x) -> Box { return x.place(c, *this); }, b.v);
 }

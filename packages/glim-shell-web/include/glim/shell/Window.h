@@ -19,8 +19,7 @@
 
 namespace glim::shell {
 
-// Web shell: browser canvas + WebGPU. Same API shape as macos/wayland shells.
-// See docs/webgpu.md.
+// Browser canvas + WebGPU; same API shape as the macos/wayland shells.
 class Window final {
  public:
   using EventCallback = std::function<void(const Event&)>;

@@ -17,7 +17,7 @@
 namespace glim {
 namespace toolkit {
 
-// Slider: handleAt maps x to value; arrows nudge when focused.
+// Slider: arrows nudge when focused.
 struct Slider : WithSemantic {
   static constexpr const char* kKind = "Slide";
   static constexpr const char* kKindFill = "Slide.fill";
@@ -38,10 +38,8 @@ struct Slider : WithSemantic {
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(kW, kH, c);
   }
-  // Track + fill + thumb boxes. Fill runs to the THUMB CENTER, not
-  // box.w * v: the thumb travels box.w - kThumb, so a full-width fill
-  // would lead the thumb by up to kThumb/2 at the ends. Progress
-  // (thumb-less) keeps full-width fill; the two agree at 0.5.
+  // Fill runs to the THUMB CENTER, not box.w * v: the thumb travels
+  // box.w - kThumb, so full-width fill would lead by up to kThumb/2.
   void geometry(const Box& box, Box& track, Box& fill, Box& thumb)
       const {
     float v = clamp01(*value);
@@ -50,11 +48,8 @@ struct Slider : WithSemantic {
     float cx = box.x + kThumb * 0.5f + v * (box.w - kThumb);
     fill = {box.x, ty, 0, 8.0f};
     if (cx > box.x + 0.5f) fill = {box.x, ty, cx - box.x, 8.0f};
-    // Knob snaps to the half-logical grid (one device px at 2x) while
-    // the fill keeps the exact value: a fractional knob stacks four
-    // AA fringes (shadow, face, crown, rim) out of phase and reads
-    // muddy; the fill cap hides under the knob either way. Clamped to
-    // the track so the snap never spills past the ends by ±0.25px.
+    // Knob snaps to half-logical (one device px at 2x); the fill keeps
+    // the exact value. Clamped so the snap never spills past the ends.
     float nx = detail::snapHalf(cx - kThumb * 0.5f);
     float ny = detail::snapHalf(box.y + (box.h - kThumb) * 0.5f);
     nx = std::max(box.x, std::min(nx, box.x + box.w - kThumb));
@@ -71,7 +66,6 @@ struct Slider : WithSemantic {
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     Box track, fill, thumb;
     geometry(box, track, fill, thumb);
-    // Groove: no stroke — the fill contrast alone shapes it.
     sink.fillGradient(
         track,
         4,
@@ -87,8 +81,7 @@ struct Slider : WithSemantic {
       );
       gelCoat(sink, fill, 4);
     }
-    // Thumb: shadow, face, gloss crown, single gray rim. No sheen
-    // rect — the old 1px line slid under the cap and read as a step.
+    // Thumb: shadow, face, gloss crown, single gray rim.
     Box shade{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
     sink.fillRounded(shade, 10, Show::kShadow);
     sink.fillGradient(
@@ -103,13 +96,13 @@ struct Slider : WithSemantic {
     );
   }
   bool handleAt(const Box& box, const Event& ev) const {
-    if (const auto* d = ev.as<PointerDown>()) {
-      value = at(box, d->x);
+    if (auto d = ev.as<PointerDown>()) {
+      value = at(box, d->get().x);
       return true;
     }
-    if (const auto* m = ev.as<PointerMove>()) {
-      if (!m->pressed) return false;
-      float v = at(box, m->x);
+    if (auto m = ev.as<PointerMove>()) {
+      if (!m->get().pressed) return false;
+      float v = at(box, m->get().x);
       if (v == *value) return false;
       value = v;
       return true;
@@ -118,12 +111,12 @@ struct Slider : WithSemantic {
     return false;
   }
   bool handle(const Event& ev) const {
-    if (const auto* k = ev.as<KeyPress>()) {
-      if (k->key == Key::Left) {
+    if (auto k = ev.as<KeyPress>()) {
+      if (k->get().key == Key::Left) {
         value = clamp01(*value - 0.1f);
         return true;
       }
-      if (k->key == Key::Right) {
+      if (k->get().key == Key::Right) {
         value = clamp01(*value + 0.1f);
         return true;
       }

@@ -270,7 +270,6 @@ void Renderer::encodeGroup(
               return;
             }
             if (matter->isGradient()) {
-              // Gradient rounded/stroke always rasterizes via strips.
               std::vector<Quad> unused;
               std::vector<BlitQuad> unusedBlits;
               std::vector<GradientQuad> grads;
@@ -450,8 +449,7 @@ void Renderer::encodeGroup(
             content->params.clip = surface;
           }
           const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
-          // Width-based: isolate content is uniformly scaled by pr
-          // (iw = ceil(w * pr)), so pr == iw/w up to rounding.
+          // Content uniformly scaled by pr, so pr == iw/w up to rounding.
           const float localPr =
               surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
           if (glassWork) {
@@ -840,7 +838,7 @@ void Renderer::drawInto(
       ++warmup_;
     }
   }
-  textures_.setImages(&scene.images);
+  textures_.setImages(scene.images);
   targets_.reset();
   Group root = merge(scene.root, &stats_);
   const auto prefetch = [this](auto& self, const Group& g) -> void {
@@ -861,9 +859,7 @@ void Renderer::drawInto(
   const bool swapped = (rotation == 90 || rotation == 270);
   const float logicalW = swapped ? scene.logicalSize.y : scene.logicalSize.x;
   const float logicalH = swapped ? scene.logicalSize.x : scene.logicalSize.y;
-  // Width and height ratios agree when the drawable aspect matches logical.
-  // On mismatch (letterbox/stretch) take the larger so isolates never
-  // undersample an axis.
+  // Take the larger ratio on aspect mismatch so isolates never undersample an axis.
   const float prW = logicalW > 0.f ? static_cast<float>(targetW) / logicalW : 1.f;
   const float prH = logicalH > 0.f ? static_cast<float>(targetH) / logicalH : 1.f;
   const float pr = std::max(prW > 0.f ? prW : 1.f, prH > 0.f ? prH : 1.f);

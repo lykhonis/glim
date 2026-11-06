@@ -21,8 +21,6 @@ template <>
 struct is_tag<AlignRightTag> : std::true_type {};
 
 struct WithAlign {
-  // Active (T3): per-line x-offset in Lines.record (left/center/right).
-  // Single-line spills keep offset 0 under the default left align.
   int align = 0;
 };
 

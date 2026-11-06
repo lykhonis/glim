@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
 
 namespace glim::paint {
 namespace {
@@ -39,8 +40,8 @@ float sizeScaleFor(const Rect& aabb) {
   return 1.f + 0.6f * t;
 }
 
-void emitPill(GlassPill* out, int* n, Rect rect, float radius) {
-  if (!out || *n >= kMaxGlassPills) {
+void emitPill(std::span<GlassPill> out, int& n, Rect rect, float radius) {
+  if (n < 0 || static_cast<std::size_t>(n) >= out.size()) {
     return;
   }
   const float minSide = std::min(rect.size.x, rect.size.y);
@@ -48,13 +49,12 @@ void emitPill(GlassPill* out, int* n, Rect rect, float radius) {
   p.rect = rect;
   p.radius = radius;
   p.superellipseN = 4.f;
-  // Capsule SDF in shaders handles both horizontal and vertical orientations.
   p.kind = radius >= minSide * 0.5f - 1e-3f ? GlassPillKind::Capsule : GlassPillKind::Rounded;
-  out[*n] = p;
-  ++*n;
+  out[static_cast<std::size_t>(n)] = p;
+  ++n;
 }
 
-void collectFills(const Group& g, GlassPill* out, int* n) {
+void collectFills(const Group& g, std::span<GlassPill> out, int& n) {
   for (const Shape& s : g.shapes) {
     if (const auto* r = std::get_if<FillRounded>(&s)) {
       emitPill(out, n, r->rect, plateRadius(r->radius));
@@ -79,13 +79,10 @@ Rect glassSurface(const Group& g) {
   return aabb;
 }
 
-int collectGlassPills(const Group& g, GlassPill* out) {
-  if (!out) {
-    return 0;
-  }
+int collectGlassPills(const Group& g, std::span<GlassPill> out) {
   int n = 0;
   if (hasGlass(g)) {
-    collectFills(g, out, &n);
+    collectFills(g, out, n);
   }
   if (isGlassContainer(g)) {
     for (const auto& child : g.children) {
@@ -93,19 +90,19 @@ int collectGlassPills(const Group& g, GlassPill* out) {
         continue;
       }
       const int before = n;
-      collectFills(*child, out, &n);
+      collectFills(*child, out, n);
       if (n == before) {
         const bool childBounds =
             child->params.bounds.size.x > 0.f && child->params.bounds.size.y > 0.f;
         Rect b = childBounds ? child->params.bounds : contentBounds(*child);
-        emitPill(out, &n, b, plateRadius(child->params.clipRadius));
+        emitPill(out, n, b, plateRadius(child->params.clipRadius));
       }
     }
   }
   if (hasGlass(g) && n == 0) {
     const bool ownBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
     Rect b = ownBounds ? g.params.bounds : contentBounds(g);
-    emitPill(out, &n, b, plateRadius(g.params.clipRadius));
+    emitPill(out, n, b, plateRadius(g.params.clipRadius));
   }
   return n;
 }
@@ -118,8 +115,7 @@ void clearGlassParams(GroupParams& p) {
 }
 
 void stripGlassForIsolate(Group& g) {
-  // Nested glass is flattened by design: outer plate wins, inner refraction
-  // is dropped silently to avoid spamming logs on every frame.
+  // Nested glass flattens: outer plate wins, inner dropped silently.
   const bool hadGlass = hasGlass(g);
   clearGlassParams(g.params);
   if (hadGlass) {

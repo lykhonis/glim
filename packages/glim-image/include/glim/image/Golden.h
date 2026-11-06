@@ -1,9 +1,7 @@
 #pragma once
 
-// Shared golden-test helpers: one home for the strict-vs-local rule
-// and the failure-artifact path, so the per-example golden mains stay
-// three lines. Strict mode (GLIM_GOLDEN_STRICT=1, set in CI) turns a
-// missing golden into a failure; local runs keep write-and-pass.
+// Golden helpers: strict mode (GLIM_GOLDEN_STRICT=1, CI) fails on missing
+// golden; local runs write-and-pass. GOT artifact goes to GLIM_GOT_DIR.
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 
@@ -32,9 +30,7 @@ inline void writeGot(const char* testName, const Image& img) {
   Png::write((std::string(dir) + "/" + name + "-got.png").c_str(), img);
 }
 
-// Strict CPU-golden check: got vs want with the standard per-channel
-// tolerance of 2. Mismatch (or unreadable golden) writes the GOT
-// artifact when GLIM_GOT_DIR is set and returns false.
+// CPU-golden check with per-channel tolerance 2; writes GOT artifact on mismatch.
 inline bool checkCpuGolden(
     const Image& got, const Image& want, const char* testName, const char* what
 ) {

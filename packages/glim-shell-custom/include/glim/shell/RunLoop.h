@@ -9,8 +9,7 @@
 
 namespace glim::shell {
 
-// Custom run loop: same scheduling API as the web shell. The OEM owns the
-// frame clock, so run() drains queued tasks once and returns.
+// Same scheduling API as web; OEM owns the frame clock, run() drains once.
 class RunLoop final {
  public:
   struct TaskContext {

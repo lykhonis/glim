@@ -23,7 +23,7 @@ struct Vec4 {
   constexpr Vec4(float x_, float y_, float z_, float w_) noexcept : x(x_), y(y_), z(z_), w(w_) {}
 };
 
-// Column-major 4x4. Index: column * 4 + row (m[0] is column 0 row 0).
+// Column-major: index = column * 4 + row.
 struct Mat4 {
   float m[16]{};
 

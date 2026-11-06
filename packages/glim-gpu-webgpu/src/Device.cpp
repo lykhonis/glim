@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -498,7 +499,7 @@ struct CommandEncoder::Impl {
 Queue::Queue() = default;
 Queue::Queue(void* native) : native_(native) {}
 
-Pass::Pass() : impl_(new Impl()) {}
+Pass::Pass() : impl_(std::make_unique<Impl>()) {}
 Pass::~Pass() {
   if (impl_ && impl_->pass && !impl_->ended) {
     wgpuRenderPassEncoderEnd(impl_->pass);
@@ -625,7 +626,7 @@ void Pass::end() {
   }
 }
 
-CommandEncoder::CommandEncoder() : impl_(new Impl()) {}
+CommandEncoder::CommandEncoder() : impl_(std::make_unique<Impl>()) {}
 CommandEncoder::~CommandEncoder() = default;
 CommandEncoder::CommandEncoder(CommandEncoder&&) noexcept = default;
 CommandEncoder& CommandEncoder::operator=(CommandEncoder&&) noexcept = default;
@@ -1085,7 +1086,7 @@ struct Pass::Impl {
   bool open = false;
 };
 
-Pass::Pass() : impl_(new Impl()) {}
+Pass::Pass() : impl_(std::make_unique<Impl>()) {}
 Pass::~Pass() = default;
 Pass::Pass(Pass&&) noexcept = default;
 Pass& Pass::operator=(Pass&&) noexcept = default;
@@ -1107,7 +1108,7 @@ struct CommandEncoder::Impl {
   bool open = false;
 };
 
-CommandEncoder::CommandEncoder() : impl_(new Impl()) {}
+CommandEncoder::CommandEncoder() : impl_(std::make_unique<Impl>()) {}
 CommandEncoder::~CommandEncoder() = default;
 CommandEncoder::CommandEncoder(CommandEncoder&&) noexcept = default;
 CommandEncoder& CommandEncoder::operator=(CommandEncoder&&) noexcept = default;

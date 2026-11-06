@@ -282,11 +282,8 @@ float roundedCoverage(const Rect& rect, Radius radius, float px, float py) {
   const float ox = std::max(qx, 0.f);
   const float oy = std::max(qy, 0.f);
   const float outside = std::hypot(ox, oy) + std::min(std::max(qx, qy), 0.f) - r;
-  // Full-pixel ramp: for straight edges 0.5 - outside IS the exact
-  // area fraction, matching the CPU tile overlap in fillQuad. A
-  // sharper ramp desyncs CPU/GPU on every fractional edge (the tiles
-  // stay exact-area), so crispness must come from device pixels, not
-  // from narrowing this ramp. Same factor in all GPU rounded shaders.
+  // 0.5 - outside is the exact area fraction (matches fillQuad); narrowing it desyncs CPU/GPU.
+  // Crispness must come from device pixels. Same factor in all GPU rounded shaders.
   const float aa = 0.5f - outside;
   if (aa <= 0.f) {
     return 0.f;
@@ -324,10 +321,7 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
   const float iR = std::max(radius.rt, radius.rb);
   const float iT = std::max(radius.lt, radius.rt);
   const float iB = std::max(radius.lb, radius.rb);
-  // Snap shared tile edges to integer pixels. Adjacent coverage-1 tiles
-  // then meet exactly and no pixel straddles two tiles; sequential SrcOver
-  // of complementary fractions blends to less than full coverage and leaves
-  // a visible seam. Interior pixels are fully covered either way.
+  // Snap shared edges to integer pixels; complementary SrcOver fractions would otherwise seam.
   float sx1 = std::round(rect.origin.x + iL);
   float sx2 = std::round(rect.origin.x + rect.size.x - iR);
   float sy1 = std::round(rect.origin.y + iT);

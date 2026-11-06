@@ -43,13 +43,11 @@ void Overlay::tick(float dtSeconds) {
   } else if (fps_ <= 0.f) {
     fps_ = 1.f / dtSeconds;
   }
-  // Snapshot throttle (paint policy, not harness policy): stats text
-  // promotes at 2 Hz so consecutive records are bit-identical and the
-  // reuse hash stays stable between promotions. setStats only stages
-  // pending; the display lags one snapshot by design (debug HUD).
+  // 2 Hz snapshot throttle keeps records bit-identical; display lags one snapshot.
   statsAge_ += dtSeconds;
   while (statsAge_ >= kStatsInterval) {
     statsDisplayed_ = statsPending_;
+    recordDisplayed_ = recordPending_;
     statsAge_ -= kStatsInterval;
     statsChanged_ = true;
   }
@@ -91,9 +89,7 @@ void Overlay::record(Context& context, Rect safeArea) {
     const TextSize m = context.measureText(line, kRowPx);
     const float chipW = (m.width > 0.f ? m.width : 120.f) + kPad * 2.f;
     const float chipH = kRowPx + kPad;
-    // Native seats composite above the scene, so a scrolled field can
-    // cover the default top-left chip. Walk TL→TR→BL→BR and take the
-    // first corner with no seat under it.
+    // Walk TL→TR→BL→BR for the first corner with no seat under it.
     const float height = size.y > 0.f ? size.y : safeArea.size.y;
     const Vec2 spots[4] = {
         {kPad, y0 + kPad},
@@ -125,7 +121,7 @@ void Overlay::record(Context& context, Rect safeArea) {
     statsChanged_ = false;
     return;
   }
-  const int rows = 13;
+  const int rows = 14;
   const float bannerH = kPad + rows * kRowH + 6.f + kSparkH + kPad;
   context.setFillColor(0x0d1117d9);
   context.fill({{0.f, y0}, {width, bannerH}});
@@ -143,6 +139,7 @@ void Overlay::record(Context& context, Rect safeArea) {
   };
   row("FPS %d", fpsI);
   row("frame %.1f ms", static_cast<double>(lastFrameMs_));
+  row("record %.1f ms", static_cast<double>(recordDisplayed_));
   row("encode %.1f ms", static_cast<double>(statsDisplayed_.encodeMs));
   row2("size %.0f x %.0f", static_cast<double>(size.x), static_cast<double>(size.y));
   row("draws %u", statsDisplayed_.draws);

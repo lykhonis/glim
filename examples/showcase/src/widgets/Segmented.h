@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "../motion/Anim.h"
 #include "Gel.h"
 #include "ShowcaseTheme.h"
 #include "glim/toolkit/Block.h"
@@ -20,7 +21,9 @@
 namespace glim {
 namespace toolkit {
 
-// Segmented control: one focusable Tap per option.
+// Segmented control: one focusable Tap per option; the indicator pill
+// coasts on an Anim. Record keeps the integer selection; position is
+// drawn.
 struct Segmented : WithSemantic {
   static constexpr const char* kKind = "Seg";
   static constexpr const char* kKindActive = "Seg.active";
@@ -28,6 +31,7 @@ struct Segmented : WithSemantic {
   std::vector<std::string> options;
   std::vector<Block> children;
   State<int> selected;
+  Anim<float> selPos;
   float segWidth(const Engine& e) const {
     float w = 0;
     for (const auto& o : options) {
@@ -51,22 +55,24 @@ struct Segmented : WithSemantic {
   Box activeBox(const Box& box) const {
     int n = static_cast<int>(options.size());
     int s = *selected < 0 ? 0 : (*selected >= n ? n - 1 : *selected);
+    return activeBoxAt(box, static_cast<float>(s));
+  }
+  Box activeBoxAt(const Box& box, float sel) const {
+    int n = static_cast<int>(options.size());
+    if (n <= 0) return {box.x, box.y + 2.0f, 0.0f, kSegH - 4.0f};
     float w = options.empty() ? 0.0f : box.w / static_cast<float>(n);
-    return {
-        box.x + static_cast<float>(s) * w, box.y + 2.0f, w, kSegH - 4.0f
-    };
+    return {box.x + sel * w, box.y + 2.0f, w, kSegH - 4.0f};
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    // Groove: no stroke — the fill contrast alone shapes it.
     sink.fillGradient(
         box,
         18,
         themeColor(e, kShowTrackTop, Show::kTrackTop),
         themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
-    Box act = activeBox(box);
-    // Pill is the track inset by 2px: radius 16 keeps corners
-    // concentric. Gel face with a light airy rim.
+    Box act = activeBoxAt(box, *selPos);
+    // Pill is the track inset by 2px, so radius 16 keeps corners
+    // concentric.
     sink.fillGradient(
         act,
         16,
@@ -84,9 +90,13 @@ template <class... As>
 Block segmented(Segmented s, As&&... as) {
   for (std::size_t i = 0; i < s.options.size(); ++i) {
     State<int> cell = s.selected;
+    Anim<float> indicator = s.selPos;
     s.children.push_back(tap(
         lines(s.options[i]),
-        [cell, i] { cell = static_cast<int>(i); },
+        [cell, indicator, i] {
+          cell = static_cast<int>(i);
+          indicator = static_cast<float>(i);
+        },
         pad(16, 10)
     ));
   }

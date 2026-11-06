@@ -15,8 +15,7 @@ template <>
 struct is_tag<RadiusTag> : std::true_type {};
 
 struct WithRadius {
-  // Honored by paint (Card::record carries it into FillRounded);
-  // layout stays square-cornered — radius never changes boxes.
+  // Layout stays square-cornered; radius never changes boxes.
   int radius = 0;
 };
 

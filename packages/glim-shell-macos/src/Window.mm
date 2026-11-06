@@ -108,9 +108,7 @@ using glim::shell::Window;
     return;
   }
   const NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
-  // AppKit deltas are positive for up/left; the shell convention is
-  // web-like (positive dy reveals content below). Line scrolls
-  // arrive imprecise: expand by a line step in logical pixels.
+  // AppKit deltas negated to web sign; imprecise line scrolls expand by 20px.
   const bool precise = event.hasPreciseScrollingDeltas;
   const CGFloat step = precise ? 1.0 : 20.0;
   Event e(EventType::Wheel);
@@ -140,12 +138,8 @@ using glim::shell::Window;
 
 - (void)viewWillStartLiveResize {
   [super viewWillStartLiveResize];
-  // The host paints synchronously on WindowResized, i.e. inside this
-  // tracking iteration: gating the present on the commit lands it
-  // with the same commit carrying this iteration's geometry and seat
-  // frames — glued by construction. (Tick-driven paints must NOT use
-  // this: outside an iteration the gated present chases a later
-  // commit and skews worse.)
+  // Host paints inside this tracking iteration: gated present lands with same commit.
+  // Tick-driven paints must NOT use this (outside an iteration the gated present skews).
   if ([self.layer isKindOfClass:[CAMetalLayer class]]) {
     ((CAMetalLayer*)self.layer).presentsWithTransaction = YES;
   }
@@ -173,25 +167,11 @@ using glim::shell::Window;
   CAMetalLayer* layer = (CAMetalLayer*)self.layer;
   const CGFloat scale = self.window ? self.window.backingScaleFactor : 1.0;
   const NSSize backing = [self convertSizeToBacking:self.bounds.size];
-  // Join the in-flight implicit transaction — do NOT begin/commit
-  // here. An explicit commit per resize event forces Core Animation
-  // to composite a partial cascade mid-drag (siblings still
-  // updating), so our layer lands at different times than the
-  // native seat views and shimmers against them along the drag
-  // axis. Joined properties apply atomically at the natural commit
-  // (iteration end), glued to everything else.
+  // Join the implicit transaction, never begin/commit: explicit commit shimmers mid-drag.
   layer.contentsScale = scale;
-  // 1:1, never stretched (see Surface::attach): tick paints lag ~1
-  // frame behind a fast drag, and a Resize stretch that large is
-  // grotesque. A stale frame trails visibly but stays composed.
+  // 1:1, never stretched: stale frame trails composed (see Surface::attach).
   layer.contentsGravity = kCAGravityTopLeft;
-  // Integral device pixels. Fractional drawable sizes make the
-  // compositor resample edges every frame (shimmer), and fractional
-  // sizes feed back into window.size() so consecutive paints lay out
-  // at ever-so-slightly different sizes (crawl). Quantizing here
-  // puts layout on the half-logical grid — identical frames across
-  // fractional drag movement, and the host's size read-back stays
-  // exactly consistent with this.
+  // Integral device px: fractional sizes resample every frame and crawl layout.
   layer.drawableSize = CGSizeMake(
       std::max(1.0, std::round(backing.width)), std::max(1.0, std::round(backing.height))
   );

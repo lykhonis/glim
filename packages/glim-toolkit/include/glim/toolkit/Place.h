@@ -9,18 +9,19 @@
 
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
+#include "glim/toolkit/State.h"
 
 namespace glim {
 namespace toolkit {
 
 struct Block;
 
-class Store;
+using BlockRef = std::optional<std::reference_wrapper<const Block>>;
 
 struct Env {
   const void* ptr = nullptr;
   const std::type_info* type = nullptr;
-  const Env* parent = nullptr;
+  std::optional<std::reference_wrapper<const Env>> parent;
 };
 
 Box place(const Block& b, Constraints c);
@@ -30,31 +31,26 @@ bool handle(const Block& b, const Event& ev);
 bool handleAt(const Block& b, const Box& box, const Event& ev);
 
 struct Engine {
-  const Env* env = nullptr;
-  Store* store = nullptr;
+  std::optional<std::reference_wrapper<const Env>> env;
+  StoreRef store;
   Box place(const Block& b, Constraints c) const;
   void record(const Block& b, const Box& box, Rec& r) const;
   template <class T>
-  const T* get() const {
-    for (const Env* p = env; p; p = p->parent) {
-      if (p->type && *p->type == typeid(T)) return static_cast<const T*>(p->ptr);
+  std::optional<std::reference_wrapper<const T>> get() const {
+    for (auto p = env; p; p = p->get().parent) {
+      const Env& n = p->get();
+      if (n.type && *n.type == typeid(T)) return std::cref(*static_cast<const T*>(n.ptr));
     }
-    return nullptr;
+    return std::nullopt;
   }
 };
 
-// Every traversal takes the caller's Engine — boxes re-derive through
-// childBox on each walk, so the walk engine must match the placement
-// engine. Bare Engine{} is the fixed-advance fallback (headless
-// tests); the app passes its measuring engine everywhere.
+// Walk engine must match placement engine; bare Engine{} is the fixed-advance fallback.
 void record(const Block& b, const Box& box, Rec& r, const Engine& e = Engine{});
-// Lifetime: the returned pointer borrows from `b` — the tree must outlive
-// the pointer. Call and use immediately; never store past the tree's
-// lifetime, and never call on a temporary.
-const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
-// Hit plus laid-out box in one walk (dispatch entry point — avoids the
-// hit-then-find walk pair). Null block + zero box on miss.
-std::pair<const Block*, Box> hitWithBox(
+// Lifetime: pointer borrows from `b`; never store past the tree or call on a temporary.
+BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
+// Hit plus laid-out box in one walk. Null block + zero box on miss.
+std::pair<BlockRef, Box> hitWithBox(
     const Block& b, const Box& box, float x, float y, const Engine& e = Engine{}
 );
 
@@ -71,14 +67,10 @@ void dump(
 namespace detail {
 
 float clampF(float v, float lo, float hi);
-// Point-in-box and box intersection for hit-testing and scroll
-// routing (one home: defined in Hit.cpp, shared by Screen::wheel so
-// hit-feel and scroll-feel agree on the same geometry).
+// One home for hit/scroll geometry (Hit.cpp, Screen::wheel share it).
 bool boxContains(const Box& b, float x, float y);
 Box intersectBox(const Box& a, const Box& b);
-// Clip stack parallel to the walk: containers whose children paint
-// inside a clip group (Roll) bound their subtree's hits. Only fully
-// clipped points miss — partially visible controls still hit.
+// Clip stack parallels the walk: Roll children hit only inside the clip.
 struct ClipStack {
   std::vector<Box> clips;
   std::vector<bool> pushed;
@@ -86,17 +78,11 @@ struct ClipStack {
   void exit();
   bool visible(float x, float y) const;
 };
-// Half-logical snap for 1px paint chrome: 0.5 logical is exactly one
-// device pixel at 2x, so gloss lines and rims never straddle rows.
-// Layout boxes stay untouched; only paint-time overlays snap.
+// 0.5 logical snaps 1px chrome at 2x; layout boxes stay untouched.
 inline float snapHalf(float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; }
-// Tight proposal forces exact size; loose max never truncates —
-// rigid children spill past the budget, containers clamp their own box.
+// Tight proposal forces exact size; loose max never truncates.
 Box resolveSize(float naturalW, float naturalH, Constraints c);
-// Shrink a proposal by pad chrome: max reduced by d (floored at 0,
-// unbounded stays unbounded), min reduced by d (floored at 0). Tight
-// proposals stay tight. Lets containers measure content in the inset box
-// so `place` agrees with `record`/`childBox` (which lay out inset).
+// Shrink a proposal by pad chrome: max/min reduced by d (floored at 0, unbounded stays unbounded).
 Constraints inset(Constraints c, float dx, float dy);
 
 struct Flow {
@@ -104,9 +90,7 @@ struct Flow {
   std::vector<Box> children;
 };
 
-// Opt-in cross-axis centering (see CenterTag): Row centers children
-// vertically, Column horizontally. Applied by the element after flow
-// so place and childBox agree from one call each.
+// Opt-in cross-axis centering; place and childBox agree from one call each.
 inline void centerRow(Flow& f) {
   for (auto& b : f.children) b.y += (f.size.h - b.h) * 0.5f;
 }

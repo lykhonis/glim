@@ -24,17 +24,12 @@ void Surface::attach(Window& window) {
   NSView* view = (__bridge NSView*)window.nativeView();
   CAMetalLayer* layer = [CAMetalLayer layer];
   layer.device = MTLCreateSystemDefaultDevice();
-  // sRGB swapchain: shaders output LINEAR, hardware encodes on write
-  // and blends against a decoded destination. Working-space hinge:
-  // instance colors arrive linearized (premulLinear), sampled bytes
-  // linearize in-shader, CPU delinearizes at PNG/readout.
+  // sRGB swapchain: shaders output linear, hardware encodes on write.
+  // Instance colors arrive linear; CPU delinearizes at PNG/readout.
   layer.pixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
   layer.framebufferOnly = NO;
   layer.opaque = YES;
-  // Never distort a stale frame: tick paints lag ~1 frame behind a
-  // fast drag (several px), and a Resize stretch that large is
-  // grotesque. A 1:1 stale frame trails visibly but stays composed;
-  // the transaction gate below keeps it glued to the geometry.
+  // Never stretch a stale frame: 1:1 trails composed; gate below glues geometry.
   layer.contentsGravity = kCAGravityTopLeft;
   static CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
   layer.colorspace = srgb;

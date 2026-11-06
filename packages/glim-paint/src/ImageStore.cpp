@@ -52,18 +52,18 @@ void ImageStore::release(std::uint32_t id) {
   data_->slots[id] = StoredImage{};
 }
 
-const StoredImage* ImageStore::get(std::uint32_t id) const {
+std::optional<std::reference_wrapper<const StoredImage>> ImageStore::get(std::uint32_t id) const {
   if (!data_ || id == 0 || id >= data_->slots.size()) {
-    return nullptr;
+    return std::nullopt;
   }
   const StoredImage& img = data_->slots[id];
   if (img.width <= 0 || img.height <= 0) {
-    return nullptr;
+    return std::nullopt;
   }
   if (img.rgba.empty() && !img.native) {
-    return nullptr;
+    return std::nullopt;
   }
-  return &img;
+  return std::cref(img);
 }
 
 }  // namespace glim::paint

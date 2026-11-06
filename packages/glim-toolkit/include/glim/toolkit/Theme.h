@@ -1,16 +1,6 @@
 #pragma once
 
-// Subtree theme scope (values-DSL spirit). The element owns its Env
-// slot lifetime internally: place/childBox push the entries on the
-// stack for layout, the walk pushes them for record/paint/hit/focus
-// (see Walk.h). Callers never retain slots. Siblings are isolated by
-// construction (each scope is its own Env node); nested scopes
-// compose inner-wins via chain order.
-//
-// Layout is a gapless column (transparent stacking); theme never
-// affects geometry, so any container shape would do — column reads
-// naturally for a themed section.
-
+// Subtree theme scope; theme never affects geometry.
 #include <cstddef>
 #include <cstdint>
 #include <typeinfo>
@@ -25,27 +15,30 @@
 namespace glim {
 namespace toolkit {
 
-inline constexpr std::size_t kMaxThemeEntries = 8;
-
 struct Themed {
   static constexpr const char* kKind = "Themed";
   const char* kind() const { return kKind; }
   ThemeEntry entries[kMaxThemeEntries]{};
   std::size_t count = 0;
   std::vector<Block> children;
-  ThemeScope themeScope() const { return {entries, count}; }
+  ThemeScope themeScope() const {
+    ThemeScope s;
+    for (std::size_t i = 0; i < count; ++i) s.entries[i] = entries[i];
+    s.count = count;
+    return s;
+  }
   Box place(Constraints c, const Engine& e) const {
-    ThemeScope s{entries, count};
+    ThemeScope s = themeScope();
     Env node{&s, &typeid(ThemeScope), e.env};
     Engine de = e;
-    de.env = &node;
+    de.env = node;
     return detail::flowColumn(children, 0, c, de).size;
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
-    ThemeScope s{entries, count};
+    ThemeScope s = themeScope();
     Env node{&s, &typeid(ThemeScope), e.env};
     Engine de = e;
-    de.env = &node;
+    de.env = node;
     detail::Flow f = detail::flowColumn(children, 0, {0, box.w, 0, box.h}, de);
     Box b = f.children[i];
     b.x += box.x;
@@ -54,10 +47,7 @@ struct Themed {
   }
 };
 
-// Named builders for the toolkit-owned keys (values-DSL, no builder
-// object): themed(windowBg(...), lines("hi")). Custom keys go through
-// themeColor/themeFloat/themeInt directly. Later entries shadow
-// earlier ones within one scope.
+// Named builders for toolkit-owned keys; later entries shadow earlier ones.
 inline ThemeEntry windowBg(std::uint32_t rgba) { return themeColor(kThemeWindowBg, rgba); }
 inline ThemeEntry inkOnLight(std::uint32_t rgba) { return themeColor(kThemeInkOnLight, rgba); }
 inline ThemeEntry focusRing(std::uint32_t rgba) { return themeColor(kThemeFocusRing, rgba); }

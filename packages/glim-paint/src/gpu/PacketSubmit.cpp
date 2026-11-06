@@ -555,7 +555,7 @@ void Renderer::submit(const FramePacket& packet) {
   if (!drawable.ok()) {
     return;
   }
-  textures_.setImages(&packet.images);
+  textures_.setImages(packet.images);
   targets_.reset();
   for (const BlitQuad& q : packet.blits) {
     textures_.get(q.imageId);

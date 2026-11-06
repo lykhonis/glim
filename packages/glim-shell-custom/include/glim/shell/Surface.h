@@ -6,9 +6,7 @@
 
 namespace glim::shell {
 
-// Custom surface: binds a Window to an embedder-supplied GPU device.
-// The OEM provides natives via setNative()/setBackend() before
-// Device::create(deviceCreateInfo()).
+// Binds a Window to an embedder GPU device; OEM sets natives before Device::create.
 class Surface final {
  public:
   Surface();

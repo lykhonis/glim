@@ -1,8 +1,7 @@
 #pragma once
 
-// Paint interpretation for toolkit trees: feed provisioning, the pixel
-// sink (one method per primitive — no widget switch), atlas measuring,
-// one-screen paint.
+// Paint interpretation for toolkit trees: feed provisioning, pixel sink,
+// atlas measuring, one-screen paint.
 #include <glim/paint/Context.h>
 
 #include <cmath>
@@ -54,8 +53,7 @@ struct ContextSink {
   ::glim::paint::Context& ctx;
   explicit ContextSink(::glim::paint::Context& c) : ctx(c) {}
   ::glim::paint::Context& context() { return ctx; }
-  // Legacy peers without paint ride entries; the toolkit no longer
-  // emits any, so this ignores unknown kinds.
+  // Legacy peers without paint ride entries; the toolkit no longer emits any.
   template <class F>
   void entry(const Rec::Entry&, F&) {}
   void fill(const Box& b, std::uint32_t rgba, const std::string& = {}) {
@@ -84,9 +82,8 @@ struct ContextSink {
       float size,
       const std::string& = {}
   ) {
-    // y is the TOP of the line box; Context::text takes a BASELINE
-    // origin. Snapped to half-logical (one device pixel at 2x) so
-    // glyph edges never straddle rows; layout boxes stay untouched.
+    // y is the TOP of the line box; snapped to half-logical (one device
+    // pixel at 2x) so glyph edges never straddle rows.
     ::glim::paint::TextSize m = ctx.measureText(s.c_str(), size);
     ctx.setFillColor(rgba);
     ctx.text(
@@ -105,10 +102,8 @@ struct ContextSink {
     p.bounds = toRect(b);
     p.clip = toRect(b);
     p.clipRadius = Radius{static_cast<float>(radius)};
-    // Glass thickness is a physical constant, not a scoped token: the
-    // walk engine is now the theme source, but thickness never varies
-    // per subtree, so read the default directly instead of plumbing an
-    // engine through the sink.
+    // Glass thickness is a physical constant, never a scoped token, so read
+    // the default directly instead of plumbing an engine through the sink.
     ::glim::paint::Glass g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
     g.thicknessPx = Tokens::kGlassThickness;
     p.glass = g;
@@ -119,10 +114,8 @@ struct ContextSink {
     p.clip = toRect(b);
     ctx.pushGroup(p);
   }
-  // Additive scope for speculars (gel domes, glare lines): Plus adds
-  // light instead of washing toward gray like SrcOver white does.
-  // Merge keeps blend-only groups pass-local (no isolate), so this
-  // stays a pipeline switch, not an offscreen.
+  // Additive scope for speculars: Plus adds light instead of washing
+  // toward gray like SrcOver white does. Merge keeps it a pipeline switch.
   void pushBlend(BlendMode m) {
     ::glim::paint::GroupParams p;
     p.blend = m == BlendMode::Plus ? ::glim::paint::Blend::Plus : ::glim::paint::Blend::SrcOver;
@@ -143,22 +136,20 @@ inline float measureBridge(const char* text, float sizePx) {
 
 inline Engine measureEngine() {
   static Measurer meas{&measureBridge};
-  static Env node{&meas, &typeid(Measurer), nullptr};
-  return Engine{&node};
+  static Env node{&meas, &typeid(Measurer), std::nullopt};
+  return Engine{node, StoreRef{}};
 }
 
 inline void paintScrollbars(
     glim::paint::Context& ctx, const Block& tree, const Box& box, const Engine& engine
 ) {
-  // Thin overlay thumbs for scrollable rolls, drawn last so they sit
-  // above content. Only when content exceeds the viewport; geometry
-  // shares rollMetrics with Screen::wheel, so thumb-feel and
-  // hit-feel agree by construction.
+  // Thin overlay thumbs for scrollable rolls, drawn last. Shares
+  // rollMetrics with Screen::wheel so thumb-feel and hit-feel agree.
   ContextSink sink{ctx};
   walk(tree, box, engine, [&](const Block& n, const Box& bx) {
-    const Roll* r = n.get<Roll>();
-    if (!r || !r->scrollOff) return;
-    RollMetrics m = rollMetrics(*r, bx, engine);
+    auto r = n.get<Roll>();
+    if (!r || !r->get().scrollOff) return;
+    RollMetrics m = rollMetrics(r->get(), bx, engine);
     if (m.maxOff <= 0.0f || m.viewport <= 0.0f) return;
     if (m.horizontal) {
       float w = m.viewport * m.viewport / m.content;

@@ -18,14 +18,11 @@ class Overlay {
 
   void tick(float dtSeconds);
   void setStats(const Stats& stats) { statsPending_ = stats; }
-  // Window-space rects the collapsed chip must not cover (native
-  // seats always composite above the scene). Copied; capped.
+  // Same snapshot throttle as stats; record shows beside encode for the T7 < 4 ms gate.
+  void setRecordMs(float ms) { recordPending_ = ms; }
+  // Native seats composite above the scene; copied, capped.
   void setAvoid(const Rect* rects, int count);
-  // True when the displayed snapshot changed since the last record
-  // (initially true; interval promotion in tick sets it). The harness
-  // Frame-tests this alongside its dirty query so the HUD refreshes at
-  // the snapshot rate with no per-example timer. False while disabled
-  // (a disabled overlay records nothing, so it is never dirty).
+  // True while the displayed snapshot is newer than the last record.
   bool statsDirty() const { return enabled_ && statsChanged_; }
   void record(Context& context, Rect safeArea);
 
@@ -41,6 +38,8 @@ class Overlay {
   float lastFrameMs_ = 0.f;
   Stats statsPending_{};
   Stats statsDisplayed_{};
+  float recordPending_ = 0.f;
+  float recordDisplayed_ = 0.f;
   float statsAge_ = 0.f;
   bool statsChanged_ = true;
   static constexpr float kStatsInterval = 0.5f;

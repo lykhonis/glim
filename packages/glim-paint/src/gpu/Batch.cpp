@@ -16,22 +16,23 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
   if (tex.native()) {
     return tex.native();
   }
-  const StoredImage* img = images_->get(imageId);
+  auto img = images_->get().get(imageId);
   if (!img) {
     return nullptr;
   }
-  if (img->native) {
-    return img->native;
+  const StoredImage& im = img->get();
+  if (im.native) {
+    return im.native;
   }
-  if (img->rgba.empty()) {
+  if (im.rgba.empty()) {
     return nullptr;
   }
-  auto created = device_.createTexture({img->width, img->height});
+  auto created = device_.createTexture({im.width, im.height});
   if (!created.ok()) {
     return nullptr;
   }
   tex = std::move(created.value());
-  device_.writeTexture(tex, img->rgba.data(), img->rgba.size());
+  device_.writeTexture(tex, im.rgba.data(), im.rgba.size());
   return tex.native();
 }
 
@@ -54,9 +55,7 @@ void Renderer::Batch::flushSolid(
   const gpu::Pipeline& pipe =
       (blend == Blend::Plus && pipes.solidPlus.native()) ? pipes.solidPlus : pipes.solid;
   pass.setPipeline(pipe);
-  // 4 KB chunks: setBytes-style uploads stay within the fast path on both
-  // backends (larger chunks risk heap-alloc fallback on Metal and dynamic
-  // UBO alignment trouble on Vulkan). Raise only with device validation.
+  // 4 KB chunks stay on the setBytes fast path; raise only with device validation.
   constexpr std::size_t kMax = 4096 / sizeof(SolidInstance);
   std::size_t i = 0;
   while (i < solid.size()) {

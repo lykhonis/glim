@@ -9,15 +9,9 @@
 namespace glim {
 namespace toolkit {
 
-// Labeled text field (T8 catalog, composed — no struct, no core
-// changes): the section header names the control, the row carries the
-// instance label, a rounded card holding the Seat hole, and a hint
-// line. The card paints the field chrome (visible in every
-// renderer); the native view (syncSeats) shows the live text on top;
-// the toolkit tree owns geometry and focus, never pixels.
-// Committed text syncs back in a later slice; the hint documents what
-// belongs there meanwhile.
-// Two adjacent strings — positional would confuse them.
+// Labeled text field, composed: the card paints the chrome, the native
+// view shows live text on top; the tree owns geometry and focus, never
+// pixels.
 struct FieldRow {
   std::string label;
   std::string hint;

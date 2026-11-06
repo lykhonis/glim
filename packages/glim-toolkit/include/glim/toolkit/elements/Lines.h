@@ -22,8 +22,7 @@ struct Lines : WithAlign, WithSemantic, WithWrap {
   std::string text;
   Box place(Constraints c, const Engine& e) const {
     if (!wrap) return text::measureText(text, c, e);
-    // Wrapped natural size: full wrap at maxW (unbounded → single line),
-    // no ellipsis on the layout pass (overflow spills; Roll re-flows).
+    // Full wrap at maxW; overflow spills for Roll to re-flow.
     std::vector<std::string> lines = text::wrapText(text, c.maxW, e);
     float w = 0;
     for (const auto& l : lines) {

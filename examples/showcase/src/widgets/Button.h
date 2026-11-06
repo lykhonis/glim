@@ -87,7 +87,6 @@ struct Button : WithGap,
   }
 };
 
-// Identity arrives as the element; pads stay tag-driven.
 template <class... As>
 Block button(Button b, As&&... as) {
   b.padH = Show::kButtonPadH;

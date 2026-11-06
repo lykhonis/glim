@@ -62,9 +62,7 @@ bool dispatchCaptured(
   collectFocus(root, box, e, found);
   if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return false;
   const FocusedBox& f = found[static_cast<std::size_t>(index)];
-  // Unlike dispatchPointer, the return reports routing, not
-  // consumption: a routed-but-ignored move (slider value unchanged)
-  // must NOT read as stale, or slow drags would drop the capture.
+  // Return is routing, not consumption: routed-but-ignored moves must not read as stale.
   handleAt(*f.block, f.box, ev);
   return true;
 }
@@ -74,8 +72,7 @@ int deliverKey(const Block& root, const Box& box, int current, Key key, const En
   collectFocus(root, box, e, found);
   if (found.empty()) return 0;
   int n = static_cast<int>(found.size());
-  // Focus-visible entry: Tab from "nothing" lands on the first item
-  // (Shift+Tab on the last), not one past it.
+  // Tab from nothing lands on first item (Shift+Tab on last).
   if (current < 0) {
     if (key == Key::Prev) return n - 1;
     if (key == Key::Next || key == Key::Down || key == Key::Right || key == Key::Up ||

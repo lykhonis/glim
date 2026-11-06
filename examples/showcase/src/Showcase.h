@@ -7,8 +7,7 @@
 namespace glim {
 namespace toolkit {
 
-// The showcase screen: one free function of Scope. States allocate
-// where they render; the host owns the Store (or tests inject one).
+// The showcase screen: one free function of Scope.
 Block showcaseTree(Scope app);
 
 inline constexpr std::uint32_t kShowcaseSeatId = 7;

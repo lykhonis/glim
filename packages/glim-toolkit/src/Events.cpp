@@ -8,7 +8,7 @@ namespace glim {
 namespace toolkit {
 
 bool handle(const Block& b, const Event& ev) {
-  if (const auto* c = b.get<Custom>()) return c->handle(ev);
+  if (auto c = b.get<Custom>()) return c->get().handle(ev);
   bool consumed = false;
   std::visit(
       [&](const auto& el) {
@@ -21,7 +21,7 @@ bool handle(const Block& b, const Event& ev) {
 }
 
 bool handleAt(const Block& b, const Box& box, const Event& ev) {
-  if (const auto* c = b.get<Custom>()) return c->handleAt(box, ev);
+  if (auto c = b.get<Custom>()) return c->get().handleAt(box, ev);
   bool consumed = false;
   std::visit(
       [&](const auto& el) {

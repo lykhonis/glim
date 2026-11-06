@@ -244,12 +244,8 @@ void Device::setDrawableSize(int width, int height) {
   if (!impl_ || !impl_->layer || width <= 0 || height <= 0) {
     return;
   }
-  // No explicit transaction: join the in-flight implicit one so the
-  // size applies atomically with everything else at the natural
-  // commit (see syncMetalDrawableSize). drawableSize takes effect
-  // immediately (nextDrawable reads it back synchronously), so no
-  // flush is needed and per-paint commits can't desync the layer
-  // from sibling views mid-drag.
+  // Join the in-flight implicit transaction; drawableSize applies immediately,
+  // so no flush or per-paint commit that desyncs the layer mid-drag.
   impl_->layer.drawableSize = CGSizeMake(static_cast<CGFloat>(width), static_cast<CGFloat>(height));
 }
 
@@ -285,9 +281,7 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     }
   }
   if (!tex) {
-    // sRGB offscreen, matching the swapchain: one pipeline set serves
-    // both, hardware converts on every write, and sampled plates
-    // linearize on read (single-format rule, see Surface::attach).
+    // sRGB offscreen matches swapchain; single-format rule (see Surface::attach).
     MTLTextureDescriptor* td =
         [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB
                                                            width:static_cast<NSUInteger>(w)

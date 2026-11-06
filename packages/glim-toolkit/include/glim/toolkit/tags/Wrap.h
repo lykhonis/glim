@@ -5,9 +5,7 @@
 namespace glim {
 namespace toolkit {
 
-// Opt-in paragraph wrap for Lines (T3). Without it Lines is a single line
-// that spills past narrow budgets (T1 overflow lock). With wrap() Lines
-// greedy-wraps at maxW and ellipsizes to maxH ("..." suffix).
+// Opt-in paragraph wrap; without it Lines spills single-line.
 struct WrapTag {};
 
 inline WrapTag wrap() { return {}; }

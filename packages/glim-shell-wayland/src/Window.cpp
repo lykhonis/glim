@@ -363,7 +363,7 @@ Rect Window::safeArea() const { return Rect::fromSize(size()); }
 void* Window::nativeView() const { return view_; }
 
 void Window::attachSlot(std::uint32_t id, SlotNative native) {
-  // wl_subsurface attach is embedder-owned in v1; Glim tracks the id.
+  // wl_subsurface attach is embedder-owned in v1; Glim tracks id only.
   slots_.attach(id, native.view);
 }
 

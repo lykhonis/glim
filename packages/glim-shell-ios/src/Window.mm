@@ -532,7 +532,7 @@ void Window::hide() {
 }
 
 void Window::setSize(int, int) {
-    // UIWindow fills the screen / scene on iOS and tvOS.
+    // UIWindow fills the screen/scene; setSize is a no-op.
 }
 
 void Window::setTitle(const std::string& title) {

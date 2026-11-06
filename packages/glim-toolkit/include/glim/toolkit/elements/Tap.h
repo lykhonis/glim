@@ -12,9 +12,7 @@
 namespace glim {
 namespace toolkit {
 
-// Focusable tappable. Owns the action; lays out its single child plus pad
-// chrome (touch target), records a "Tap" wrapper, handles pointer and
-// activate with onTap.
+// Focusable tap; touch target grows by pad.
 struct Tap : WithPrimary, WithPad, WithSemantic {
   static constexpr const char* kKind = "Tap";
   static constexpr const char* kKindPrimary = "Tap.primary";
@@ -56,8 +54,7 @@ inline Box Tap::innerBox(const Box& box) const {
   return {box.x + static_cast<float>(padH), box.y + static_cast<float>(padV), w, h};
 }
 
-// place lives in Elements.cpp (it indexes children).
-
+// place lives in Elements.cpp.
 inline void Tap::record(const Box& box, Rec& rec) const {
   rec.push(isPrimary ? kKindPrimary : kKind, box);
 }

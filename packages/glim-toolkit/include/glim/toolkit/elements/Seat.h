@@ -11,19 +11,8 @@
 namespace glim {
 namespace toolkit {
 
-// Toolkit-side reservation for a host native (IME field, picker,
-// player view). Boundary: `Slot` is the Graphics/Host mechanism
-// (`SlotHole` Shape + native view); `Seat` is the toolkit piece
-// reserving the rect. The paint bridge maps the arm to a structural
-// slot op (never an entry); `syncSeats` diffs `collectSlots` against
-// the attached set per frame (attach/position/detach, position-only
-// on move).
-//
-// IME path: the laid-out `place` Box doubles as the candidate
-// `imeAnchor`. Committed text lives in field `State`s; in-progress
-// composition stays in the native view. The candidate window is an
-// app-owned sibling — the toolkit only places its anchor, never the
-// window itself.
+// Toolkit-side reservation for a host native; Slot is the Graphics/Host mechanism.
+// Laid-out place box doubles as the IME anchor; candidate window stays app-owned.
 struct Seat : WithSemantic {
   static constexpr const char* kKind = "Seat";
   const char* kind() const { return kKind; }
@@ -31,8 +20,7 @@ struct Seat : WithSemantic {
   float width = 0;
   float height = 0;
   Box place(Constraints c, const Engine&) const { return detail::resolveSize(width, height, c); }
-  // Focusable anchor: tap claims focus for the native field; key
-  // handling itself lives in the native view.
+  // Focusable anchor; key handling lives in the native view.
   bool handle(const Event& ev) const { return ev.is<PointerDown>() || ev.is<Activate>(); }
 };
 

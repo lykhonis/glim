@@ -24,9 +24,7 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
   Roll& operator=(const Roll&);
   Roll(Roll&&);
   Roll& operator=(Roll&&);
-  // Shared-handle write through a const view: scrollOff is a State
-  // cell, so this names the mutation instead of hiding it behind
-  // `r->scrollOff = next` at call sites.
+  // Shared-handle write through a const view.
   void scrollTo(float v) const {
     if (scrollOff) scrollOff = v;
   }
@@ -68,10 +66,7 @@ auto roll(As&&... as) {
   return finish(std::move(r), std::forward<As>(as)...);
 }
 
-// One home for scroll geometry: content extent (unbounded-axis flow),
-// viewport (the laid-out box), live offset, and clamp range. Screen
-// routing and the host scrollbar indicator both derive from here, so
-// hit-feel and thumb-feel can never disagree.
+// Scroll geometry in one home so routing and scrollbar agree.
 struct RollMetrics {
   float content = 0.0f;
   float viewport = 0.0f;

@@ -24,9 +24,7 @@ struct has_handle<
     : std::is_same<decltype(std::declval<const T&>().handle(std::declval<const Event&>())), bool> {
 };
 
-// Opt-in position-aware handling: handleAt(box, ev) sees the node's
-// laid-out box (sliders map x → value). Nodes with only handle keep
-// working — dispatch prefers handleAt and falls back to handle.
+// handleAt sees the laid-out box; dispatch prefers it, falls back to handle.
 template <class T, class = void>
 struct has_handle_at : std::false_type {};
 template <class T>
@@ -48,41 +46,32 @@ struct has_record<
                              .record(std::declval<const Box&>(), std::declval<Rec&>()))>>
     : std::true_type {};
 
-// opt-out hook: an element without record() is described by its kind.
-// Stack/Row/Column/List/Roll/Empty ride this; text/mark/radius owners
-// (Button/Card/Lines/Tap) keep their record.
+// Opt-out: elements without record() are described by kind.
 template <class T, class = void>
 struct has_kind : std::false_type {};
 template <class T>
 struct has_kind<T, std::void_t<decltype(std::declval<const T&>().kind())>>
     : std::is_same<decltype(std::declval<const T&>().kind()), const char*> {};
 
-// Clip intent for containers whose children paint inside a clip group
-// (Roll). Detected without strings so Tagged wrappers keep working;
-// the emitter pushes the clip around children, never in self paint.
+// Clip intent; emitter pushes the clip around children, never in self paint.
 template <class T, class = void>
 struct has_clip_flag : std::false_type {};
 template <class T>
 struct has_clip_flag<T, std::void_t<decltype(T::kClipsChildren)>>
     : std::bool_constant<T::kClipsChildren> {};
 
-// Ambient layer binding for one paint pass: the host ensures the feed
-// before the walk, the binding carries only id + foreign after that.
-// Feed types stay host-owned; the binding is plain data.
+// Ambient layer binding for one paint pass; binding is plain data.
 struct LayerSource {
   std::uint32_t id = 0;
   bool foreign = false;
 };
 
-// Type-erased paint sink: primitives plus structure. Elements paint
-// once against AnySink and run on every sink — pixels on interpreters,
-// ops on recorders — so elements archive without a fallback path.
-// Marks ride every op for semantics/a11y; pixels ignore them.
+// Type-erased paint sink; marks ride every op, pixels ignore them.
 struct AnySink {
   void* sink = nullptr;
-  const void* feed = nullptr;
+  void* feed = nullptr;
   LayerSource layer{};
-  void (*entryFn)(void*, const void*, const Rec::Entry&) = nullptr;
+  void (*entryFn)(void*, void*, const Rec::Entry&) = nullptr;
   void (*fillFn)(void*, const Box&, std::uint32_t, const std::string&) = nullptr;
   void (*fillRoundedFn)(void*, const Box&, int, std::uint32_t, const std::string&) = nullptr;
   void (*fillGradientFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
@@ -143,8 +132,8 @@ AnySink wrapSink(S& sink, F& feed) {
   a.sink = &sink;
   a.feed = &feed;
   a.layer = LayerSource{feed.id, feed.foreign};
-  a.entryFn = [](void* s, const void* f, const Rec::Entry& en) {
-    static_cast<S*>(s)->entry(en, *static_cast<F*>(const_cast<void*>(f)));
+  a.entryFn = [](void* s, void* f, const Rec::Entry& en) {
+    static_cast<S*>(s)->entry(en, *static_cast<F*>(f));
   };
   a.fillFn = [](void* s, const Box& b, std::uint32_t rgba, const std::string& mark) {
     static_cast<S*>(s)->fill(b, rgba, mark);
@@ -195,32 +184,25 @@ struct has_paint<
 template <class T>
 struct is_tagged : std::false_type {};
 
-// Single-source a11y id for any element: unwraps Tagged wrappers
-// (e.g. lines("a", expand(), semantic("x")) → Tagged<ExpandTag,
-// Lines>) and reads WithSemantic storage. A SemanticTag wrapper wins
-// over an inner element id. Returns nullptr when absent or empty —
-// callers treat that as "no mark". Borrows from the element; the tree
-// must outlive the pointer.
+// Borrowed a11y id; tree must outlive the pointer.
 template <class T>
-const std::string* elementSemanticPtr(const T& x) {
+std::optional<std::reference_wrapper<const std::string>> elementSemanticPtr(const T& x) {
   if constexpr (is_tagged<T>::value) {
     if constexpr (std::is_same<typename T::tag_type, SemanticTag>::value) {
-      return x.tag_.id.empty() ? nullptr : &x.tag_.id;
+      if (x.tag_.id.empty()) return std::nullopt;
+      return std::cref(x.tag_.id);
     } else {
       return elementSemanticPtr(x.inner_);
     }
   } else if constexpr (has_semantic<T>::value) {
-    return x.semantic.empty() ? nullptr : &x.semantic;
+    if (x.semantic.empty()) return std::nullopt;
+    return std::cref(x.semantic);
   } else {
-    return nullptr;
+    return std::nullopt;
   }
 }
 
-// Opt-in child transparency: an element exposing its composed children
-// (a `children` member or eachChild visitor, plus per-child box) is
-// traversed instead of treated as an opaque leaf. The visitor gets
-// references to STORED child Blocks owned by the element — never
-// temporaries; use the pointer immediately, before any mutation.
+// Child transparency: child refs valid only during the visit.
 template <class T, class = void>
 struct has_eachChild : std::false_type {};
 template <class T>
@@ -257,8 +239,6 @@ struct has_children
     : std::bool_constant<
           (has_eachChild<T>::value || has_child_vector<T>::value) && has_childBox<T>::value> {};
 
-// One traversal for both spellings: the method when the element
-// customizes iteration, the member range otherwise.
 template <class T, class F>
 void eachChildOf(const T& el, F&& f) {
   static_assert(has_children<T>::value, "element has no traversable children");
@@ -288,7 +268,7 @@ struct Custom {
     bool (*handleAt)(const void* s, bool heap, const Box& b, const Event& ev);
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     bool (*clips)(const void* s, bool heap);
-    const std::string* (*semantic)(const void* s, bool heap);
+    std::optional<std::reference_wrapper<const std::string>> (*semantic)(const void* s, bool heap);
     ThemeScope (*themeScope)(const void* s, bool heap);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
@@ -379,8 +359,7 @@ struct Custom {
   bool handle(const Event& ev) const {
     return vt && vt->handle ? vt->handle(buf, onHeap, ev) : false;
   }
-  // Position-aware dispatch: prefers the node's own handleAt, falls
-  // back to plain handle. Nodes with only handle work unchanged.
+  // Prefers handleAt, falls back to handle.
   bool handleAt(const Box& b, const Event& ev) const {
     if (vt && vt->handleAt) return vt->handleAt(buf, onHeap, b, ev);
     return handle(ev);
@@ -393,17 +372,11 @@ struct Custom {
     return vt && vt->tagPtr ? vt->tagPtr(buf, onHeap, t) : nullptr;
   }
   std::size_t childCount() const { return vt && vt->childCount ? vt->childCount(buf, onHeap) : 0; }
-  const Block* childAt(std::size_t i) const {
-    return vt && vt->childAt ? vt->childAt(buf, onHeap, i) : nullptr;
-  }
   Box childBox(std::size_t i, const Box& b, const Engine& e) const {
     if (vt && vt->childBox) return vt->childBox(buf, onHeap, i, b, e);
     return b;
   }
-  // Single-walk transparency: invokes cb(child, childBox) for each stored
-  // child without exposing raw pointers. Prefer over childCount/childAt loops
-  // (one walk, no dangling window beyond the callback).
-  // Lifetime: child references are valid only during cb.
+  // Single-walk transparency; child refs valid only during cb.
   template <class F>
   void visit(const Box& b, const Engine& e, F&& cb) const {
     if (!vt || !vt->childCount || !vt->childAt || !vt->childBox) return;
@@ -415,9 +388,9 @@ struct Custom {
     }
   }
   template <class U>
-  const U* as() const {
-    if (!vt || vt->type() != typeid(U)) return nullptr;
-    return static_cast<const U*>(addr<U>(buf, onHeap));
+  std::optional<std::reference_wrapper<const U>> as() const {
+    if (!vt || vt->type() != typeid(U)) return std::nullopt;
+    return std::cref(*static_cast<const U*>(addr<U>(buf, onHeap)));
   }
   Box place(Constraints c, const Engine& e) const {
     if (!vt)
@@ -433,16 +406,15 @@ struct Custom {
     if (vt && vt->paint) vt->paint(buf, onHeap, b, sink, e);
   }
   bool clipsChildren() const { return vt && vt->clips ? vt->clips(buf, onHeap) : false; }
-  // Borrowed a11y id for this node (see elementSemanticPtr). Null when
-  // absent or empty; the tree must outlive the pointer.
-  const std::string* semanticPtr() const {
-    return vt && vt->semantic ? vt->semantic(buf, onHeap) : nullptr;
+  // Borrowed id; tree must outlive the pointer.
+  std::optional<std::reference_wrapper<const std::string>> semanticPtr() const {
+    if (vt && vt->semantic) return vt->semantic(buf, onHeap);
+    return std::nullopt;
   }
-  // Borrowed theme entries for this node (empty when none); the tree
-  // must outlive the view.
+  // Borrowed view; tree must outlive it.
   ThemeScope themeScope() const {
     if (vt && vt->themeScope) return vt->themeScope(buf, onHeap);
-    return {nullptr, 0};
+    return {};
   }
 
  private:
@@ -571,8 +543,10 @@ struct Custom {
   }
 
   template <class U>
-  static const std::string* (*semanticFor())(const void*, bool) {
-    return [](const void* s, bool heap) -> const std::string* {
+  static std::optional<std::reference_wrapper<const std::string>> (*semanticFor())(
+      const void*, bool
+  ) {
+    return [](const void* s, bool heap) {
       return elementSemanticPtr(*static_cast<const U*>(addr<U>(s, heap)));
     };
   }
@@ -583,7 +557,7 @@ struct Custom {
       if constexpr (has_theme_entries<U>::value) {
         return static_cast<const U*>(addr<U>(s, heap))->themeScope();
       } else {
-        return {nullptr, 0};
+        return {};
       }
     };
   }

@@ -1,8 +1,5 @@
-// Phase 2: Renderer-internal raster reuse (no app cache API).
-//
-// ReuseCache::encode must: hit on identical scenes, hit with rewritten
-// origins on translation-only changes, miss on content changes, and never
-// store scenes with foreign (volatile) Matter.
+// Phase 2: Renderer-internal raster reuse (hits, translation hits, content misses, no foreign
+// storage).
 
 #include <glim/paint/Context.h>
 #include <glim/paint/FramePacket.h>
@@ -341,8 +338,7 @@ int main() {
     );
   }
 
-  // 10. Cached structural hash matches the uncached hash and memoizes
-  // image fingerprints across frames.
+  // 10. Cached structural hash matches the uncached hash; fingerprints memoized.
   {
     glim::paint::Context a;
     a.setSize({64, 64});

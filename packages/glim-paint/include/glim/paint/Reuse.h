@@ -10,27 +10,8 @@
 
 namespace glim::paint {
 
-// Raster reuse (Renderer-internal policy, compositor.md).
-//
-// A Scene is immediate-mode (rebuilt every beginFrame/finish), so identity is
-// a structural hash of the unmerged tree, not a pointer. Translation is
-// normalized out of the key: a scene that only moved reuses the cached
-// encode with rewritten origins. Scale, clip, radius, color, or glyph-UV
-// changes miss and rebuild.
-//
-// Rules:
-// - No app-facing cache API. No RepaintBoundary, no GroupParams hint. The
-//   caller owns a ReuseCache; the compositor decides hits internally.
-// - No GPU raster plates: this caches merged strips / encoded quads (CPU
-//   work), never promotes a Group to an extra FrameTarget. Isolate plates
-//   stay opacity / 3D / backdrop / glass only (K52).
-// - Foreign Matter (imported GPU textures, e.g. video) is volatile: any
-//   scene containing it always misses and is never stored.
-// - Single-threaded, like the rest of v1 (K17). One ReuseCache per
-//   encode stream; do not share across threads.
-//
-// Whole-packet granularity in this step: per-tile dirtying shares the hash
-// grid and lands with the tile stage (Stats.dirtyTiles stays 0 here).
+// Structural hash identity (translation normalized); foreign content is volatile.
+// Single-threaded: one ReuseCache per encode stream.
 class ReuseCache {
  public:
   ReuseCache();
@@ -38,11 +19,7 @@ class ReuseCache {
   ReuseCache(const ReuseCache&) = delete;
   ReuseCache& operator=(const ReuseCache&) = delete;
 
-  // Encode with reuse. Miss: full merge+encode, stored, stats.reuseMisses=1.
-  // Hit (exact or translation-only): cached quads reused, origins
-  // rewritten on translation, stats.reuseHits=1. stats.dirtyTiles reports
-  // coarse tiles (kTileSize device px) whose content changed vs the last
-  // frame: 0 on an exact hit, tile count on the first frame or a resize.
+  // Hit: cached quads reused with rewritten origins; miss: full merge+encode.
   FramePacket encode(const Scene& scene, float pixelRatio = 1.0f);
 
   void clear();
@@ -53,11 +30,7 @@ class ReuseCache {
   std::unique_ptr<Impl> impl_;
 };
 
-// Persistent image fingerprints so consecutive structural hashes hash each
-// sampled image's bytes once, not once per frame. Slots in an ImageStore are
-// append-only and immutable, so id->content is stable; entries are validated
-// against the live slot (pointer + dimensions + byte size) so ids from a
-// different ImageStore never alias.
+// Memoized per-image fingerprints; slots are append-only, validated against the live slot.
 struct SceneHashCache {
   struct Entry {
     const StoredImage* ptr = nullptr;
@@ -69,10 +42,7 @@ struct SceneHashCache {
   std::unordered_map<std::uint32_t, Entry> images;
 };
 
-// Structural hash of the unmerged scene with translation normalized out.
-// outOrigin receives the content-bbox origin the hash is relative to.
-// outHasForeign/outHas3D report volatile content / 3D transforms (both
-// optional, may be nullptr).
+// Translation-normalized structural hash; out params optional.
 std::uint64_t hashSceneStructure(
     const Scene& scene,
     float pixelRatio,

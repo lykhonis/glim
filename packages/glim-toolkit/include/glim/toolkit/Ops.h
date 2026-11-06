@@ -1,10 +1,6 @@
 #pragma once
 
-// Serializable UI recording: primitives plus a fixed structural set.
-// New elements serialize with zero codec edits: they paint primitives,
-// never new op kinds. User peers without paint keep the generic Entry
-// fallback. Post-place, pre-compose; actions and State never cross.
-
+// Serializable UI recording; new elements paint primitives, never new op kinds.
 #include <cstdint>
 #include <cstring>
 #include <string>

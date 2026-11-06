@@ -1,10 +1,4 @@
-// Phase 0 baseline harness (measure-only, no behavior change).
-//
-// Records a hello-class scene and a typical-GUI scene (<=200 rects/glyphs,
-// <=4 isolates), times merge+encode, and prints Stats. Structural budgets are
-// asserted; timings are reported for the log (no hard timing assert — CI
-// variance). Budgets: hello 1 instanced group, typical GUI <4ms target,
-// isolates <= 4, golden pixels unchanged.
+// Phase 0 measure-only baseline; structural budgets asserted, timings reported.
 
 #include <glim/paint/Context.h>
 #include <glim/paint/FramePacket.h>
@@ -38,8 +32,7 @@ void recordHello(glim::paint::Context& ctx) {
   ctx.finish();
 }
 
-// Typical GUI: background + card grid (fills + rounded) + glyph runs +
-// scrolling clip + opacity isolates + one backdrop frost + one glass bar.
+// Typical GUI: fills, glyphs, clip, opacity/backdrop/glass isolates.
 void recordTypical(glim::paint::Context& ctx) {
   ctx.setSize({720, 480});
   ctx.beginFrame();
@@ -143,8 +136,7 @@ int main() {
   expect(g.last.stats.backdropCount == 1, "typical GUI has one backdrop pyramid");
   expect(g.last.stats.glassPassCount == 1, "typical GUI has one glass pass");
 
-  // CPU raster (Software path incl. backdrop frost + glass plate): this is
-  // where blurSeparable/blurCheap/samplePlate cost lives. Reported only.
+  // CPU raster cost lives here; reported only.
   {
     std::vector<std::uint8_t> pixels(static_cast<std::size_t>(720 * 480 * 4), 0);
     constexpr int kRasterIters = 3;

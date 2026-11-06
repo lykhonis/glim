@@ -23,7 +23,7 @@ struct Tagged {
   const char* kind() const { return inner_.kind(); }
   Box place(Constraints c, const Engine& e) const {
     Env node{&tag_, &typeid(Tag), e.env};
-    Engine ce{&node, e.store};
+    Engine ce{node, e.store};
     return inner_.place(c, ce);
   }
   void record(const Box& box, Rec& rec) const {
@@ -52,16 +52,15 @@ struct Tagged {
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     if constexpr (has_children<Inner>::value) {
       Env node{&tag_, &typeid(Tag), e.env};
-      Engine ce{&node, e.store};
+      Engine ce{node, e.store};
       return inner_.childBox(i, box, ce);
     }
     return box;
   }
-  // Theme scopes ride through slot tags the way clip flags do: a
-  // themed subtree wrapped in expand()/etc. keeps its entries.
+  // Themed subtrees survive slot tags the way clip flags do.
   ThemeScope themeScope() const {
     if constexpr (has_theme_entries<Inner>::value) return inner_.themeScope();
-    return {nullptr, 0};
+    return {};
   }
 };
 

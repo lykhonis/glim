@@ -23,15 +23,14 @@ int main() {
   assert(!mapKey(Key::Escape));
   assert(!mapKey(Key::Unknown));
 
-  // Seat factory: id 0 never creates a view; request carries bounds.
+  // Seat factory: id 0 never creates a view.
   using glim::toolkit::host::makeDefaultSeatView;
   using glim::toolkit::host::SeatRequest;
   assert(makeDefaultSeatView(SeatRequest{}) == nullptr);
   SeatRequest named{7, glim::Rect{{10, 20}, {100, 40}}};
   assert(named.id == 7 && named.bounds.size.x == 100);
-  // Factory ownership: same id returns the same live view (the
-  // factory retains; Glim never does). Guards the attachSlot
-  // use-after-free where a scope-local __bridge pointer dangled.
+  // Factory ownership: same id returns the same live view (Glim never
+  // retains; the factory does).
   void* first = makeDefaultSeatView(named);
   void* second = makeDefaultSeatView(named);
 #if defined(__APPLE__)
@@ -67,28 +66,26 @@ int main() {
   }
 
   // Theme defaults mirror the fallback; a themed scope overrides them.
-  // The key is user space (themeKey) — the toolkit owns only
-  // window/ink/type/focus builtins.
   {
     using glim::toolkit::Engine;
     using glim::toolkit::themeColor;
     using glim::toolkit::themed;
     constexpr static glim::toolkit::ThemeKey kTestCard{glim::toolkit::themeKey("test.card")};
     constexpr std::uint32_t kTestCardDefault = 0x2c2c2eff;
-    glim::toolkit::Env env{nullptr, nullptr, nullptr};
-    Engine plain{&env};
+    glim::toolkit::Env env{nullptr, nullptr, std::nullopt};
+    Engine plain{env, glim::toolkit::StoreRef{}};
     assert(themeColor(plain, kTestCard, kTestCardDefault) == kTestCardDefault);
     struct Probe {
       const char* kind() const { return "Probe"; }
-      std::uint32_t* out = nullptr;
+      std::uint32_t& out;
       glim::toolkit::Box place(glim::toolkit::Constraints c, const Engine& e) const {
-        *out = themeColor(e, kTestCard, kTestCardDefault);
+        out = themeColor(e, kTestCard, kTestCardDefault);
         return glim::toolkit::detail::resolveSize(10, 10, c);
       }
     };
     std::uint32_t seen = 0;
     auto tree = themed(
-        themeColor(kTestCard, 0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{&seen}}}
+        themeColor(kTestCard, 0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{seen}}}
     );
     glim::toolkit::place(tree, {0, 720, 0, 480});
     assert(seen == 0x123456ff);

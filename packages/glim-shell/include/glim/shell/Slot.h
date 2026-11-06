@@ -5,7 +5,7 @@
 
 namespace glim::shell {
 
-// Embedder-owned native view. Glim does not retain or style it.
+// Embedder-owned; Glim never retains.
 struct SlotNative {
   void* view = nullptr;  // NSView* / UIView* / ANativeWindow* / wl_subsurface*
 };

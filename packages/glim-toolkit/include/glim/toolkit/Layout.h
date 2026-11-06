@@ -12,9 +12,7 @@ constexpr float kUnbounded = std::numeric_limits<float>::infinity();
 
 inline bool isUnbounded(float v) { return v >= kUnbounded / 2; }
 
-// Blend modes a widget can request for a scoped group. Core-level
-// vocabulary (paint-free); ContextSink maps these onto paint::Blend.
-// Only SrcOver and Plus exist in v1.
+// Core-level vocabulary; only SrcOver and Plus exist in v1.
 enum class BlendMode : std::uint8_t { SrcOver, Plus };
 
 struct Constraints {

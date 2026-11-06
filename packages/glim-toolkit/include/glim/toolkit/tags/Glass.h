@@ -7,10 +7,7 @@
 namespace glim {
 namespace toolkit {
 
-// Glass chrome marker: card(glass(), ...) wraps the card box in a
-// Regular glass group at paint time. Slot tag — parents never learn
-// it, the emitter reads it off the child Block. Nearest wins via env
-// if nested. Radius rides the tag so chrome needs no element query.
+// Glass chrome marker; slot tag read by the emitter, nearest wins if nested.
 struct GlassTag {
   bool clear = false;
   int radius = Tokens::kGlassRadius;

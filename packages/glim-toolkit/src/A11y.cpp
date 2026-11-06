@@ -20,21 +20,25 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
         break;
       }
     }
-    const std::string* mark = semanticOf(n);
+    auto mark = semanticOf(n);
     bool focusable = canHandle(n);
     if (!mark && label.empty() && !focusable) return;
     std::string role = "Custom";
     if (!tmp.entries.empty()) role = tmp.entries.front().kind;
-    out.push_back({mark ? *mark : std::string{}, std::move(role), std::move(label), bx, focusable});
+    out.push_back(
+        {mark ? mark->get() : std::string{}, std::move(role), std::move(label), bx, focusable}
+    );
   });
   return out;
 }
 
-const A11yNode* a11yFind(const std::vector<A11yNode>& nodes, const std::string& id) {
+std::optional<std::reference_wrapper<const A11yNode>> a11yFind(
+    const std::vector<A11yNode>& nodes, const std::string& id
+) {
   for (const auto& n : nodes) {
-    if (n.id == id) return &n;
+    if (n.id == id) return std::cref(n);
   }
-  return nullptr;
+  return std::nullopt;
 }
 
 void dumpA11y(std::ostream& os, const std::vector<A11yNode>& nodes) {

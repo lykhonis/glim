@@ -265,9 +265,7 @@ int main() {
   merged = glim::paint::merge(std::move(mixedCtx.scene().root), &stats);
   expect(merged.children.size() == 1, "Plus child does not merge into SrcOver parent");
 
-  // Glass fusion: adjacent slot-tag markers (empty glass groups) fold
-  // into one glassContainer so the compositor shades a single plate
-  // masked by the merged pills, instead of one plate per marker.
+  // Adjacent slot-tag markers fuse into one container; single plate, merged pills.
   auto glassMarker = [](glim::paint::Context& c, float x, float w, bool clear = false) {
     glim::paint::GroupParams gp;
     gp.glass = clear ? glim::paint::Glass::clear() : glim::paint::Glass{};
@@ -309,8 +307,7 @@ int main() {
         "fused container isolates"
     );
   }
-  // Different materials never fuse: clear and regular frost are
-  // different plates by construction.
+  // Different materials never fuse.
   {
     glim::paint::Context splitCtx;
     splitCtx.setSize({200, 100});
@@ -324,8 +321,7 @@ int main() {
     merged = glim::paint::merge(std::move(splitCtx.scene().root), &stats);
     expect(merged.children.size() == 2, "mismatched glass materials stay separate");
   }
-  // A blend group between markers breaks the run: speculars and other
-  // overlay work must keep its own pass.
+  // A blend group between markers breaks the run.
   {
     glim::paint::Context brokenCtx;
     brokenCtx.setSize({200, 100});
@@ -345,8 +341,7 @@ int main() {
     merged = glim::paint::merge(std::move(brokenCtx.scene().root), &stats);
     expect(merged.children.size() == 3, "blend group breaks the glass run");
   }
-  // Shapeful glass groups keep the legacy solo-plate path: their fills
-  // must not be reinterpreted as container pills.
+  // Shapeful glass groups keep the legacy solo-plate path.
   {
     glim::paint::Context manualCtx;
     manualCtx.setSize({200, 100});

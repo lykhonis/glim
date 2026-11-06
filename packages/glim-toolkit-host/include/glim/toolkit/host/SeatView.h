@@ -16,12 +16,8 @@ struct SeatRequest {
 
 using SeatViewFactory = void* (*)(SeatRequest);
 
-// Per-platform default. Apple builds return a plain text field, other
-// shells return null (track-only). Embedders pass their own factory to
-// host::run instead. Ownership: Glim never retains the pointer, so it
-// must stay valid from attach until the Seat disappears — the default
-// factory retains process-wide; custom factories must guarantee the
-// same (e.g. owned by the embedder's own hierarchy).
+// Per-platform default. Ownership: Glim never retains the pointer — it must
+// stay valid from attach until the Seat disappears (default retains process-wide).
 void* makeDefaultSeatView(SeatRequest request);
 
 }  // namespace host

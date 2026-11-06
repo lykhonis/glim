@@ -1,8 +1,7 @@
 #include <glim/toolkit/host/SeatView.h>
 
-// Track-only shells (Wayland, Android, software smoke): no native view.
-// Android child windows and Wayland subsurfaces stay embedder-owned;
-// returning null keeps geometry tracking without creating a view.
+// Track-only shells (Wayland, Android, software smoke): no native view;
+// geometry tracking continues with a null view.
 namespace glim {
 namespace toolkit {
 namespace host {

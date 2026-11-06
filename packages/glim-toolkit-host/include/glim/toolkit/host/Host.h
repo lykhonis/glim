@@ -1,7 +1,6 @@
 #pragma once
 
-// Host loop for toolkit apps: shell + paint + toolkit in one place so
-// apps own only states, tree, and paint.
+// Host loop: shell + paint + toolkit in one place; apps own only states, tree, paint.
 #include <glim/math.h>
 #include <glim/paint/Context.h>
 #include <glim/shell/Event.h>
@@ -52,13 +51,13 @@ std::optional<Key> mapKey(shell::Key key);
 
 using Build = std::function<Block(const Engine&)>;
 using Record = std::function<void(Frame&, const Block&, const Box&)>;
-// A11y publish seam (T6): shells bridge the node map to OS a11y APIs
-// later (NSAccessibility, UIAccessibility, ...). Null sink (default)
-// skips the walk entirely — zero cost when unused.
+// A11y publish seam: shells bridge the node map to OS a11y APIs. Null sink
+// (default) skips the walk entirely — zero cost when unused.
 using A11ySink = std::function<void(const std::vector<A11yNode>& nodes, int focused)>;
 
-// Null factory means the platform default. Embedders pass their own to
-// create views inside an existing hierarchy.
+// Null factory means the platform default.
+// Getting-started path: the host owns Store, Screen, measuring Engine, and
+// the default paint; scoped state allocates into the host Store where it renders.
 int run(
     const Config& config,
     Screen& screen,
@@ -70,10 +69,8 @@ int run(
     A11ySink a11ySink = nullptr
 );
 
-// Getting-started path: the host owns Store, Screen, measuring Engine,
-// and the default paint (window fill, tree, focus ring). The app passes
-// only its tree — scoped state allocates into the host Store where it
-// renders. Embedders and tests use the overload above to inject.
+// Getting-started path: the host owns Store, Screen, measuring Engine, and
+// the default paint; scoped state allocates into the host Store where it renders.
 int run(
     const Config& config,
     Build build,

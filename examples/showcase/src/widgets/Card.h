@@ -65,8 +65,8 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
         themeColor(e, kShowCardTop, Show::kCardTop),
         themeColor(e, kShowCardBottom, Show::kCardBottom)
     );
-    // Aqua panel top light: one soft inner hairline, not a gloss
-    // dome — large faces stay calm, edges still catch light.
+    // One soft inner hairline; large faces stay calm, edges catch
+    // light.
     if (box.w > static_cast<float>(radius) + 6.0f) {
       const float inset = static_cast<float>(radius) * 0.5f + 2.0f;
       Box light{

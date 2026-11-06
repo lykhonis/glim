@@ -85,9 +85,7 @@ Vec2 transformPoint(const Mat4& t, Vec2 p) {
   return {v.x, v.y};
 }
 
-// Gradient geometry rides with the Shape rect: points transform exactly,
-// radius scales by the largest axis scale (exact for rigid + uniform scale,
-// conservative otherwise).
+// Gradient geometry rides the Shape rect; radius scales by the largest axis scale.
 Matter transformMatter(const Mat4& t, Matter m) {
   if (!m.isGradient()) {
     return m;
@@ -229,10 +227,8 @@ int collectBackdropPills(const Group& g, BackdropPill* out) {
 }
 
 void dropBackdropPills(Group& g) {
-  // Drop only the shapes that were collected as pills (the first
-  // kMaxBackdropPills FillRounded shapes). They define the plate mask drawn
-  // by the backdrop program; dropping every FillRounded would delete visual
-  // content beyond the pill cap.
+  // Drop only the collected pill shapes; dropping every FillRounded would delete content past the
+  // cap.
   int pillShapes = 0;
   for (const Shape& s : g.shapes) {
     if (pillShapes >= kMaxBackdropPills) {
@@ -407,11 +403,8 @@ bool blendCompatible(Blend parent, Blend child) {
   if (parent != child) {
     return false;
   }
-  // Only SrcOver and Plus exist in v1 (K9). A Plus child merges only into a
-  // Plus parent; mixed blends never share a pass.
-  // NOTE: GPU pipelines are still hardcoded to SrcOver
-  // (Renderer::Pipelines::ensure). Merging both-Plus is the correct grouping;
-  // a per-blend pipeline switch in the Renderer is follow-up work.
+  // v1 has only SrcOver/Plus (K9); Plus merges only into Plus. Per-blend pipeline switch is
+  // follow-up.
   return parent == Blend::SrcOver || parent == Blend::Plus;
 }
 
@@ -466,10 +459,7 @@ bool sameGlassMaterial(const Glass& a, const Glass& b) {
          a.refDistance == b.refDistance && a.dispersion == b.dispersion && a.flatten == b.flatten;
 }
 
-// Slot-tag glass markers: empty leaf groups carrying only glass params
-// plus explicit bounds (see toolkit Emit: paint, pushGlass, pop, then
-// children). Anything else keeps the legacy solo-plate path —
-// reinterpretation must not touch shapeful or configured groups.
+// Slot-tag markers: empty leaf glass groups with explicit bounds; nothing else is reinterpreted.
 bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Glass& mat) {
   if (!c || !hasGlass(*c)) {
     return false;
@@ -499,12 +489,7 @@ bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Glass& mat) {
   return p.glass.has_value() && sameGlassMaterial(*p.glass, mat);
 }
 
-// Fold maximal runs of adjacent slot-tag glass markers into one
-// glassContainer: a single isolate whose plate is masked by the merged
-// pill field, instead of one plate per marker. Runs broken by any
-// other group keep the legacy path. Shapes between markers are
-// untouched — they keep their order slots and paint as before, so the
-// plate still sees the same backdrop.
+// Fuse adjacent marker runs into one container; in-between shapes keep their order slots.
 void fuseGlassRuns(Group& out) {
   std::size_t i = 0;
   while (i < out.children.size()) {
@@ -607,10 +592,7 @@ Group merge(Group g, Stats* stats) {
   if (out.params.bounds.size.x <= 0 || out.params.bounds.size.y <= 0) {
     out.params.bounds = contentBounds(out);
   }
-  // Never inside an existing glass scope: hand-built containers (see
-  // the glass demo) already own their pill collection, and folding
-  // their markers into a nested container would hide the pills from
-  // it. Fusion only assembles runs of bare markers in plain groups.
+  // Never fuse inside an existing glass scope; containers own their pill collection.
   if (!hasGlass(g) && !g.params.glassContainer) {
     fuseGlassRuns(out);
   }

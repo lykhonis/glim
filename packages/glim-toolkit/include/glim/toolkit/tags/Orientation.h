@@ -17,8 +17,6 @@ template <>
 struct is_tag<VerticalTag> : std::true_type {};
 
 struct WithAxis {
-  // Default is vertical (kAxisVertical); pass horizontal() to opt into
-  // horizontal flow. The default keeps `roll(children...)` meaningful.
   int axis = 0;
 };
 

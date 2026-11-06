@@ -12,6 +12,7 @@
 #include "glim/toolkit/Focus.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Measure.h"
+#include "glim/toolkit/Motion.h"
 #include "glim/toolkit/Ops.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Scope.h"

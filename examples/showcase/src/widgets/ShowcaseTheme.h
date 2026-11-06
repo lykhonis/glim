@@ -1,11 +1,8 @@
 #pragma once
 
-// Showcase theme (user space). Toolkit owns only four keys — window
-// background, ink, type size, focus ring (see toolkit/theme/Keys.h).
-// Everything below is app vocabulary: the frosted-card/button/gel
-// ramp, defined here by the app via themeKey(), with plain constants
-// as fallback. Same values as the old toolkit Tokens, so pixels do
-// not change; only the owner does.
+// Showcase theme (user space): app vocabulary via themeKey(), plain
+// constants as fallback. Same values as the old Tokens, so pixels
+// match.
 #include <cstdint>
 
 #include "glim/toolkit/theme/Keys.h"

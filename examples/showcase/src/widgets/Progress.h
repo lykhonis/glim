@@ -33,7 +33,6 @@ struct Progress : WithSemantic {
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     float v = Slider::clamp01(*value);
-    // Groove: no stroke — the fill contrast alone shapes it.
     sink.fillGradient(
         box,
         6,
@@ -42,9 +41,7 @@ struct Progress : WithSemantic {
     );
     if (box.w * v > 0.5f) {
       Box fill{box.x, box.y, box.w * v, box.h};
-      // Square the leading cap: it hides under nothing here, so a
-      // round cap would bulge past the value. Paint the fill body
-      // then cap the start round only via the track beneath.
+      // Square the leading cap: a round cap would bulge past the value.
       sink.fillGradient(
           fill,
           6,

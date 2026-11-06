@@ -1,3 +1,5 @@
+#include <functional>
+#include <optional>
 #include <vector>
 
 #include "glim/toolkit/Place.h"
@@ -12,10 +14,7 @@ bool Screen::pointerDown(
 ) {
   Event down = Event::borrow(PointerDown{x, y});
   if (dispatchPointer(tree, box, x, y, down, engine)) {
-    // Capture only when the point truly lands in a focus box;
-    // otherwise keep the previous focus and clear any stale capture
-    // (a handled non-focusable must not keep routing moves to the
-    // previous drag index).
+    // Capture only on a focusable hit; a handled non-focusable clears stale capture.
     int hit = focusAt(tree, box, x, y, engine);
     if (hit >= 0) {
       focus = hit;
@@ -50,10 +49,9 @@ bool Screen::pointerMove(
   PointerMove move{x, y, pressed};
   Event moved = Event::borrow(move);
   if (drag >= 0) {
-    // A second finger while dragging is ignored, never hijacked.
+    // Second finger never hijacks the drag.
     if (pointerId != dragId) return false;
-    // Routed (not consumed) keeps the drag; stale falls back to a
-    // fresh hit-test.
+    // Routed (not consumed) keeps the drag; stale falls back to hit-test.
     if (dispatchCaptured(tree, box, drag, moved, engine)) return false;
     drag = -1;
   }
@@ -65,7 +63,7 @@ bool Screen::wheel(
 ) {
   if (dx == 0 && dy == 0) return false;
   struct Candidate {
-    const Roll* roll;
+    std::optional<std::reference_wrapper<const Roll>> roll;
     Box box;
   };
   std::vector<Candidate> found;
@@ -75,32 +73,30 @@ bool Screen::wheel(
       box,
       engine,
       [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        // Ancestor clips gate candidacy; the node's own clip (pushed
-        // below) trivially contains any point inside its box.
+        // Only ancestor-visible points are candidates (own clip pushed below).
         bool parentVisible = clip.visible(x, y);
         clip.enter(n, bx);
         if (parentVisible) {
-          if (const Roll* r = n.get<Roll>()) {
-            if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({r, bx});
+          if (auto r = n.get<Roll>()) {
+            if (r->get().scrollOff && detail::boxContains(bx, x, y)) found.push_back({r, bx});
           }
         }
         return true;
       },
       [&](const Block&, const Box&, const Engine&) { clip.exit(); }
   );
-  // Innermost first; an edge-clamped inner roll chains outward.
+  // Innermost first; edge-clamped inner rolls chain outward.
   for (auto it = found.rbegin(); it != found.rend(); ++it) {
-    const Roll* r = it->roll;
+    const Roll& r = it->roll->get();
     const Box rb = it->box;
-    // Strict axis match: a vertical wheel over a horizontal strip
-    // bubbles to the outer vertical roll (browser behavior) instead
-    // of trapping the gesture in the strip.
-    const RollMetrics m = rollMetrics(*r, rb, engine);
+    // Strict axis match: vertical wheels bubble past a horizontal strip.
+    const RollMetrics m = rollMetrics(r, rb, engine);
     const float delta = m.horizontal ? dx : dy;
     if (delta == 0.0f || m.maxOff <= 0.0f) continue;
     const float next = detail::clampF(m.offset + delta, 0.0f, m.maxOff);
     if (next != m.offset) {
-      r->scrollTo(next);
+      r.scrollTo(next);
+      armFling(r, m, next, delta);
       return true;
     }
   }
@@ -111,6 +107,72 @@ bool Screen::key(const Block& tree, const Box& box, Key key, const Engine& engin
   focus = deliverKey(tree, box, focus, key, engine);
   focusVisible = true;
   return true;
+}
+
+namespace {
+
+// Release-coast tuning: gesture gap (s), stream blend, velocity cap, fling floor.
+constexpr float kWheelGap = 0.1f;
+constexpr float kVelKeep = 0.65f;
+constexpr float kVelMax = 5000.0f;
+constexpr float kFlingMin = 60.0f;
+
+}  // namespace
+
+void Screen::armFling(const Roll& r, const RollMetrics& m, float offset, float delta) {
+  const float now = clock.now;
+  const float dt = lastWheelAt_ < 0.0f ? -1.0f : now - lastWheelAt_;
+  lastWheelAt_ = now;
+  // Lone events re-anchor and kill coast: only rapid streams can fling.
+  if (dt < 0.0f || dt > kWheelGap) {
+    flingVel_ = dt > 0.0f ? delta / dt : 0.0f;
+    flinging_ = false;
+    flingCell_ = State<float>{};
+    return;
+  }
+  flingVel_ = kVelKeep * flingVel_ + (1.0f - kVelKeep) * (delta / dt);
+  if (flingVel_ > kVelMax) flingVel_ = kVelMax;
+  if (flingVel_ < -kVelMax) flingVel_ = -kVelMax;
+  flingCell_ = r.scrollOff;
+  fling_ = flingTo(offset, flingVel_, 0.0f, m.maxOff, now);
+  flinging_ = fling_.to != offset && (flingVel_ > kFlingMin || flingVel_ < -kFlingMin);
+  if (!flinging_) flingCell_ = State<float>{};
+}
+
+bool Screen::tick(const Block& tree, const Box& box, const Engine& engine) {
+  if (!flinging_) return false;
+  bool moved = false;
+  {
+    const float now = clock.now;
+    std::optional<std::reference_wrapper<const Roll>> found;
+    Box fb{};
+    walk(tree, box, engine, [&](const Block& n, const Box& bx) {
+      if (!found) {
+        if (auto r = n.get<Roll>()) {
+          if (r->get().scrollOff == flingCell_) {
+            found = r;
+            fb = bx;
+          }
+        }
+      }
+    });
+    if (!found) {
+      flinging_ = false;
+      flingCell_ = State<float>{};
+    } else {
+      const RollMetrics m = rollMetrics(found->get(), fb, engine);
+      const float next = detail::clampF(fling_.at(now), 0.0f, m.maxOff);
+      if (fling_.done(now)) {
+        flinging_ = false;
+        flingCell_ = State<float>{};
+      }
+      if (next != m.offset) {
+        found->get().scrollTo(next);
+        moved = true;
+      }
+    }
+  }
+  return moved;
 }
 
 bool Screen::needsPaint(const Store& store) const { return dirty.check(store.revision()); }

@@ -1,13 +1,6 @@
 #pragma once
 
-// Text measure → break → layout, inside the toolkit until a second
-// consumer appears (then promote to glim-text). Boundary: measure
-// (advances) → break (wrap/truncate) → layout (placed boxes).
-// Custom advances publish via the Measurer env (Measurer-style);
-// per-glyph raster stays paint-side, this module only places boxes.
-// Align offsets stay fixed-advance even when the Measurer sized the
-// box (see layoutPlacedLines).
-
+// Text measure → break → layout; per-glyph raster stays paint-side.
 #include <string>
 #include <vector>
 
@@ -35,9 +28,7 @@ std::vector<std::string> layoutLines(
     const std::string& text, float maxW, float maxH, bool wrap, const Engine& e = Engine{}
 );
 
-// Visual lines for an allotted box, with per-line align offsets.
-// Fixed-advance offsets by design (see header note); the engine only
-// selects the breaker, never the offset metric.
+// Fixed-advance offsets by design; engine only selects the breaker.
 std::vector<PlacedLine> layoutPlacedLines(
     const std::string& text, const Box& box, bool wrap, int align, const Engine& e = Engine{}
 );

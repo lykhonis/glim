@@ -20,9 +20,6 @@ struct WithSemantic {
   std::string semantic;
 };
 
-// Single-source detector for the a11y id carried on an element.
-// Used by semanticOf (see Semantics.h) so record marks and paint
-// marks read one home instead of each duplicating the field access.
 template <class T, class = void>
 struct has_semantic : std::false_type {};
 template <class T>

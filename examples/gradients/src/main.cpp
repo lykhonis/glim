@@ -34,7 +34,6 @@ void recordGradients(
   context.setFillColor(0x14181dff);
   context.fill(win);
 
-  // Linear banner: three stops across the work area.
   const Rect banner{
       {area.origin.x + pad, area.origin.y + pad},
       {area.size.x - pad * 2.f, 120.f}
@@ -52,7 +51,6 @@ void recordGradients(
   ));
   context.fillRounded(banner, Radius{20.f});
 
-  // Radial disc beside the banner.
   const float discD = 120.f;
   const Vec2 discC{
       area.origin.x + area.size.x - pad - discD * 0.5f,
@@ -73,7 +71,6 @@ void recordGradients(
       Radius{discD * 0.5f}
   );
 
-  // Gradient ring (stroke) around a solid core.
   const Vec2 ringC{area.origin.x + pad + 70.f, discC.y};
   const GradientStop ringStops[2] = {
       {0.f, Color{0x2a9d8fff}},
@@ -96,7 +93,6 @@ void recordGradients(
       8.f
   );
 
-  // Animated sweep: gradient endpoints slide with time.
   const float sweepY = discC.y + discD * 0.5f + pad;
   const Rect sweep{
       {area.origin.x + pad, sweepY}, {area.size.x - pad * 2.f, 56.f}

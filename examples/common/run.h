@@ -28,8 +28,7 @@ struct ExampleFrame {
 
 int glimRunExample(const ExampleApp&, void (*record)(ExampleFrame&));
 void recordExample(ExampleFrame&);
-// Fixed-name event hook, defined by the example next to recordExample
-// (same pattern). Return true when the app consumed the event; the
-// harness repaints and skips the overlay toggle. Examples without
-// interaction return false.
+// Fixed-name event hook next to recordExample. Return true when the app
+// consumed the event; the harness repaints and skips the overlay
+// toggle.
 bool onExampleEvent(const glim::shell::Event&, ExampleFrame&);

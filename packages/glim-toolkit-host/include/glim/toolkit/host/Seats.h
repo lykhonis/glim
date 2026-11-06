@@ -13,8 +13,7 @@ namespace glim {
 namespace toolkit {
 namespace host {
 
-// Collects slot placements from the finished scene, attaches a view per
-// new id through the factory, repositions on move only, detaches removed.
+// Attaches a view per new slot id, repositions on move only, detaches removed.
 inline void syncSeats(
     glim::shell::Window& window,
     const glim::paint::Scene& scene,

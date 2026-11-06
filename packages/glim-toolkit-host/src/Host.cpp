@@ -81,13 +81,11 @@ int run(
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
   Vec2 paintedSize{0.0f, 0.0f};
-  // Build engine: measuring env from the caller plus this run's Store,
-  // so tree functions allocate scoped state where they render. Trees
-  // rebuild per event/paint — place() is cheap; the compositor
-  // (Screen dirty gate + Overlay snapshot) owns idle-skip, so no
-  // retained tree cache to invalidate.
+  // Build engine: measuring env plus this run's Store, so scoped state
+  // allocates where it renders. No retained tree cache — the compositor
+  // owns idle-skip, so trees rebuild per event/paint.
   Engine active = engine;
-  active.store = &store;
+  active.store = store;
   const auto buildFresh = [&](const Vec2& size) {
     Block tree = build(active);
     Box box = active.place(tree, {0, size.x, 0, size.y});
@@ -112,6 +110,7 @@ int run(
     const auto now = std::chrono::steady_clock::now();
     const float dt = std::chrono::duration<float>(now - lastTick).count();
     lastTick = now;
+    screen.clock.advance(dt);
     overlay.tick(dt);
     return now;
   };
@@ -126,7 +125,12 @@ int run(
     context.beginFrame();
     Frame frame = frameAt(std::chrono::duration<float>(now - start).count());
     if (record) {
+      const auto r0 = std::chrono::steady_clock::now();
       record(frame, tree, box);
+      const auto r1 = std::chrono::steady_clock::now();
+      if (overlay.enabled()) {
+        overlay.setRecordMs(std::chrono::duration<float>(r1 - r0).count() * 1000.0f);
+      }
     }
     if (overlay.enabled()) {
 #if GLIM_SOFTWARE
@@ -136,9 +140,8 @@ int run(
 #else
       overlay.setStats(renderer.stats());
 #endif
-      // Native seats sit above the scene; keep the chip out from
-      // under them. Previous frame's placements: one frame stale,
-      // invisible for a debug readout.
+      // Native seats sit above the scene; keep the chip clear of them.
+      // Previous frame's placements: one frame stale, invisible for debug.
       glim::Rect avoid[8];
       int avoidCount = 0;
       for (const auto& e : attached) {
@@ -163,10 +166,8 @@ int run(
     window.presentSoftware();
 #else
     const Vec2 drawable = window.drawableSize();
-    // Round, never truncate: the layer size is integral (see
-    // syncMetalDrawableSize), and a truncating cast would shrink it
-    // by up to a pixel mid-flight, oscillating against the sync and
-    // desyncing the viewport from the layout size.
+    // Round, never truncate: a truncating cast would shrink the integral
+    // layer size by up to a pixel mid-flight and desync the viewport.
     device.setDrawableSize(
         static_cast<int>(std::lround(drawable.x)), static_cast<int>(std::lround(drawable.y))
     );
@@ -218,6 +219,7 @@ int run(
       return;
     }
     if (e.type() == T::Wheel) {
+      tickClock();
       auto [tree, box] = buildFresh(window.size());
       if (screen.wheel(tree, box, e.x(), e.y(), e.dx(), e.dy(), active)) {
         paint();
@@ -243,25 +245,26 @@ int run(
       if (size.x == paintedSize.x && size.y == paintedSize.y) {
         return;
       }
-      // Paint synchronously inside the tracking iteration and gate
-      // the present on its commit (view toggles
-      // presentsWithTransaction): paint, geometry, and seat frames
-      // all land in the same commit by construction, so background
-      // and seats cannot skew a frame apart. Only in-iteration
-      // paints glue this way — tick paints fire outside iterations,
-      // where a gated present chases a later commit and skews worse.
+      // Paint synchronously inside the tracking iteration so paint, geometry,
+      // and seat frames land in the same commit. Tick paints must not repaint
+      // here or the two sources interleave phases and judder.
       const auto now = std::chrono::steady_clock::now();
       paintBody(now);
       paintedSize = window.size();
       return;
     }
     if (e.type() == T::Frame) {
-      // Clock ticks every vsync (cheap); the scene only re-records
-      // when Screen's revision moved or the overlay snapshot turned
-      // over. Idle frames do no rebuild, no record, no encode. Resize
-      // work lives in the sync path above; the tick must not repaint
-      // it or the two sources interleave phases and judder.
+      // Clock ticks every vsync; the scene re-records only when Screen's
+      // revision moved or the overlay snapshot turned over. Live values step
+      // first (tree-free); their writes bump the revision and paint below.
       const auto now = tickClock();
+      if (store.valuesLive()) {
+        store.stepValues(screen.clock.now);
+      }
+      if (screen.moving()) {
+        auto [tree, box] = buildFresh(window.size());
+        screen.tick(tree, box, active);
+      }
       if (screen.needsPaint(store) || overlay.statsDirty()) {
         paintBody(now);
         paintedSize = window.size();
@@ -280,7 +283,7 @@ int run(
     SeatViewFactory makeSeatView,
     A11ySink a11ySink
 ) {
-  // Owned defaults: the loop borrows these, so locals outlive it.
+  // Owned defaults: the loop borrows these, so locals must outlive it.
   Store store;
   Screen screen;
   Engine engine = measureEngine();
@@ -289,7 +292,7 @@ int run(
   if (!effective) {
     effective = [&](Frame& frame, const Block& tree, const Box& box) {
       Engine e = measureEngine();
-      e.store = &store;
+      e.store = store;
       paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
     };
   }

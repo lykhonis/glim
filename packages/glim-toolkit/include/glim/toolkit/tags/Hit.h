@@ -13,8 +13,7 @@ template <>
 struct is_tag<ThroughTag> : std::true_type {};
 
 struct WithThrough {
-  // Parked: accepted today, but hit-testing always walks top-down last-wins
-  // (see Place.h) until the hit-through proposal (§11) lands. No-op for now.
+  // Parked: no-op until hit-through lands.
   bool through = false;
 };
 

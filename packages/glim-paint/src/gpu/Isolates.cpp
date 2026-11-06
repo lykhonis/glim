@@ -339,11 +339,7 @@ void* blurGlass(
     float sigmaFull,
     Stats* stats
 ) {
-  // Large sigmas are blurred at reduced resolution, then bilinearly
-  // upsampled. Targets never go below 1/8 res so animated content
-  // behind the frost can't visibly step/pulse. Remaining sigma is
-  // covered by iterating H+V pairs (variances add), which matches a
-  // single wide Gaussian without a 65-tap kernel.
+  // Large sigmas blur at reduced res (never below 1/8); iterated H+V pairs sum variances.
   int div = 2;
   float sigmaEff = sigmaFull;
   while (sigmaEff > 4.f && div < 8) {
@@ -360,7 +356,6 @@ void* blurGlass(
   if (!targets.glassBlurTmp.native() || !targets.glassBlur.native()) {
     return sharp;
   }
-  // V (+downsample), then (n-1) H+V pairs and a final H:
   // 2n directional passes of sigmaK == one wide Gaussian.
   blur1dPass(
       encoder,

@@ -42,19 +42,18 @@ bool ClipStack::visible(float x, float y) const {
 
 }  // namespace detail
 
-std::pair<const Block*, Box> hitWithBox(
+std::pair<BlockRef, Box> hitWithBox(
     const Block& b, const Box& box, float x, float y, const Engine& e
 ) {
-  const Block* found = nullptr;
+  BlockRef found;
   Box foundBox{0, 0, 0, 0};
   int matches = 0;
   struct Claim {
-    const Block* node;
+    BlockRef node;
     int entered;
   };
   std::vector<Claim> claims;
-  // Clip stack parallel to the walk: containers whose children paint
-  // inside a clip group (Roll) bound their subtree's hits.
+  // Clip stack parallels the walk: Roll children hit only inside the clip.
   detail::ClipStack clip;
   const auto visible = [&]() { return clip.visible(x, y); };
   walk(
@@ -65,17 +64,17 @@ std::pair<const Block*, Box> hitWithBox(
         clip.enter(n, bx);
         if (claimsHit(n)) {
           if (detail::boxContains(bx, x, y) && visible()) {
-            found = &n;
+            found = std::cref(n);
             foundBox = bx;
             ++matches;
-            return false;  // claimed: whole region resolves here
+            return false;
           }
-          claims.push_back({&n, matches});
-          return true;  // missed chrome: a spilled child may still hit
+          claims.push_back({std::cref(n), matches});
+          return true;
         }
         if (detail::boxContains(bx, x, y) && visible()) {
           if (hitParticipates(n)) {
-            found = &n;
+            found = std::cref(n);
             foundBox = bx;
             ++matches;
           }
@@ -84,9 +83,9 @@ std::pair<const Block*, Box> hitWithBox(
       },
       [&](const Block& n, const Box& bx, const Engine&) {
         clip.exit();
-        if (!claims.empty() && claims.back().node == &n) {
+        if (!claims.empty() && claims.back().node && &claims.back().node->get() == &n) {
           if (matches > claims.back().entered && visible()) {
-            found = &n;
+            found = std::cref(n);
             foundBox = bx;
           }
           claims.pop_back();
@@ -96,7 +95,7 @@ std::pair<const Block*, Box> hitWithBox(
   return {found, foundBox};
 }
 
-const Block* hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
+BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
   return hitWithBox(b, box, x, y, e).first;
 }
 

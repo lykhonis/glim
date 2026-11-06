@@ -9,8 +9,7 @@
 
 namespace glim::shell {
 
-// Web run loop: same scheduling API as the wayland shell. The browser owns
-// the frame clock, so run() never blocks under __EMSCRIPTEN__.
+// Same scheduling API as wayland; browser owns the frame clock, run() never blocks.
 class RunLoop final {
  public:
   struct TaskContext {

@@ -1,11 +1,6 @@
 #pragma once
 
-// Linear working space: all framebuffer-bound color math blends in
-// linear light; sRGB surfaces (swapchain, PNG) convert at the edge.
-// Hardware does it on sRGB attachments; this header is the CPU mirror
-// (exact sRGB EOTF, matching hardware) plus the pack-side hinge:
-// premulLinear() replaces premul() at every render color pack site.
-// premul() itself stays sRGB (math tests, non-pixel uses).
+// Linear working space; sRGB converts at the edge. premulLinear() at render pack sites.
 #include <glim/math.h>
 
 #include <algorithm>
@@ -23,8 +18,7 @@ inline float linearToSrgb(float c) noexcept {
   return x <= 0.0031308f ? x * 12.92f : 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
 }
 
-// Straight sRGB Color → premultiplied LINEAR. Alpha is coverage, never
-// converted. Opaque fast path skips the divide (channels are straight).
+// Straight sRGB Color → premultiplied LINEAR. Alpha is coverage, never converted.
 inline Vec4 premulLinear(const Color& c) noexcept {
   const float a = c.alpha();
   if (a <= 0.0f) {

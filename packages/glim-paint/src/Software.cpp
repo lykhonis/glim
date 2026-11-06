@@ -106,9 +106,7 @@ void fillQuads(
   }
 }
 
-// CPU mirror of the gradient fragment shader: same t, same piecewise-linear
-// stops, same coverage multiply. Evaluated at pixel centers; the quad rect
-// overlap supplies analytic coverage like fillQuad.
+// CPU mirror of the gradient shader: same t, stops, and coverage multiply at pixel centers.
 inline Blend gradientBlend(const GradientQuad& q, Blend fallback) {
   return (fallback == Blend::Plus || q.plus != 0) ? Blend::Plus : Blend::SrcOver;
 }
@@ -261,8 +259,7 @@ void blitBuffer(
 }
 
 float sampleChannel(const StoredImage& img, float u, float v, int channel) {
-  // Match GPU linear filtering with clamp-to-edge: texel centers sit at
-  // (i + 0.5) / size, so the sample coordinate is u * size - 0.5.
+  // Texel centers sit at (i + 0.5)/size, so sample at u*size - 0.5 (matches GPU clamp-to-edge).
   const float w = static_cast<float>(std::max(1, img.width));
   const float h = static_cast<float>(std::max(1, img.height));
   const float x = std::clamp(u, 0.f, 1.f) * w - 0.5f;
@@ -296,10 +293,11 @@ void blitImage(
     bool sdf,
     Blend blend = Blend::SrcOver
 ) {
-  const StoredImage* img = images.get(b.matter.imageId);
-  if (!img || img->rgba.empty()) {
+  auto img = images.get(b.matter.imageId);
+  if (!img || img->get().rgba.empty()) {
     return;
   }
+  const StoredImage& im = img->get();
   const int x0 = std::max(0, static_cast<int>(std::floor(b.rect.origin.x)));
   const int y0 = std::max(0, static_cast<int>(std::floor(b.rect.origin.y)));
   const int x1 = std::min(w, static_cast<int>(std::ceil(b.rect.origin.x + b.rect.size.x)));
@@ -308,7 +306,7 @@ void blitImage(
   const float v0 = b.matter.uv.origin.y;
   const float du = b.matter.uv.size.x;
   const float dv = b.matter.uv.size.y;
-  const float iw = static_cast<float>(img->width);
+  const float iw = static_cast<float>(im.width);
   const float texelsPerPx = b.rect.size.x > 1e-6f ? (std::fabs(du) * iw) / b.rect.size.x : 1.f;
   const float aa = std::max(
       0.03f,
@@ -637,9 +635,7 @@ void samplePlate(
 
 void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
   const int radius = std::max(1, std::min(32, static_cast<int>(std::ceil(3.f * sigma))));
-  // Hoist the Gaussian kernel out of the pixel loops. Weights depend only
-  // on k and sigma, computed with the same expression as before, so the
-  // output is bit-identical; it bounds worst-case cost on large plates.
+  // Kernel hoisted out of pixel loops; bit-identical output, bounds worst-case cost.
   const float denom = std::max(1.f, sigma);
   std::vector<float> kernel(static_cast<std::size_t>(radius) + 1u);
   for (int k = 0; k <= radius; ++k) {
@@ -852,14 +848,13 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
     p.b = p.b + (1.f - p.b) * rim;
   } else {
     const bool regular = mat.variant == GlassVariant::Regular;
-    // Milk lift retuned for linear light: 0.04 linear ≈ the old 0.22
-    // sRGB wash (0.008 for Clear). Same look, correct space.
+    // 0.04 linear ≈ old 0.22 sRGB wash (0.008 for Clear).
     const float milk = regular ? 0.04f : 0.008f;
     p.r = p.r + (1.f - p.r) * milk;
     p.g = p.g + (1.f - p.g) * milk;
     p.b = p.b + (1.f - p.b) * milk;
     const float ta = mat.tint.alpha() * 0.12f;
-    // Plate is linear; convert the sRGB tint constants to match.
+    // Plate is linear; convert sRGB tint constants to match.
     const float tr = srgbToLinear(mat.tint.red());
     const float tg = srgbToLinear(mat.tint.green());
     const float tb = srgbToLinear(mat.tint.blue());

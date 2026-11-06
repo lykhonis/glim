@@ -145,9 +145,8 @@ int glimRunExample(
       paint();
     }
     if (e.type() == T::Frame) {
-      // Legacy harness: every Frame repaints. Toolkit apps use the
-      // host loop (packages/glim-toolkit-host) for revision-gated
-      // idle skip; this path stays frozen for toolkit-free apps.
+      // Legacy harness repaints every Frame; toolkit apps use the host
+      // loop.
       paint();
     }
   });

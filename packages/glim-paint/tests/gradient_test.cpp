@@ -147,11 +147,9 @@ int main() {
     std::vector<std::uint8_t> px(100 * 10 * 4, 0);
     rasterScene(ctx.scene(), 100, 10, px.data());
     const auto at = [&](int x) -> float { return static_cast<float>(px[(5 * 100 + x) * 4]); };
-    // Linear lift-off: 1.5% light encodes to ~33 sRGB, not ~4.
+    // 1.5% light encodes to ~33 sRGB; linear-half midpoint ~188, not gamma-127.
     expect(at(1) < 40.f, "left edge near black");
     expect(at(98) > 247.f, "right edge near white");
-    // Linear working space: the ramp interpolates in linear light,
-    // so the sRGB-encoded midpoint is ~188, not gamma-127.
     expect(near(at(50), 188.f, 4.f), "middle near linear-half");
   }
 

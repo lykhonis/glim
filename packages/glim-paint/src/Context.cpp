@@ -106,8 +106,8 @@ void Context::blit(const Rect& dst, Matter matter) {
     return;
   }
   if (matter.kind == MatterKind::Solid) {
-    const StoredImage* img = images_.get(matter.imageId);
-    matter.kind = (img && img->foreign) ? MatterKind::Foreign : MatterKind::Sampled;
+    auto img = images_.get(matter.imageId);
+    matter.kind = (img && img->get().foreign) ? MatterKind::Foreign : MatterKind::Sampled;
   }
   recordShape(current(), transformBlit(state_.model, Blit{dst, matter}));
 }
@@ -125,11 +125,7 @@ TextSize Context::measureText(const char* latin, float sizePx) const {
   if (!latin) {
     return out;
   }
-  // Double accumulation: every float x float product is exact in
-  // double, so FMA contraction (Clang/ARM fuses, GCC/x86 at -O0 does
-  // not) cannot change the sum. The final narrowing is then bitwise
-  // identical on every platform; text goldens must not depend on a
-  // 1-ULP codegen difference (see showcase a11y 49.096 vs 49.0961).
+  // Double accumulation defeats FMA contraction; text goldens stay bitwise-identical.
   double w = 0.0;
   const double ds = static_cast<double>(s);
   for (const char* p = latin; *p; ++p) {

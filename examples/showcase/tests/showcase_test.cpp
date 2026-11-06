@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +25,12 @@
 #include "glim/toolkit/host/Codec.h"
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
+#include "motion/Anim.h"
+#include "widgets/Checkbox.h"
+#include "widgets/Mover.h"
+#include "widgets/Segmented.h"
 #include "widgets/ShowcaseTheme.h"
+#include "widgets/Switch.h"
 
 using namespace glim::toolkit;
 
@@ -157,7 +163,7 @@ int checkPngGolden(
 
 Engine engineFor(Store& store) {
   Engine e = host::measureEngine();
-  e.store = &store;
+  e.store = store;
   return e;
 }
 
@@ -172,7 +178,7 @@ struct Shown {
 };
 
 Shown shownStates(Store& store) {
-  Scope s(&store, "");
+  Scope s(store, "");
   return Shown{
       s.state("taps", 0),
       s.state("wifi", true),
@@ -241,6 +247,39 @@ int main(int argc, char** argv) {
     glim::paint::rasterScene(pctx.scene(), 720, 480, pgot.rgba.data());
     if (int rc = checkPngGolden(dir, "showcase.png", pgot, argv[0]))
       return rc;
+  }
+
+  // T7 record gate: tree build + place + record into the Context
+  // stays under 4 ms on this screen. The host loop reuses its Store,
+  // LayerFeed, and Context across frames, so the gate does the same:
+  // one-time bake costs (atlas, layer feed) warm up outside the
+  // measurement; each sample rebuilds the tree fresh, like a frame
+  // does. Min-of-N after warmup filters scheduling noise (CI runs
+  // suites in parallel). GPU-side encode is a separate stage — its
+  // live number is the overlay's encode row, pinned later by the
+  // H2/H3 tolerance bands; the CPU software raster above is full
+  // rasterization, not encode, so it is not part of this gate.
+  {
+    using clk = std::chrono::steady_clock;
+    glim::paint::Context ctx;
+    ctx.setSize({720, 480});
+    host::LayerFeed feed;
+    Store store;
+    auto recordOnce = [&]() {
+      auto t0 = clk::now();
+      ctx.beginFrame();
+      paintShowcaseScene(ctx, feed, store, -1, false);
+      ctx.finish();
+      auto t1 = clk::now();
+      return std::chrono::duration<double, std::milli>(t1 - t0).count();
+    };
+    // First frames warm the one-time bake (atlas, layer feed); the
+    // gate measures the steady state a live loop records in.
+    for (int i = 0; i < 3; ++i) recordOnce();
+    double best = recordOnce();
+    for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
+    std::cout << "record " << best << " ms\n";
+    assert(best < 4.0);
   }
 
   // Touch end to end on the real screen. Two buttons, seat anchor,
@@ -330,6 +369,202 @@ int main(int argc, char** argv) {
         Event::borrow(PointerDown{sw.x + 1, sw.y + 1})
     ));
     assert(*h.wifi == false);
+  }
+  // Switch thumb coasts on its Anim: the tap flips the value at
+  // once, the position follows without any driver code — the Store
+  // pump steps it, each write repainting by itself.
+  {
+    Store m;
+    Scope ms(m, "");
+    auto v = ms.state("v", false);
+    Anim<float> p{ms, "p", 0.0f};
+    Block swt = toggle({.value = v, .pos = p});
+    Box sb = place(swt, {0, 720, 0, 480});
+    assert(dispatchPointer(
+        swt, sb, 26, 14, Event::borrow(PointerDown{26, 14})
+    ));
+    assert(*v == true && *p == 0.0f && m.valuesLive());
+    m.stepValues(0.0f);
+    m.stepValues(0.11f);
+    assert(*p > 0.0f && *p < 1.0f);
+    m.stepValues(1.0f);
+    assert(*p == 1.0f && !p.live() && !m.valuesLive());
+  }
+  // Checkbox background cross-fades on the same contract.
+  {
+    Store m;
+    Scope ms(m, "");
+    auto v = ms.state("v", false);
+    Anim<float> p{ms, "p", 0.0f};
+    Block cbt = checkbox({.label = "S", .value = v, .pos = p});
+    Box cb = place(cbt, {0, 720, 0, 480});
+    assert(dispatchPointer(
+        cbt, cb, 12, 12, Event::borrow(PointerDown{12, 12})
+    ));
+    assert(*v == true && *p == 0.0f && m.valuesLive());
+    m.stepValues(0.0f);
+    m.stepValues(0.11f);
+    assert(*p > 0.0f && *p < 1.0f);
+    m.stepValues(1.0f);
+    assert(*p == 1.0f && !p.live() && !m.valuesLive());
+  }
+  // Segmented indicator coasts between segments. The group itself
+  // stays out of focus — the three segment taps own interaction
+  // (no focusable added by the animation).
+  {
+    Store m;
+    Engine me = engineFor(m);
+    Scope ms(m, "");
+    auto sel = ms.state("sel", 0);
+    Anim<float> sp{ms, "sp", 0.0f};
+    Segmented sgd;
+    sgd.options = {"Day", "Week", "Month"};
+    sgd.selected = sel;
+    sgd.selPos = sp;
+    Block sgt = segmented(std::move(sgd));
+    Box sb = place(sgt, {0, 720, 0, 480});
+    assert(focusables(sgt, sb, me).size() == 3);
+    const float third = sb.w / 3.0f;
+    assert(dispatchPointer(
+        sgt,
+        sb,
+        sb.x + third * 1.5f,
+        sb.y + 18,
+        Event::borrow(PointerDown{sb.x + third * 1.5f, sb.y + 18})
+    ));
+    assert(*sel == 1 && *sp == 0.0f && m.valuesLive());
+    m.stepValues(0.0f);
+    m.stepValues(0.11f);
+    assert(*sp > 0.0f && *sp < 1.0f);
+    m.stepValues(1.0f);
+    assert(*sp == 1.0f && !sp.live() && !m.valuesLive());
+  }
+  // Anim: assignment animates with the latest spec, the Store is
+  // the pump, paint reads the display value, logic reads the goal.
+  {
+    Store m;
+    Scope ms(m, "");
+    Anim<float> a{ms, "a", 2.0f};
+    assert(
+        !a.live() && *a == 2.0f && a.target() == 2.0f && !m.valuesLive()
+    );
+    a = 10.0f;
+    assert(
+        a.live() && *a == 2.0f && a.target() == 10.0f && m.valuesLive()
+    );
+    m.stepValues(1.0f);
+    m.stepValues(1.11f);
+    assert(*a > 2.0f && *a < 10.0f);
+    m.stepValues(2.0f);
+    assert(*a == 10.0f && !a.live() && !m.valuesLive());
+    // Latest assigned spec wins; reassigning then overriding once.
+    a.setSpec({.dur = 1.0f, .ease = easeLinear});
+    a = 0.0f;
+    m.stepValues(3.0f);
+    m.stepValues(3.5f);
+    assert(*a == 5.0f);
+    m.stepValues(4.5f);
+    assert(*a == 0.0f && !a.live() && !m.valuesLive());
+    // Delay holds the old value, then runs.
+    a.set(4.0f, {.dur = 0.2f, .delay = 1.0f});
+    m.stepValues(5.0f);
+    assert(*a == 0.0f && m.valuesLive());
+    m.stepValues(6.5f);
+    assert(*a == 4.0f && !a.live() && !m.valuesLive());
+    // Snap jumps and cancels.
+    a = 8.0f;
+    m.stepValues(7.0f);
+    a.snap(1.0f);
+    assert(
+        *a == 1.0f && a.target() == 1.0f && !a.live() && !m.valuesLive()
+    );
+    // Re-setting the settled value is a no-op: keeps the spec,
+    // skips the pump, stays exact.
+    a.set(1.0f, {.dur = 1.0f, .ease = easeInOut});
+    assert(a.spec().dur == 1.0f && !a.live() && !m.valuesLive());
+  }
+  // Springs: same assignment semantics, physics instead of curves.
+  // Underdamped motion overshoots, then settles exact.
+  {
+    Store m;
+    Scope ms(m, "");
+    Anim<float> a{ms, "a", 0.0f};
+    a.set(
+        10.0f, {.spring = true, .stiffness = 120.0f, .damping = 8.0f}
+    );
+    assert(a.live() && m.valuesLive());
+    float t = 0.0f;
+    float peak = 0.0f;
+    for (int i = 0; i < 120 && m.valuesLive(); ++i) {
+      t += 1.0f / 60.0f;
+      m.stepValues(t);
+      if (*a > peak) peak = *a;
+    }
+    assert(peak > 10.0f);
+    assert(*a == 10.0f && !a.live() && !m.valuesLive());
+  }
+  // Chaining: sinks track their source declaratively; waking is
+  // automatic even after full settle (per-step poke), cascades
+  // compose with no further code.
+  {
+    Store m;
+    Scope ms(m, "");
+    Anim<float> lead{ms, "lead", 0.0f};
+    Anim<float> trail{ms, "trail", 0.0f};
+    Anim<float> tail{ms, "tail", 0.0f};
+    trail.follow(lead);
+    tail.follow(trail);
+    assert(!m.valuesLive());
+    lead = 10.0f;
+    assert(m.valuesLive());
+    float t = 0.0f;
+    for (int i = 0; i < 200 && m.valuesLive(); ++i) {
+      t += 1.0f / 60.0f;
+      m.stepValues(t);
+      if (i == 5) assert(*trail < *lead && *tail <= *trail);
+    }
+    assert(*lead == 10.0f && *trail == 10.0f && *tail == 10.0f);
+    assert(!m.valuesLive());
+    // Re-arm after full settle: the per-step poke wakes the chain.
+    lead = 0.0f;
+    assert(m.valuesLive());
+    for (int i = 0; i < 200 && m.valuesLive(); ++i) {
+      t += 1.0f / 60.0f;
+      m.stepValues(t);
+    }
+    assert(*lead == 0.0f && *trail == 0.0f && *tail == 0.0f);
+    assert(!m.valuesLive());
+    assert(lead.refs() == 2 && trail.refs() == 2 && tail.refs() == 1);
+  }
+  // Mover: the wrapper composition demo. The child lays out shifted
+  // by the Anim; no pump code in the element, the Store drives it.
+  {
+    Store m;
+    Engine me = engineFor(m);
+    Scope ms(m, "");
+    Anim<float> dx{ms, "dx", 0.0f};
+    Block mv = mover({.shift = dx}, lines("Panel"));
+    Box mb = place(mv, {0, 720, 0, 480});
+    Rec r0;
+    me.record(mv, mb, r0);
+    float x0 = 0.0f;
+    for (const auto& e : r0.entries) {
+      if (e.kind == "Lines") x0 = e.box.x;
+    }
+    dx = -100.0f;
+    assert(m.valuesLive());
+    m.stepValues(0.0f);
+    m.stepValues(1.0f);
+    assert(*dx == -100.0f && !m.valuesLive());
+    Block mv2 = mover({.shift = dx}, lines("Panel"));
+    Box mb2 = place(mv2, {0, 720, 0, 480});
+    Rec r1;
+    me.record(mv2, mb2, r1);
+    bool shifted = false;
+    for (const auto& e : r1.entries) {
+      if (e.kind == "Lines" && e.box.x == x0 - 100.0f) shifted = true;
+    }
+    assert(shifted);
   }
   {
     assert(*h.sound == false);
@@ -531,8 +766,8 @@ int main(int argc, char** argv) {
           dbox,
           e2,
           [&](const Block& n, const Box& bx, const Engine&) -> bool {
-            if (const Seat* s = n.get<Seat>()) {
-              if (s->id == kShowcaseSeatId) {
+            if (auto s = n.get<Seat>()) {
+              if (s->get().id == kShowcaseSeatId) {
                 seatBox = bx;
                 sawSeat = true;
               }

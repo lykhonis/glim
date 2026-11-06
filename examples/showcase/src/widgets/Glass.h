@@ -1,15 +1,9 @@
 #pragma once
 
-// Frosted duo, composed from toolkit primitives — no bespoke scope
-// peer. Two tight veils in a row, each carrying its own glass() slot
-// tag: the rasterizer collects one pill per group and each pill hugs
-// its veil (card box, orb circle), so there is no full-box slab and
-// no strokes — the plate's rim light draws the edges. Order matters:
-// the orb comes first so both glass groups stay consecutive (veil,
-// glass, veil, glass, then content); button specular blends land in
-// the overlay after them, which is exactly what the rasterizer's
-// ([backdrop][glass][overlay]) consecutiveness rule allows. Content
-// lives inside the card and paints sharp after both groups.
+// Frosted duo from toolkit primitives. Order matters: the orb comes
+// first so both glass groups stay consecutive (veil, glass, veil,
+// glass, then content), which is what the rasterizer's
+// ([backdrop][glass][overlay]) rule allows.
 
 #include <cstddef>
 #include <string>
@@ -26,11 +20,9 @@
 namespace glim {
 namespace toolkit {
 
-// Tight frost veil around content: the box IS the veil (content plus
-// chrome), so the slot-tag group's pill coincides with the painted
-// fill. Content is measured at a fixed 240px so place/paint/childBox
-// agree exactly — keep it to buttons and short lines, no wrapping
-// text.
+// Tight veil around content: the box IS the veil, so the slot-tag pill
+// coincides with the fill. Content is fixed at 240px so place/paint
+// agree.
 struct VeilCard : WithGap, WithSemantic {
   static constexpr const char* kKind = "VeilCard";
   const char* kind() const { return kKind; }
@@ -56,9 +48,8 @@ struct VeilCard : WithGap, WithSemantic {
     rec.push(kKind, box, {});
   }
   void paint(const Box&, AnySink&, const Engine&) const {
-    // No fills: the frost plate (masked by this box's pill) carries
-    // the look, like the glass demo's empty groups. Veil tint here
-    // would only darken the frost over the dark window.
+    // No fills: the frost plate (masked by this box's pill) carries the
+    // look.
   }
   static constexpr float kChrome = 24.0f;
 };
@@ -70,8 +61,7 @@ auto veilCard(As&&... as) {
   return finish(std::move(v), std::forward<As>(as)...);
 }
 
-// Fixed glass circle: fills its box, so the slot-tag pill (rounded
-// to a disc by the tag radius) coincides with the veil.
+// Fixed glass circle: fills its box, so the slot-tag pill coincides.
 struct VeilOrb : WithSemantic {
   static constexpr const char* kKind = "VeilOrb";
   const char* kind() const { return kKind; }
@@ -82,8 +72,7 @@ struct VeilOrb : WithSemantic {
     rec.push(kKind, box, {});
   }
   void paint(const Box&, AnySink&, const Engine&) const {
-    // No fills: the frost plate (masked by this circle's pill) carries
-    // the look, like the glass demo's empty groups.
+    // No fills: the frost plate carries the look.
   }
   static constexpr float kDiameter = 72.0f;
 };

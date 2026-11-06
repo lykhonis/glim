@@ -144,10 +144,7 @@ Isolate encodeIsolate(
       pixelRatio,
       surface.size
   );
-  // NOTE: nested isolates encode against surface.size, not the window. Their
-  // backdrop/glass UVs are relative to this isolate's buffer, which is the
-  // buffer they sample when rasterized (rasterIsolate paints nested isolates
-  // into tmp). Relative addressing is correct; do not pass logicalSize here.
+  // Nested isolates encode against surface.size with relative UVs, not logicalSize.
   return iso;
 }
 

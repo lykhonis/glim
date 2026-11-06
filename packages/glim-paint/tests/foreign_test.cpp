@@ -39,10 +39,10 @@ int main() {
   expect(blit && blit->matter.kind == glim::paint::MatterKind::Foreign, "MatterKind::Foreign");
   expect(blit && blit->matter.imageId == id, "foreign imageId");
 
-  const glim::paint::StoredImage* img = ctx.images().get(id);
-  expect(img && img->foreign && img->native == &dummy, "ImageStore foreign native");
-  expect(img && img->rgba.empty(), "foreign has no CPU pixels");
-  expect(img && img->width == 8 && img->height == 8, "foreign size");
+  auto img = ctx.images().get(id);
+  expect(img && img->get().foreign && img->get().native == &dummy, "ImageStore foreign native");
+  expect(img && img->get().rgba.empty(), "foreign has no CPU pixels");
+  expect(img && img->get().width == 8 && img->get().height == 8, "foreign size");
 
   expect(ctx.wrapNativeTexture(nullptr, 8, 8) == 0, "reject null native");
   expect(ctx.wrapNativeTexture(&dummy, 0, 8) == 0, "reject empty");
@@ -66,7 +66,7 @@ int main() {
   expect(merged.shapes.size() == 2, "foreign blit merges like sampled");
 
   ctx.releaseImage(id);
-  expect(ctx.images().get(id) == nullptr, "release drops foreign");
+  expect(ctx.images().get(id) == std::nullopt, "release drops foreign");
 
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

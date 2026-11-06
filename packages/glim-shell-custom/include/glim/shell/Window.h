@@ -16,10 +16,7 @@
 
 namespace glim::shell {
 
-// Custom shell: embedder-owned surface (QNX / Integrity / TV bring-up).
-// Headless stub with zero OS dependencies. The OEM owns the frame clock and
-// drives frames via inject() / injectFrame(); Application::run() returns
-// immediately on the host. Same Window API shape as the other shells.
+// Headless stub, zero OS deps; OEM drives frames via inject(); same API shape.
 class Window final {
  public:
   using EventCallback = std::function<void(const Event&)>;
@@ -72,8 +69,7 @@ class Window final {
   EventCallback callback_;
   SlotTable slots_{};
   std::unordered_map<std::uint32_t, Rect> slotRects_{};
-  // Unconditional storage: only Window.cpp is built with GLIM_SOFTWARE=1,
-  // so guarded members would change the class layout seen by consumers.
+  // Unconditional: guarded members would change layout seen by consumers.
   std::vector<std::uint8_t> software_;
   int softwareW_ = 0;
   int softwareH_ = 0;

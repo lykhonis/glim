@@ -15,7 +15,20 @@ target_include_directories(glim-toolkit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 glim_target_defaults(glim-toolkit)
 
 if(GLIM_HOST_TESTS)
-    add_executable(glim-toolkit-test tests/toolkit_test.cpp)
+    add_executable(glim-toolkit-test
+        tests/test_main.cpp
+        tests/test_basics.cpp
+        tests/test_layout.cpp
+        tests/test_scroll.cpp
+        tests/test_motion.cpp
+        tests/test_pump.cpp
+        tests/test_chrome.cpp
+        tests/test_state.cpp
+        tests/test_text.cpp
+        tests/test_tags.cpp
+        tests/test_scoped.cpp
+        tests/test_theme.cpp
+    )
     target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)
     glim_target_defaults(glim-toolkit-test)
     add_test(NAME glim-toolkit-test COMMAND glim-toolkit-test)

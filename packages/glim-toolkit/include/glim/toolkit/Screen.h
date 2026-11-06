@@ -5,35 +5,30 @@
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/DirtyGate.h"
 #include "glim/toolkit/Event.h"
+#include "glim/toolkit/Motion.h"
 #include "glim/toolkit/Place.h"
 
 namespace glim {
 namespace toolkit {
 
 class Store;
+struct Roll;
+struct RollMetrics;
 
-// Retained per-screen interaction state + routing. The app owns one
-// (beside its Store) and hands it to the host loop; record functions
-// read focus/focusVisible for the ring. Shell-free, paint-free: pointer
-// identity crosses as a plain int (shell concept, toolkit treats it as
-// opaque), keys arrive already mapped, pixels never appear.
+// Retained per-screen routing; pointer identity crosses as an opaque int.
 struct Screen {
   DirtyGate dirty;
   int focus = -1;
-  // Focus-visible modality: pointer sets focus silently, keyboard
-  // shows the ring.
+  // Focus-visible modality: pointer sets focus silently, keyboard shows the ring.
   bool focusVisible = false;
-  // Pointer capture: PointerDown stores the hit focusable; pressed
-  // moves route straight to it (no re-hit-test) so a drag never drops
-  // out when the finger leaves the box, plus the pointer id so a
+  // Pointer capture: pressed moves route straight to the hit target, plus id so a
   // second touch can't hijack the drag.
   int drag = -1;
   int dragId = 0;
+  // Run time, seconds; wheel velocity and fling share this epoch.
+  Clock clock;
 
-  // Returns true when the caller should paint immediately. Captured
-  // drags return false (the Frame tick presents them: a synchronous
-  // present per drag event blocks on vsync and queues input behind
-  // it); hover moves never dispatch.
+  // Captured drags return false (Frame tick presents them); hover moves never dispatch.
   bool pointerDown(
       const Block& tree,
       const Box& box,
@@ -55,10 +50,11 @@ struct Screen {
       const Engine& engine = Engine{}
   );
   bool key(const Block& tree, const Box& box, Key key, const Engine& engine = Engine{});
-  // Wheel/trackpad scroll at a point. Routes to the innermost
-  // scrollable Roll under the point whose axis can move, then chains
-  // outward when the inner one is already at its edge. Returns true
-  // when an offset changed (caller paints).
+  // Fling integrate at clock.now; walk-clamped so a mid-coast resize still settles inside.
+  bool tick(const Block& tree, const Box& box, const Engine& engine = Engine{});
+  // True while a fling coast is live; host skips rebuild when false.
+  bool moving() const { return flinging_; }
+  // Routes to the innermost scrollable Roll that can move, then chains outward.
   bool wheel(
       const Block& tree,
       const Box& box,
@@ -71,6 +67,15 @@ struct Screen {
 
   bool needsPaint(const Store& store) const;
   void painted(const Store& store);
+
+ private:
+  void armFling(const Roll& r, const RollMetrics& m, float offset, float delta);
+  // Release coast: scroll cell under decay plus its tween.
+  State<float> flingCell_;
+  Tween fling_;
+  bool flinging_ = false;
+  float flingVel_ = 0.0f;
+  float lastWheelAt_ = -1.0f;
 };
 
 }  // namespace toolkit

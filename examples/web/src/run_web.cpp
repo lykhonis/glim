@@ -189,8 +189,7 @@ extern "C" float glimWebSlotH(int i) {
 extern "C" void glimWebEvent(int type, float x, float y, int key) {
   (void)x;
   (void)y;
-  // Matches GlimCanvas event codes: 1 = pointerdown, 4 = keydown (13 =
-  // Enter).
+  // GlimCanvas codes: 1 = pointerdown, 4 = keydown (13 = Enter).
   if (type == 1 || (type == 4 && key == 13)) {
     gOverlay.toggleExpanded();
   }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <optional>
 #include <typeinfo>
 
 namespace glim {
@@ -18,9 +20,7 @@ struct PointerUp {
 struct PointerMove {
   float x = 0;
   float y = 0;
-  // Set when the pointer is held (drag) vs hovering. Shells that
-  // cannot tell (touch) set it on every move; hover moves arrive
-  // clear and elements must ignore them.
+  // Set on drags; hover moves arrive clear and must be ignored.
   bool pressed = false;
 };
 struct Wheel {
@@ -42,8 +42,9 @@ class Event {
     return Event(static_cast<const void*>(&e), &typeid(E));
   }
   template <class E>
-  const E* as() const {
-    return *type_ == typeid(E) ? static_cast<const E*>(ptr_) : nullptr;
+  std::optional<std::reference_wrapper<const E>> as() const {
+    if (*type_ == typeid(E)) return std::cref(*static_cast<const E*>(ptr_));
+    return std::nullopt;
   }
   template <class E>
   bool is() const {

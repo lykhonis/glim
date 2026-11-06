@@ -1,26 +1,9 @@
 #pragma once
 
-// Dynamic theme keys: the hardcoded Theme struct (card, button, ...)
-// does not scale — every surface needs a struct edit plus a merge
-// edit. Keys extend without touching core: builtins cover the current
-// ramp, apps add keys via themeKey("app.surface") (constexpr FNV-1a,
-// high-bit range so builtins never collide). No registry.
-//
-// Values are one uniform 32-bit payload (color stored directly,
-// float/int via bit-cast helpers) so inherit/merge/copy never care
-// about types; typed accessors decode at the call site with a Tokens
-// fallback.
-//
-// Inherit/merge is structural, not a copy: each themed scope pushes
-// one Env node holding its entries; lookup walks the chain
-// innermost-out, first hit wins. Inherit = push a node (O(1), zero
-// copy of the base). Merge = chained lookup (O(depth x patchSize),
-// both tiny). Copy = memcpy of a small inline array. Everything
-// immutable; no allocation on the lookup path — near zero-cost.
-
+// Dynamic theme keys: app keys via themeKey; builtins cover the current ramp.
+#include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <type_traits>
 
 #include "glim/toolkit/Place.h"
@@ -47,16 +30,12 @@ inline constexpr std::uint32_t themeFNV1a(const char* s) {
 
 }  // namespace detail
 
-// App-defined key. Constexpr-hashed; the high bit keeps customs out of
-// the builtin range (builtins are small ids, high bit clear).
+// App-defined key: constexpr-hashed, high bit keeps customs out of the builtin range.
 inline constexpr ThemeKey themeKey(const char* name) {
   return ThemeKey{detail::themeFNV1a(name) | 0x80000000u};
 }
 
-// Builtin ramp keys for toolkit-owned surfaces: the host window,
-// the Lines text ink/size, and the focus ring. Everything else is
-// user space — apps add keys via themeKey("app.surface") (constexpr
-// FNV-1a, high-bit range so builtins never collide). No registry.
+// Builtin keys for toolkit-owned surfaces; everything else is user space.
 inline constexpr ThemeKey kThemeWindowBg{1};
 inline constexpr ThemeKey kThemeInkOnLight{8};
 inline constexpr ThemeKey kThemeFocusRing{11};
@@ -67,26 +46,25 @@ struct ThemeEntry {
   std::uint32_t bits = 0;
 };
 
-// A pushed scope: entries borrowed from the owning tree node (never
-// owned here). Within one scope later entries shadow earlier ones;
-// inner scopes shadow outer ones by chain order.
+// Borrowed entries from the owning node; inner scopes shadow outer ones.
+inline constexpr std::size_t kMaxThemeEntries = 8;
+
 struct ThemeScope {
-  const ThemeEntry* entries = nullptr;
+  ThemeEntry entries[kMaxThemeEntries]{};
   std::size_t count = 0;
 };
 
 inline ThemeEntry themeColor(ThemeKey key, std::uint32_t rgba) { return {key, rgba}; }
 inline ThemeEntry themeFloat(ThemeKey key, float v) {
-  std::uint32_t b = 0;
-  std::memcpy(&b, &v, sizeof(b));
-  return {key, b};
+  return {key, std::bit_cast<std::uint32_t>(v)};
 }
 inline ThemeEntry themeInt(ThemeKey key, int v) { return {key, static_cast<std::uint32_t>(v)}; }
 
 inline std::uint32_t themeColor(const Engine& e, ThemeKey key, std::uint32_t fallback) {
-  for (const Env* p = e.env; p; p = p->parent) {
-    if (p->type && *p->type == typeid(ThemeScope)) {
-      const auto* s = static_cast<const ThemeScope*>(p->ptr);
+  for (auto p = e.env; p; p = p->get().parent) {
+    const Env& n = p->get();
+    if (n.type && *n.type == typeid(ThemeScope)) {
+      const auto* s = static_cast<const ThemeScope*>(n.ptr);
       for (std::size_t i = s->count; i-- > 0;) {
         if (s->entries[i].key == key) return s->entries[i].bits;
       }
@@ -96,15 +74,13 @@ inline std::uint32_t themeColor(const Engine& e, ThemeKey key, std::uint32_t fal
 }
 
 inline float themeFloat(const Engine& e, ThemeKey key, float fallback) {
-  for (const Env* p = e.env; p; p = p->parent) {
-    if (p->type && *p->type == typeid(ThemeScope)) {
-      const auto* s = static_cast<const ThemeScope*>(p->ptr);
+  for (auto p = e.env; p; p = p->get().parent) {
+    const Env& n = p->get();
+    if (n.type && *n.type == typeid(ThemeScope)) {
+      const auto* s = static_cast<const ThemeScope*>(n.ptr);
       for (std::size_t i = s->count; i-- > 0;) {
         if (s->entries[i].key == key) {
-          float v = 0;
-          std::uint32_t b = s->entries[i].bits;
-          std::memcpy(&v, &b, sizeof(v));
-          return v;
+          return std::bit_cast<float>(s->entries[i].bits);
         }
       }
     }
@@ -113,9 +89,10 @@ inline float themeFloat(const Engine& e, ThemeKey key, float fallback) {
 }
 
 inline int themeInt(const Engine& e, ThemeKey key, int fallback) {
-  for (const Env* p = e.env; p; p = p->parent) {
-    if (p->type && *p->type == typeid(ThemeScope)) {
-      const auto* s = static_cast<const ThemeScope*>(p->ptr);
+  for (auto p = e.env; p; p = p->get().parent) {
+    const Env& n = p->get();
+    if (n.type && *n.type == typeid(ThemeScope)) {
+      const auto* s = static_cast<const ThemeScope*>(n.ptr);
       for (std::size_t i = s->count; i-- > 0;) {
         if (s->entries[i].key == key) return static_cast<int>(s->entries[i].bits);
       }
@@ -124,9 +101,7 @@ inline int themeInt(const Engine& e, ThemeKey key, int fallback) {
   return fallback;
 }
 
-// Opt-in theme scope: an element exposing its entries is pushed by
-// the walk (see Walk.h) and by its own place/childBox, so layout and
-// paint agree from one call each.
+// Opt-in scope: pushed by walk and by place/childBox so layout and paint agree.
 template <class T, class = void>
 struct has_theme_entries : std::false_type {};
 template <class T>

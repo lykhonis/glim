@@ -43,7 +43,7 @@ struct Hasher {
   }
 };
 
-// Bucket pixelRatio so tiny jitter does not thrash the cache.
+// Bucket pixelRatio so jitter does not thrash the cache.
 float bucketPixelRatio(float pr) {
   if (!(pr > 0.f)) {
     return 1.f;
@@ -56,12 +56,9 @@ struct FpContext {
   Vec2 origin{};
   bool hasForeign = false;
   bool has3D = false;
-  // Fingerprints of sampled images, keyed by imageId. Slots are
-  // append-only and add() never mutates a stored image, so id->content is
-  // immutable within a store; entries are validated against the live slot
-  // (pointer + dimensions) so ids from a different ImageStore never alias.
+  // Slots are append-only; validate against the live slot so cross-store ids never alias.
   std::unordered_map<std::uint32_t, SceneHashCache::Entry> imageFp;
-  const ImageStore* images = nullptr;
+  std::optional<std::reference_wrapper<const ImageStore>> images;
 };
 
 void hashRect(FpContext& ctx, const Rect& r, bool normalize);
@@ -83,32 +80,32 @@ void hashImageRef(FpContext& ctx, std::uint32_t imageId) {
   if (imageId == 0 || !ctx.images) {
     return;
   }
-  const StoredImage* img = ctx.images->get(imageId);
+  auto img = ctx.images->get().get(imageId);
   if (!img) {
     return;
   }
-  if (img->foreign) {
-    // Volatile (video): identity includes the native handle, and the
-    // scene is marked uncacheable below.
+  const StoredImage& im = img->get();
+  if (im.foreign) {
+    // Volatile (video): native handle in the key; scene uncacheable.
     ctx.hasForeign = true;
-    ctx.h.u64(static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(img->native)));
-    ctx.h.u32(static_cast<std::uint32_t>(img->width));
-    ctx.h.u32(static_cast<std::uint32_t>(img->height));
-    ctx.h.u32(static_cast<std::uint32_t>(img->format));
+    ctx.h.u64(static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(im.native)));
+    ctx.h.u32(static_cast<std::uint32_t>(im.width));
+    ctx.h.u32(static_cast<std::uint32_t>(im.height));
+    ctx.h.u32(static_cast<std::uint32_t>(im.format));
     return;
   }
   auto it = ctx.imageFp.find(imageId);
-  if (it != ctx.imageFp.end() && it->second.ptr == img && it->second.w == img->width &&
-      it->second.h == img->height && it->second.bytes == img->rgba.size()) {
+  if (it != ctx.imageFp.end() && it->second.ptr == &im && it->second.w == im.width &&
+      it->second.h == im.height && it->second.bytes == im.rgba.size()) {
     ctx.h.u64(it->second.fp);
     return;
   }
   SceneHashCache::Entry entry;
-  entry.ptr = img;
-  entry.w = img->width;
-  entry.h = img->height;
-  entry.bytes = img->rgba.size();
-  entry.fp = fingerprintSampled(*img);
+  entry.ptr = &im;
+  entry.w = im.width;
+  entry.h = im.height;
+  entry.bytes = im.rgba.size();
+  entry.fp = fingerprintSampled(im);
   ctx.imageFp[imageId] = entry;
   ctx.h.u64(entry.fp);
 }
@@ -145,11 +142,7 @@ void hashShape(FpContext& ctx, const Shape& s, bool normalize);
 
 void hashGroup(FpContext& ctx, const Group& g, int windowLevel);
 
-// Window-space origin for translation normalization. Only root-level
-// quantities live in window space: root shapes (baked at record), the root
-// bounds/clip, and direct-child transform translations (local->window).
-// Deeper levels are child-local and never move under a whole-scene shift,
-// so they hash raw and must not anchor the origin.
+// Only root-level quantities live in window space; deeper levels hash raw.
 Vec2 windowOrigin(const Group& root) {
   float x = std::numeric_limits<float>::infinity();
   float y = std::numeric_limits<float>::infinity();
@@ -166,8 +159,7 @@ Vec2 windowOrigin(const Group& root) {
       consider(r.origin.x, r.origin.y);
     }
   };
-  // Gradient geometry may extend beyond its Shape rect; anchor it too so a
-  // whole-scene shift still normalizes.
+  // Gradient geometry can exceed its rect; anchor it too.
   const auto considerMatter = [&](const Matter& m) {
     if (!m.isGradient()) {
       return;
@@ -212,7 +204,7 @@ Vec2 windowOrigin(const Group& root) {
 }
 
 void hashSceneInto(FpContext& ctx, const Scene& scene, float pixelRatio) {
-  ctx.images = &scene.images;
+  ctx.images = scene.images;
   ctx.origin = windowOrigin(scene.root);
   ctx.h.f32(scene.logicalSize.x);
   ctx.h.f32(scene.logicalSize.y);
@@ -220,9 +212,7 @@ void hashSceneInto(FpContext& ctx, const Scene& scene, float pixelRatio) {
   hashGroup(ctx, scene.root, 0);
 }
 void hashRect(FpContext& ctx, const Rect& r, bool normalize) {
-  // Only non-empty rects carry position. An empty rect is "unset"
-  // (bounds/clip default); normalizing its origin would inject the scene
-  // translation into the key and break translation-only hits.
+  // Empty rects are unset; normalizing them would break translation-only hits.
   const bool placed = normalize && r.size.x > 0.f && r.size.y > 0.f;
   ctx.h.f32(placed ? r.origin.x - ctx.origin.x : r.origin.x);
   ctx.h.f32(placed ? r.origin.y - ctx.origin.y : r.origin.y);
@@ -289,11 +279,7 @@ void hashShape(FpContext& ctx, const Shape& s, bool normalize) {
   }
 }
 
-// windowLevel: 0 = root (window space: normalize content; the root transform
-// itself never carries scene translation, so it hashes raw), 1 = direct
-// child (transform maps local->window: normalize transform only; local
-// content hashes raw), 2+ = deeper (child-local: hash raw; never moves under
-// a whole-scene shift).
+// Level 0 normalizes content, 1 normalizes transform only, 2+ hashes raw.
 void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
   const GroupParams& p = g.params;
   const bool windowContent = windowLevel == 0;
@@ -347,15 +333,8 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
 
 // ---- Tile dirty tracking -------------------------------------------------
 //
-// Coarse tiles (kTileSize drawable px) carry a structural hash of the paint
-// items overlapping them. Diffing consecutive frames yields Stats.dirtyTiles:
-// an advisory count of tiles whose content changed. It does not drive
-// partial re-encode yet (the packet cache is whole-scene); it exists so a
-// future per-tile encode stage and dirty-region scissor can consume it.
-//
-// Over-marking is safe (extra work), under-marking is not. Item bounds are
-// therefore conservative: rotated/non-affine groups fall back to the full
-// scene rect. SlotHoles emit no coverage and are skipped.
+// Coarse kTileSize tiles carry item hashes; the diff is an advisory dirty count.
+// Over-marking is safe; item bounds stay conservative. SlotHoles emit no coverage.
 
 namespace {
 
@@ -373,7 +352,6 @@ Rect unionTileRect(Rect a, Rect b) {
   return {{x0, y0}, {x1 - x0, y1 - y0}};
 }
 
-// Window-space paint bounds of a root shape. Empty = no coverage (skipped).
 Rect shapeTileBounds(const Shape& s) {
   if (const auto* f = std::get_if<FillRect>(&s)) {
     return f->rect;
@@ -405,11 +383,10 @@ bool isAxisAligned2D(const Mat4& t) {
   if (t.is3D()) {
     return false;
   }
-  // No rotation/reflection: off-diagonals of the XY 2x2 must be ~0.
   return std::fabs(t.m[1]) <= 1e-5f && std::fabs(t.m[4]) <= 1e-5f;
 }
 
-// Window-space bounds of a direct child subtree. Conservative by design.
+// Conservative by design.
 Rect childTileBounds(const Group& child, Vec2 fallback) {
   Rect local = child.params.bounds;
   local = unionTileRect(local, contentBounds(child));
@@ -461,8 +438,7 @@ struct TileGrid {
   std::vector<std::uint64_t> hash;
 };
 
-// Mix one item hash into every tile its bounds overlap. Bounds are logical;
-// tiles are kTileSize device px at the bucketed ratio.
+// Bounds are logical; tiles are kTileSize device px at the bucketed ratio.
 void splatItem(TileGrid& grid, const TileItem& item, float pr) {
   if (item.bounds.size.x <= 0.f || item.bounds.size.y <= 0.f || grid.tx <= 0 || grid.ty <= 0 ||
       !(pr > 0.f)) {
@@ -581,10 +557,8 @@ Rect dirtyUnion(const TileGrid& cur, const TileGrid& last, Vec2 logical, float p
 
 }  // namespace
 
-// Whole-scene translation shifts top-level quads/blits and isolate dest
-// rects. Isolate *contents* are surface-relative (encodeIsolate rebases by
-// -surface.origin), so they are unchanged. Isolate dest UVs are
-// window-relative and must be recomputed from the new dest.
+// Translation shifts top-level quads and isolate dests; surface-relative contents are
+// unchanged, but window-relative dest UVs must be recomputed.
 void rebaseIsolateUv(Isolate& iso, Vec2 logicalSize) {
   if (logicalSize.x <= 0.f || logicalSize.y <= 0.f) {
     return;
@@ -646,8 +620,7 @@ struct ReuseCache::Impl {
   std::deque<std::uint64_t> order;
   std::unordered_map<std::uint64_t, Entry> entries;
   SceneHashCache imageFp;
-  // Consecutive-frame tile hashes for dirty tracking (Phase 3). Independent
-  // of the packet entries: tiles describe the last encoded frame.
+  // Tile hashes describe the last frame, independent of packet entries.
   TileGrid lastTiles;
   bool hasTiles = false;
 };
@@ -698,8 +671,7 @@ std::uint64_t hashSceneStructure(
 
 FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
   const auto t0 = std::chrono::steady_clock::now();
-  // Seed the fingerprint cache with previously computed entries so
-  // sampled-image bytes hash once per imageId (slots are append-only).
+  // Seed the fingerprint cache so image bytes hash once per imageId.
   FpContext probe;
   probe.imageFp = impl_->imageFp.images;
   hashSceneInto(probe, scene, pixelRatio);

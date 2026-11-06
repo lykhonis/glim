@@ -1,9 +1,7 @@
 #pragma once
 
-// Op archive (transport/embed side): encode ops to bytes / decode
-// back. Magic + version; decode rejects wrong magic, wrong major,
-// truncation. The toolkit owns Op + the recorder; the byte layout
-// lives here, next to the host that ships it.
+// Op archive (transport/embed side): magic + version; decode rejects wrong
+// magic, wrong major, truncation. Byte layout lives here, next to the host.
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -95,8 +93,6 @@ inline Box getBox(Reader& r) {
 
 }  // namespace detail
 
-// Archive: encode ops to bytes / decode back. Magic + version; decode
-// rejects wrong magic, wrong major, truncation.
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
@@ -120,7 +116,6 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putI32(out, o.radius);
       detail::putU8(out, o.clear ? 1 : 0);
     } else if (o.kind == K::PushClip) {
-      // box + mark only
     } else if (o.kind == K::PushBlend) {
       detail::putU8(out, o.plus ? 1 : 0);
     } else if (o.kind == K::Slot) {
@@ -184,7 +179,6 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.radius = r.i32();
       o.clear = r.u8() != 0;
     } else if (o.kind == K::PushClip) {
-      // box + mark only
     } else if (o.kind == K::PushBlend) {
       o.plus = r.u8() != 0;
     } else if (o.kind == K::Slot) {

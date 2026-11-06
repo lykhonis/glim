@@ -11,9 +11,7 @@
 namespace glim {
 namespace toolkit {
 
-// Homogeneous repeated region. Eager v1: all items laid out like a `Column`;
-// composes with `Roll` for scrolling. Virtualization later.
-// Factories take (count, fn) — fn(i) returns a Block/viewable/element.
+// Eager v1: all items laid out; virtualization later.
 struct List : WithGap {
   static constexpr const char* kKind = "List";
   const char* kind() const { return kKind; }

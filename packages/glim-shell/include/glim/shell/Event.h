@@ -47,10 +47,7 @@ class Event {
   Key key() const { return key_; }
   PointerButton button() const { return button_; }
   int pointerId() const { return pointerId_; }
-  // Wheel deltas in logical pixels. Positive dx scrolls content left
-  // (reveals right), positive dy scrolls content up (reveals below) —
-  // matches web WheelEvent sign; AppKit's scrollWheel deltas arrive
-  // negated into this convention.
+  // Wheel in logical px, web sign (dy > 0 reveals below); AppKit deltas negated.
   float dx() const { return dx_; }
   float dy() const { return dy_; }
 

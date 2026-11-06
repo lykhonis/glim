@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <optional>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
@@ -35,19 +37,23 @@ struct Block {
   Block(Seat s) : v(std::move(s)) {}
   Block(Custom c) : v(std::move(c)) {}
   template <class T>
-  const T* get() const {
-    return std::get_if<T>(&v);
+  std::optional<std::reference_wrapper<const T>> get() const {
+    if (const T* p = std::get_if<T>(&v)) return std::cref(*p);
+    return std::nullopt;
   }
   template <class T>
-  const T* tag() const {
-    if (const auto* c = get<Custom>()) {
-      return static_cast<const T*>(c->tagPtr(typeid(T)));
+  std::optional<std::reference_wrapper<const T>> tag() const {
+    if (auto c = get<Custom>()) {
+      if (const void* p = c->get().tagPtr(typeid(T))) {
+        return std::cref(*static_cast<const T*>(p));
+      }
+      return std::nullopt;
     }
-    return nullptr;
+    return std::nullopt;
   }
   template <class T>
   bool has() const {
-    if (const auto* c = get<Custom>()) return c->hasTag(typeid(T));
+    if (auto c = get<Custom>()) return c->get().hasTag(typeid(T));
     return false;
   }
 };

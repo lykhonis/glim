@@ -11,10 +11,7 @@ Mat4 Mat4::identity() noexcept {
 Mat4 Mat4::orthoYDown(
     float left, float top, float right, float bottom, float zNear, float zFar
 ) noexcept {
-  // Maps paint Y-down (y=top at window top) into Y-up NDC (Metal / GL):
-  //   x: left → -1, right → +1
-  //   y: top  → +1, bottom → -1
-  // Equivalent to glm::ortho(left, right, bottom, top, zNear, zFar).
+  // Y-down paint to Y-up NDC; equiv. glm::ortho(l, r, b, t, zn, zf).
   const float rl = right - left;
   const float tb = top - bottom;
   const float fn = zFar - zNear;
@@ -68,7 +65,7 @@ Vec4 Mat4::operator*(const Vec4& v) const noexcept {
 }
 
 bool Mat4::is3D(float eps) const noexcept {
-  // 2D affine in XY: Z basis is (0,0,1), w-row is (0,0,0,1). tx/ty (m[12], m[13]) are not 3D.
+  // 2D affine only: tx/ty (m[12], m[13]) are not 3D.
   auto nz = [eps](float v) { return std::fabs(v) > eps; };
   return nz(m[2]) || nz(m[3]) || nz(m[6]) || nz(m[7]) || nz(m[8]) || nz(m[9]) || nz(m[11]) ||
          nz(m[14]) || nz(m[10] - 1.0f) || nz(m[15] - 1.0f);

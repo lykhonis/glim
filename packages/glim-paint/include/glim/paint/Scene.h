@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <variant>
 #include <vector>
 
@@ -37,13 +38,13 @@ struct StoredImage {
   bool foreign = false;
 };
 
-// CPU pixels keyed by paint-level id. No gpu::Handle. Shared across Context/Scene copies.
+// No gpu::Handle; shared across Context/Scene copies.
 struct ImageStore {
   ImageStore();
   std::uint32_t add(int width, int height, const std::uint8_t* rgba);
   std::uint32_t wrap(void* native, int width, int height, SampleFormat format);
   void release(std::uint32_t id);
-  const StoredImage* get(std::uint32_t id) const;
+  std::optional<std::reference_wrapper<const StoredImage>> get(std::uint32_t id) const;
 
  private:
   struct Data {
@@ -75,9 +76,7 @@ struct Glass {
   }
 };
 
-// Pigment for a Shape. Solid, sampled, foreign (imageId), or gradient.
-// Gradient geometry lives in the same logical space as the Shape rect and is
-// transformed with it. Stops are sorted by offset by the factories.
+// Gradient geometry shares the Shape rect space; factories sort stops by offset.
 struct Matter {
   MatterKind kind = MatterKind::Solid;
   Color color{};
@@ -151,7 +150,6 @@ inline void Matter::setGradientStops(const GradientStop* stops, int count) {
     gradientStops[i] = stops[i];
   }
   gradientStopCount = count;
-  // Insertion sort by offset; stable for equal offsets.
   for (int i = 1; i < gradientStopCount; ++i) {
     GradientStop key = gradientStops[i];
     int j = i - 1;
@@ -161,8 +159,7 @@ inline void Matter::setGradientStops(const GradientStop* stops, int count) {
     }
     gradientStops[j + 1] = key;
   }
-  // Legacy single-color paths (Blit tint, GlyphRun color) degrade to the
-  // first stop instead of black.
+  // Legacy single-color paths degrade to the first stop, not black.
   color = gradientStops[0].color;
 }
 
@@ -232,7 +229,7 @@ struct GlyphRun {
   std::vector<GlyphQuad> glyphs;
 };
 
-// Hosted native hole. Occupies a rect; Renderer emits no coverage. Illegal under needsIsolate.
+// Hosted native hole. Illegal under needsIsolate.
 struct SlotHole {
   Rect rect{};
   std::uint32_t id = 0;
@@ -348,7 +345,7 @@ bool hasGlass(const Group&) noexcept;
 bool isGlassContainer(const Group&) noexcept;
 bool hasGlassWork(const Group&) noexcept;
 Rect glassSurface(const Group&);
-int collectGlassPills(const Group&, GlassPill* out);
+int collectGlassPills(const Group&, std::span<GlassPill> out);
 void dropGlassPills(Group&);
 void clearGlassParams(GroupParams&);
 void stripGlassForIsolate(Group&);

@@ -6,7 +6,9 @@
 #include "glim/toolkit/Toolkit.h"
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
+#include "motion/Anim.h"
 #include "widgets/Button.h"
+#include "widgets/Card.h"
 #include "widgets/Checkbox.h"
 #include "widgets/Field.h"
 #include "widgets/Glass.h"
@@ -22,8 +24,11 @@ namespace toolkit {
 
 Block showcaseTree(Scope app) {
   auto wifi = app.state("wifi", true);
+  Anim<float> wifiPos{app, "wifi-pos", 1.0f};
   auto sound = app.state("sound", false);
+  Anim<float> soundPos{app, "sound-pos", 0.0f};
   auto range = app.state("range", 1);
+  Anim<float> rangePos{app, "range-pos", 1.0f};
   auto level = app.state("level", 0.4f);
   auto taps = app.state("taps", 0);
   auto vscroll = app.state("vscroll", 0.0f);
@@ -94,9 +99,12 @@ Block showcaseTree(Scope app) {
                   ))
               )
           ),
-          section("Switch", toggle(wifi)),
+          section("Switch", toggle({.value = wifi, .pos = wifiPos})),
           section(
-              "Checkbox", checkbox({.label = "Sound", .value = sound})
+              "Checkbox",
+              checkbox(
+                  {.label = "Sound", .value = sound, .pos = soundPos}
+              )
           ),
           section(
               "Overflow & horizontal scroll",
@@ -108,10 +116,8 @@ Block showcaseTree(Scope app) {
                       wrap()
                   ),
                   [&] {
-                    // Ten chips as direct children: List is
-                    // column-only, so a horizontal strip builds its
-                    // Roll imperatively (the same plain struct the
-                    // roll() factory configures).
+                    // Twelve chips: List is column-only, so a
+                    // horizontal strip builds its Roll imperatively.
                     Roll strip;
                     strip.axis = kAxisHorizontal;
                     strip.gap = 8;
@@ -129,7 +135,8 @@ Block showcaseTree(Scope app) {
               "Segmented",
               segmented(
                   {.options = {"Day", "Week", "Month"},
-                   .selected = range}
+                   .selected = range,
+                   .selPos = rangePos}
               )
           ),
           section("Slider", slider(level)),
@@ -145,7 +152,7 @@ namespace {
 
 glim::toolkit::Engine engineFor(glim::toolkit::Store& store) {
   glim::toolkit::Engine e = glim::toolkit::host::measureEngine();
-  e.store = &store;
+  e.store = store;
   return e;
 }
 
@@ -210,9 +217,7 @@ extern "C" int glim_app_main() {
 #else
 int main() {
 #endif
-  // The whole app: one tree function. The host owns Store, Screen,
-  // measuring Engine, and paint — scoped state allocates into the
-  // host Store where it renders.
+  // One tree function; the host owns Store, Screen, Engine, and paint.
   return host::run({"Glim Showcase", 720, 480}, [](const Engine& e) {
     return showcaseTree(rootScope(e));
   });

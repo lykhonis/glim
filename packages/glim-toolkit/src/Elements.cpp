@@ -1,9 +1,4 @@
-// Out-of-line special members for the container elements
-// (Row/Column/Stack/Tap/List/Roll): each owns a vector<Block> while
-// Block is still incomplete (Block.h includes the element headers
-// first), and C++20 constexpr vector instantiates eagerly there.
-// Defaulting here keeps the cycle working with identical semantics.
-
+// Defaulted here: Block is incomplete in element headers and vector instantiates eagerly.
 #include "glim/toolkit/Block.h"
 
 namespace glim {

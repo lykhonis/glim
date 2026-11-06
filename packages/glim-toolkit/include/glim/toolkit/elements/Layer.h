@@ -10,11 +10,7 @@
 namespace glim {
 namespace toolkit {
 
-// Foreign-pixel plate. Fixed 16:9 box; pixels come from the host
-// feed binding (AnySink::layer), resolved by the host before the
-// walk, so the element never touches image provisioning. Carries no
-// texture id itself — ids stay embedder-owned. Video frames are one
-// use; custom GPU layers are the general case.
+// Foreign-pixel plate: fixed 16:9 box; ids stay embedder-owned.
 struct Layer {
   static constexpr const char* kKind = "Layer";
   const char* kind() const { return kKind; }
