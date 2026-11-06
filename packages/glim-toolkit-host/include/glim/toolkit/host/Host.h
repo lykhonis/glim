@@ -18,6 +18,7 @@
 #include "glim/toolkit/Screen.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/host/SeatView.h"
+#include "glim/toolkit/host/Telemetry.h"
 
 namespace glim {
 namespace toolkit {
@@ -27,11 +28,12 @@ struct Config {
   const char* title = "Glim";
   int width = 720;
   int height = 480;
-#if defined(NDEBUG)
-  bool overlay = false;
-#else
-  bool overlay = true;
-#endif
+  // macOS modern chrome: hide the system title, extend content under
+  // the titlebar, keep traffic lights. The app paints its own bar
+  // and empty header areas drag the window (see Host drag strip).
+  bool customTitlebar = false;
+  // Draggable strip height in logical px from the top edge.
+  float titleDragHeight = 52.0f;
 };
 
 struct Frame {
@@ -58,6 +60,8 @@ using A11ySink = std::function<void(const std::vector<A11yNode>& nodes, int focu
 // Null factory means the platform default.
 // Getting-started path: the host owns Store, Screen, measuring Engine, and
 // the default paint; scoped state allocates into the host Store where it renders.
+// Telemetry is opt-in both ways: hub retains the ring for pull (dashboard
+// labels/charts), sink fires per painted frame for push (log/ship elsewhere).
 int run(
     const Config& config,
     Screen& screen,
@@ -66,7 +70,9 @@ int run(
     Build build,
     Record record,
     SeatViewFactory makeSeatView = nullptr,
-    A11ySink a11ySink = nullptr
+    A11ySink a11ySink = nullptr,
+    TelemetryHub* telemetry = nullptr,
+    TelemetrySink telemetrySink = nullptr
 );
 
 // Getting-started path: the host owns Store, Screen, measuring Engine, and
@@ -76,7 +82,9 @@ int run(
     Build build,
     Record record = Record{},
     SeatViewFactory makeSeatView = nullptr,
-    A11ySink a11ySink = nullptr
+    A11ySink a11ySink = nullptr,
+    TelemetryHub* telemetry = nullptr,
+    TelemetrySink telemetrySink = nullptr
 );
 
 }  // namespace host

@@ -115,6 +115,8 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
     if (o.kind == K::PushGlass) {
       detail::putI32(out, o.radius);
       detail::putU8(out, o.clear ? 1 : 0);
+      detail::putU8(out, o.edge);
+      detail::putU32(out, o.tint);
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       detail::putU8(out, o.plus ? 1 : 0);
@@ -178,6 +180,8 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
     if (o.kind == K::PushGlass) {
       o.radius = r.i32();
       o.clear = r.u8() != 0;
+      o.edge = r.u8();
+      o.tint = r.u32();
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       o.plus = r.u8() != 0;

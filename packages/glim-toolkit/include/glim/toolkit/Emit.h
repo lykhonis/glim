@@ -2,6 +2,7 @@
 
 // Block tree → sink emission on the canonical walk; sink-agnostic.
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "glim/toolkit/Block.h"
@@ -33,8 +34,15 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         }
         paintSelf(n, bx, sink, feed, en);
         // Glass tags go on fill-only containers; text inside glass would frost.
+        // Edge mask rides the group so flat plates skip the rim/hairline.
         if (auto g = n.tag<GlassTag>()) {
-          sink.pushGlass(bx, g->get().radius, g->get().clear);
+          sink.pushGlass(
+              bx,
+              g->get().radius,
+              g->get().clear,
+              static_cast<std::uint8_t>(g->get().edge),
+              g->get().tint
+          );
           sink.pop();
         }
         if (clipsChildren(n)) {

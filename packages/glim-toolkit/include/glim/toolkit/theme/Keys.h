@@ -47,7 +47,7 @@ struct ThemeEntry {
 };
 
 // Borrowed entries from the owning node; inner scopes shadow outer ones.
-inline constexpr std::size_t kMaxThemeEntries = 8;
+inline constexpr std::size_t kMaxThemeEntries = 32;
 
 struct ThemeScope {
   ThemeEntry entries[kMaxThemeEntries]{};

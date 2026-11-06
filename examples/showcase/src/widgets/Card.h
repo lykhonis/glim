@@ -59,23 +59,25 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
         themeColor(e, kShowCardTop, Show::kCardTop),
         themeColor(e, kShowCardBottom, Show::kCardBottom)
     );
-    // One soft inner hairline; large faces stay calm, edges catch
-    // light.
-    if (box.w > static_cast<float>(radius) + 6.0f) {
-      const float inset = static_cast<float>(radius) * 0.5f + 2.0f;
-      Box light{
-          box.x + inset, box.y + 1.0f, box.w - inset * 2.0f, 1.0f
-      };
-      sink.fillRounded(
-          light, 1, themeColor(e, kShowGlossSheen, Show::kGlossSheen)
-      );
-    }
-    sink.stroke(
-        box,
-        radius,
-        1.0f,
-        themeColor(e, kShowCardStroke, Show::kCardStroke)
-    );
+    const std::uint32_t edge =
+        themeColor(e, kShowCardStroke, Show::kCardStroke);
+    sink.stroke(box, radius, 1.0f, edge);
+    // HUD corner brackets: 4 x L strokes over the hairline.
+    const float L = 10.0f;
+    auto h = [&](float x, float y, float w) {
+      sink.fillRounded({x, y, w, 1.0f}, 1, edge);
+    };
+    auto v = [&](float x, float y, float hh) {
+      sink.fillRounded({x, y, 1.0f, hh}, 1, edge);
+    };
+    h(box.x, box.y, L);
+    v(box.x, box.y, L);
+    h(box.x + box.w - L, box.y, L);
+    v(box.x + box.w - 1.0f, box.y, L);
+    h(box.x, box.y + box.h - 1.0f, L);
+    v(box.x, box.y + box.h - L, L);
+    h(box.x + box.w - L, box.y + box.h - 1.0f, L);
+    v(box.x + box.w - 1.0f, box.y + box.h - L, L);
   }
 };
 

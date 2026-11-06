@@ -152,10 +152,11 @@ inline AnySink markSink(
         (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
     fr->inner->imageFn(fr->inner->sink, b, id, foreign, use);
   };
-  a.pushGlassFn = [](void* s, const Box& b, int radius, bool clear) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    fr->inner->pushGlassFn(fr->inner->sink, b, radius, clear);
-  };
+  a.pushGlassFn =
+      [](void* s, const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
+        const auto* fr = static_cast<const MarkFrame*>(s);
+        fr->inner->pushGlassFn(fr->inner->sink, b, radius, clear, edge, tint);
+      };
   a.pushClipFn = [](void* s, const Box& b) {
     const auto* fr = static_cast<const MarkFrame*>(s);
     fr->inner->pushClipFn(fr->inner->sink, b);

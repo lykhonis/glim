@@ -49,7 +49,9 @@ int main() {
     rec.stroke({0, 0, 10, 10}, 4, 2.0f, 0xffffffff);
     rec.text(1.0f, 2.0f, "hi", 0xffffffff, 14.0f, "m3");
     rec.image({0, 0, 10, 10}, 9, true);
-    rec.pushGlass({0, 0, 10, 10}, 12, true);
+    rec.pushGlass(
+        {0, 0, 10, 10}, 12, true, static_cast<std::uint8_t>(glim::toolkit::GlassEdge::Full), 0
+    );
     rec.pushClip({0, 0, 10, 10});
     rec.pop();
     rec.slot({0, 0, 10, 10}, 7);

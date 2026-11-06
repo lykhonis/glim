@@ -1,5 +1,7 @@
 #include "Isolates.h"
 
+#include <glim/paint/ColorSpace.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -90,9 +92,9 @@ GlassUniforms makeGlassUniforms(
   u.glareHardness = 0.0f;
   u.glareConvergence = 0.7f;
   u.glareIntensity = ident || g.flatten ? 0.f : 0.9f;
-  u.tint[0] = g.tint.red();
-  u.tint[1] = g.tint.green();
-  u.tint[2] = g.tint.blue();
+  u.tint[0] = srgbToLinear(g.tint.red());
+  u.tint[1] = srgbToLinear(g.tint.green());
+  u.tint[2] = srgbToLinear(g.tint.blue());
   u.tint[3] = g.tint.alpha();
   u.blurEdge = g.variant == GlassVariant::Regular ? 1.f : 0.f;
   u.lumaLift = 0.55f;
@@ -101,6 +103,7 @@ GlassUniforms makeGlassUniforms(
   u.dimmer = (!ident && !g.flatten && g.variant == GlassVariant::Clear) ? 0.12f : 0.f;
   u.interactive = g.interactive ? 1.f : 0.f;
   u.flatten = g.flatten ? 1.f : 0.f;
+  u.edge = static_cast<float>(static_cast<std::uint8_t>(g.edge));
   u.destUv0[0] = u0;
   u.destUv0[1] = v0;
   u.destUv1[0] = u1;

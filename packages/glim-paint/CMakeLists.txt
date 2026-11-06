@@ -7,7 +7,6 @@ add_library(glim-paint STATIC
     src/Software.cpp
     src/ImageStore.cpp
     src/Strip.cpp
-    src/Overlay.cpp
     src/Reuse.cpp
     src/Font.cpp)
 add_library(glim::paint ALIAS glim-paint)
@@ -149,11 +148,6 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-cpu-test)
     add_test(NAME glim-cpu-test COMMAND glim-cpu-test)
 
-    add_executable(glim-overlay-test tests/overlay_test.cpp)
-    target_link_libraries(glim-overlay-test PRIVATE glim::paint)
-    glim_target_defaults(glim-overlay-test)
-    add_test(NAME glim-overlay-test COMMAND glim-overlay-test)
-
     add_executable(glim-glyph-test tests/glyph_test.cpp)
     target_link_libraries(glim-glyph-test PRIVATE glim::paint-cpu)
     glim_target_defaults(glim-glyph-test)
@@ -207,7 +201,7 @@ if(GLIM_HOST_TESTS)
     endif()
 
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
-                      glim-overlay-test glim-glyph-test glim-slot-test glim-foreign-test
+                      glim-glyph-test glim-slot-test glim-foreign-test
                       glim-glass-test glim-hit-test glim-perf-test glim-reuse-test glim-gradient-test
                       glim-embed-cpu-test)
 endif()

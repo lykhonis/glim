@@ -848,38 +848,56 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
     p.b = p.b + (1.f - p.b) * rim;
   } else {
     const bool regular = mat.variant == GlassVariant::Regular;
-    // 0.04 linear ≈ old 0.22 sRGB wash (0.008 for Clear).
-    const float milk = regular ? 0.04f : 0.008f;
-    p.r = p.r + (1.f - p.r) * milk;
-    p.g = p.g + (1.f - p.g) * milk;
-    p.b = p.b + (1.f - p.b) * milk;
-    const float ta = mat.tint.alpha() * 0.12f;
-    // Plate is linear; convert sRGB tint constants to match.
-    const float tr = srgbToLinear(mat.tint.red());
-    const float tg = srgbToLinear(mat.tint.green());
-    const float tb = srgbToLinear(mat.tint.blue());
-    p.r = p.r + (tr - p.r) * ta;
-    p.g = p.g + (tg - p.g) * ta;
-    p.b = p.b + (tb - p.b) * ta;
+    if (mat.tint.a() != 0) {
+      // Tinted plate: the wash takes the tint color at its alpha.
+      // Transparent keeps the white milk. Plate is linear.
+      const float ta = mat.tint.alpha();
+      const float tr = srgbToLinear(mat.tint.red());
+      const float tg = srgbToLinear(mat.tint.green());
+      const float tb = srgbToLinear(mat.tint.blue());
+      p.r = p.r + (tr - p.r) * ta;
+      p.g = p.g + (tg - p.g) * ta;
+      p.b = p.b + (tb - p.b) * ta;
+    } else {
+      // 0.04 linear ≈ old 0.22 sRGB wash (0.008 for Clear).
+      const float milk = regular ? 0.04f : 0.008f;
+      p.r = p.r + (1.f - p.r) * milk;
+      p.g = p.g + (1.f - p.g) * milk;
+      p.b = p.b + (1.f - p.b) * milk;
+    }
+    // Edge light is per-side; signed side weights match the old
+    // symmetric darkening exactly when both sides are set.
     if (mask > 0.85f && f.d > -5.f) {
       const float inside = std::max(-f.d, 0.f);
       const float hair = std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f);
       const float hair2 = hair * hair * hair * hair * hair;
-      const float horiz = f.nx * f.nx;
-      p.r *= 1.f - horiz * hair2 * 0.38f;
-      p.g *= 1.f - horiz * hair2 * 0.38f;
-      p.b *= 1.f - horiz * hair2 * 0.38f;
-      const float top = std::clamp(-f.ny, 0.f, 1.f);
-      const float bot = std::clamp(f.ny, 0.f, 1.f);
+      float side = 0.f;
+      if (hasEdge(mat.edge, GlassEdge::Left)) {
+        const float w = std::clamp(-f.nx, 0.f, 1.f);
+        side += w * w;
+      }
+      if (hasEdge(mat.edge, GlassEdge::Right)) {
+        const float w = std::clamp(f.nx, 0.f, 1.f);
+        side += w * w;
+      }
+      p.r *= 1.f - side * hair2 * 0.38f;
+      p.g *= 1.f - side * hair2 * 0.38f;
+      p.b *= 1.f - side * hair2 * 0.38f;
+      const float top = hasEdge(mat.edge, GlassEdge::Top) ? std::clamp(-f.ny, 0.f, 1.f) : 0.f;
+      const float bot = hasEdge(mat.edge, GlassEdge::Bottom) ? std::clamp(f.ny, 0.f, 1.f) : 0.f;
       const float hi = hair2 * (top + bot * 0.62f);
       p.r = p.r + (1.f - p.r) * hi;
       p.g = p.g + (1.f - p.g) * hi;
       p.b = p.b + (1.f - p.b) * hi;
-      const float rim = std::clamp(1.f - std::fabs(f.d + 0.4f) / 2.4f, 0.f, 1.f);
-      const float rimA = rim * rim * 0.12f;
-      p.r = p.r + (1.f - p.r) * rimA;
-      p.g = p.g + (1.f - p.g) * rimA;
-      p.b = p.b + (1.f - p.b) * rimA;
+      // The soft all-around rim belongs to the full jeweled plate;
+      // partial masks carry their look in the directional terms above.
+      if (mat.edge == GlassEdge::Full) {
+        const float rim = std::clamp(1.f - std::fabs(f.d + 0.4f) / 2.4f, 0.f, 1.f);
+        const float rimA = rim * rim * 0.12f;
+        p.r = p.r + (1.f - p.r) * rimA;
+        p.g = p.g + (1.f - p.g) * rimA;
+        p.b = p.b + (1.f - p.b) * rimA;
+      }
     }
   }
   p.r *= mask;

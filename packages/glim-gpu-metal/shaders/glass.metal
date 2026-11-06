@@ -35,7 +35,7 @@ struct GlassUniforms {
     float dimmer;
     float interactive;
     float flatten;
-    float _pad1;
+    float edge;
     float2 destUv0;
     float2 destUv1;
 };
@@ -263,27 +263,46 @@ fragment float4 fs_main(VSOut in [[stage_in]],
     float3 color = sampleRgb;
     const float L = rec709(pane);
     const float milkPull = (u.blurEdge > 0.5) ? 0.2 : 0.7;
-    const float milk = (u.lumaOn > 0.5 ? 0.22 : 0.08) * (1.0 - wrapX * milkPull);
-    color = mix(color, float3(1.0), milk);
+    // Plate wash: a set tint drives it, else the white milk.
+    float3 washRgb;
+    float washA;
+    if (u.tint.a > 0.0) {
+        washRgb = u.tint.rgb;
+        washA = u.tint.a;
+    } else {
+        washRgb = float3(1.0);
+        washA = (u.lumaOn > 0.5 ? 0.22 : 0.08) * (1.0 - wrapX * milkPull);
+    }
+    color = mix(color, washRgb, washA);
     if (u.lumaOn > 0.5) {
         const float high = saturate((L - 0.72) / 0.28);
         const float low = saturate((0.28 - L) / 0.28);
         color *= 1.0 - high * u.lumaShadow;
         color = mix(color, color + float3(0.06, 0.07, 0.08), low * u.lumaLift);
     }
-    color = mix(color, u.tint.rgb, u.tint.a * 0.12);
     if (u.dimmer > 0.0 && L > 0.72) {
         color = mix(color, color * 0.82, u.dimmer);
     }
 
-    // Thin inner hairline (peak ~1.2 device px in, past the AA fringe).
+    // Thin inner hairline, per-side like the software renderer.
     const float dprN = max(u.dpr, 1.0);
     const float inside = max(-d, 0.0);
     const float hair = pow(saturate(1.0 - abs(inside - 1.2 * dprN) / (1.8 * dprN)), 5.0);
-    const float horiz = n2.x * n2.x;
-    color *= 1.0 - horiz * hair * 0.42;
-    const float top = saturate(-n2.y);
-    const float bot = saturate(n2.y);
+    const float ebits = u.edge;
+    const bool eL = fmod(ebits, 2.0) > 0.5;
+    const bool eR = fmod(floor(ebits / 2.0), 2.0) > 0.5;
+    const bool eT = fmod(floor(ebits / 4.0), 2.0) > 0.5;
+    const bool eB = fmod(floor(ebits / 8.0), 2.0) > 0.5;
+    float sideW = 0.0;
+    if (eL) {
+        sideW += pow(saturate(-n2.x), 2.0);
+    }
+    if (eR) {
+        sideW += pow(saturate(n2.x), 2.0);
+    }
+    color *= 1.0 - sideW * hair * 0.42;
+    const float top = saturate(-n2.y) * (eT ? 1.0 : 0.0);
+    const float bot = saturate(n2.y) * (eB ? 1.0 : 0.0);
     const float hi = hair * (top * 1.0 + bot * 0.62) * max(u.glareIntensity, 0.7);
     color = mix(color, float3(1.0), saturate(hi));
     if (u.interactive > 0.5) {

@@ -10,12 +10,12 @@
 #if !GLIM_SOFTWARE
 #include <glim/shell/Surface.h>
 #endif
-#include <glim/paint/Overlay.h>
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/RunLoop.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Seats.h>
+#include <glim/toolkit/host/Telemetry.h>
 
 namespace glim {
 namespace toolkit {
@@ -47,13 +47,18 @@ int run(
     Build build,
     Record record,
     SeatViewFactory makeSeatView,
-    A11ySink a11ySink
+    A11ySink a11ySink,
+    TelemetryHub* telemetry,
+    TelemetrySink telemetrySink
 ) {
   SeatViewFactory effective = makeSeatView != nullptr ? makeSeatView : &makeDefaultSeatView;
   shell::Application host;
   shell::Window window;
   window.setTitle(config.title ? config.title : "Glim");
   window.setSize(config.width, config.height);
+  if (config.customTitlebar) {
+    window.setCustomTitlebar(true);
+  }
   window.center();
 
 #if !GLIM_SOFTWARE
@@ -72,11 +77,10 @@ int run(
 #if GLIM_SOFTWARE
   std::unique_ptr<paint::Renderer> renderer;
 #endif
-  paint::Overlay overlay;
-  overlay.setEnabled(config.overlay);
   const auto start = std::chrono::steady_clock::now();
   auto lastTick = start;
   bool reduceTransparency = false;
+  float lastFrameMs = 0.f;
 
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
@@ -111,46 +115,29 @@ int run(
     const float dt = std::chrono::duration<float>(now - lastTick).count();
     lastTick = now;
     screen.clock.advance(dt);
-    overlay.tick(dt);
+    lastFrameMs = dt * 1000.0f;
     return now;
   };
 
-  const auto paintBody = [&](const std::chrono::steady_clock::time_point& now) {
+  // Single choke point for every layer: shell frameMs in, toolkit
+  // build/record around user paint, paint/gpu stats after draw, one
+  // snapshot fanned out to pull (hub) and push (sink).
+  const auto paintBody = [&](const std::chrono::steady_clock::time_point& now, float frameMs) {
     const Vec2 size = window.size();
+    const auto b0 = std::chrono::steady_clock::now();
     auto [tree, box] = buildFresh(size);
+    const auto b1 = std::chrono::steady_clock::now();
     if (a11ySink) {
       a11ySink(a11yNodes(tree, box, active), screen.focus);
     }
     context.setSize(size);
     context.beginFrame();
     Frame frame = frameAt(std::chrono::duration<float>(now - start).count());
+    const auto r0 = std::chrono::steady_clock::now();
     if (record) {
-      const auto r0 = std::chrono::steady_clock::now();
       record(frame, tree, box);
-      const auto r1 = std::chrono::steady_clock::now();
-      if (overlay.enabled()) {
-        overlay.setRecordMs(std::chrono::duration<float>(r1 - r0).count() * 1000.0f);
-      }
     }
-    if (overlay.enabled()) {
-#if GLIM_SOFTWARE
-      if (renderer) {
-        overlay.setStats(renderer->stats());
-      }
-#else
-      overlay.setStats(renderer.stats());
-#endif
-      // Native seats sit above the scene; keep the chip clear of them.
-      // Previous frame's placements: one frame stale, invisible for debug.
-      glim::Rect avoid[8];
-      int avoidCount = 0;
-      for (const auto& e : attached) {
-        if (avoidCount >= 8) break;
-        avoid[avoidCount++] = e.second;
-      }
-      overlay.setAvoid(avoidCount > 0 ? avoid : nullptr, avoidCount);
-      overlay.record(context, window.safeArea());
-    }
+    const auto r1 = std::chrono::steady_clock::now();
     context.finish();
     syncSeats(window, context.scene(), attached, effective);
 #if GLIM_SOFTWARE
@@ -173,12 +160,38 @@ int run(
     );
     renderer.draw(context.scene());
 #endif
+    if (telemetry != nullptr || telemetrySink) {
+      paint::Stats stats{};
+#if GLIM_SOFTWARE
+      if (renderer) {
+        stats = renderer->stats();
+      }
+#else
+      stats = renderer.stats();
+#endif
+      FrameTelemetry sample;
+      sample.frameMs = frameMs;
+      sample.buildMs = std::chrono::duration<float>(b1 - b0).count() * 1000.0f;
+      sample.recordMs = std::chrono::duration<float>(r1 - r0).count() * 1000.0f;
+      sample.encodeMs = stats.encodeMs;
+      sample.stats = stats;
+      sample.size = size;
+      sample.safeArea = window.safeArea();
+      sample.time = std::chrono::duration<float>(now - start).count();
+      sample.revision = store.revision();
+      if (telemetry != nullptr) {
+        telemetry->push(sample);
+      }
+      if (telemetrySink) {
+        telemetrySink(sample);
+      }
+    }
     screen.painted(store);
   };
 
   const auto paint = [&] {
     const auto now = tickClock();
-    paintBody(now);
+    paintBody(now, lastFrameMs);
   };
 
   window.setEventCallback([&](const shell::Event& e) {
@@ -196,10 +209,12 @@ int run(
       auto [tree, box] = buildFresh(window.size());
       if (screen.pointerDown(tree, box, e.x(), e.y(), e.pointerId(), active)) {
         paint();
-        return;
+      } else if (config.customTitlebar && e.y() < config.titleDragHeight) {
+        // Empty chrome drags: toolkit ignored the press inside the
+        // custom header strip, so hand it to AppKit. Controls that
+        // consumed the press (buttons, sliders, nav) never reach here.
+        window.dragWindow();
       }
-      overlay.toggleExpanded();
-      paint();
       return;
     }
     if (e.type() == T::PointerUp) {
@@ -232,11 +247,6 @@ int run(
         if (screen.key(tree, box, *key, active)) {
           paint();
         }
-        return;
-      }
-      if (e.key() == shell::Key::Enter) {
-        overlay.toggleExpanded();
-        paint();
       }
       return;
     }
@@ -249,14 +259,14 @@ int run(
       // and seat frames land in the same commit. Tick paints must not repaint
       // here or the two sources interleave phases and judder.
       const auto now = std::chrono::steady_clock::now();
-      paintBody(now);
+      paintBody(now, 0.f);
       paintedSize = window.size();
       return;
     }
     if (e.type() == T::Frame) {
       // Clock ticks every vsync; the scene re-records only when Screen's
-      // revision moved or the overlay snapshot turned over. Live values step
-      // first (tree-free); their writes bump the revision and paint below.
+      // revision moved. Live values step first (tree-free); their writes
+      // bump the revision and paint below.
       const auto now = tickClock();
       if (store.valuesLive()) {
         store.stepValues(screen.clock.now);
@@ -265,8 +275,8 @@ int run(
         auto [tree, box] = buildFresh(window.size());
         screen.tick(tree, box, active);
       }
-      if (screen.needsPaint(store) || overlay.statsDirty()) {
-        paintBody(now);
+      if (screen.needsPaint(store)) {
+        paintBody(now, lastFrameMs);
         paintedSize = window.size();
       }
     }
@@ -281,7 +291,9 @@ int run(
     Build build,
     Record record,
     SeatViewFactory makeSeatView,
-    A11ySink a11ySink
+    A11ySink a11ySink,
+    TelemetryHub* telemetry,
+    TelemetrySink telemetrySink
 ) {
   // Owned defaults: the loop borrows these, so locals must outlive it.
   Store store;
@@ -296,7 +308,18 @@ int run(
       paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
     };
   }
-  return run(config, screen, store, engine, build, effective, makeSeatView, a11ySink);
+  return run(
+      config,
+      screen,
+      store,
+      engine,
+      build,
+      effective,
+      makeSeatView,
+      a11ySink,
+      telemetry,
+      telemetrySink
+  );
 }
 
 }  // namespace host

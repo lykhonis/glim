@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <type_traits>
 #include <typeinfo>
@@ -79,7 +80,7 @@ struct AnySink {
   void (*textFn)(void*, float, float, const std::string&, std::uint32_t, float, const std::string&) =
       nullptr;
   void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
-  void (*pushGlassFn)(void*, const Box&, int, bool) = nullptr;
+  void (*pushGlassFn)(void*, const Box&, int, bool, std::uint8_t, std::uint32_t) = nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*popFn)(void*) = nullptr;
@@ -114,7 +115,9 @@ struct AnySink {
   void image(const Box& b, std::uint32_t id, bool foreign, const std::string& mark = {}) {
     imageFn(sink, b, id, foreign, mark);
   }
-  void pushGlass(const Box& b, int radius, bool clear) { pushGlassFn(sink, b, radius, clear); }
+  void pushGlass(const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
+    pushGlassFn(sink, b, radius, clear, edge, tint);
+  }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
   void pop() { popFn(sink); }
@@ -158,9 +161,10 @@ AnySink wrapSink(S& sink, F& feed) {
   a.imageFn = [](void* s, const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
     static_cast<S*>(s)->image(b, id, foreign, m);
   };
-  a.pushGlassFn = [](void* s, const Box& b, int radius, bool clear) {
-    static_cast<S*>(s)->pushGlass(b, radius, clear);
-  };
+  a.pushGlassFn =
+      [](void* s, const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
+        static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint);
+      };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };

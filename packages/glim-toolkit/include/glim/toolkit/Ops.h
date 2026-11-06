@@ -30,9 +30,11 @@ struct Op {
   Rec::Entry entry;  // valid when kind == Entry
   Box box{};
   int radius = 0;
-  bool clear = false;    // PushGlass variant
-  bool plus = false;     // PushBlend variant (additive light)
-  bool foreign = false;  // Image variant
+  bool clear = false;      // PushGlass variant
+  bool plus = false;       // PushBlend variant (additive light)
+  bool foreign = false;    // Image variant
+  std::uint8_t edge = 15;  // PushGlass edge mask (toolkit GlassEdge bits)
+  std::uint32_t tint = 0;  // PushGlass plate tint (0xRRGGBBAA, 0 = milk)
   std::uint32_t rgba = 0;
   std::uint32_t rgba2 = 0;  // FillGradient bottom
   std::uint32_t image = 0;  // Image variant
@@ -47,9 +49,9 @@ struct Op {
            entry.box.h == o.entry.box.h && entry.text == o.entry.text &&
            entry.mark == o.entry.mark && entry.radius == o.entry.radius && box.x == o.box.x &&
            box.y == o.box.y && box.w == o.box.w && box.h == o.box.h && radius == o.radius &&
-           clear == o.clear && plus == o.plus && foreign == o.foreign && rgba == o.rgba &&
-           rgba2 == o.rgba2 && image == o.image && slot == o.slot && width == o.width &&
-           size == o.size && text == o.text && mark == o.mark;
+           clear == o.clear && plus == o.plus && foreign == o.foreign && edge == o.edge &&
+           tint == o.tint && rgba == o.rgba && rgba2 == o.rgba2 && image == o.image &&
+           slot == o.slot && width == o.width && size == o.size && text == o.text && mark == o.mark;
   }
   bool operator!=(const Op& o) const { return !(*this == o); }
 };
@@ -135,12 +137,14 @@ struct OpsRecorder {
     o.mark = mark;
     ops.push_back(o);
   }
-  void pushGlass(const Box& b, int radius, bool clear) {
+  void pushGlass(const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
     Op o;
     o.kind = Op::Kind::PushGlass;
     o.box = b;
     o.radius = radius;
     o.clear = clear;
+    o.edge = edge;
+    o.tint = tint;
     ops.push_back(o);
   }
   void pushClip(const Box& b) {

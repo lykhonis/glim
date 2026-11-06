@@ -35,25 +35,20 @@ struct Switch : WithSemantic {
     );
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
+    // HUD switch: flat track, flat accent fill, flat thumb. No gel —
+    // the only gloss left in the app is the primary button.
     if (*pos < 1.0f) {
-      sink.fillGradient(
-          box,
-          14,
-          themeColor(e, kShowTrackTop, Show::kTrackTop),
-          themeColor(e, kShowTrackBottom, Show::kTrackBottom)
+      sink.fillRounded(
+          box, 14, themeColor(e, kShowTrackTop, Show::kTrackTop)
       );
     }
     if (*pos > 0.0f) {
       const float a = *pos;
-      sink.fillGradient(
+      sink.fillRounded(
           box,
           14,
-          withAlpha(themeColor(e, kShowAccentTop, Show::kAccentTop), a),
-          withAlpha(
-              themeColor(e, kShowAccentBottom, Show::kAccentBottom), a
-          )
+          withAlpha(themeColor(e, kShowAccentTop, Show::kAccentTop), a)
       );
-      gelCoat(sink, box, 14, a);
       sink.stroke(
           box,
           14,
@@ -66,13 +61,9 @@ struct Switch : WithSemantic {
     Box thumb{thumbX(box), box.y + 4.0f, kThumb, kThumb};
     Box shadow{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
     sink.fillRounded(shadow, 10, Show::kShadow);
-    sink.fillGradient(
-        thumb,
-        10,
-        themeColor(e, kShowThumbTop, Show::kThumbTop),
-        themeColor(e, kShowThumbBottom, Show::kThumbBottom)
+    sink.fillRounded(
+        thumb, 10, themeColor(e, kShowThumbTop, Show::kThumbTop)
     );
-    knobGloss(sink, thumb);
     sink.stroke(
         thumb, 10, 1.0f, themeColor(e, kShowThumbRim, Show::kThumbRim)
     );

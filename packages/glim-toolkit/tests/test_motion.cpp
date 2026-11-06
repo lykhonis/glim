@@ -53,6 +53,7 @@ void test_motion() {
     assert(slow.wheel(stree, stb, 4, 50, 0.0f, 10.0f, e));
     assert(*soff == 20.0f && !slow.moving());
     Screen fast;
+    fast.smoothScroll = true;
     State<float> foff = store.make<float>(0.0f);
     Block ftree = roll(vertical(), scrollOffset(foff), list(12, filler));
     Box ftb = place(ftree, {0, 720, 0, 100});
@@ -68,5 +69,16 @@ void test_motion() {
     assert(moved && !fast.moving());
     assert(*foff > 40.0f && *foff <= 68.0f);
     assert(!fast.tick(ftree, ftb, e));
+    // Default is direct: a rapid stream jumps exactly, never coasts.
+    Screen plain;
+    State<float> poff = store.make<float>(0.0f);
+    Block ptree = roll(vertical(), scrollOffset(poff), list(12, filler));
+    Box ptb = place(ptree, {0, 720, 0, 100});
+    assert(plain.wheel(ptree, ptb, 4, 50, 0.0f, 20.0f, e));
+    plain.clock.advance(1.0f / 60.0f);
+    assert(plain.wheel(ptree, ptb, 4, 50, 0.0f, 20.0f, e));
+    assert(*poff == 40.0f && !plain.moving());
+    assert(!plain.tick(ptree, ptb, e));
+    assert(*poff == 40.0f);
   }
 }

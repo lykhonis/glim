@@ -55,6 +55,21 @@ struct ImageStore {
 
 enum class GlassVariant { Regular, Clear, Identity };
 
+// Edge light is a per-side mask: Full is the jeweled plate, None a
+// flat frost, Bottom alone a divider under a frosted bar.
+enum class GlassEdge : std::uint8_t {
+  None = 0,
+  Left = 1,
+  Right = 2,
+  Top = 4,
+  Bottom = 8,
+  Full = 15,
+};
+
+constexpr bool hasEdge(GlassEdge e, GlassEdge side) {
+  return (static_cast<std::uint8_t>(e) & static_cast<std::uint8_t>(side)) != 0;
+}
+
 struct Glass {
   GlassVariant variant = GlassVariant::Regular;
   Color tint{};
@@ -65,6 +80,8 @@ struct Glass {
   float refDistance = 0.35f;
   float dispersion = 0.12f;
   bool flatten = false;
+  // Edge light per side; the frost, milk, and refraction are untouched.
+  GlassEdge edge = GlassEdge::Full;
 
   static Glass clear() {
     Glass g;

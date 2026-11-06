@@ -1,5 +1,7 @@
 // Defaulted here: Block is incomplete in element headers and vector instantiates eagerly.
 #include "glim/toolkit/Block.h"
+#include "glim/toolkit/Tagged.h"
+#include "glim/toolkit/Tags.h"
 
 namespace glim {
 namespace toolkit {
@@ -52,6 +54,15 @@ Box Tap::place(Constraints c, const Engine& e) const {
   return detail::resolveSize(
       inner.w + static_cast<float>(2 * padH), inner.h + static_cast<float>(2 * padV), c
   );
+}
+
+const Roll* rollOf(const Block& n) {
+  if (auto r = n.get<Roll>()) return &r->get();
+  // Slot tags wrap in Tagged/Custom; only ExpandTag can land on a roll.
+  if (auto c = n.get<Custom>()) {
+    if (auto t = c->get().as<Tagged<ExpandTag, Roll>>()) return &t->get().inner_;
+  }
+  return nullptr;
 }
 
 }  // namespace toolkit

@@ -1,6 +1,5 @@
 #include "run_web.h"
 
-#include <glim/paint/Overlay.h>
 #include <glim/paint/Renderer.h>
 #include <glim/paint/Scene.h>
 #include <glim/shell/Application.h>
@@ -21,7 +20,6 @@ bool gReduceTransparency = false;
 float gTime = 0.f;
 float gLastTime = 0.f;
 int gZeroStreak = 0;
-glim::paint::Overlay gOverlay;
 std::vector<glim::paint::SlotPlacement> gSlots;
 
 void syncSlots() {
@@ -94,11 +92,6 @@ void paintOnce() {
       *gDevice
   };
   recordExample(frame);
-  if (gOverlay.enabled()) {
-    gOverlay.tick(gTime - gLastTime);
-    gOverlay.setStats(gRenderer->stats());
-    gOverlay.record(*gContext, gWindow->safeArea());
-  }
   gLastTime = gTime;
   gContext->finish();
   const glim::Vec2 drawable = gWindow->drawableSize();
@@ -134,10 +127,6 @@ extern "C" void glimWebFrame(
   gTime = static_cast<float>(timeSeconds);
   gReduceTransparency = reduceTransparency != 0;
   paintOnce();
-}
-
-extern "C" void glimWebOverlay(int enabled) {
-  gOverlay.setEnabled(enabled != 0);
 }
 
 extern "C" int glimWebStats() {
@@ -187,12 +176,10 @@ extern "C" float glimWebSlotH(int i) {
 }
 
 extern "C" void glimWebEvent(int type, float x, float y, int key) {
+  (void)type;
   (void)x;
   (void)y;
-  // GlimCanvas codes: 1 = pointerdown, 4 = keydown (13 = Enter).
-  if (type == 1 || (type == 4 && key == 13)) {
-    gOverlay.toggleExpanded();
-  }
+  (void)key;
 }
 
 int main() {
@@ -205,7 +192,6 @@ int main() {
   static glim::paint::Context context;
   gWindow = &window;
   gContext = &context;
-  gOverlay.setEnabled(true);
   host.run();
   paintOnce();
   return 0;

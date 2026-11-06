@@ -49,19 +49,15 @@ struct Button : WithGap,
       gelCoat(sink, box, radius);
       sink.stroke(box, radius, 1.0f, stroke);
     } else {
-      sink.fillGradient(
+      // Secondary: flat face, hairline only. Gloss is reserved for
+      // the primary call-to-action.
+      sink.fillRounded(
           box,
           radius,
           themeColor(
               e, kShowButtonSecondaryTop, Show::kButtonSecondaryTop
-          ),
-          themeColor(
-              e,
-              kShowButtonSecondaryBottom,
-              Show::kButtonSecondaryBottom
           )
       );
-      gelCoat(sink, box, radius);
       sink.stroke(box, radius, 1.0f, stroke);
     }
     sink.text(

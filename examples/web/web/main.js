@@ -15,7 +15,6 @@ for (const el of document.querySelectorAll('[data-slot-id]')) {
   glim.setSlot(Number(el.dataset.slotId), el);
 }
 if (fixed) {
-  glim.call('glimWebOverlay', ['number'], [0]);
   glim.startFixed(0);
 } else {
   glim.start();

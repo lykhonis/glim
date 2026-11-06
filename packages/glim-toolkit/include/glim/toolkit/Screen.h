@@ -27,6 +27,9 @@ struct Screen {
   int dragId = 0;
   // Run time, seconds; wheel velocity and fling share this epoch.
   Clock clock;
+  // Direct scrolling by default; opt in for fling coast on rapid
+  // wheel streams.
+  bool smoothScroll = false;
 
   // Captured drags return false (Frame tick presents them); hover moves never dispatch.
   bool pointerDown(

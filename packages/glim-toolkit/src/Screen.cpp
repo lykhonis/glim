@@ -77,8 +77,8 @@ bool Screen::wheel(
         bool parentVisible = clip.visible(x, y);
         clip.enter(n, bx);
         if (parentVisible) {
-          if (auto r = n.get<Roll>()) {
-            if (r->get().scrollOff && detail::boxContains(bx, x, y)) found.push_back({r, bx});
+          if (const Roll* r = rollOf(n)) {
+            if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({std::cref(*r), bx});
           }
         }
         return true;
@@ -96,7 +96,8 @@ bool Screen::wheel(
     const float next = detail::clampF(m.offset + delta, 0.0f, m.maxOff);
     if (next != m.offset) {
       r.scrollTo(next);
-      armFling(r, m, next, delta);
+      // Direct by default; the coast only arms when opted in.
+      if (smoothScroll) armFling(r, m, next, delta);
       return true;
     }
   }
@@ -140,6 +141,12 @@ void Screen::armFling(const Roll& r, const RollMetrics& m, float offset, float d
 }
 
 bool Screen::tick(const Block& tree, const Box& box, const Engine& engine) {
+  // Opt-out settles a live coast at once: nothing strands moving().
+  if (!smoothScroll) {
+    flinging_ = false;
+    flingCell_ = State<float>{};
+    return false;
+  }
   if (!flinging_) return false;
   bool moved = false;
   {
@@ -148,9 +155,9 @@ bool Screen::tick(const Block& tree, const Box& box, const Engine& engine) {
     Box fb{};
     walk(tree, box, engine, [&](const Block& n, const Box& bx) {
       if (!found) {
-        if (auto r = n.get<Roll>()) {
-          if (r->get().scrollOff == flingCell_) {
-            found = r;
+        if (const Roll* r = rollOf(n)) {
+          if (r->scrollOff == flingCell_) {
+            found = std::cref(*r);
             fb = bx;
           }
         }

@@ -28,19 +28,32 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
   void scrollTo(float v) const {
     if (scrollOff) scrollOff = v;
   }
+  // Shrink-proofing: viewport/content can shrink under a live offset
+  // (window resize, shorter content). Clamp on every layout so a
+  // stale offset can never park the content past the end and show
+  // void. Writes only when out of range, so steady frames are
+  // untouched and the correction converges in one layout.
+  void clampScroll(float maxOff) const {
+    if (!scrollOff) return;
+    const float o = *scrollOff;
+    const float next = detail::clampF(o, 0.0f, maxOff > 0.0f ? maxOff : 0.0f);
+    if (next != o) scrollTo(next);
+  }
   Box place(Constraints c, const Engine& e) const {
     if (axis == kAxisHorizontal) {
       Constraints content{0, kUnbounded, 0, c.maxH};
       detail::Flow f = detail::flowRow(children, gap, content, e);
-      return {
-          0, 0, detail::clampF(f.size.w, c.minW, c.maxW), detail::clampF(f.size.h, c.minH, c.maxH)
-      };
+      const float w = detail::clampF(f.size.w, c.minW, c.maxW);
+      const float h = detail::clampF(f.size.h, c.minH, c.maxH);
+      clampScroll(f.size.w - w);
+      return {0, 0, w, h};
     }
     Constraints content{0, c.maxW, 0, kUnbounded};
     detail::Flow f = detail::flowColumn(children, gap, content, e);
-    return {
-        0, 0, detail::clampF(f.size.w, c.minW, c.maxW), detail::clampF(f.size.h, c.minH, c.maxH)
-    };
+    const float w = detail::clampF(f.size.w, c.minW, c.maxW);
+    const float h = detail::clampF(f.size.h, c.minH, c.maxH);
+    clampScroll(f.size.h - h);
+    return {0, 0, w, h};
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     float off = scrollOff ? *scrollOff : 0.0f;
@@ -58,6 +71,11 @@ struct Roll : WithGap, WithAxis, WithScrollOffset {
     return b;
   }
 };
+
+// Finds rolls through slot-tag wrappers (expand wraps in
+// Tagged/Custom, which get<Roll>() does not see through).
+// Defined in Elements.cpp (Block is incomplete here).
+const Roll* rollOf(const Block& n);
 
 template <class... As>
 auto roll(As&&... as) {

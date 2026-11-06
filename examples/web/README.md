@@ -26,8 +26,7 @@ Stages a self-contained bundle into
 `build/web-webgpu-debug/examples/web/serve/`, serves it on
 `http://localhost:8080/index.html`, and opens the browser.
 CI builds the same bundle (`.github/workflows/web.yml`).
-The canvas fills the viewport and tracks window resizes; click it
-(or press Enter) to expand the stats overlay, same as native.
+The canvas fills the viewport and tracks window resizes.
 A page can cap the backing-store pixel ratio with
 `<body data-pr="1">` (glass does: blur passes are fill-rate bound).
 

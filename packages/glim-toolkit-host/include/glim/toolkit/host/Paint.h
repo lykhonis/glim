@@ -97,7 +97,7 @@ struct ContextSink {
         foreign ? ::glim::paint::Matter::foreign(imageId) : ::glim::paint::Matter::sampled(imageId)
     );
   }
-  void pushGlass(const Box& b, int radius, bool clear) {
+  void pushGlass(const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
     ::glim::paint::GroupParams p;
     p.bounds = toRect(b);
     p.clip = toRect(b);
@@ -106,6 +106,28 @@ struct ContextSink {
     // the default directly instead of plumbing an engine through the sink.
     ::glim::paint::Glass g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
     g.thicknessPx = Tokens::kGlassThickness;
+    // Twin enums, translated explicitly (no default: -Wswitch flags drift).
+    switch (static_cast<toolkit::GlassEdge>(edge)) {
+      case toolkit::GlassEdge::None:
+        g.edge = ::glim::paint::GlassEdge::None;
+        break;
+      case toolkit::GlassEdge::Left:
+        g.edge = ::glim::paint::GlassEdge::Left;
+        break;
+      case toolkit::GlassEdge::Right:
+        g.edge = ::glim::paint::GlassEdge::Right;
+        break;
+      case toolkit::GlassEdge::Top:
+        g.edge = ::glim::paint::GlassEdge::Top;
+        break;
+      case toolkit::GlassEdge::Bottom:
+        g.edge = ::glim::paint::GlassEdge::Bottom;
+        break;
+      case toolkit::GlassEdge::Full:
+        g.edge = ::glim::paint::GlassEdge::Full;
+        break;
+    }
+    g.tint = ::glim::Color{tint};
     p.glass = g;
     ctx.pushGroup(p);
   }
@@ -147,9 +169,9 @@ inline void paintScrollbars(
   // rollMetrics with Screen::wheel so thumb-feel and hit-feel agree.
   ContextSink sink{ctx};
   walk(tree, box, engine, [&](const Block& n, const Box& bx) {
-    auto r = n.get<Roll>();
-    if (!r || !r->get().scrollOff) return;
-    RollMetrics m = rollMetrics(r->get(), bx, engine);
+    const Roll* r = rollOf(n);
+    if (!r || !r->scrollOff) return;
+    RollMetrics m = rollMetrics(*r, bx, engine);
     if (m.maxOff <= 0.0f || m.viewport <= 0.0f) return;
     if (m.horizontal) {
       float w = m.viewport * m.viewport / m.content;
@@ -183,7 +205,24 @@ inline void paintScreen(
     bool focusVisible = true
 ) {
   feed.ensure(ctx);
-  ctx.setFillColor(themeColor(engine, kThemeWindowBg, Tokens::kWindowBg));
+  // The clear color lives under the tree's own theme scope: a root
+  // themed() must tint the backdrop, not just its children. Resolve
+  // with the root scope applied; non-themed roots keep the exact
+  // previous behavior (same engine, same fallback).
+  Engine bgEngine = engine;
+  ThemeScope bgScope;
+  Env bgNode;
+  // Custom-wrapped root (themed() stores inline as Custom): borrow
+  // its scope for the backdrop fill. Plain roots skip this and keep
+  // the exact previous behavior.
+  if (auto c = tree.get<Custom>()) {
+    if (auto th = c->get().as<Themed>()) {
+      bgScope = th->get().themeScope();
+      bgNode = Env{&bgScope, &typeid(ThemeScope), engine.env};
+      bgEngine.env = bgNode;
+    }
+  }
+  ctx.setFillColor(themeColor(bgEngine, kThemeWindowBg, Tokens::kWindowBg));
   ctx.fill(glim::Rect{{0, 0}, ctx.size()});
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);

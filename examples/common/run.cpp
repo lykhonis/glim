@@ -7,7 +7,6 @@
 #if !GLIM_SOFTWARE
 #include <glim/shell/Surface.h>
 #endif
-#include <glim/paint/Overlay.h>
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/Event.h>
@@ -38,8 +37,6 @@ int glimRunExample(
 #if GLIM_SOFTWARE
   std::unique_ptr<glim::paint::Renderer> renderer;
 #endif
-  glim::paint::Overlay overlay;
-  overlay.setEnabled(true);
   const auto start = std::chrono::steady_clock::now();
   auto lastTick = start;
   bool reduceTransparency = false;
@@ -63,7 +60,7 @@ int glimRunExample(
     const float dt =
         std::chrono::duration<float>(now - lastTick).count();
     lastTick = now;
-    overlay.tick(dt);
+    (void)dt;
     return now;
   };
 
@@ -76,16 +73,6 @@ int glimRunExample(
             frameAt(std::chrono::duration<float>(now - start).count());
         if (record) {
           record(frame);
-        }
-        if (overlay.enabled()) {
-#if GLIM_SOFTWARE
-          if (renderer) {
-            overlay.setStats(renderer->stats());
-          }
-#else
-          overlay.setStats(renderer.stats());
-#endif
-          overlay.record(context, window.safeArea());
         }
         context.finish();
 #if GLIM_SOFTWARE
@@ -133,13 +120,6 @@ int glimRunExample(
         paint();
         return;
       }
-    }
-    if (e.type() == T::PointerDown ||
-        (e.type() == T::KeyDown && e.key() == glim::shell::Key::Enter
-        )) {
-      overlay.toggleExpanded();
-      paint();
-      return;
     }
     if (e.type() == T::WindowResized) {
       paint();

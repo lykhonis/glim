@@ -1,4 +1,4 @@
-glim_add_example(showcase TITLE "Glim Showcase" SOFTWARE NO_RUN SOFTWARE_LIBS glim::toolkit-host-cpu)
+glim_add_example(showcase TITLE "Glim Dashboard" SOFTWARE NO_RUN SOFTWARE_LIBS glim::toolkit-host-cpu)
 target_link_libraries(glim-showcase PRIVATE glim::toolkit-host)
 
 if(GLIM_HOST_TESTS)
@@ -8,5 +8,5 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-showcase-golden)
     target_compile_definitions(glim-showcase-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-showcase-golden
-             COMMAND glim-showcase-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden")
+             COMMAND glim-showcase-golden)
 endif()

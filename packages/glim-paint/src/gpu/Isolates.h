@@ -54,7 +54,7 @@ struct GlassUniforms {
   float dimmer;
   float interactive;
   float flatten;
-  float _pad1;
+  float edge;
   float destUv0[2];
   float destUv1[2];
 };

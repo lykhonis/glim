@@ -279,6 +279,49 @@ void Window::setTitle(const std::string& title) {
   window.title = [NSString stringWithUTF8String:title.c_str()];
 }
 
+void Window::setCustomTitlebar(bool enabled) {
+  if (!enabled) {
+    return;
+  }
+  NSWindow* window = (__bridge NSWindow*)window_;
+  window.titleVisibility = NSWindowTitleHidden;
+  window.titlebarAppearsTransparent = YES;
+  if (!(window.styleMask & NSWindowStyleMaskFullSizeContentView)) {
+    window.styleMask |= NSWindowStyleMaskFullSizeContentView;
+  }
+  window.movableByWindowBackground = NO;
+  // Vertically center traffic lights in a ~52pt custom header. They
+  // sit in the theme frame above contentView; nudge them down so
+  // they align with app-painted chrome instead of hugging the top.
+  auto alignLights = ^(void) {
+    NSButton* close = [window standardWindowButton:NSWindowCloseButton];
+    NSButton* mini = [window standardWindowButton:NSWindowMiniaturizeButton];
+    NSButton* zoom = [window standardWindowButton:NSWindowZoomButton];
+    NSArray* buttons = @[ close, mini, zoom ];
+    for (NSButton* b in buttons) {
+      if (!b) continue;
+      NSRect f = b.frame;
+      // Standard center is ~ titlebar (28pt); custom header is
+      // taller — drop by ~12pt to land mid-header.
+      const CGFloat wantY = 18.0;
+      if (std::abs(f.origin.y - wantY) > 0.5) {
+        f.origin.y = wantY;
+        b.frame = f;
+      }
+    }
+  };
+  alignLights();
+  dispatch_async(dispatch_get_main_queue(), alignLights);
+}
+
+void Window::dragWindow() {
+  NSWindow* window = (__bridge NSWindow*)window_;
+  NSEvent* event = [NSApp currentEvent];
+  if (window && event) {
+    [window performWindowDragWithEvent:event];
+  }
+}
+
 void Window::center() { [(__bridge NSWindow*)window_ center]; }
 
 void Window::setEventCallback(EventCallback callback) {

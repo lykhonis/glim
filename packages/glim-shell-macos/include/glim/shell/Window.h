@@ -27,6 +27,14 @@ class Window final {
 
   void setSize(int width, int height);
   void setTitle(const std::string&);
+  // Modern composable chrome (macOS): hides the system title text,
+  // makes the titlebar transparent, and extends content under it so
+  // the app paints its own bar. Traffic lights stay system-owned.
+  void setCustomTitlebar(bool enabled);
+  // Begin a native window drag using the current NSEvent. Call from
+  // a PointerDown on an empty header area that the toolkit did not
+  // consume — empty chrome drags, controls still click.
+  void dragWindow();
   void center();
   void show();
   void hide();

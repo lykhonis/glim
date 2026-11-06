@@ -61,16 +61,9 @@ struct Segmented : WithSemantic {
         themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
     Box act = activeBoxAt(box, *selPos);
-    sink.fillGradient(
-        act,
-        16,
-        themeColor(e, kShowAccentTop, Show::kAccentTop),
-        themeColor(e, kShowAccentBottom, Show::kAccentBottom)
-    );
-    gelCoat(sink, act, 16);
-    sink.stroke(
-        act, 16, 1.0f, themeColor(e, kShowCardStroke, Show::kCardStroke)
-    );
+    const std::uint32_t ink =
+        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    sink.fillRounded(act, 16, withAlpha(ink, 0.14f));
   }
 };
 
