@@ -5,7 +5,7 @@
 // match.
 #include <cstdint>
 
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

@@ -3,29 +3,16 @@
 #include <utility>
 #include <vector>
 
-#include "../motion/Anim.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/State.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {
-
-// Offset wrapper: shifts its child by an animated amount. Layout, hit,
-// paint, and a11y all follow childBox, so the shifted child stays
-// consistent.
-struct MoverProps {
-  Anim<float> shift;
-  bool vertical = false;
-};
 
 struct Mover {
   static constexpr const char* kKind = "Mover";
   const char* kind() const { return kKind; }
   std::vector<Block> children;
-  Anim<float> shift;
+  Anim<float> shift = {"shift", 0.0f};
   bool vertical = false;
   Box place(Constraints c, const Engine& e) const {
     if (children.empty()) return detail::resolveSize(0.0f, 0.0f, c);
@@ -46,10 +33,7 @@ struct Mover {
 };
 
 template <class... As>
-Block mover(MoverProps p, As&&... as) {
-  Mover m;
-  m.shift = std::move(p.shift);
-  m.vertical = p.vertical;
+Block mover(Mover m, As&&... as) {
   configure(m, m.children, std::forward<As>(as)...);
   assert(m.children.size() == 1);
   return finish(std::move(m), std::forward<As>(as)...);

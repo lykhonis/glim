@@ -1,12 +1,5 @@
 #pragma once
 
-// Animated value prototype (showcase-local ideation). DX contract:
-// `pos = target` animates, `snap` jumps; `*pos` reads displayed value,
-// `target()` the goal. Starting an animation holds a Store::Watch by
-// value; the host drains live steps every vsync and each write bumps
-// the revision, so animating values repaint by themselves. Tested with
-// float; other Ts need their own lerp/plain-old-data semantics (see
-// docs/animation.md).
 #include <cassert>
 #include <cmath>
 #include <functional>
@@ -25,71 +18,56 @@ struct Anim {
   Anim() = default;
   // Binds a cell in the app scope and registers nothing until the first
   // set.
-  Anim(
-      const Scope& scope,
-      const std::string& key,
-      T init,
-      AnimSpec spec = AnimSpec{}
-  )
+  Anim(const Scope& scope, const std::string& key, T init, AnimSpec spec = AnimSpec{})
       : store_(scope.store) {
-    assert(
-        store_ &&
-        "Anim needs a Scope built from an Engine carrying a Store"
-    );
+    assert(store_ && "Anim needs a Scope built from an Engine carrying a Store");
     assert(spec.ease && "AnimSpec needs an ease function");
-    core_ = std::make_shared<Core>(
-        Core{scope.state(key, init), init, init, spec}
-    );
+    core_ = std::make_shared<Core>(Core{scope.state(key, init), init, init, spec});
   }
+  Anim(std::string key, T init, AnimSpec spec = {})
+      : key_(std::move(key)), init_(std::move(init)), spec_(spec) {}
 
   // Displayed value: what paint reads.
   const T& get() const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
-    return core_->cell.get();
+    ensure();
+    assert((core_ || !key_.empty()) && "Anim is unbound (default-constructed, never assigned)");
+    return core_ ? core_->cell.get() : init_;
   }
   const T& operator*() const { return get(); }
   // Goal value: what logic reads.
   const T& target() const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
-    return core_->target;
+    ensure();
+    assert((core_ || !key_.empty()) && "Anim is unbound (default-constructed, never assigned)");
+    return core_ ? core_->target : init_;
   }
   bool live() const { return core_ && core_->live; }
-  long refs() const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
-    return static_cast<long>(core_.use_count());
-  }
-  const AnimSpec& spec() const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
-    return core_->spec;
-  }
+  long refs() const { return core_ ? static_cast<long>(core_.use_count()) : 1; }
+  const AnimSpec& spec() const { return core_ ? core_->spec : spec_; }
   void setSpec(AnimSpec s) const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
     assert(s.ease && "AnimSpec needs an ease function");
-    core_->spec = s;
+    if (core_)
+      core_->spec = s;
+    else
+      spec_ = s;
   }
 
   // Animate toward t; anchors on the next pump step.
   void set(const T& t) const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
+    if (!ensure()) {
+      assert(!key_.empty() && "Anim is unbound (default-constructed, never assigned)");
+      init_ = t;
+      return;
+    }
     set(t, core_->spec);
   }
   void set(const T& t, AnimSpec s) const {
-    assert(
-        core_ && store_ &&
-        "Anim is unbound (default-constructed, never assigned)"
-    );
+    if (!ensure()) {
+      assert(!key_.empty() && "Anim is unbound (default-constructed, never assigned)");
+      init_ = t;
+      spec_ = s;
+      return;
+    }
+    assert(store_ && "Anim::set needs a Store (construct from a Scope or wait for a walk)");
     assert(s.ease && "AnimSpec needs an ease function");
     assert(!s.spring || s.damping > 0.0f);
     core_->spec = s;
@@ -102,17 +80,17 @@ struct Anim {
     // instead.
     core_->live = true;
     core_->started = false;
-    core_->watch = store_->get().watchCell(
-        core_->cell, [c = core_](float now) { return c->step(now); }
-    );
+    core_->watch =
+        store_->get().watchCell(core_->cell, [c = core_](float now) { return c->step(now); });
   }
   void operator=(const T& t) const { set(t); }
   // Jump, cancelling anything live.
   void snap(const T& v) const {
-    assert(
-        core_ && store_ &&
-        "Anim is unbound (default-constructed, never assigned)"
-    );
+    if (!ensure()) {
+      assert(!key_.empty() && "Anim is unbound (default-constructed, never assigned)");
+      init_ = v;
+      return;
+    }
     core_->live = false;
     core_->from = v;
     core_->target = v;
@@ -123,9 +101,7 @@ struct Anim {
   }
   // One pump step. Public for unit tests; the Store drives it.
   bool step(float now) const {
-    assert(
-        core_ && "Anim is unbound (default-constructed, never assigned)"
-    );
+    if (!core_) return false;
     return core_->step(now);
   }
 
@@ -133,9 +109,11 @@ struct Anim {
   // its own spec. Links are acyclic by contract — a cycle never
   // settles.
   void follow(const Anim& src) const {
+    ensure();
+    src.ensure();
     assert(
         core_ && src.core_ &&
-        "Anim is unbound (default-constructed, never assigned)"
+        "Anim::follow needs bound Anims (construct from a Scope or wait for a walk)"
     );
     core_->src = src.core_;
     std::weak_ptr<Core> w = core_;
@@ -147,9 +125,7 @@ struct Anim {
       if (!c || !s || c->src != s) return;
       c->resync();
       if (c->live) {
-        c->watch = st->get().watchCell(c->cell, [c](float now) {
-          return c->step(now);
-        });
+        c->watch = st->get().watchCell(c->cell, [c](float now) { return c->step(now); });
       }
     });
     // Catch up to the source.
@@ -240,8 +216,7 @@ struct Anim {
       float v = vel;
       for (int i = 0; i < 2; ++i) {
         const float hh = h * 0.5f;
-        const float f =
-            -spec.stiffness * (x - target) - spec.damping * v;
+        const float f = -spec.stiffness * (x - target) - spec.damping * v;
         v += f * hh;
         x += v * hh;
       }
@@ -255,8 +230,26 @@ struct Anim {
       return live;
     }
   };
-  std::shared_ptr<Core> core_;
-  StoreRef store_;
+  // Handle: const-assignable like State.
+  bool ensure() const {
+    if (core_) return true;
+    if (key_.empty() || !detail::AutoCtx::active() || !detail::AutoCtx::store()) return false;
+    std::string k = "#auto/";
+    for (int p : detail::AutoCtx::path()) {
+      k += std::to_string(p);
+      k += '/';
+    }
+    k += key_;
+    State<T> cell = detail::AutoCtx::store()->state(k, init_);
+    store_ = std::ref(*detail::AutoCtx::store());
+    core_ = std::make_shared<Core>(Core{cell, cell.get(), cell.get(), spec_});
+    return true;
+  }
+  mutable std::shared_ptr<Core> core_;
+  mutable StoreRef store_;
+  std::string key_;
+  mutable T init_ = {};
+  mutable AnimSpec spec_ = {};
 };
 
 }  // namespace toolkit

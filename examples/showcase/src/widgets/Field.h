@@ -4,7 +4,7 @@
 #include <string>
 
 #include "Card.h"
-#include "glim/toolkit/Block.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

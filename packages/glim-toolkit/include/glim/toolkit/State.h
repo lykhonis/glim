@@ -14,6 +14,68 @@
 namespace glim {
 namespace toolkit {
 
+class Store;
+
+using StoreRef = std::optional<std::reference_wrapper<Store>>;
+
+namespace detail {
+// Walk-provided allocation context for lazy handles; unset outside walks.
+struct AutoCtx {
+  static Store*& store() {
+    thread_local Store* s = nullptr;
+    return s;
+  }
+  static std::vector<int>& path() {
+    thread_local std::vector<int> p;
+    return p;
+  }
+  static bool& active() {
+    thread_local bool a = false;
+    return a;
+  }
+  static std::vector<int>& found() {
+    thread_local std::vector<int> f;
+    return f;
+  }
+};
+struct AutoGuard {
+  explicit AutoGuard(Store* s)
+      : store_(AutoCtx::store()), active_(AutoCtx::active()), depth_(AutoCtx::path().size()) {
+    AutoCtx::store() = s;
+    AutoCtx::active() = true;
+  }
+  ~AutoGuard() {
+    AutoCtx::store() = store_;
+    AutoCtx::active() = active_;
+    AutoCtx::path().resize(depth_);
+  }
+  Store* store_;
+  bool active_;
+  std::size_t depth_;
+};
+struct PathPush {
+  explicit PathPush(int k) { AutoCtx::path().push_back(k); }
+  ~PathPush() { AutoCtx::path().pop_back(); }
+};
+inline void noteHit() { AutoCtx::found() = AutoCtx::path(); }
+struct AutoHandle {
+  AutoHandle(Store* s, const std::vector<int>& path)
+      : store_(AutoCtx::store()), active_(AutoCtx::active()), path_(AutoCtx::path()) {
+    AutoCtx::store() = s;
+    AutoCtx::active() = true;
+    AutoCtx::path() = path;
+  }
+  ~AutoHandle() {
+    AutoCtx::store() = store_;
+    AutoCtx::active() = active_;
+    AutoCtx::path() = std::move(path_);
+  }
+  Store* store_;
+  bool active_;
+  std::vector<int> path_;
+};
+}  // namespace detail
+
 template <class T>
 struct Cell {
   T value;
@@ -28,37 +90,45 @@ class State {
  public:
   State() = default;
   explicit State(std::shared_ptr<Cell<T>> p) : cell_(std::move(p)) {}
+  State(std::string key, T init) : key_(std::move(key)), init_(std::move(init)) {}
   explicit operator bool() const { return static_cast<bool>(cell_); }
   bool operator==(const State& o) const { return cell_ == o.cell_; }
   bool operator!=(const State& o) const { return cell_ != o.cell_; }
   const T& get() const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
-    return cell_->value;
+    ensure();
+    assert((cell_ || !key_.empty()) && "State handle is empty (default-constructed or moved-from)");
+    return cell_ ? cell_->value : init_;
   }
   void set(const T& v) const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
+    if (!ensure()) {
+      assert(!key_.empty() && "State handle is empty (default-constructed or moved-from)");
+      init_ = v;
+      return;
+    }
     cell_->value = v;
     bump();
   }
   void set(T&& v) const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
+    if (!ensure()) {
+      assert(!key_.empty() && "State handle is empty (default-constructed or moved-from)");
+      init_ = std::move(v);
+      return;
+    }
     cell_->value = std::move(v);
     bump();
   }
-  void operator=(const T& v) const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
-    cell_->value = v;
-    bump();
-  }
-  void operator=(T&& v) const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
-    cell_->value = std::move(v);
-    bump();
-  }
+  void operator=(const T& v) const { set(v); }
+  void operator=(T&& v) const { set(std::move(v)); }
   // Immutable-style update: one revision bump.
   template <class F>
   void update(F&& fn) const {
-    assert(cell_ && "State handle is empty (default-constructed or moved-from)");
+    if (!ensure()) {
+      assert(!key_.empty() && "State handle is empty (default-constructed or moved-from)");
+      T next = init_;
+      fn(next);
+      init_ = std::move(next);
+      return;
+    }
     T next = cell_->value;
     fn(next);
     cell_->value = std::move(next);
@@ -72,10 +142,14 @@ class State {
   // Hidden so callers hold a Watch by value instead of retaining raw ids.
   std::uint32_t id() const { return cell_ ? cell_->id : 0; }
 
+  bool ensure() const;
+
   void bump() const {
     if (cell_ && cell_->revision) cell_->revision->fetch_add(1);
   }
-  std::shared_ptr<Cell<T>> cell_;
+  mutable std::shared_ptr<Cell<T>> cell_;
+  mutable std::string key_;
+  mutable T init_ = {};
 };
 
 class Store {
@@ -93,15 +167,7 @@ class Store {
   // Scoped get-or-make: allocation never bumps; only set does.
   template <class T>
   State<T> state(const std::string& key, T init) {
-    auto it = slots_.find(key);
-    if (it != slots_.end()) {
-      assert(it->second.type && *it->second.type == typeid(T));
-      return State<T>(std::static_pointer_cast<Cell<T>>(it->second.ptr));
-    }
-    std::uint32_t id = watchState()->next.fetch_add(1);
-    auto cell = std::make_shared<Cell<T>>(std::move(init), id, revision_);
-    slots_.emplace(key, Slot{cell, &typeid(T)});
-    return State<T>(cell);
+    return slot<T>(key, std::move(init));
   }
   std::uint64_t revision() const { return revision_->load(); }
 
@@ -176,6 +242,18 @@ class Store {
   }
 
  private:
+  template <class T>
+  State<T> slot(const std::string& key, T init) {
+    auto it = slots_.find(key);
+    if (it != slots_.end()) {
+      assert(it->second.type && *it->second.type == typeid(T));
+      return State<T>(std::static_pointer_cast<Cell<T>>(it->second.ptr));
+    }
+    std::uint32_t id = watchState()->next.fetch_add(1);
+    auto cell = std::make_shared<Cell<T>>(std::move(init), id, revision_);
+    slots_.emplace(key, Slot{cell, &typeid(T)});
+    return State<T>(cell);
+  }
   const std::shared_ptr<WatchState>& watchState() {
     if (!watchState_) watchState_ = std::make_shared<WatchState>();
     return watchState_;
@@ -189,7 +267,20 @@ class Store {
   std::shared_ptr<WatchState> watchState_;
 };
 
-using StoreRef = std::optional<std::reference_wrapper<Store>>;
+template <class T>
+bool State<T>::ensure() const {
+  if (cell_) return true;
+  if (key_.empty() || !detail::AutoCtx::active() || !detail::AutoCtx::store()) return false;
+  std::string k = "#auto/";
+  for (int p : detail::AutoCtx::path()) {
+    k += std::to_string(p);
+    k += '/';
+  }
+  k += key_;
+  State<T> bound = detail::AutoCtx::store()->state(k, init_);
+  cell_ = bound.cell_;
+  return true;
+}
 
 }  // namespace toolkit
 }  // namespace glim

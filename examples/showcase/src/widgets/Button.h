@@ -6,15 +6,7 @@
 
 #include "Gel.h"
 #include "ShowcaseTheme.h"
-#include "glim/toolkit/Action.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Tokens.h"
-#include "glim/toolkit/text/Text.h"
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

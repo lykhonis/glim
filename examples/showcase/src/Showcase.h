@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "glim/toolkit/Scope.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

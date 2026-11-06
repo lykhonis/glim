@@ -5,7 +5,7 @@
 #include <sstream>
 #include <utility>
 
-#include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit.h"
 
 using namespace glim::toolkit;
 

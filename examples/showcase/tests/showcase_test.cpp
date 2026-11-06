@@ -21,11 +21,10 @@
 #include <variant>
 #include <vector>
 
-#include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit.h"
 #include "glim/toolkit/host/Codec.h"
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
-#include "motion/Anim.h"
 #include "widgets/Checkbox.h"
 #include "widgets/Mover.h"
 #include "widgets/Segmented.h"
@@ -167,8 +166,8 @@ Engine engineFor(Store& store) {
   return e;
 }
 
-// State handles re-open the same scoped keys the tree allocated,
-// so tests observe the cells the tree captured.
+// Handles re-open the tree's own cells; widget-owned state lives in
+// the tree itself, so it is extracted from the live build.
 struct Shown {
   State<int> taps;
   State<bool> wifi;
@@ -177,12 +176,41 @@ struct Shown {
   State<float> level;
 };
 
-Shown shownStates(Store& store) {
+template <class W, class H>
+H widgetState(
+    const Block& tree, const Box& box, const Engine& e, H(W::*mem)
+) {
+  H out;
+  bool found = false;
+  walk(
+      tree,
+      box,
+      e,
+      [&](const Block& n, const Box&, const Engine&) {
+        if (auto c = n.get<Custom>()) {
+          if (auto x = c->get().as<W>()) {
+            out = x->get().*mem;
+            (void)*out;
+            found = true;
+            return false;
+          }
+        }
+        return true;
+      },
+      [](const Block&, const Box&, const Engine&) {}
+  );
+  assert(found && "showcase tree is missing a widget");
+  return out;
+}
+
+Shown shownStates(
+    Store& store, const Block& tree, const Box& box, const Engine& e
+) {
   Scope s(store, "");
   return Shown{
       s.state("taps", 0),
-      s.state("wifi", true),
-      s.state("sound", false),
+      widgetState<Switch>(tree, box, e, &Switch::value),
+      widgetState<Checkbox>(tree, box, e, &Checkbox::value),
       s.state("range", 1),
       s.state("level", 0.4f),
   };
@@ -288,12 +316,12 @@ int main(int argc, char** argv) {
   Store t;
   Engine te = engineFor(t);
   Block tree = showcaseTree(rootScope(te));
-  Shown h = shownStates(t);
   // Interaction runs in a viewport tall enough to show the whole
   // tree (the 480px golden viewport clips Segmented and below — see
   // the pinned miss below). Focus order and box sizes are unaffected,
   // only y positions shift with the taller fold.
-  Box box = place(tree, {0, 720, 0, 1200});
+  Box box = te.place(tree, {0, 720, 0, 1200});
+  Shown h = shownStates(t, tree, box, te);
   auto focusableList = focusables(tree, box);
   assert(focusableList.size() == 9);
   // Clip contract, pinned in context: at the 480px window the
@@ -301,7 +329,7 @@ int main(int argc, char** argv) {
   // instead of actuating an invisible control. Reachable again once
   // the outer roll gets a scroll offset (see input-scroll-notes).
   {
-    Box clipped = place(tree, {0, 720, 0, 480});
+    Box clipped = te.place(tree, {0, 720, 0, 480});
     Box sg = focusBox(tree, clipped, 7);
     assert(sg.y >= 480);
     assert(!dispatchPointer(
@@ -366,7 +394,8 @@ int main(int argc, char** argv) {
         box,
         sw.x + 1,
         sw.y + 1,
-        Event::borrow(PointerDown{sw.x + 1, sw.y + 1})
+        Event::borrow(PointerDown{sw.x + 1, sw.y + 1}),
+        te
     ));
     assert(*h.wifi == false);
   }
@@ -390,23 +419,30 @@ int main(int argc, char** argv) {
     m.stepValues(1.0f);
     assert(*p == 1.0f && !p.live() && !m.valuesLive());
   }
-  // Checkbox background cross-fades on the same contract.
+  // Pre-contact writes are preserved: a pending Anim stashes
+  // sets, and the cell allocates with the latest value on contact.
   {
     Store m;
+    Engine me = engineFor(m);
     Scope ms(m, "");
     auto v = ms.state("v", false);
-    Anim<float> p{ms, "p", 0.0f};
+    Anim<float> p("pp", 0.0f);
+    p = 0.75f;
+    assert(*p == 0.75f && !m.valuesLive());
     Block cbt = checkbox({.label = "S", .value = v, .pos = p});
     Box cb = place(cbt, {0, 720, 0, 480});
     assert(dispatchPointer(
-        cbt, cb, 12, 12, Event::borrow(PointerDown{12, 12})
+        cbt, cb, 12, 12, Event::borrow(PointerDown{12, 12}), me
     ));
-    assert(*v == true && *p == 0.0f && m.valuesLive());
+    auto custom = cbt.get<Custom>();
+    assert(custom);
+    auto cbx = custom->get().as<Checkbox>();
+    assert(cbx);
+    Anim<float> q = cbx->get().pos;
+    assert(*v == true && *q == 0.75f && m.valuesLive());
     m.stepValues(0.0f);
-    m.stepValues(0.11f);
-    assert(*p > 0.0f && *p < 1.0f);
     m.stepValues(1.0f);
-    assert(*p == 1.0f && !p.live() && !m.valuesLive());
+    assert(*q == 1.0f && !q.live() && !m.valuesLive());
   }
   // Segmented indicator coasts between segments. The group itself
   // stays out of focus — the three segment taps own interaction
@@ -574,7 +610,8 @@ int main(int argc, char** argv) {
         box,
         cb.x + 1,
         cb.y + 1,
-        Event::borrow(PointerDown{cb.x + 1, cb.y + 1})
+        Event::borrow(PointerDown{cb.x + 1, cb.y + 1}),
+        te
     ));
     assert(*h.sound == true);
   }
@@ -633,7 +670,7 @@ int main(int argc, char** argv) {
     Engine ue = engineFor(u);
     Block stree = showcaseTree(rootScope(ue));
     Box sbox = place(stree, {0, 720, 0, 1200});
-    Shown uh = shownStates(u);
+    Shown uh = shownStates(u, stree, sbox, ue);
     Screen scr;
     Box sl = focusBox(stree, sbox, 8);
     assert(scr.pointerDown(stree, sbox, sl.x + 10, sl.y + 14, 1, ue));

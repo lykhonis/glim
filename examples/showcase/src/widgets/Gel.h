@@ -4,8 +4,7 @@
 #include <string>
 
 #include "ShowcaseTheme.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Tokens.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

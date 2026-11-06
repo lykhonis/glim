@@ -53,6 +53,7 @@ std::pair<BlockRef, Box> hitWithBox(
     int entered;
   };
   std::vector<Claim> claims;
+  detail::AutoCtx::found().clear();
   // Clip stack parallels the walk: Roll children hit only inside the clip.
   detail::ClipStack clip;
   const auto visible = [&]() { return clip.visible(x, y); };
@@ -66,6 +67,7 @@ std::pair<BlockRef, Box> hitWithBox(
           if (detail::boxContains(bx, x, y) && visible()) {
             found = std::cref(n);
             foundBox = bx;
+            detail::noteHit();
             ++matches;
             return false;
           }
@@ -76,6 +78,7 @@ std::pair<BlockRef, Box> hitWithBox(
           if (hitParticipates(n)) {
             found = std::cref(n);
             foundBox = bx;
+            detail::noteHit();
             ++matches;
           }
         }
@@ -87,6 +90,7 @@ std::pair<BlockRef, Box> hitWithBox(
           if (matches > claims.back().entered && visible()) {
             found = std::cref(n);
             foundBox = bx;
+            detail::noteHit();
           }
           claims.pop_back();
         }

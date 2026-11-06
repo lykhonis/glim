@@ -5,19 +5,11 @@
 
 #include "Gel.h"
 #include "ShowcaseTheme.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/State.h"
-#include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Tokens.h"
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {
 
-// Slider: arrows nudge when focused.
 struct Slider : WithSemantic {
   static constexpr const char* kKind = "Slide";
   static constexpr const char* kKindFill = "Slide.fill";
@@ -25,7 +17,7 @@ struct Slider : WithSemantic {
   static constexpr float kW = 240.0f;
   static constexpr float kH = 28.0f;
   static constexpr float kThumb = 20.0f;
-  State<float> value;
+  State<float> value = {"value", 0.4f};
   static float clamp01(float v) {
     if (v < 0.0f) return 0.0f;
     if (v > 1.0f) return 1.0f;
@@ -38,8 +30,6 @@ struct Slider : WithSemantic {
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(kW, kH, c);
   }
-  // Fill runs to the THUMB CENTER, not box.w * v: the thumb travels
-  // box.w - kThumb, so full-width fill would lead by up to kThumb/2.
   void geometry(const Box& box, Box& track, Box& fill, Box& thumb)
       const {
     float v = clamp01(*value);
@@ -48,8 +38,6 @@ struct Slider : WithSemantic {
     float cx = box.x + kThumb * 0.5f + v * (box.w - kThumb);
     fill = {box.x, ty, 0, 8.0f};
     if (cx > box.x + 0.5f) fill = {box.x, ty, cx - box.x, 8.0f};
-    // Knob snaps to half-logical (one device px at 2x); the fill keeps
-    // the exact value. Clamped so the snap never spills past the ends.
     float nx = detail::snapHalf(cx - kThumb * 0.5f);
     float ny = detail::snapHalf(box.y + (box.h - kThumb) * 0.5f);
     nx = std::max(box.x, std::min(nx, box.x + box.w - kThumb));
@@ -127,9 +115,7 @@ struct Slider : WithSemantic {
 };
 
 template <class... As>
-Block slider(State<float> v, As&&... as) {
-  Slider s;
-  s.value = std::move(v);
+Block slider(Slider s, As&&... as) {
   configureTags(s, std::forward<As>(as)...);
   return finish(std::move(s), std::forward<As>(as)...);
 }

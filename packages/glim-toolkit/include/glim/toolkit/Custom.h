@@ -184,6 +184,16 @@ struct has_paint<
 template <class T>
 struct is_tagged : std::false_type {};
 
+// Optional runtime init: toolkit calls attach() on first place/paint
+// with the walk Engine when the element defines it.
+template <class T, class = void>
+struct has_attach : std::false_type {};
+template <class T>
+struct has_attach<
+    T,
+    std::void_t<decltype(std::declval<const T&>().attach(std::declval<const Engine&>()))>>
+    : std::true_type {};
+
 // Borrowed a11y id; tree must outlive the pointer.
 template <class T>
 std::optional<std::reference_wrapper<const std::string>> elementSemanticPtr(const T& x) {
@@ -448,7 +458,9 @@ struct Custom {
   static void (*paintFor())(const void*, bool, const Box&, AnySink&, const Engine&) {
     if constexpr (has_paint<U>::value) {
       return [](const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e) {
-        static_cast<const U*>(addr<U>(s, heap))->paint(b, sink, e);
+        const U* u = static_cast<const U*>(addr<U>(s, heap));
+        if constexpr (has_attach<U>::value) u->attach(e);
+        u->paint(b, sink, e);
       };
     } else {
       return nullptr;
@@ -567,7 +579,9 @@ struct Custom {
     static const VTable v{
         []() -> const std::type_info& { return typeid(U); },
         [](const void* s, bool heap, Constraints c, const Engine& e) -> Box {
-          return static_cast<const U*>(addr<U>(s, heap))->place(c, e);
+          const U* u = static_cast<const U*>(addr<U>(s, heap));
+          if constexpr (has_attach<U>::value) u->attach(e);
+          return u->place(c, e);
         },
         [](const void* s, bool heap, const Box& b, Rec& r) {
           const U* u = static_cast<const U*>(addr<U>(s, heap));

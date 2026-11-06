@@ -3,10 +3,9 @@
 #include <string>
 
 #include "Showcase.h"
-#include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit.h"
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
-#include "motion/Anim.h"
 #include "widgets/Button.h"
 #include "widgets/Card.h"
 #include "widgets/Checkbox.h"
@@ -23,10 +22,6 @@ namespace glim {
 namespace toolkit {
 
 Block showcaseTree(Scope app) {
-  auto wifi = app.state("wifi", true);
-  Anim<float> wifiPos{app, "wifi-pos", 1.0f};
-  auto sound = app.state("sound", false);
-  Anim<float> soundPos{app, "sound-pos", 0.0f};
   auto range = app.state("range", 1);
   Anim<float> rangePos{app, "range-pos", 1.0f};
   auto level = app.state("level", 0.4f);
@@ -99,13 +94,8 @@ Block showcaseTree(Scope app) {
                   ))
               )
           ),
-          section("Switch", toggle({.value = wifi, .pos = wifiPos})),
-          section(
-              "Checkbox",
-              checkbox(
-                  {.label = "Sound", .value = sound, .pos = soundPos}
-              )
-          ),
+          section("Switch", toggle({.value = {"value", true}})),
+          section("Checkbox", checkbox({.label = "Sound"})),
           section(
               "Overflow & horizontal scroll",
               column(
@@ -116,8 +106,6 @@ Block showcaseTree(Scope app) {
                       wrap()
                   ),
                   [&] {
-                    // Twelve chips: List is column-only, so a
-                    // horizontal strip builds its Roll imperatively.
                     Roll strip;
                     strip.axis = kAxisHorizontal;
                     strip.gap = 8;
@@ -139,8 +127,8 @@ Block showcaseTree(Scope app) {
                    .selPos = rangePos}
               )
           ),
-          section("Slider", slider(level)),
-          section("Progress", progress(level))
+          section("Slider", slider({.value = level})),
+          section("Progress", progress({.value = level}))
       )
   );
 }

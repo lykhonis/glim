@@ -1,9 +1,7 @@
-#include <glim/toolkit/Ops.h>
-#include <glim/toolkit/Theme.h>
+#include <glim/toolkit.h>
 #include <glim/toolkit/host/Codec.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/SeatView.h>
-#include <glim/toolkit/theme/Themed.h>
 
 #include <cassert>
 #include <iostream>

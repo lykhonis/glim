@@ -10,12 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Layout.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/Tags.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {

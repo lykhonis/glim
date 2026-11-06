@@ -5,22 +5,15 @@
 #include "Gel.h"
 #include "ShowcaseTheme.h"
 #include "Slider.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/State.h"
-#include "glim/toolkit/Tags.h"
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {
 
-// Progress bar: read-only slider twin, shares the cell.
 struct Progress : WithSemantic {
   static constexpr float kW = 240.0f;
   static constexpr float kH = 12.0f;
-  State<float> value;
+  State<float> value = {"value", 0.4f};
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(kW, kH, c);
   }
@@ -41,7 +34,6 @@ struct Progress : WithSemantic {
     );
     if (box.w * v > 0.5f) {
       Box fill{box.x, box.y, box.w * v, box.h};
-      // Square the leading cap: a round cap would bulge past the value.
       sink.fillGradient(
           fill,
           6,
@@ -54,9 +46,7 @@ struct Progress : WithSemantic {
 };
 
 template <class... As>
-Block progress(State<float> v, As&&... as) {
-  Progress p;
-  p.value = std::move(v);
+Block progress(Progress p, As&&... as) {
   configureTags(p, std::forward<As>(as)...);
   return finish(std::move(p), std::forward<As>(as)...);
 }

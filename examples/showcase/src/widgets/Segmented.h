@@ -5,33 +5,23 @@
 #include <utility>
 #include <vector>
 
-#include "../motion/Anim.h"
 #include "Gel.h"
 #include "ShowcaseTheme.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/State.h"
-#include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Tokens.h"
-#include "glim/toolkit/text/Text.h"
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {
 
-// Segmented control: one focusable Tap per option; the indicator pill
-// coasts on an Anim. Record keeps the integer selection; position is
-// drawn.
 struct Segmented : WithSemantic {
   static constexpr const char* kKind = "Seg";
   static constexpr const char* kKindActive = "Seg.active";
   static constexpr float kSegH = 36.0f;
   std::vector<std::string> options;
   std::vector<Block> children;
-  State<int> selected;
-  Anim<float> selPos;
+  // Written by child taps at their own paths, so sharing needs one
+  // explicit cell, not a node-local default.
+  State<int> selected = {"selected", 0};
+  Anim<float> selPos = {"sel-pos", static_cast<float>(*selected)};
   float segWidth(const Engine& e) const {
     float w = 0;
     for (const auto& o : options) {
@@ -71,8 +61,6 @@ struct Segmented : WithSemantic {
         themeColor(e, kShowTrackBottom, Show::kTrackBottom)
     );
     Box act = activeBoxAt(box, *selPos);
-    // Pill is the track inset by 2px, so radius 16 keeps corners
-    // concentric.
     sink.fillGradient(
         act,
         16,

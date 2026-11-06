@@ -2,24 +2,13 @@
 
 #include <utility>
 
-#include "../motion/Anim.h"
 #include "Gel.h"
 #include "ShowcaseTheme.h"
-#include "glim/toolkit/Action.h"
-#include "glim/toolkit/Block.h"
-#include "glim/toolkit/Configure.h"
-#include "glim/toolkit/Custom.h"
-#include "glim/toolkit/Place.h"
-#include "glim/toolkit/State.h"
-#include "glim/toolkit/Tags.h"
-#include "glim/toolkit/Tokens.h"
-#include "glim/toolkit/theme/Keys.h"
+#include "glim/toolkit.h"
 
 namespace glim {
 namespace toolkit {
 
-// Toggle switch: tap flips the cell; thumb and track animate on an
-// Anim. The bool stays the semantics; the Anim is only ever drawn.
 struct Switch : WithSemantic {
   static constexpr const char* kKind = "Switch";
   static constexpr const char* kKindOn = "Switch.on";
@@ -27,8 +16,8 @@ struct Switch : WithSemantic {
   static constexpr float kW = 52.0f;
   static constexpr float kH = 28.0f;
   static constexpr float kThumb = 20.0f;
-  State<bool> value;
-  Anim<float> pos;
+  State<bool> value = {"value", false};
+  Anim<float> pos = {"pos", *value ? 1.0f : 0.0f};
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(kW, kH, c);
   }
@@ -46,8 +35,6 @@ struct Switch : WithSemantic {
     );
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    // Rest states stay bit-identical; mid-flight cross-fades over the
-    // groove.
     if (*pos < 1.0f) {
       sink.fillGradient(
           box,
@@ -76,8 +63,6 @@ struct Switch : WithSemantic {
           )
       );
     }
-    // Elevation: shadow, face, gloss crown, single mid-gray rim (never
-    // black — a black ring around white reads as a dirty halo).
     Box thumb{thumbX(box), box.y + 4.0f, kThumb, kThumb};
     Box shadow{thumb.x, thumb.y + 2.0f, thumb.w, thumb.h};
     sink.fillRounded(shadow, 10, Show::kShadow);

@@ -267,6 +267,7 @@ inline ThemeScope themeScopeOf(const Block& b) {
 
 template <class Enter, class Exit>
 void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&& exit) {
+  detail::AutoGuard g(e.store ? &e.store->get() : nullptr);
   // Push scope, not replace: store/measurer carry through, only theme changes.
   ThemeScope tv = themeScopeOf(b);
   ThemeScope held = tv;
@@ -277,7 +278,9 @@ void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&&
   bool descend = enter(b, box, de);
   if (descend) {
     if (auto c = b.get<Custom>()) {
+      std::size_t k = 0;
       c->get().visit(box, de, [&](const Block& child, Box cb) {
+        detail::PathPush p(k++);
         walk(child, cb, de, enter, exit);
       });
     } else {
@@ -287,7 +290,9 @@ void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&&
             if constexpr (has_children<T>::value) {
               std::size_t i = 0;
               eachChildOf(el, [&](const Block& child) {
-                walk(child, el.childBox(i++, box, de), de, enter, exit);
+                detail::PathPush p(i);
+                walk(child, el.childBox(i, box, de), de, enter, exit);
+                ++i;
               });
             }
           },

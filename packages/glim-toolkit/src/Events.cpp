@@ -41,6 +41,7 @@ bool dispatchPointer(
 ) {
   auto [t, hitBox] = hitWithBox(b, box, x, y, e);
   if (!t) return false;
+  detail::AutoHandle h(e.store ? &e.store->get() : nullptr, detail::AutoCtx::found());
   return handleAt(*t, hitBox, ev);
 }
 
