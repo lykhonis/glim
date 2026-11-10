@@ -8,7 +8,11 @@ layout(set = 0, binding = 2) uniform sampler2D tex;
 
 void main() {
     const float sdf = texture(tex, v_uv).r;
-    const float w = max(0.03, fwidth(sdf) * 0.6);
+    // AA width from the UV scale (texels per pixel x SDF slope), as the CPU
+    // path computes it. fwidth(sdf) collapses at a thin stem's peak (the
+    // gradient flips sign inside the quad), cutting minified stems away.
+    const float perPx = length(dFdx(v_uv * vec2(textureSize(tex, 0))));
+    const float w = max(0.03, 0.6 * perPx * (128.0 / 255.0) / 5.0);
     const float a = smoothstep(0.5 - w, 0.5 + w, sdf);
     out_color = vec4(v_tint.rgb * a, v_tint.a * a);
 }

@@ -200,6 +200,17 @@ WGPUBuffer makeBuffer(WGPUDevice device, std::uint64_t size, WGPUBufferUsage usa
   return wgpuDeviceCreateBuffer(device, &bd);
 }
 
+WGPUTextureFormat srgbVariant(WGPUTextureFormat f) {
+  switch (f) {
+    case WGPUTextureFormat_BGRA8Unorm:
+      return WGPUTextureFormat_BGRA8UnormSrgb;
+    case WGPUTextureFormat_RGBA8Unorm:
+      return WGPUTextureFormat_RGBA8UnormSrgb;
+    default:
+      return f;
+  }
+}
+
 WGPUTextureView makeView(WGPUTexture tex) { return wgpuTextureCreateView(tex, nullptr); }
 
 WGPUTextureView makeSingleMipView(WGPUTexture tex, WGPUTextureFormat format) {
@@ -220,7 +231,10 @@ struct Device::Impl {
   WGPUDevice device = nullptr;
   WGPUQueue queue = nullptr;
   WGPUSurface surface = nullptr;
+  // Render format: the sRGB view of the canvas storage, so linear shader
+  // output is encoded on write and decoded on sample (as Metal's _sRGB).
   WGPUTextureFormat format = WGPUTextureFormat_Undefined;
+  WGPUTextureFormat surfaceFormat = WGPUTextureFormat_Undefined;
   Queue queueWrapper;
   Handle next = 1;
   int drawableW = 1;
@@ -443,7 +457,9 @@ struct Device::Impl {
     }
     WGPUSurfaceConfiguration cfg{};
     cfg.device = device;
-    cfg.format = format;
+    cfg.format = surfaceFormat;
+    cfg.viewFormatCount = format != surfaceFormat ? 1 : 0;
+    cfg.viewFormats = &format;
     cfg.usage = static_cast<WGPUTextureUsage>(
         WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding |
         WGPUTextureUsage_CopySrc
@@ -722,7 +738,8 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   dev->device = w.device;
   dev->queue = w.queue;
   dev->surface = w.surface;
-  dev->format = w.format;
+  dev->surfaceFormat = w.format;
+  dev->format = srgbVariant(w.format);
   dev->queueWrapper = Queue(static_cast<void*>(w.queue));
   dev->shaders.resize(1);
   dev->pipelines.resize(1);
@@ -772,7 +789,7 @@ Result<Drawable> Device::nextDrawable() {
     return Result<Drawable>::fail("webgpu current texture unavailable");
   }
   impl_->swapTex = st.texture;
-  impl_->swapView = makeView(st.texture);
+  impl_->swapView = makeSingleMipView(st.texture, impl_->format);
   if (impl_->swapView == nullptr) {
     impl_->releaseSwap();
     return Result<Drawable>::fail("webgpu texture view failed");
@@ -797,7 +814,16 @@ void Device::setDrawableSize(int width, int height) {
   }
 }
 
+Extent Device::drawableSize() const {
+  if (!impl_) {
+    return {};
+  }
+  return {impl_->drawableW, impl_->drawableH};
+}
+
 int Device::presentRotationDegrees() const { return 0; }
+
+float Device::lastGpuMs() const { return 0.f; }
 
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
   const int w = std::max(desc.width, 1);
@@ -1156,7 +1182,16 @@ void Device::setDrawableSize(int width, int height) {
     impl_->drawableH = height;
   }
 }
+Extent Device::drawableSize() const {
+  if (!impl_) {
+    return {};
+  }
+  return {impl_->drawableW, impl_->drawableH};
+}
+
 int Device::presentRotationDegrees() const { return 0; }
+
+float Device::lastGpuMs() const { return 0.f; }
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc&) {
   return Result<FrameTarget>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }

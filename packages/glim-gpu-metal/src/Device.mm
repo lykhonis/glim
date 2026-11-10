@@ -5,7 +5,9 @@
 #import <QuartzCore/CAMetalLayer.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 namespace glim::gpu {
@@ -26,6 +28,8 @@ struct Device::Impl {
   id<MTLCommandQueue> commandQueue;
   CAMetalLayer* layer = nil;
   id<CAMetalDrawable> currentDrawable = nil;
+  // Shared with completion handlers, which may outlive the device.
+  std::shared_ptr<std::atomic<float>> gpuMs = std::make_shared<std::atomic<float>>(0.f);
   Queue queueWrapper;
   Handle next = 1;
   std::vector<id<MTLFunction>> shaders;
@@ -182,18 +186,31 @@ void CommandEncoder::present(const Drawable& drawable) {
 }
 
 void CommandEncoder::submit(Queue&) {
-  const bool synced = impl_->device && impl_->device->impl_ && impl_->device->impl_->layer &&
-                      impl_->device->impl_->layer.presentsWithTransaction;
+  Device::Impl* device = impl_->device ? impl_->device->impl_.get() : nullptr;
+  const bool synced = device && device->layer && device->layer.presentsWithTransaction;
+  if (device) {
+    std::shared_ptr<std::atomic<float>> gpuMs = device->gpuMs;
+    [impl_->commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
+      gpuMs->store(static_cast<float>((cb.GPUEndTime - cb.GPUStartTime) * 1000.0));
+    }];
+  }
   if (synced && impl_->drawable) {
     [impl_->commandBuffer commit];
     [impl_->commandBuffer waitUntilScheduled];
     [impl_->drawable present];
-    return;
+  } else {
+    if (impl_->drawable) {
+      [impl_->commandBuffer presentDrawable:impl_->drawable];
+    }
+    [impl_->commandBuffer commit];
   }
-  if (impl_->drawable) {
-    [impl_->commandBuffer presentDrawable:impl_->drawable];
+  // A presented drawable held past submit pins one of the layer's few
+  // slots (nextDrawable then waits on the display, up to its 1 s
+  // timeout) and would be presented again by the next encoder.
+  if (impl_->drawable && device && device->currentDrawable == impl_->drawable) {
+    device->currentDrawable = nil;
   }
-  [impl_->commandBuffer commit];
+  impl_->drawable = nil;
 }
 
 Device::Device() = default;
@@ -205,18 +222,18 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   if (info.backend != Backend::Metal) {
     return Result<Device>::fail("glim-gpu-metal: backend is not Metal");
   }
+  // Null layer = headless (FrameTargets + readPixels only), same contract as Vulkan.
   CAMetalLayer* layer = (__bridge CAMetalLayer*)info.native[0];
-  if (!layer) {
-    return Result<Device>::fail("Metal layer is null");
-  }
   id<MTLDevice> device = (__bridge id<MTLDevice>)info.native[1];
   if (!device) {
-    device = layer.device ? layer.device : MTLCreateSystemDefaultDevice();
+    device = layer && layer.device ? layer.device : MTLCreateSystemDefaultDevice();
   }
   if (!device) {
     return Result<Device>::fail("No Metal device");
   }
-  layer.device = device;
+  if (layer) {
+    layer.device = device;
+  }
 
   Device out;
   out.impl_ = std::make_unique<Impl>();
@@ -249,7 +266,17 @@ void Device::setDrawableSize(int width, int height) {
   impl_->layer.drawableSize = CGSizeMake(static_cast<CGFloat>(width), static_cast<CGFloat>(height));
 }
 
+Extent Device::drawableSize() const {
+  if (!impl_ || !impl_->layer) {
+    return {};
+  }
+  const CGSize s = impl_->layer.drawableSize;
+  return {static_cast<int>(s.width), static_cast<int>(s.height)};
+}
+
 int Device::presentRotationDegrees() const { return 0; }
+
+float Device::lastGpuMs() const { return impl_ ? impl_->gpuMs->load() : 0.f; }
 
 Result<Drawable> Device::nextDrawable() {
   for (Impl::PooledTarget& t : impl_->targetPool) {
@@ -303,9 +330,47 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
   return Result<FrameTarget>::ok(t);
 }
 
-bool Device::headless() const { return false; }
+bool Device::headless() const { return impl_ && !impl_->layer; }
 
-bool Device::readPixels(const FrameTarget&, void*, std::uint64_t) { return false; }
+bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t bytes) {
+  id<MTLTexture> tex = (__bridge id<MTLTexture>)target.native();
+  const NSUInteger w = static_cast<NSUInteger>(target.width());
+  const NSUInteger h = static_cast<NSUInteger>(target.height());
+  const NSUInteger rowBytes = w * 4;
+  if (!impl_ || !tex || !rgba8 || bytes < rowBytes * h) {
+    return false;
+  }
+  id<MTLBuffer> staging = [impl_->device newBufferWithLength:rowBytes * h
+                                                     options:MTLResourceStorageModeShared];
+  // Same queue: ordered after every frame already committed to the target.
+  id<MTLCommandBuffer> cb = [impl_->commandQueue commandBuffer];
+  id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+  [blit copyFromTexture:tex
+                   sourceSlice:0
+                   sourceLevel:0
+                  sourceOrigin:MTLOriginMake(0, 0, 0)
+                    sourceSize:MTLSizeMake(w, h, 1)
+                      toBuffer:staging
+             destinationOffset:0
+        destinationBytesPerRow:rowBytes
+      destinationBytesPerImage:rowBytes * h];
+  [blit endEncoding];
+  [cb commit];
+  [cb waitUntilCompleted];
+  if (cb.status != MTLCommandBufferStatusCompleted) {
+    return false;
+  }
+  // BGRA8 sRGB bytes -> RGBA8 sRGB bytes (no transfer-function change).
+  const auto* src = static_cast<const std::uint8_t*>(staging.contents);
+  auto* dst = static_cast<std::uint8_t*>(rgba8);
+  for (NSUInteger i = 0; i < w * h; ++i) {
+    dst[i * 4 + 0] = src[i * 4 + 2];
+    dst[i * 4 + 1] = src[i * 4 + 1];
+    dst[i * 4 + 2] = src[i * 4 + 0];
+    dst[i * 4 + 3] = src[i * 4 + 3];
+  }
+  return true;
+}
 
 Result<Buffer> Device::createBuffer(const BufferDesc& desc) {
   const NSUInteger size = static_cast<NSUInteger>(std::max<std::uint64_t>(desc.size, 16));

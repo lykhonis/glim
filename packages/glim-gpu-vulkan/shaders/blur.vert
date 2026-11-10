@@ -4,7 +4,6 @@ struct Instance {
     vec4 rect;
     vec4 uv;
     vec4 extra;
-    vec4 light;
     vec4 pill0;
     vec4 pill1;
     vec4 pill2;

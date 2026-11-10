@@ -23,6 +23,12 @@ class Queue {
   void* native_ = nullptr;
 };
 
+// Pixel size of a presentable surface.
+struct Extent {
+  int width = 0;
+  int height = 0;
+};
+
 class Drawable {
  public:
   Drawable() = default;
@@ -174,8 +180,15 @@ class Device {
 
   Queue& queue();
   Result<Drawable> nextDrawable();
+  // Size the next drawable will have, without acquiring it; {0, 0} when
+  // unknown. Lets a caller skip a frame before taking a swapchain image.
+  Extent drawableSize() const;
   void setDrawableSize(int width, int height);
   int presentRotationDegrees() const;
+  // GPU execution time of the latest completed submit, ms; 0 when the
+  // backend does not measure it. Completion is asynchronous, so during
+  // a frame this is usually an earlier frame's cost.
+  float lastGpuMs() const;
   Result<FrameTarget> createFrameTarget(const FrameTargetDesc&);
   bool headless() const;
   bool readPixels(const FrameTarget&, void* rgba8, std::uint64_t bytes);

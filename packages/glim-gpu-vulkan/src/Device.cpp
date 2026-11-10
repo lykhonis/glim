@@ -1570,6 +1570,15 @@ void Device::setDrawableSize(int width, int height) {
   impl_->wantedHeight = static_cast<uint32_t>(height);
 }
 
+Extent Device::drawableSize() const {
+  if (!impl_ || impl_->isHeadless || !impl_->haveSwapchain) {
+    return {};
+  }
+  return {static_cast<int>(impl_->extent.width), static_cast<int>(impl_->extent.height)};
+}
+
+float Device::lastGpuMs() const { return 0.f; }
+
 int Device::presentRotationDegrees() const {
   if (!impl_) {
     return 0;

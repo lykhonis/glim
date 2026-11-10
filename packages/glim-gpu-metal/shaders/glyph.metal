@@ -38,7 +38,12 @@ fragment float4 fs_main(VSOut in [[stage_in]],
                         texture2d<float> tex [[texture(0)]],
                         sampler samp [[sampler(0)]]) {
     const float sdf = tex.sample(samp, in.uv).r;
-    const float w = max(0.03, fwidth(sdf) * 0.6);
+    // AA width from the UV scale (texels per pixel x SDF slope), as the CPU
+    // path computes it. fwidth(sdf) collapses at a thin stem's peak (the
+    // gradient flips sign inside the quad), cutting minified stems away.
+    const float2 texels = float2(tex.get_width(), tex.get_height());
+    const float perPx = length(dfdx(in.uv * texels));
+    const float w = max(0.03, 0.6 * perPx * (128.0 / 255.0) / 5.0);
     const float a = smoothstep(0.5 - w, 0.5 + w, sdf);
     return float4(in.tint.rgb * a, in.tint.a * a);
 }

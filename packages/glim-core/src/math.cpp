@@ -41,6 +41,19 @@ Mat4 Mat4::scale(float x, float y, float z) noexcept {
   return r;
 }
 
+Mat4 Mat4::rotateZ(float radians) noexcept {
+  // Column-major CCW rotation about +Z (Y-down paint: positive angle
+  // reads clockwise on screen, matching compass convention).
+  const float c = std::cos(radians);
+  const float s = std::sin(radians);
+  Mat4 r = identity();
+  r.m[0] = c;
+  r.m[1] = s;
+  r.m[4] = -s;
+  r.m[5] = c;
+  return r;
+}
+
 Mat4 Mat4::operator*(const Mat4& rhs) const noexcept {
   Mat4 out{};
   for (int col = 0; col < 4; ++col) {

@@ -40,7 +40,11 @@ fn vs_main(
 @fragment
 fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
     let sdf = textureSample(tex, texSampler, in.uv).r;
-    let w = max(0.03, fwidth(sdf) * 0.6);
+    // AA width from the UV scale (texels per pixel x SDF slope), as the CPU
+    // path computes it. fwidth(sdf) collapses at a thin stem's peak (the
+    // gradient flips sign inside the quad), cutting minified stems away.
+    let perPx = length(dpdx(in.uv * vec2<f32>(textureDimensions(tex))));
+    let w = max(0.03, 0.6 * perPx * (128.0 / 255.0) / 5.0);
     let a = smoothstep(0.5 - w, 0.5 + w, sdf);
     return vec4<f32>(in.tint.rgb * a, in.tint.a * a);
 }

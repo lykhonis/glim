@@ -33,6 +33,7 @@ struct Mat4 {
   ) noexcept;
   static Mat4 translate(float x, float y, float z = 0) noexcept;
   static Mat4 scale(float x, float y, float z = 1) noexcept;
+  static Mat4 rotateZ(float radians) noexcept;
 
   Mat4 operator*(const Mat4& rhs) const noexcept;
   Vec4 operator*(const Vec4& v) const noexcept;

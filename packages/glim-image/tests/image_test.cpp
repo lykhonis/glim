@@ -1,6 +1,9 @@
+#include <glim/image/Analyze.h>
 #include <glim/image/Image.h>
+#include <glim/image/Load.h>
 #include <glim/image/Png.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -68,7 +71,48 @@ int main() {
   }
   expect(fileExists(junk), "junk exists");
   expect(!glim::image::Png::read(junk, &loaded), "reject non-png");
+  expect(!glim::image::load(junk, &loaded), "load rejects junk");
   std::remove(junk);
+
+  // load() dispatches PNG by magic.
+  expect(glim::image::Png::write(path, a), "write png for load");
+  expect(
+      glim::image::load(path, &loaded) && glim::image::compare(a, loaded, 0).match(), "load png"
+  );
+  std::remove(path);
+
+  // Analysis: a 1px vertical bar at x=5 in a 12x8 black image.
+  namespace gi = glim::image;
+  gi::Image bar = gi::Image::rgba8(12, 8);
+  for (int y = 0; y < 8; ++y) {
+    std::size_t i = (static_cast<std::size_t>(y) * 12 + 5) * 4;
+    bar.rgba[i] = 250, bar.rgba[i + 1] = 120, bar.rgba[i + 2] = 10;
+  }
+  gi::Image black = gi::Image::rgba8(12, 8);
+  expect(gi::mad(bar, bar) == 0.0, "mad identical");
+  expect(std::fabs(gi::mad(bar, black) - (380.0 / 3.0) / 12.0) < 1e-9, "mad bar");
+  expect(gi::edgeMad(bar, bar) == 0.0 && gi::edgeMad(bar, black) > 0.0, "edge mad");
+  gi::Mask orange;
+  expect(gi::parseMask("orange", &orange), "mask orange");
+  gi::Bounds b = gi::maskBounds(bar, {0, 0, 12, 8}, orange);
+  expect(b.x0 == 5 && b.x1 == 5 && b.y0 == 0 && b.y1 == 7 && b.count == 8, "mask bounds");
+  auto runs = gi::maskRuns(bar, {true, 3, 0, -1}, orange);
+  expect(runs.size() == 1 && runs[0].from == 5 && runs[0].to == 5, "mask runs");
+  auto peaks = gi::lumaPeaks(bar, {true, 3, 0, -1}, 40);
+  expect(peaks.size() == 1 && peaks[0].at == 5, "luma peaks");
+  gi::Mask near;
+  expect(
+      gi::parseMask("#fa780a:8", &near) && near.tolerance == 8 && near.test({250, 120, 10}),
+      "mask hex"
+  );
+  gi::Image c = gi::crop(bar, {4, 2, 3, 3});
+  expect(c.width == 3 && c.height == 3 && gi::pixel(c, 1, 0).r == 250, "crop");
+  gi::Image s = gi::scaleNearest(c, 2);
+  expect(s.width == 6 && gi::pixel(s, 3, 5).r == 250, "scale");
+  gi::Image st = gi::stack({c, c}, false, 2);
+  expect(st.width == 8 && st.height == 3, "stack");
+  gi::InkStats ink = gi::inkStats(bar, {0, 0, 12, 8}, 0.05);
+  expect(ink.ink.r == 250 && ink.background.r == 0, "ink stats");
 
   if (failures != 0) {
     std::cerr << failures << " failure(s)\n";
