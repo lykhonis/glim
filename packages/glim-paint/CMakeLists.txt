@@ -138,6 +138,12 @@ if(GLIM_HOST_TESTS)
     glim_target_defaults(glim-merge-test)
     add_test(NAME glim-merge-test COMMAND glim-merge-test)
 
+    add_executable(glim-strip-test tests/strip_test.cpp)
+    target_link_libraries(glim-strip-test PRIVATE glim::paint)
+    target_include_directories(glim-strip-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    glim_target_defaults(glim-strip-test)
+    add_test(NAME glim-strip-test COMMAND glim-strip-test)
+
     add_executable(glim-encode-test tests/encode_test.cpp)
     target_link_libraries(glim-encode-test PRIVATE glim::paint)
     glim_target_defaults(glim-encode-test)
@@ -167,6 +173,12 @@ if(GLIM_HOST_TESTS)
     target_link_libraries(glim-glass-test PRIVATE glim::paint-cpu)
     glim_target_defaults(glim-glass-test)
     add_test(NAME glim-glass-test COMMAND glim-glass-test)
+
+    add_executable(glim-lensmath-test tests/lensmath_test.cpp)
+    target_link_libraries(glim-lensmath-test PRIVATE glim::paint-cpu)
+    target_include_directories(glim-lensmath-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    glim_target_defaults(glim-lensmath-test)
+    add_test(NAME glim-lensmath-test COMMAND glim-lensmath-test)
 
     add_executable(glim-hit-test tests/hit_test.cpp)
     target_link_libraries(glim-hit-test PRIVATE glim::paint)
@@ -203,5 +215,5 @@ if(GLIM_HOST_TESTS)
     add_custom_target(glim-paint-tests DEPENDS glim-merge-test glim-encode-test glim-cpu-test
                       glim-glyph-test glim-slot-test glim-foreign-test
                       glim-glass-test glim-hit-test glim-perf-test glim-reuse-test glim-gradient-test
-                      glim-embed-cpu-test)
+                      glim-embed-cpu-test glim-lensmath-test)
 endif()

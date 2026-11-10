@@ -54,9 +54,41 @@ std::unique_ptr<Group> cloneGroup(const Group& g) {
 }
 
 Rect transformRect(const Mat4& t, Rect r) {
-  const Vec4 o = t * Vec4{r.origin.x, r.origin.y, 0, 1};
-  const Vec4 c = t * Vec4{r.origin.x + r.size.x, r.origin.y + r.size.y, 0, 1};
-  return {{o.x, o.y}, {c.x - o.x, c.y - o.y}};
+  // Correct AABB: all four corners (rotation-safe). Previously only
+  // origin+corner were mapped, producing negative sizes under rotation.
+  const Vec4 p0 = t * Vec4{r.origin.x, r.origin.y, 0, 1};
+  const Vec4 p1 = t * Vec4{r.origin.x + r.size.x, r.origin.y, 0, 1};
+  const Vec4 p2 = t * Vec4{r.origin.x, r.origin.y + r.size.y, 0, 1};
+  const Vec4 p3 = t * Vec4{r.origin.x + r.size.x, r.origin.y + r.size.y, 0, 1};
+  const float x0 = std::min(std::min(p0.x, p1.x), std::min(p2.x, p3.x));
+  const float y0 = std::min(std::min(p0.y, p1.y), std::min(p2.y, p3.y));
+  const float x1 = std::max(std::max(p0.x, p1.x), std::max(p2.x, p3.x));
+  const float y1 = std::max(std::max(p0.y, p1.y), std::max(p2.y, p3.y));
+  return {{x0, y0}, {x1 - x0, y1 - y0}};
+}
+
+bool isAxisAligned(const Mat4& t) noexcept {
+  // Pure scale+translate: off-diagonal 2D terms ~0. Rotation/skew
+  // fails this — those groups must not bake (see canMerge).
+  return std::fabs(t.m[1]) <= 1e-6f && std::fabs(t.m[4]) <= 1e-6f;
+}
+
+bool invert2DAffine(const Mat4& t, Mat4& out) noexcept {
+  const float a = t.m[0], b = t.m[1], c = t.m[4], d = t.m[5];
+  const float tx = t.m[12], ty = t.m[13];
+  const float det = a * d - b * c;
+  if (std::fabs(det) <= 1e-12f) {
+    return false;
+  }
+  const float ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+  out = Mat4::identity();
+  out.m[0] = ia;
+  out.m[1] = ib;
+  out.m[4] = ic;
+  out.m[5] = id;
+  out.m[12] = -(ia * tx + ic * ty);
+  out.m[13] = -(ib * tx + id * ty);
+  return true;
 }
 
 namespace {
@@ -129,6 +161,64 @@ Stroke transformStroke(const Mat4& t, const Stroke& src) {
   return out;
 }
 
+FillChamfer transformChamfer(const Mat4& t, const FillChamfer& src) {
+  FillChamfer out = src;
+  out.matter = transformMatter(t, src.matter);
+  out.cut = src.cut * transformScale(t, src.rect);
+  out.rect = transformRect(t, src.rect);
+  return out;
+}
+
+StrokeChamfer transformStrokeChamfer(const Mat4& t, const StrokeChamfer& src) {
+  StrokeChamfer out = src;
+  const float s = transformScale(t, src.rect);
+  out.matter = transformMatter(t, src.matter);
+  out.cut = src.cut * s;
+  out.width = src.width * s;
+  out.rect = transformRect(t, src.rect);
+  return out;
+}
+
+Arc transformArc(const Mat4& t, const Arc& src) {
+  Arc out = src;
+  // Normalize negative (counterclockwise) sweep to positive equivalent:
+  // start+sweep..start === start+sweep..(start+sweep)+|sweep|.
+  if (out.sweepDeg < 0.f) {
+    out.startDeg += out.sweepDeg;
+    out.sweepDeg = -out.sweepDeg;
+  }
+  out.matter = transformMatter(t, src.matter);
+  out.center = transformPoint(t, src.center);
+  const Vec4 ox = t * Vec4{0, 0, 0, 1};
+  const Vec4 xx = t * Vec4{1, 0, 0, 1};
+  const Vec4 yx = t * Vec4{0, 1, 0, 1};
+  const float sx = std::hypot(xx.x - ox.x, xx.y - ox.y);
+  const float sy = std::hypot(yx.x - ox.x, yx.y - ox.y);
+  const float s = std::max(sx, sy);
+  out.radius = src.radius * s;
+  out.thickness = src.thickness * s;
+  return out;
+}
+
+Polyline transformPolyline(const Mat4& t, const Polyline& src) {
+  Polyline out = src;
+  out.matter = transformMatter(t, src.matter);
+  const Vec4 ox = t * Vec4{0, 0, 0, 1};
+  const Vec4 xx = t * Vec4{1, 0, 0, 1};
+  const Vec4 yx = t * Vec4{0, 1, 0, 1};
+  const float sx = std::hypot(xx.x - ox.x, xx.y - ox.y);
+  const float sy = std::hypot(yx.x - ox.x, yx.y - ox.y);
+  const float s = std::max(sx, sy);
+  out.width = src.width * s;
+  out.dotPitch = src.dotPitch * s;
+  out.points.clear();
+  out.points.reserve(src.points.size());
+  for (const Vec2& p : src.points) {
+    out.points.push_back(transformPoint(t, p));
+  }
+  return out;
+}
+
 Blit transformBlit(const Mat4& t, const Blit& src) {
   Blit out = src;
   out.rect = transformRect(t, src.rect);
@@ -159,8 +249,20 @@ Shape transformShape(const Mat4& t, const Shape& s) {
   if (const auto* r = std::get_if<FillRounded>(&s)) {
     return transformRounded(t, *r);
   }
+  if (const auto* ch = std::get_if<FillChamfer>(&s)) {
+    return transformChamfer(t, *ch);
+  }
   if (const auto* st = std::get_if<Stroke>(&s)) {
     return transformStroke(t, *st);
+  }
+  if (const auto* sc = std::get_if<StrokeChamfer>(&s)) {
+    return transformStrokeChamfer(t, *sc);
+  }
+  if (const auto* a = std::get_if<Arc>(&s)) {
+    return transformArc(t, *a);
+  }
+  if (const auto* pl = std::get_if<Polyline>(&s)) {
+    return transformPolyline(t, *pl);
   }
   if (const auto* b = std::get_if<Blit>(&s)) {
     return transformBlit(t, *b);
@@ -273,9 +375,6 @@ void dropBackdropPills(Group& g) {
 
 void clearBackdropParams(GroupParams& p) {
   p.backdropBlur = 0.f;
-  p.backdropBend = 0.f;
-  p.backdropMerge = 0.f;
-  p.backdropPress = 0.f;
   p.backdropFlat = false;
 }
 
@@ -294,9 +393,7 @@ int isolatePixelSizeFor(const Group& g, float logical, float pixelRatio) {
   return std::max(1, static_cast<int>(std::ceil(logical * scale)));
 }
 
-bool hasBackdrop(const Group& g) {
-  return snapBackdropSigma(g.params.backdropBlur) > 0.f || g.params.backdropBend > 0.f;
-}
+bool hasBackdrop(const Group& g) { return snapBackdropSigma(g.params.backdropBlur) > 0.f; }
 
 bool hasShadow(const Group& g) noexcept {
   return g.params.shadow.has_value() && snapShadowSigma(g.params.shadow->sigma) > 0.f;
@@ -393,6 +490,12 @@ bool canMerge(const Group& g) {
   if (needsIsolate(g) || hasClip(g.params) || hasSlotHole(g)) {
     return false;
   }
+  // Rotated groups must stay grouped: baking via transformRect would
+  // collapse the rotation to an AABB. Leaves handle rotation via the
+  // world-aware append path (inverse-mapped coverage).
+  if (!isAxisAligned(g.params.transform)) {
+    return false;
+  }
   if (g.params.semantic != 0) {
     return false;
   }
@@ -415,6 +518,8 @@ Rect contentBounds(const Group& g) {
       b = unionRect(b, f->rect);
     } else if (const auto* r = std::get_if<FillRounded>(&s)) {
       b = unionRect(b, r->rect);
+    } else if (const auto* ch = std::get_if<FillChamfer>(&s)) {
+      b = unionRect(b, ch->rect);
     } else if (const auto* st = std::get_if<Stroke>(&s)) {
       const float o = std::max(0.f, st->width) * 0.5f;
       b = unionRect(
@@ -422,6 +527,21 @@ Rect contentBounds(const Group& g) {
           {{st->rect.origin.x - o, st->rect.origin.y - o},
            {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}}
       );
+    } else if (const auto* sc = std::get_if<StrokeChamfer>(&s)) {
+      const float o = std::max(0.f, sc->width) * 0.5f;
+      b = unionRect(
+          b,
+          {{sc->rect.origin.x - o, sc->rect.origin.y - o},
+           {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}}
+      );
+    } else if (const auto* a = std::get_if<Arc>(&s)) {
+      const float o = a->radius + a->thickness * 0.5f;
+      b = unionRect(b, {{a->center.x - o, a->center.y - o}, {o * 2.f, o * 2.f}});
+    } else if (const auto* pl = std::get_if<Polyline>(&s)) {
+      const float o = std::max(0.f, pl->width) * 0.5f;
+      for (const Vec2& p : pl->points) {
+        b = unionRect(b, {{p.x - o, p.y - o}, {o * 2.f, o * 2.f}});
+      }
     } else if (const auto* blit = std::get_if<Blit>(&s)) {
       b = unionRect(b, blit->rect);
     } else if (const auto* run = std::get_if<GlyphRun>(&s)) {

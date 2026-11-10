@@ -227,82 +227,40 @@ void Renderer::submitLayer(
             iso.glassU1,
             iso.glassV1
         );
-        void* sharp = targets_.glassSrc.native();
-        void* blur = sharp;
-        const float blurR = glassBlurRadius(iso.glass);
-        if (blurR > 0.f && pipes_.blur1d.native() && !iso.glass.flatten) {
-          const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
-          const float sigmaFull = blurR * pr * 0.5f;
-          blur = blurGlass(
-              encoder,
-              pipes_,
-              device_.nativeSampler(),
-              device_,
-              targets_,
-              sharp,
-              iso.contentW,
-              iso.contentH,
-              iso.glassU0,
-              iso.glassV0,
-              iso.glassU1,
-              iso.glassV1,
-              sigmaFull,
-              nullptr
-          );
-        }
-        if (pipes_.glass.native() && !iso.glassPills.empty()) {
-          gpu::PassDesc plate;
-          plate.nativeColor = ft->native();
-          plate.load = gpu::LoadOp::Clear;
-          plate.clear = {0, 0, 0, 0};
-          plate.viewportW = iso.contentW;
-          plate.viewportH = iso.contentH;
-          gpu::Pass gp = encoder.beginPass(plate);
-          const Mat4 localProj = Mat4::orthoYDown(
-              0,
-              0,
-              iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
-              iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
-          );
-          setProjection(gp, localProj);
-          gp.setPipeline(pipes_.glass);
-          gp.setBytes(0, &gu, sizeof(gu));
-          gp.setFragmentBytes(0, &gu, sizeof(gu));
-          gp.setFragmentTexture(0, sharp);
-          gp.setFragmentTexture(1, blur);
-          gp.setFragmentSampler(0, device_.nativeSampler());
-          gp.setFragmentSampler(1, device_.nativeSampler());
-          gp.draw(6, 1, 0, 0);
-          gp.end();
-        } else {
-          blitTexture(
-              encoder,
-              pipes_,
-              device_.nativeSampler(),
-              stats_,
-              ft->native(),
-              iso.contentW,
-              iso.contentH,
-              sharp,
-              0.f,
-              0.f,
-              static_cast<float>(iso.contentW),
-              static_cast<float>(iso.contentH),
-              iso.glassU0,
-              iso.glassV0,
-              iso.glassU1,
-              iso.glassV1,
-              1.f,
-              1.f,
-              1.f,
-              1.f
-          );
-        }
+        const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
+        const Mat4 localProj = Mat4::orthoYDown(
+            0,
+            0,
+            iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+            iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
+        );
+        encodeGlassPlate(
+            encoder,
+            pipes_,
+            device_.nativeSampler(),
+            device_,
+            targets_,
+            stats_,
+            nullptr,
+            iso.glass,
+            gu,
+            static_cast<int>(iso.glassPills.size()),
+            targets_.glassSrc.native(),
+            ft->native(),
+            iso.contentW,
+            iso.contentH,
+            pr,
+            localProj,
+            iso.glassU0,
+            iso.glassV0,
+            iso.glassU1,
+            iso.glassV1
+        );
         plateLoad = gpu::LoadOp::Load;
       }
       ++stats_.glassPassCount;
       stats_.glassPillCount += static_cast<unsigned>(iso.glassPills.size());
-    } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
+    } else if (iso.backdropSigma > 0.f) {
       if (!snapshotted) {
         const int hw = std::max(1, viewportW / 2);
         const int hh = std::max(1, viewportH / 2);
@@ -377,13 +335,7 @@ void Renderer::submitLayer(
             iso.backdropU1,
             iso.backdropV1,
             iso.backdropSigma,
-            iso.backdropBend,
-            iso.backdropMerge,
-            iso.backdropPress,
             iso.backdropFlat,
-            iso.backdropLightX,
-            iso.backdropLightY,
-            iso.backdropLightZ,
             iso.backdropPills.empty() ? nullptr : iso.backdropPills.data(),
             static_cast<int>(iso.backdropPills.size())
         );
@@ -551,7 +503,10 @@ void Renderer::submit(const FramePacket& packet) {
   if (!pipes_.ensure(device_)) {
     return;
   }
+  const auto a0 = std::chrono::steady_clock::now();
   auto drawable = device_.nextDrawable();
+  stats_.acquireMs =
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - a0).count();
   if (!drawable.ok()) {
     return;
   }
@@ -579,6 +534,7 @@ void Renderer::submit(const FramePacket& packet) {
   );
   encoder.present(drawable.value());
   encoder.submit(device_.queue());
+  stats_.gpuMs = device_.lastGpuMs();
   stats_.encodeMs =
       std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }

@@ -28,8 +28,12 @@ class Context {
   void setFillColor(std::uint32_t rgba) { setFillColor(Color{rgba}); }
   void fill(const Rect&);
   void fillRounded(const Rect&, Radius);
+  void fillChamfer(const Rect&, float cut);
   void strokeRect(const Rect&, float width);
   void strokeRect(const Rect&, Radius, float width);
+  void strokeChamfer(const Rect&, float cut, float width);
+  void arc(const Arc&);
+  void polyline(const Polyline&);
   void clipRect(const Rect&);
   void clipRect(const Rect&, Radius);
   std::uint32_t addImage(int width, int height, const std::uint8_t* rgba);
@@ -41,8 +45,11 @@ class Context {
   void blit(const Rect& dst, Matter matter);
   void blit(const Rect& dst, std::uint32_t imageId) { blit(dst, Matter::sampled(imageId)); }
   void text(Vec2 origin, const char* latin, float sizePx);
+  void textStyled(Vec2 origin, const char* latin, float sizePx, float condense, float weightPx);
   TextSize measureText(const char* latin, float sizePx) const;
+  TextSize measureTextStyled(const char* latin, float sizePx, float condense) const;
   void slot(const Rect&, std::uint32_t id);
+  bool sawSlots() const { return sawSlots_; }
   void setSemantic(std::uint32_t id);
   void translate(Vec2);
   void save();
@@ -70,6 +77,7 @@ class Context {
   ImageStore images_{};
   std::uint32_t fontAtlasId_ = 0;
   bool recording_ = false;
+  bool sawSlots_ = false;
 };
 
 }  // namespace glim::paint

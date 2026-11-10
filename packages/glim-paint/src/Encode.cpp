@@ -2,6 +2,7 @@
 #include <glim/paint/FramePacket.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 #include "Strip.h"
@@ -46,13 +47,7 @@ Isolate encodeIsolate(
   iso.destW = dest.size.x;
   iso.destH = dest.size.y;
   iso.backdropSigma = snapBackdropSigma(g.params.backdropBlur);
-  iso.backdropBend = g.params.backdropBend;
   iso.backdropRadius = plateRadius(g.params.clipRadius);
-  iso.backdropMerge = g.params.backdropMerge;
-  iso.backdropPress = g.params.backdropPress;
-  iso.backdropLightX = g.params.backdropLightX;
-  iso.backdropLightY = g.params.backdropLightY;
-  iso.backdropLightZ = g.params.backdropLightZ;
   iso.backdropFlat = g.params.backdropFlat;
   if (hasBackdrop(g)) {
     BackdropPill pills[kMaxBackdropPills];
@@ -63,8 +58,7 @@ Isolate encodeIsolate(
       pill.rect.origin.y -= surface.origin.y;
     }
   }
-  if ((iso.backdropSigma > 0.f || iso.backdropBend > 0.f) && logicalSize.x > 0.f &&
-      logicalSize.y > 0.f) {
+  if (iso.backdropSigma > 0.f && logicalSize.x > 0.f && logicalSize.y > 0.f) {
     iso.backdropU0 = dest.origin.x / logicalSize.x;
     iso.backdropV0 = dest.origin.y / logicalSize.y;
     iso.backdropU1 = (dest.origin.x + dest.size.x) / logicalSize.x;
@@ -87,16 +81,7 @@ Isolate encodeIsolate(
   if (glassWork) {
     iso.hasGlass = hasGlass(g) || isGlassContainer(g);
     iso.glassContainer = isGlassContainer(g);
-    if (g.params.glass.has_value()) {
-      iso.glass = *g.params.glass;
-    } else {
-      for (const auto& c : g.children) {
-        if (c && c->params.glass.has_value()) {
-          iso.glass = *c->params.glass;
-          break;
-        }
-      }
-    }
+    iso.glass = glassMaterial(g);
     GlassPill pills[kMaxGlassPills];
     const int n = collectGlassPills(g, pills);
     iso.glassPills.assign(pills, pills + n);
@@ -185,30 +170,60 @@ void encodeTree(
   bool afterBackdrop = false;
   bool seenGlass = false;
   bool afterGlass = false;
+  const auto flushWrap = [&](Group& wrap) {
+    wrap.params.bounds = contentBounds(wrap);
+    wrap.params.blend = g.params.blend;
+    isolates.push_back(encodeIsolate(wrap, Mat4::identity(), pixelRatio, logicalSize, stats));
+    if (stats) {
+      ++stats->isolateCount;
+    }
+  };
+  Group overlay;
+  const auto flushOverlay = [&] {
+    if (overlay.shapes.empty()) return;
+    flushWrap(overlay);
+    overlay = Group{};
+  };
   visitGroup(
       g,
       [&](const Shape& s) {
         if (seenBackdrop || seenGlass) {
-          Group wrap;
-          wrap.shapes.push_back(transformShape(extra, s));
-          wrap.order.push_back({GroupItem::Shape, 0});
-          wrap.params.bounds = contentBounds(wrap);
-          wrap.params.blend = g.params.blend;
-          isolates.push_back(encodeIsolate(wrap, Mat4::identity(), pixelRatio, logicalSize, stats));
-          if (stats) {
-            ++stats->isolateCount;
+          // Plus parents add each shape on its own; normal-blend runs share
+          // one isolate (src-over is associative), so overlay text and
+          // strokes do not pay an offscreen each.
+          if (isPlus) {
+            Group wrap;
+            wrap.shapes.push_back(transformShape(extra, s));
+            wrap.order.push_back({GroupItem::Shape, 0});
+            flushWrap(wrap);
+            return;
           }
+          overlay.order.push_back(
+              {GroupItem::Shape, static_cast<std::uint32_t>(overlay.shapes.size())}
+          );
+          overlay.shapes.push_back(transformShape(extra, s));
           return;
         }
         const std::size_t nq = quads.size();
         const std::size_t nb = blits.size();
         const std::size_t ng = gradients.size();
-        appendShape(quads, blits, gradients, transformShape(extra, s), clip);
+        const auto t0 = std::chrono::steady_clock::now();
+        appendShapeWorld(quads, blits, gradients, s, extra, clip);
+        if (stats) {
+          const std::size_t k = s.index();
+          ++stats->shapeCount[k];
+          stats->shapeInstances[k] +=
+              static_cast<unsigned>(quads.size() + blits.size() + gradients.size() - nq - nb - ng);
+          stats->shapeEncodeMs[k] +=
+              std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0)
+                  .count();
+        }
         if (isPlus) {
           markPlus(quads, blits, gradients, nq, nb, ng);
         }
       },
       [&](const Group& child) {
+        flushOverlay();
         const bool backdrop = hasBackdrop(child);
         const bool glassWork = hasGlassWork(child);
         if (backdrop) {
@@ -255,6 +270,7 @@ void encodeTree(
         }
       }
   );
+  flushOverlay();
 }
 
 }  // namespace

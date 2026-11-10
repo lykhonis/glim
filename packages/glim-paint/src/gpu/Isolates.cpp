@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "../LensMath.h"
+
 namespace glim::paint {
 
 void setProjection(gpu::Pass& pass, const Mat4& m) {
@@ -42,13 +44,6 @@ Mat4 presentProjection(const Mat4& ortho, int degrees) {
   return r * ortho;
 }
 
-float glassBlurRadius(const Glass& g) {
-  if (g.flatten || g.variant == GlassVariant::Identity) {
-    return 0.f;
-  }
-  return g.variant == GlassVariant::Clear ? 6.f : 20.f;
-}
-
 GlassUniforms makeGlassUniforms(
     const Glass& g,
     const GlassPill* pills,
@@ -79,15 +74,41 @@ GlassUniforms makeGlassUniforms(
     u.shapes[i].mergeK = g.mergeKPx;
   }
   const bool ident = g.variant == GlassVariant::Identity;
-  u.thickness = ident ? 0.f : g.thicknessPx;
+  const bool isGlass = g.material == GlassMaterial::Glass;
+  const bool isMetal = g.material == GlassMaterial::LiquidMetal;
+  // Same size scale as the glassSurface gutter, from the pills' bbox.
+  float bx0 = 0.f;
+  float by0 = 0.f;
+  float bx1 = 0.f;
+  float by1 = 0.f;
+  for (int i = 0; i < count; ++i) {
+    const GlassPill& q = (pills && n > 0) ? pills[i] : GlassPill{};
+    const float x0 = q.rect.origin.x;
+    const float y0 = q.rect.origin.y;
+    const float x1 = x0 + q.rect.size.x;
+    const float y1 = y0 + q.rect.size.y;
+    if (i == 0 || x0 < bx0) {
+      bx0 = x0;
+    }
+    if (i == 0 || y0 < by0) {
+      by0 = y0;
+    }
+    if (i == 0 || x1 > bx1) {
+      bx1 = x1;
+    }
+    if (i == 0 || y1 > by1) {
+      by1 = y1;
+    }
+  }
+  const Rect plateBox{{bx0, by0}, {std::max(0.f, bx1 - bx0), std::max(0.f, by1 - by0)}};
+  u.thickness = ident ? 0.f : glassThicknessFor(g, plateBox);
   u.ior = g.ior;
   u.refDistance = g.refDistance;
   u.dispersion = (ident || g.flatten) ? 0.f : g.dispersion;
   u.fresnelRange = 18.f;
   u.fresnelHardness = 0.0f;
-  u.fresnelIntensity = ident || g.flatten ? (g.flatten ? 0.05f : 0.f)
-                                          : (g.variant == GlassVariant::Clear ? 0.16f : 0.22f);
-  u.glareAngle = 0.f;
+  u.fresnelIntensity = ident ? 0.f : (g.flatten ? 0.02f : (isMetal ? 0.9f : 0.04f));  // Schlick F0
+  u.glareAngle = lens::kKeyLightAngle;
   u.glareRange = 14.f;
   u.glareHardness = 0.0f;
   u.glareConvergence = 0.7f;
@@ -96,11 +117,15 @@ GlassUniforms makeGlassUniforms(
   u.tint[1] = srgbToLinear(g.tint.green());
   u.tint[2] = srgbToLinear(g.tint.blue());
   u.tint[3] = g.tint.alpha();
-  u.blurEdge = g.variant == GlassVariant::Regular ? 1.f : 0.f;
+  u.blurEdge = (!isGlass || g.variant != GlassVariant::Regular) ? 0.f : 1.f;
   u.lumaLift = 0.55f;
   u.lumaShadow = 0.06f;
-  u.lumaOn = (!ident && !g.flatten && g.variant == GlassVariant::Regular) ? 1.f : 0.f;
-  u.dimmer = (!ident && !g.flatten && g.variant == GlassVariant::Clear) ? 0.12f : 0.f;
+  // A set tint is the designed wash: no luma lift on top (CPU parity).
+  u.lumaOn = (!ident && !g.flatten && isGlass && g.variant == GlassVariant::Regular &&
+              g.tint.alpha() == 0.f)
+                 ? 1.f
+                 : 0.f;
+  u.dimmer = (!ident && !g.flatten && isGlass && g.variant == GlassVariant::Clear) ? 0.35f : 0.f;
   u.interactive = g.interactive ? 1.f : 0.f;
   u.flatten = g.flatten ? 1.f : 0.f;
   u.edge = static_cast<float>(static_cast<std::uint8_t>(g.edge));
@@ -108,6 +133,18 @@ GlassUniforms makeGlassUniforms(
   u.destUv0[1] = v0;
   u.destUv1[0] = u1;
   u.destUv1[1] = v1;
+  u.material = static_cast<float>(static_cast<int>(g.material));
+  u.transmit = g.transmit;
+  u.rippleAmp = g.rippleAmp;
+  u.timeSec = glassRipples(g) ? g.timeSec : 0.f;
+  u.swellAmp = g.swellAmp;
+  u.envSoft = g.envSoft;
+  u.absorbK = g.absorbK;
+  u.envLight = g.envLight;
+  u.swellScale[0] = g.swellScale.x;
+  u.swellScale[1] = g.swellScale.y;
+  u.swellPhase = glassSwellPhase(g);
+  u._padS = 0.f;
   return u;
 }
 
@@ -195,13 +232,7 @@ PlateInstance makePlate(
     float u1,
     float v1,
     float sigma,
-    float bend,
-    float mergeK,
-    float press,
     bool flat,
-    float lx,
-    float ly,
-    float lz,
     const BackdropPill* pills,
     int n
 ) {
@@ -216,13 +247,7 @@ PlateInstance makePlate(
   p.uv[3] = v1;
   const int count = n > 0 ? n : 1;
   p.extra[0] = sigma * 0.5f;
-  p.extra[1] = bend;
-  p.extra[2] = mergeK;
   p.extra[3] = static_cast<float>(count | (flat ? 8 : 0));
-  p.light[0] = lx;
-  p.light[1] = ly;
-  p.light[2] = lz;
-  p.light[3] = press;
   if (pills && n > 0) {
     packPill(p.pill0, pills[0]);
     p.radii[0] = pills[0].radius;
@@ -391,6 +416,99 @@ void* blurGlass(
   }
   blur1dPass(encoder, pipes, sampler, dst, bw, bh, src, sigma, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, stats);
   return dst;
+}
+
+void encodeGlassPlate(
+    gpu::CommandEncoder& encoder,
+    const Renderer::Pipelines& pipes,
+    void* sampler,
+    gpu::Device& device,
+    Renderer::TargetPool& targets,
+    Stats& stats,
+    Stats* drawStats,
+    const Glass& mat,
+    const GlassUniforms& gu,
+    int pillCount,
+    void* sharp,
+    void* dst,
+    int iw,
+    int ih,
+    float pixelRatio,
+    const Mat4& proj,
+    float u0,
+    float v0,
+    float u1,
+    float v1
+) {
+  if (!sharp) {
+    return;
+  }
+  void* blur = sharp;
+  const float blurR = glassBlurRadius(mat);
+  if (blurR > 0.f && pipes.blur1d.native() && !mat.flatten) {
+    const float sigmaFull = blurR * pixelRatio * 0.5f;
+    blur = blurGlass(
+        encoder,
+        pipes,
+        sampler,
+        device,
+        targets,
+        sharp,
+        iw,
+        ih,
+        u0,
+        v0,
+        u1,
+        v1,
+        sigmaFull,
+        drawStats
+    );
+  }
+  if (pipes.glass.native() && pillCount > 0) {
+    gpu::PassDesc plate;
+    plate.nativeColor = dst;
+    plate.load = gpu::LoadOp::Clear;
+    plate.clear = {0, 0, 0, 0};
+    plate.viewportW = iw;
+    plate.viewportH = ih;
+    gpu::Pass gp = encoder.beginPass(plate);
+    setProjection(gp, proj);
+    gp.setPipeline(pipes.glass);
+    gp.setBytes(0, &gu, sizeof(gu));
+    gp.setFragmentBytes(0, &gu, sizeof(gu));
+    gp.setFragmentTexture(0, sharp);
+    gp.setFragmentTexture(1, blur ? blur : sharp);
+    gp.setFragmentSampler(0, sampler);
+    gp.setFragmentSampler(1, sampler);
+    gp.draw(6, 1, 0, 0);
+    if (drawStats) {
+      drawStats->draws += 1;
+    }
+    gp.end();
+  } else {
+    blitTexture(
+        encoder,
+        pipes,
+        sampler,
+        stats,
+        dst,
+        iw,
+        ih,
+        sharp,
+        0.f,
+        0.f,
+        static_cast<float>(iw),
+        static_cast<float>(ih),
+        u0,
+        v0,
+        u1,
+        v1,
+        1.f,
+        1.f,
+        1.f,
+        1.f
+    );
+  }
 }
 
 void* snapshotBackdrop(

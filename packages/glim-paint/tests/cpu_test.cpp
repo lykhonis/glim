@@ -147,7 +147,6 @@ int main() {
   }
   glim::paint::GroupParams lens;
   lens.backdropBlur = 8.f;
-  lens.backdropBend = 0.55f;
   lens.bounds = glim::Rect{{16.f, 8.f}, {32.f, 24.f}};
   lens.clipRadius = glim::Radius{6.f};
   ctx.pushGroup(lens);
@@ -176,8 +175,7 @@ int main() {
   ctx.setFillColor(0xffffffff);
   ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
   glim::paint::GroupParams blob;
-  blob.backdropBend = 0.5f;
-  blob.backdropMerge = 20.f;
+  blob.backdropBlur = 8.f;
   blob.bounds = glim::Rect{{8.f, 12.f}, {48.f, 16.f}};
   ctx.pushGroup(blob);
   ctx.fillRounded(glim::Rect{{8.f, 12.f}, {16.f, 16.f}}, glim::Radius{8.f});
@@ -185,11 +183,6 @@ int main() {
   ctx.popGroup();
   ctx.finish();
   renderer.draw(ctx.scene());
-  const std::size_t neck = static_cast<std::size_t>((20 * w + 32) * 4);
-  if (buf[neck + 3] < 40) {
-    std::cerr << "smooth-min should fill the neck between pills\n";
-    return EXIT_FAILURE;
-  }
   const std::size_t lensOver = static_cast<std::size_t>((16 * w + 24) * 4);
   if (buf[lensOver + 1] < 200) {
     std::cerr << "overlay after lens should paint on top\n";
@@ -276,6 +269,40 @@ int main() {
     }
     if (buf[shPx] < 40 || buf[shPx + 1] < 40 || buf[shPx + 2] < 40) {
       std::cerr << "shadow should be soft, not opaque black\n";
+      return EXIT_FAILURE;
+    }
+  }
+
+  // Opacity fades the caster only. A plate can cast without covering
+  // the backdrop a sibling glass group will sample.
+  std::fill(buf.begin(), buf.end(), 0);
+  ctx.beginFrame();
+  ctx.setFillColor(0xffffffff);
+  ctx.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
+  glim::paint::GroupParams hidden;
+  glim::paint::ShadowBlur hiddenBlur;
+  hiddenBlur.sigma = 8.f;
+  hiddenBlur.offset = {6.f, 6.f};
+  hiddenBlur.color = glim::Color{0, 0, 0, 128};
+  hidden.shadow = hiddenBlur;
+  hidden.opacity = 0.f;
+  hidden.bounds = glim::Rect{{8.f, 4.f}, {48.f, 32.f}};
+  ctx.pushGroup(hidden);
+  ctx.setFillColor(0xff0000ff);
+  ctx.fillRounded(glim::Rect{{16.f, 8.f}, {24.f, 16.f}}, glim::Radius{4.f});
+  ctx.popGroup();
+  ctx.finish();
+  renderer.draw(ctx.scene());
+  {
+    // Top-left of the plate, away from the down-right shadow.
+    const std::size_t cardC = static_cast<std::size_t>((10 * w + 18) * 4);
+    if (buf[cardC + 1] < 200 || buf[cardC + 2] < 200) {
+      std::cerr << "zero-opacity caster should not cover the backdrop\n";
+      return EXIT_FAILURE;
+    }
+    const std::size_t shPx = static_cast<std::size_t>((28 * w + 43) * 4);
+    if (buf[shPx] > 235 || buf[shPx + 1] > 235 || buf[shPx + 2] > 235) {
+      std::cerr << "zero-opacity caster should still drop a shadow\n";
       return EXIT_FAILURE;
     }
   }

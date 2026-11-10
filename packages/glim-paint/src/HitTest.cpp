@@ -46,6 +46,11 @@ bool shapeBounds(const Shape& s, const Mat4& world, Rect* out, bool* slot) {
     *slot = false;
     return out->size.x > 0.f && out->size.y > 0.f;
   }
+  if (const auto* ch = std::get_if<FillChamfer>(&s)) {
+    *out = transformRect(world, ch->rect);
+    *slot = false;
+    return out->size.x > 0.f && out->size.y > 0.f;
+  }
   if (const auto* st = std::get_if<Stroke>(&s)) {
     const float o = std::max(0.f, st->width) * 0.5f;
     const Rect expanded = {
@@ -53,6 +58,42 @@ bool shapeBounds(const Shape& s, const Mat4& world, Rect* out, bool* slot) {
         {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}
     };
     *out = transformRect(world, expanded);
+    *slot = false;
+    return out->size.x > 0.f && out->size.y > 0.f;
+  }
+  if (const auto* sc = std::get_if<StrokeChamfer>(&s)) {
+    const float o = std::max(0.f, sc->width) * 0.5f;
+    const Rect expanded = {
+        {sc->rect.origin.x - o, sc->rect.origin.y - o},
+        {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}
+    };
+    *out = transformRect(world, expanded);
+    *slot = false;
+    return out->size.x > 0.f && out->size.y > 0.f;
+  }
+  if (const auto* a = std::get_if<Arc>(&s)) {
+    const float o = a->radius + a->thickness * 0.5f;
+    *out = transformRect(world, {{a->center.x - o, a->center.y - o}, {o * 2.f, o * 2.f}});
+    *slot = false;
+    return out->size.x > 0.f && out->size.y > 0.f;
+  }
+  if (const auto* pl = std::get_if<Polyline>(&s)) {
+    if (pl->points.empty()) return false;
+    Rect b{};
+    const float o = std::max(0.f, pl->width) * 0.5f;
+    for (const Vec2& p : pl->points) {
+      Rect r{{p.x - o, p.y - o}, {o * 2.f, o * 2.f}};
+      if (b.size.x <= 0.f && b.size.y <= 0.f) {
+        b = r;
+      } else {
+        const float x0 = std::min(b.origin.x, r.origin.x);
+        const float y0 = std::min(b.origin.y, r.origin.y);
+        const float x1 = std::max(b.origin.x + b.size.x, r.origin.x + r.size.x);
+        const float y1 = std::max(b.origin.y + b.size.y, r.origin.y + r.size.y);
+        b = {{x0, y0}, {x1 - x0, y1 - y0}};
+      }
+    }
+    *out = transformRect(world, b);
     *slot = false;
     return out->size.x > 0.f && out->size.y > 0.f;
   }

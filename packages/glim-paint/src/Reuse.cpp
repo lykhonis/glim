@@ -292,17 +292,12 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
   hashRect(ctx, p.clip, windowContent);
   hashRadius(ctx, p.clipRadius);
   ctx.h.f32(snapBackdropSigma(p.backdropBlur));
-  ctx.h.f32(p.backdropBend);
-  ctx.h.f32(p.backdropMerge);
-  ctx.h.f32(p.backdropPress);
-  ctx.h.f32(p.backdropLightX);
-  ctx.h.f32(p.backdropLightY);
-  ctx.h.f32(p.backdropLightZ);
   ctx.h.boolean(p.backdropFlat);
   ctx.h.boolean(p.glass.has_value());
   if (p.glass.has_value()) {
     const Glass& gl = *p.glass;
     ctx.h.u32(static_cast<std::uint32_t>(gl.variant));
+    ctx.h.u32(static_cast<std::uint32_t>(gl.material));
     ctx.h.u32(gl.tint.rgba);
     ctx.h.boolean(gl.interactive);
     ctx.h.f32(gl.ior);
@@ -311,6 +306,17 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
     ctx.h.f32(gl.refDistance);
     ctx.h.f32(gl.dispersion);
     ctx.h.boolean(gl.flatten);
+    ctx.h.f32(gl.transmit);
+    ctx.h.f32(gl.rippleAmp);
+    // Time only through what it drives: resting swells hash the same phase.
+    ctx.h.f32(glassRipples(gl) ? gl.timeSec : 0.f);
+    ctx.h.f32(glassSwellPhase(gl));
+    ctx.h.f32(gl.envSoft);
+    ctx.h.f32(gl.absorbK);
+    ctx.h.f32(gl.swellAmp);
+    ctx.h.f32(gl.swellScale.x);
+    ctx.h.f32(gl.swellScale.y);
+    ctx.h.f32(gl.envLight);
   }
   ctx.h.boolean(p.glassContainer);
   ctx.h.boolean(p.shadow.has_value());
@@ -563,7 +569,7 @@ void rebaseIsolateUv(Isolate& iso, Vec2 logicalSize) {
   if (logicalSize.x <= 0.f || logicalSize.y <= 0.f) {
     return;
   }
-  if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
+  if (iso.backdropSigma > 0.f) {
     iso.backdropU0 = iso.destX / logicalSize.x;
     iso.backdropV0 = iso.destY / logicalSize.y;
     iso.backdropU1 = (iso.destX + iso.destW) / logicalSize.x;

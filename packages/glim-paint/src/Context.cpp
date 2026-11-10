@@ -25,8 +25,14 @@ void Context::beginFrame() {
   state_ = State{};
   stack_.clear();
   groupStack_.clear();
+  sawSlots_ = false;
   scene_.logicalSize = size_;
-  scene_.root = Group{};
+  // Preserve capacity across frames: assignment reallocates vectors every
+  // painted frame (live mode repaints every vsync). Clear in place instead.
+  scene_.root.params = GroupParams{};
+  scene_.root.shapes.clear();
+  scene_.root.children.clear();
+  scene_.root.order.clear();
   scene_.images = images_;
 }
 
@@ -52,6 +58,13 @@ void Context::fillRounded(const Rect& rect, Radius radius) {
   recordShape(current(), transformRounded(state_.model, FillRounded{rect, radius, state_.fill}));
 }
 
+void Context::fillChamfer(const Rect& rect, float cut) {
+  if (!recording_) {
+    return;
+  }
+  recordShape(current(), transformChamfer(state_.model, FillChamfer{rect, cut, state_.fill}));
+}
+
 void Context::strokeRect(const Rect& rect, float width) { strokeRect(rect, Radius{}, width); }
 
 void Context::strokeRect(const Rect& rect, Radius radius, float width) {
@@ -59,6 +72,33 @@ void Context::strokeRect(const Rect& rect, Radius radius, float width) {
     return;
   }
   recordShape(current(), transformStroke(state_.model, Stroke{rect, radius, width, state_.fill}));
+}
+
+void Context::strokeChamfer(const Rect& rect, float cut, float width) {
+  if (!recording_ || width <= 0.f) {
+    return;
+  }
+  recordShape(
+      current(), transformStrokeChamfer(state_.model, StrokeChamfer{rect, cut, width, state_.fill})
+  );
+}
+
+void Context::arc(const Arc& a) {
+  if (!recording_) {
+    return;
+  }
+  Arc with = a;
+  with.matter = state_.fill;
+  recordShape(current(), transformArc(state_.model, with));
+}
+
+void Context::polyline(const Polyline& pl) {
+  if (!recording_) {
+    return;
+  }
+  Polyline with = pl;
+  with.matter = state_.fill;
+  recordShape(current(), transformPolyline(state_.model, with));
 }
 
 void Context::clipRect(const Rect& rect) { clipRect(rect, Radius{}); }
@@ -113,11 +153,17 @@ void Context::blit(const Rect& dst, Matter matter) {
 }
 
 TextSize Context::measureText(const char* latin, float sizePx) const {
+  return measureTextStyled(latin, sizePx, 1.f);
+}
+
+TextSize Context::measureTextStyled(const char* latin, float sizePx, float condense) const {
   TextSize out;
   const FontAtlas& atlas = latinAtlas();
   if (sizePx <= 0.f || atlas.bakePx <= 0.f) {
     return out;
   }
+  // Condense is horizontal only: vertical metrics keep the unscaled size.
+  const float cx = (condense > 0.1f && condense < 2.f) ? condense : 1.f;
   const float s = sizePx / atlas.bakePx;
   out.ascent = atlas.ascent * s;
   out.descent = -atlas.descent * s;
@@ -127,7 +173,7 @@ TextSize Context::measureText(const char* latin, float sizePx) const {
   }
   // Double accumulation defeats FMA contraction; text goldens stay bitwise-identical.
   double w = 0.0;
-  const double ds = static_cast<double>(s);
+  const double ds = static_cast<double>(s * cx);
   for (const char* p = latin; *p; ++p) {
     const unsigned char c = static_cast<unsigned char>(*p);
     if (c >= 128 || !atlas.glyphs[c].present) {
@@ -140,9 +186,17 @@ TextSize Context::measureText(const char* latin, float sizePx) const {
 }
 
 void Context::text(Vec2 origin, const char* latin, float sizePx) {
+  textStyled(origin, latin, sizePx, 1.f, 0.f);
+}
+
+void Context::textStyled(
+    Vec2 origin, const char* latin, float sizePx, float condense, float weightPx
+) {
   if (!recording_ || !latin || sizePx <= 0.f) {
     return;
   }
+  const float cx = (condense > 0.1f && condense < 2.f) ? condense : 1.f;
+  const float wb = (weightPx > 0.f && weightPx < 4.f) ? weightPx : 0.f;
   const FontAtlas& atlas = latinAtlas();
   if (atlas.width <= 0 || atlas.rgba.empty() || atlas.bakePx <= 0.f) {
     return;
@@ -168,12 +222,18 @@ void Context::text(Vec2 origin, const char* latin, float sizePx) {
     const FontGlyph& g = atlas.glyphs[c];
     if (g.w > 0.f && g.h > 0.f) {
       GlyphQuad q;
-      q.dest = {{pen + g.xoff * s, origin.y + g.yoff * s}, {g.w * s, g.h * s}};
+      q.dest = {{pen + g.xoff * s * cx, origin.y + g.yoff * s}, {g.w * s * cx, g.h * s}};
       q.uv = g.uv;
       run.glyphs.push_back(q);
+      if (wb > 0.01f) {
+        GlyphQuad b = q;
+        b.dest.origin.x += wb;
+        run.glyphs.push_back(b);
+      }
     }
-    pen += g.advance * s;
+    pen += g.advance * s * cx;
   }
+  if (wb > 0.01f) pen += wb;
   if (run.glyphs.empty()) {
     return;
   }
@@ -184,6 +244,7 @@ void Context::slot(const Rect& rect, std::uint32_t id) {
   if (!recording_ || id == 0) {
     return;
   }
+  sawSlots_ = true;
   GLIM_ASSERT(!needsIsolate(*current()), "SlotHole illegal under needsIsolate");
   for (const Group* g : groupStack_) {
     GLIM_ASSERT(g && !needsIsolate(*g), "SlotHole illegal under needsIsolate");

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Font.h"
+#include "LensMath.h"
 #include "Strip.h"
 
 namespace glim::paint {
@@ -18,6 +19,9 @@ namespace {
 struct Pixel {
   float r, g, b, a;
 };
+
+// Rec.709 luma of linear RGB.
+float luma(const Pixel& p) { return p.r * 0.2126f + p.g * 0.7152f + p.b * 0.0722f; }
 
 void srcOver(Pixel& dst, Pixel src) {
   const float ia = 1.0f - src.a;
@@ -372,51 +376,14 @@ void rasterGroup(
     float pixelRatio
 );
 
-float sdSquircle(float px, float py, float hx, float hy, float r) {
-  r = std::min(r, std::min(hx, hy));
-  const float qx = std::fabs(px) - hx + r;
-  const float qy = std::fabs(py) - hy + r;
-  const float mx = std::max(qx, 0.f);
-  const float my = std::max(qy, 0.f);
-  return std::pow(std::pow(mx, 4.f) + std::pow(my, 4.f), 0.25f) + std::min(std::max(qx, qy), 0.f) -
-         r;
-}
-
-float smin(float a, float b, float k) {
-  if (k <= 0.001f) {
-    return std::min(a, b);
-  }
-  const float h = std::max(k - std::fabs(a - b), 0.f) / k;
-  return std::min(a, b) - h * h * k * 0.25f;
-}
-
 struct PlateSpec {
   float sigma = 0;
-  float bend = 0;
   float mergeK = 0;
-  float press = 0;
-  float lightX = 0.35f;
-  float lightY = 0.8f;
-  float lightZ = 0.5f;
   bool flat = false;
+  float pr = 1.f;
   int n = 0;
   BackdropPill pills[kMaxBackdropPills]{};
 };
-
-float fieldSdf(const PlateSpec& spec, float px, float py, float plateW, float plateH) {
-  float sdf = 1e6f;
-  const int n = spec.n > 0 ? spec.n : 1;
-  for (int i = 0; i < n; ++i) {
-    const BackdropPill& pill = spec.pills[i];
-    const float cx = pill.rect.origin.x + pill.rect.size.x * 0.5f;
-    const float cy = pill.rect.origin.y + pill.rect.size.y * 0.5f;
-    const float d =
-        sdSquircle(px - cx, py - cy, pill.rect.size.x * 0.5f, pill.rect.size.y * 0.5f, pill.radius);
-    sdf = (i == 0) ? d : smin(sdf, d, spec.mergeK);
-  }
-  sdf += spec.press * 0.035f * std::min(plateW, plateH);
-  return sdf;
-}
 
 Pixel samplePixel(const std::vector<Pixel>& img, int w, int h, float px, float py) {
   if (w <= 0 || h <= 0 || img.empty()) {
@@ -454,59 +421,25 @@ Pixel sampleDestBilinear(const std::vector<Pixel>& dest, int dw, int dh, float s
   return samplePixel(dest, dw, dh, sx, sy);
 }
 
-Pixel sampleDestBlur(
-    const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float sigma
-) {
-  if (sigma <= 0.5f) {
-    return sampleDest(dest, dw, dh, sx, sy);
-  }
-  Pixel acc{0, 0, 0, 0};
-  float wt = 0.f;
-  auto add = [&](float x, float y, float w) {
-    const Pixel s = sampleDest(dest, dw, dh, x, y);
-    acc.r += s.r * w;
-    acc.g += s.g * w;
-    acc.b += s.b * w;
-    acc.a += s.a * w;
-    wt += w;
-  };
-  add(sx, sy, 0.227027f);
-  add(sx + sigma, sy, 0.1945946f);
-  add(sx - sigma, sy, 0.1945946f);
-  add(sx, sy + sigma, 0.1945946f);
-  add(sx, sy - sigma, 0.1945946f);
-  add(sx + sigma, sy + sigma, 0.1216216f);
-  add(sx - sigma, sy - sigma, 0.1216216f);
-  add(sx + sigma, sy - sigma, 0.1216216f);
-  add(sx - sigma, sy + sigma, 0.1216216f);
-  if (wt > 0.f) {
-    acc.r /= wt;
-    acc.g /= wt;
-    acc.b /= wt;
-    acc.a /= wt;
-  }
-  return acc;
+// A pill moved into plate space: origin-relative, scaled per axis.
+BackdropPill plateSpacePill(const Rect& r, float radius, Vec2 origin, float sx, float sy) {
+  BackdropPill p;
+  p.rect.origin.x = (r.origin.x - origin.x) * sx;
+  p.rect.origin.y = (r.origin.y - origin.y) * sy;
+  p.rect.size.x = r.size.x * sx;
+  p.rect.size.y = r.size.y * sy;
+  p.radius = radius * std::min(sx, sy);
+  return p;
 }
 
 PlateSpec specFromGroup(const Group& g, Rect surface, float pr) {
   PlateSpec spec;
   spec.sigma = snapBackdropSigma(g.params.backdropBlur) * pr * 0.5f;
-  spec.bend = g.params.backdropBend;
-  spec.mergeK = g.params.backdropMerge * pr;
-  spec.press = g.params.backdropPress;
-  spec.lightX = g.params.backdropLightX;
-  spec.lightY = g.params.backdropLightY;
-  spec.lightZ = g.params.backdropLightZ;
   spec.flat = g.params.backdropFlat;
   BackdropPill pills[kMaxBackdropPills];
   spec.n = collectBackdropPills(g, pills);
   for (int i = 0; i < spec.n; ++i) {
-    spec.pills[i] = pills[i];
-    spec.pills[i].rect.origin.x = (pills[i].rect.origin.x - surface.origin.x) * pr;
-    spec.pills[i].rect.origin.y = (pills[i].rect.origin.y - surface.origin.y) * pr;
-    spec.pills[i].rect.size.x *= pr;
-    spec.pills[i].rect.size.y *= pr;
-    spec.pills[i].radius *= pr;
+    spec.pills[i] = plateSpacePill(pills[i].rect, pills[i].radius, surface.origin, pr, pr);
   }
   return spec;
 }
@@ -514,123 +447,15 @@ PlateSpec specFromGroup(const Group& g, Rect surface, float pr) {
 PlateSpec specFromIsolate(const Isolate& iso, float pr) {
   PlateSpec spec;
   spec.sigma = iso.backdropSigma * pr * 0.5f;
-  spec.bend = iso.backdropBend;
-  spec.mergeK = iso.backdropMerge * pr;
-  spec.press = iso.backdropPress;
-  spec.lightX = iso.backdropLightX;
-  spec.lightY = iso.backdropLightY;
-  spec.lightZ = iso.backdropLightZ;
   spec.flat = iso.backdropFlat;
   spec.n = std::min(kMaxBackdropPills, static_cast<int>(iso.backdropPills.size()));
   const float sx = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pr;
   const float sy = iso.destH > 0.f ? static_cast<float>(iso.contentH) / iso.destH : pr;
   for (int i = 0; i < spec.n; ++i) {
-    spec.pills[i] = iso.backdropPills[static_cast<std::size_t>(i)];
-    spec.pills[i].rect.origin.x *= sx;
-    spec.pills[i].rect.origin.y *= sy;
-    spec.pills[i].rect.size.x *= sx;
-    spec.pills[i].rect.size.y *= sy;
-    spec.pills[i].radius *= std::min(sx, sy);
+    const BackdropPill& pill = iso.backdropPills[static_cast<std::size_t>(i)];
+    spec.pills[i] = plateSpacePill(pill.rect, pill.radius, {0.f, 0.f}, sx, sy);
   }
   return spec;
-}
-
-void samplePlate(
-    std::vector<Pixel>& plate,
-    int iw,
-    int ih,
-    const std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    Rect src,
-    const PlateSpec& spec
-) {
-  if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
-    return;
-  }
-  const float plateW = static_cast<float>(iw);
-  const float plateH = static_cast<float>(ih);
-  const float minSide = std::max(1.f, std::min(plateW, plateH));
-  const float thickness = std::max(18.f, minSide * 0.42f);
-  PlateSpec field = spec;
-  if (field.n <= 0) {
-    field.n = 1;
-    field.pills[0].rect = Rect::fromSize({plateW, plateH});
-  }
-  for (int y = 0; y < ih; ++y) {
-    const float v = (static_cast<float>(y) + 0.5f) / plateH;
-    const float py = static_cast<float>(y) + 0.5f;
-    for (int x = 0; x < iw; ++x) {
-      const float u = (static_cast<float>(x) + 0.5f) / plateW;
-      const float px = static_cast<float>(x) + 0.5f;
-      const float sdf = fieldSdf(field, px, py, plateW, plateH);
-      const float mask = std::clamp(0.5f - sdf, 0.f, 1.f);
-      if (mask < 0.001f) {
-        plate[static_cast<std::size_t>(y * iw + x)] = Pixel{0, 0, 0, 0};
-        continue;
-      }
-      float sx = src.origin.x + u * src.size.x;
-      float sy = src.origin.y + v * src.size.y;
-      float edge = 0.f;
-      float nx = 0.f;
-      float ny = 0.f;
-      float nz = 1.f;
-      if (spec.bend > 0.f && !spec.flat) {
-        const float height = std::clamp(-sdf / thickness, 0.f, 1.f);
-        const float gx = fieldSdf(field, px + 1.f, py, plateW, plateH) -
-                         fieldSdf(field, px - 1.f, py, plateW, plateH);
-        const float gy = fieldSdf(field, px, py + 1.f, plateW, plateH) -
-                         fieldSdf(field, px, py - 1.f, plateW, plateH);
-        const float glen = std::max(1e-4f, std::hypot(gx, gy));
-        nx = gx / glen;
-        ny = gy / glen;
-        edge = 1.f - height;
-        const float nxy = edge * 1.05f;
-        nx *= nxy;
-        ny *= nxy;
-        const float nlen = std::max(1e-4f, std::sqrt(nx * nx + ny * ny + 1.f));
-        nx /= nlen;
-        ny /= nlen;
-        nz = 1.f / nlen;
-        const float mag = std::pow(edge, 4.f) * spec.bend * std::min(48.f, minSide * 0.30f);
-        sx += nx * mag * (src.size.x / plateW);
-        sy += ny * mag * (src.size.y / plateH);
-      }
-      Pixel p = sampleDestBlur(dest, dw, dh, sx, sy, spec.sigma);
-      const float lum = p.r * 0.2126f + p.g * 0.7152f + p.b * 0.0722f;
-      if (spec.flat) {
-        const float tint = lum >= 0.45f ? 0.92f : 0.16f;
-        p.r = tint;
-        p.g = tint;
-        p.b = tint;
-        p.a = 1.f;
-      } else {
-        const float frost = 0.06f + 0.30f * std::clamp(spec.sigma / 12.f, 0.f, 1.f);
-        p.r = p.r + (1.f - p.r) * frost;
-        p.g = p.g + (1.f - p.g) * frost;
-        p.b = p.b + (1.f - p.b) * frost;
-        if (spec.bend > 0.f) {
-          const float Llen = std::sqrt(
-              spec.lightX * spec.lightX + spec.lightY * spec.lightY + spec.lightZ * spec.lightZ
-          );
-          const float ndl = std::clamp(
-              (nx * spec.lightX + ny * spec.lightY + nz * spec.lightZ) / std::max(Llen, 1e-4f),
-              0.f,
-              1.f
-          );
-          const float hi = std::pow(ndl, 72.f) * std::pow(edge, 2.4f) * 0.85f;
-          p.r += hi;
-          p.g += hi;
-          p.b += hi;
-        }
-      }
-      p.r *= mask;
-      p.g *= mask;
-      p.b *= mask;
-      p.a *= mask;
-      plate[static_cast<std::size_t>(y * iw + x)] = p;
-    }
-  }
 }
 
 void blurSeparable(std::vector<Pixel>& img, int w, int h, float sigma) {
@@ -775,7 +600,24 @@ struct GlassSdf {
   float d = 1e6f;
   float nx = 0.f;
   float ny = 1.f;
+  float dome = 1.f;    // min half extent of the nearest pill (px)
+  float corner = 0.f;  // clamped corner radius of the nearest pill (px)
+  float fillet = 0.f;  // 1 in the curved corners/caps, 0 along flat sides
 };
+
+// Mirrors filletWeight() in the lens shaders for one pill.
+float pillFillet(float px, float py, float cx, float cy, float hx, float hy, float r) {
+  const float rr = std::max(r, 1.f);
+  if (r >= std::min(hx, hy) - 0.5f) {
+    // Curvature lives only in the end caps: distance past the straight
+    // segment, ramped smoothly from half a radius before the seam.
+    const float past = hx >= hy ? std::fabs(px - cx) - (hx - r) : std::fabs(py - cy) - (hy - r);
+    return lens::smoothstep(-0.5f * rr, rr, past);
+  }
+  const float fx = std::fabs(px - cx) - (hx - r);
+  const float fy = std::fabs(py - cy) - (hy - r);
+  return lens::saturate(fx / rr) * lens::saturate(fy / rr);
+}
 
 GlassSdf sdRoundBoxN(float px, float py, float hx, float hy, float r) {
   r = std::min(r, std::min(hx, hy));
@@ -815,7 +657,9 @@ GlassSdf glassFieldEval(const PlateSpec& spec, float px, float py) {
     const float cy = pill.rect.origin.y + hy;
     const float bx = std::fabs(px - cx) - hx;
     const float by = std::fabs(py - cy) - hy;
-    if (bx > 1.4f || by > 1.4f) {
+    // The merge neck lives up to k outside a pill, so only cull beyond that.
+    const float reach = 1.4f + spec.mergeK * 3.5f;
+    if (bx > reach || by > reach) {
       const float outside = bx > by ? bx : by;
       if (i == 0 || outside < best.d) {
         best.d = outside;
@@ -826,16 +670,109 @@ GlassSdf glassFieldEval(const PlateSpec& spec, float px, float py) {
     }
     GlassSdf s = sdRoundBoxN(px - cx, py - cy, hx, hy, pill.radius);
     if (spec.mergeK > 0.001f && i > 0) {
-      s.d = smin(best.d, s.d, spec.mergeK);
+      s.d = lens::sminCirc(best.d, s.d, spec.mergeK);
     }
     if (i == 0 || s.d < best.d) {
       best = s;
+      best.dome = std::min(hx, hy);
+      best.corner = std::min(pill.radius, best.dome);
+      best.fillet = pillFillet(px, py, cx, cy, hx, hy, best.corner);
     }
   }
   return best;
 }
 
-Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
+void waterRipple(float px, float py, float iw, float ih, const Glass& mat, float& rx, float& ry) {
+  rx = 0.f;
+  ry = 0.f;
+  if (!glassRipples(mat)) {
+    return;
+  }
+  constexpr float kTau = 6.28318f;
+  const float ph1 = kTau * (px / iw * 3.f + py / ih * 2.f + mat.timeSec * 0.12f);
+  const float ph2 = kTau * (px / iw * 5.f - py / ih * 3.f - mat.timeSec * 0.09f);
+  rx = mat.rippleAmp * (std::cos(ph1) + 0.6f * std::cos(ph2));
+  ry = mat.rippleAmp * (std::sin(ph1 * 1.3f) + 0.6f * std::sin(ph2 * 1.1f));
+}
+
+// The material's swell at plate pixel (px, py), in dome-radius units.
+lens::Swell plateSwell(const Glass& mat, float px, float py, float dome) {
+  return lens::swellAt(
+      px / dome * mat.swellScale.x, py / dome * mat.swellScale.y, glassSwellPhase(mat)
+  );
+}
+
+// Dome normal folded by the swell + mirror reflection vector for the
+// opaque liquid-metal plate. tilt: the unfolded dome tilt (1 at the rim).
+struct MetalNormal {
+  float nx, ny, nz, rx, ry, tilt;
+};
+
+MetalNormal metalNormal(const GlassSdf& f, const Glass& mat, float px, float py) {
+  const float inside = std::max(-f.d, 0.f);
+  const float dome = std::max(f.dome, 1.f);
+  const float tilt = lens::domeTilt(inside, dome) * 0.97f;
+  // Liquid folds: the swell stretched along the plate, full in the body and
+  // gone at the rim so the bevel stays clean.
+  const lens::Swell sw = plateSwell(mat, px, py, dome);
+  const float fold = mat.swellAmp * (1.f - tilt);
+  MetalNormal m;
+  m.tilt = tilt;
+  m.nx = f.nx * tilt + sw.sx * fold;
+  m.ny = f.ny * tilt + sw.sy * fold;
+  const float len = std::sqrt(m.nx * m.nx + m.ny * m.ny);
+  if (len > 0.97f) {
+    m.nx *= 0.97f / len;
+    m.ny *= 0.97f / len;
+  }
+  m.nz = std::sqrt(std::max(1.f - m.nx * m.nx - m.ny * m.ny, 0.f));
+  // R = reflect(view=(0,0,-1), N).xy
+  m.rx = 2.f * m.nz * m.nx;
+  m.ry = 2.f * m.nz * m.ny;
+  return m;
+}
+
+// Metal F0 from its tint, normalized so natural silver reads near-white and
+// gold stays saturated; untinted metal is white.
+Pixel metalF0(const Glass& mat) {
+  const bool tinted = mat.tint.a() != 0;
+  const float tr = tinted ? srgbToLinear(mat.tint.red()) : 1.f;
+  const float tg = tinted ? srgbToLinear(mat.tint.green()) : 1.f;
+  const float tb = tinted ? srgbToLinear(mat.tint.blue()) : 1.f;
+  const float k = 0.95f / std::max({tr, tg, tb, 1e-4f});
+  return Pixel{tr * k, tg * k, tb * k, 1.f};
+}
+
+// envL: brightness of the surroundings along the reflected ray (used only
+// when envLight > 0). Chrome: the face mirrors the studio room, never the
+// backdrop. Toward the rim the channels split (dispersion) into a chromatic
+// fringe, and the rolled rim (lens::chromeRim) lights the upper lip and
+// darkens the lower one, splitting where they meet.
+Pixel metalEnvGlass(const GlassSdf& f, const Glass& mat, float envL, float px, float py) {
+  const MetalNormal m = metalNormal(f, mat, px, py);
+  const float lit = 0.8f + mat.envLight * envL;
+  const float t2 = m.tilt * m.tilt;
+  const float split = mat.dispersion * 0.6f * t2 * t2;
+  const float rimW = lens::smoothstep(0.65f, 0.97f, m.tilt) * 0.85f;
+  const auto studio = [&](float ry, float shift) {
+    const float l = lens::chromeStudio(ry + shift) * lit;
+    return l + (lens::chromeRim(f.ny + 2.f * shift) * lit - l) * rimW;
+  };
+  const Pixel f0 = metalF0(mat);
+  // Key-light strike (same H as the glass specular path) + bevel ring.
+  const lens::Vec3 h = lens::keyHalfVector();
+  const float ndh = std::clamp(m.nx * h.x + m.ny * h.y + m.nz * h.z, 0.f, 1.f);
+  const float spec = std::pow(ndh, 56.f) * 0.9f;
+  const float bevel = lens::hairWeight(std::max(-f.d, 0.f), 1.2f, 1.6f) * 0.55f;
+  const float r = studio(m.ry, -split) * lens::fresnelSchlick(f0.r, m.nz) + spec;
+  const float g = studio(m.ry, 0.f) * lens::fresnelSchlick(f0.g, m.nz) + spec;
+  const float b = studio(m.ry, split) * lens::fresnelSchlick(f0.b, m.nz) + spec;
+  return Pixel{r + (1.f - r) * bevel, g + (1.f - g) * bevel, b + (1.f - b) * bevel, 1.f};
+}
+
+Pixel shadeGlass(
+    Pixel p, const GlassSdf& f, const Glass& mat, float mask, float px, float py, float iw, float ih
+) {
   const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
   if (flatten) {
     p.r = 0.94f;
@@ -847,30 +784,65 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
     p.g = p.g + (1.f - p.g) * rim;
     p.b = p.b + (1.f - p.b) * rim;
   } else {
+    const bool isGlass = mat.material == GlassMaterial::Glass;
+    const bool isMetal = mat.material == GlassMaterial::LiquidMetal;
+    const bool isWater = mat.material == GlassMaterial::Water;
     const bool regular = mat.variant == GlassVariant::Regular;
-    if (mat.tint.a() != 0) {
-      // Tinted plate: the wash takes the tint color at its alpha.
-      // Transparent keeps the white milk. Plate is linear.
-      const float ta = mat.tint.alpha();
+    float rx = 0.f;
+    float ry = 0.f;
+    if (isWater) {
+      waterRipple(px, py, iw, ih, mat, rx, ry);
+    }
+    if (isMetal) {
+      p = metalEnvGlass(f, mat, luma(p), px, py);
+    } else {
+      if (isGlass && mat.tint.a() != 0) {
+        // Tinted plate: the wash takes the tint color at its alpha.
+        // Transparent keeps the white milk. Plate is linear.
+        const float ta = mat.tint.alpha();
+        const float tr = srgbToLinear(mat.tint.red());
+        const float tg = srgbToLinear(mat.tint.green());
+        const float tb = srgbToLinear(mat.tint.blue());
+        p.r = p.r + (tr - p.r) * ta;
+        p.g = p.g + (tg - p.g) * ta;
+        p.b = p.b + (tb - p.b) * ta;
+      } else if (isGlass) {
+        // 0.04 linear ≈ old 0.22 sRGB wash (0.008 for Clear).
+        const float milk = regular ? 0.04f : 0.008f;
+        p.r = p.r + (1.f - p.r) * milk;
+        p.g = p.g + (1.f - p.g) * milk;
+        p.b = p.b + (1.f - p.b) * milk;
+      }
+    }
+    // Water: depth absorption in the tint; swell crests focus light.
+    if (isWater) {
+      const float insideW = std::max(-f.d, 0.f);
+      const float dome = std::max(f.dome, 1.f);
+      const float depth = lens::smoothstep(0.f, dome, insideW);
+      const float ab = 0.2f * lens::saturate(mat.absorbK) * depth;
       const float tr = srgbToLinear(mat.tint.red());
       const float tg = srgbToLinear(mat.tint.green());
       const float tb = srgbToLinear(mat.tint.blue());
-      p.r = p.r + (tr - p.r) * ta;
-      p.g = p.g + (tg - p.g) * ta;
-      p.b = p.b + (tb - p.b) * ta;
-    } else {
-      // 0.04 linear ≈ old 0.22 sRGB wash (0.008 for Clear).
-      const float milk = regular ? 0.04f : 0.008f;
-      p.r = p.r + (1.f - p.r) * milk;
-      p.g = p.g + (1.f - p.g) * milk;
-      p.b = p.b + (1.f - p.b) * milk;
+      const lens::Swell sw = plateSwell(mat, px, py, dome);
+      const float focus = 1.f + 0.23f * mat.swellAmp * sw.curv * depth;
+      p.r = (p.r + (p.r * tr * 1.6f - p.r) * ab) * focus;
+      p.g = (p.g + (p.g * tg * 1.6f - p.g) * ab) * focus;
+      p.b = (p.b + (p.b * tb * 1.6f - p.b) * ab) * focus;
+    }
+    // Clear dimmer: 35% darkening when plate luma exceeds 0.6 (spec S9).
+    if (isGlass && !regular) {
+      const float lum = luma(p);
+      if (lum > 0.6f) {
+        p.r *= 0.65f;
+        p.g *= 0.65f;
+        p.b *= 0.65f;
+      }
     }
     // Edge light is per-side; signed side weights match the old
     // symmetric darkening exactly when both sides are set.
     if (mask > 0.85f && f.d > -5.f) {
       const float inside = std::max(-f.d, 0.f);
-      const float hair = std::clamp(1.f - std::fabs(inside - 1.2f) / 1.8f, 0.f, 1.f);
-      const float hair2 = hair * hair * hair * hair * hair;
+      const float hair2 = lens::hairWeight(inside, 1.2f, 1.8f);
       float side = 0.f;
       if (hasEdge(mat.edge, GlassEdge::Left)) {
         const float w = std::clamp(-f.nx, 0.f, 1.f);
@@ -885,7 +857,7 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
       p.b *= 1.f - side * hair2 * 0.38f;
       const float top = hasEdge(mat.edge, GlassEdge::Top) ? std::clamp(-f.ny, 0.f, 1.f) : 0.f;
       const float bot = hasEdge(mat.edge, GlassEdge::Bottom) ? std::clamp(f.ny, 0.f, 1.f) : 0.f;
-      const float hi = hair2 * (top + bot * 0.62f);
+      const float hi = hair2 * (top * 0.35f + bot * 0.22f) * 0.9f;
       p.r = p.r + (1.f - p.r) * hi;
       p.g = p.g + (1.f - p.g) * hi;
       p.b = p.b + (1.f - p.b) * hi;
@@ -897,6 +869,52 @@ Pixel shadeGlass(Pixel p, const GlassSdf& f, const Glass& mat, float mask) {
         p.r = p.r + (1.f - p.r) * rimA;
         p.g = p.g + (1.f - p.g) * rimA;
         p.b = p.b + (1.f - p.b) * rimA;
+      }
+      // Body Fresnel (Schlick F0 0.04) + key-light specular at -60 deg.
+      // GPU parity: shininess 56, convergence 0.7, edge-gated. Metal
+      // carries its own in metalEnvGlass.
+      if (!isMetal) {
+        const float nl = std::max(1e-4f, std::sqrt(f.nx * f.nx + f.ny * f.ny + 1.f));
+        const float nz = 1.f / nl;
+        const float fres = lens::fresnelSchlick(0.04f, nz);
+        const float inside = std::max(-f.d, 0.f);
+        const float rimW = std::clamp(1.f - inside / 12.f, 0.f, 1.f);
+        float edgeSpec = 0.f;
+        if (hasEdge(mat.edge, GlassEdge::Left)) edgeSpec += std::clamp(-f.nx, 0.f, 1.f);
+        if (hasEdge(mat.edge, GlassEdge::Right)) edgeSpec += std::clamp(f.nx, 0.f, 1.f);
+        if (hasEdge(mat.edge, GlassEdge::Top)) edgeSpec += std::clamp(-f.ny, 0.f, 1.f);
+        if (hasEdge(mat.edge, GlassEdge::Bottom)) edgeSpec += std::clamp(f.ny, 0.f, 1.f);
+        edgeSpec = std::clamp(edgeSpec, 0.f, 1.f);
+        const auto [hx, hy, hz] = lens::keyHalfVector();
+        const float nx3 = (f.nx * 0.9f + (isWater ? rx * 0.18f : 0.f)) / nl;
+        const float ny3 = (f.ny * 0.9f + (isWater ? ry * 0.18f : 0.f)) / nl;
+        const float nz3 = nz;
+        const float ndh = std::clamp(
+            (nx3 * hx + ny3 * hy + nz3 * hz) /
+                std::max(1e-4f, std::sqrt(nx3 * nx3 + ny3 * ny3 + nz3 * nz3) * 1.f),
+            0.f,
+            1.f
+        );
+        float spec = std::pow(ndh, 56.f) * 0.9f;
+        spec *= 1.f - 0.3f * (1.f - rimW);
+        spec *= edgeSpec;
+        const float fresWash = fres * rimW * edgeSpec;
+        // Fade from 3px so the 5px gate above leaves no hard line.
+        const float edgeBand = 1.f - lens::smoothstep(3.f, 5.f, inside);
+        const float add = (fresWash * 0.30f + spec * (0.35f + 0.65f * rimW)) * edgeBand;
+        p.r += add;
+        p.g += add;
+        p.b += add;
+        if (isWater) {
+          // Crest lobe only for rippling water; still water has no crests.
+          const float crest =
+              mat.rippleAmp > 0.f ? std::clamp((rx + ry) * 0.25f + 0.5f, 0.f, 1.f) : 0.f;
+          const float ca = std::pow(rimW * (1.f - rimW) * 4.f, 2.f);
+          const float cw = ca * 0.14f * crest;
+          p.r += 0.85f * cw;
+          p.g += 1.0f * cw;
+          p.b += 0.92f * cw;
+        }
       }
     }
   }
@@ -927,7 +945,7 @@ void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& 
       }
       Pixel p = plate[i];
       if (spec.flat) {
-        const float lum = p.r * 0.2126f + p.g * 0.7152f + p.b * 0.0722f;
+        const float lum = luma(p);
         const float tint = lum >= 0.45f ? 0.92f : 0.16f;
         p.r = tint;
         p.g = tint;
@@ -961,7 +979,8 @@ void applyGlassChrome(
         plate[i] = Pixel{0, 0, 0, 0};
         continue;
       }
-      plate[i] = shadeGlass(plate[i], f, mat, mask);
+      const float cx = static_cast<float>(x) + 0.5f;
+      plate[i] = shadeGlass(plate[i], f, mat, mask, cx, py, iw, ih);
     }
   }
 }
@@ -971,6 +990,7 @@ PlateSpec glassPillsToField(
 ) {
   PlateSpec spec;
   spec.mergeK = tlsRaster.glassMerge ? mergeKPx * pr : 0.f;
+  spec.pr = pr;
   if (n <= 0) {
     spec.n = 1;
     spec.pills[0].rect = Rect::fromSize({surface.size.x * pr, surface.size.y * pr});
@@ -979,11 +999,7 @@ PlateSpec glassPillsToField(
   }
   spec.n = std::min(kMaxBackdropPills, n);
   for (int i = 0; i < spec.n; ++i) {
-    spec.pills[i].rect.origin.x = (pills[i].rect.origin.x - surface.origin.x) * pr;
-    spec.pills[i].rect.origin.y = (pills[i].rect.origin.y - surface.origin.y) * pr;
-    spec.pills[i].rect.size.x = pills[i].rect.size.x * pr;
-    spec.pills[i].rect.size.y = pills[i].rect.size.y * pr;
-    spec.pills[i].radius = pills[i].radius * pr;
+    spec.pills[i] = plateSpacePill(pills[i].rect, pills[i].radius, surface.origin, pr, pr);
   }
   return spec;
 }
@@ -1025,9 +1041,45 @@ void sampleGlassPlate(
     return;
   }
   const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
+  const bool metal = !flatten && glassOpaque(mat);
+  if (metal) {
+    const float plateW = static_cast<float>(iw);
+    const float plateH = static_cast<float>(ih);
+    const float kx = src.size.x / plateW;
+    const float ky = src.size.y / plateH;
+    for (int y = 0; y < ih; ++y) {
+      const float py = static_cast<float>(y) + 0.5f;
+      for (int x = 0; x < iw; ++x) {
+        const float px = static_cast<float>(x) + 0.5f;
+        const GlassSdf f = glassFieldEval(field, px, py);
+        const float mask = std::clamp((1.5f - f.d) / 1.5f, 0.f, 1.f);
+        const std::size_t i = static_cast<std::size_t>(y * iw + x);
+        if (mask < 0.001f) {
+          plate[i] = Pixel{0, 0, 0, 0};
+          continue;
+        }
+        // envLight: the surroundings' brightness along the reflected ray
+        // (reach 2.2x dome; envSoft widens the blur) lights the studio.
+        Pixel env{0, 0, 0, 0};
+        if (mat.envLight > 0.f) {
+          const MetalNormal m = metalNormal(f, mat, px, py);
+          const float reach = f.dome * 2.2f;
+          const float bx = src.origin.x + px / plateW * src.size.x + m.rx * reach * kx;
+          const float by = src.origin.y + py / plateH * src.size.y + m.ry * reach * ky;
+          const float rough = 1.f + mat.envSoft * 4.f * kx;
+          env = sampleCheapFrost(dest, dw, dh, bx, by, rough);
+        }
+        plate[i] = shadeGlass(env, f, mat, mask, px, py, plateW, plateH);
+      }
+    }
+    return;
+  }
   if (tlsRaster.glassBlur && !flatten) {
     copyDestPlate(plate, iw, ih, dest, dw, dh, src);
-    blurCheap(plate, iw, ih, mat.variant == GlassVariant::Clear ? 2.5f : 6.f);
+    const float sigma = mat.material == GlassMaterial::Water
+                            ? 1.f
+                            : (mat.variant == GlassVariant::Clear ? 0.f : 6.f);
+    blurCheap(plate, iw, ih, sigma);
     applyGlassChrome(plate, iw, ih, field, mat);
     return;
   }
@@ -1039,6 +1091,26 @@ void sampleGlassPlate(
                        src.size.x == plateW && src.size.y == plateH;
   const int ox = static_cast<int>(src.origin.x);
   const int oy = static_cast<int>(src.origin.y);
+  const bool regular = mat.variant == GlassVariant::Regular;
+  const float prN = std::max(field.pr, 1.f);
+  const float kx = src.size.x / plateW;
+  const float ky = src.size.y / plateH;
+  float thickPx = 0.f;
+  if (!flatten && field.n > 0) {
+    float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+    for (int k = 0; k < field.n; ++k) {
+      const Rect& r = field.pills[k].rect;
+      x0 = std::min(x0, r.origin.x);
+      y0 = std::min(y0, r.origin.y);
+      x1 = std::max(x1, r.origin.x + r.size.x);
+      y1 = std::max(y1, r.origin.y + r.size.y);
+    }
+    const float ipr = 1.f / std::max(field.pr, 1e-4f);
+    thickPx =
+        glassThicknessFor(mat, Rect{{x0 * ipr, y0 * ipr}, {(x1 - x0) * ipr, (y1 - y0) * ipr}}) *
+        field.pr;
+  }
+  const bool refractive = thickPx > 0.001f;
   for (int y = 0; y < ih; ++y) {
     const float py = static_cast<float>(y) + 0.5f;
     const float sy = aligned ? 0.f : src.origin.y + py / plateH * src.size.y;
@@ -1051,18 +1123,81 @@ void sampleGlassPlate(
         plate[i] = Pixel{0, 0, 0, 0};
         continue;
       }
+      float sxr = 0.f;
+      float syr = 0.f;
+      if (!flatten && mat.material == GlassMaterial::Water) {
+        // Body lens: a shallow dome of water magnifies what lies under it.
+        // Inward shift falls linearly from the rim to the dome center, so the
+        // map stays monotonic (no fold/double image) and magnifies by
+        // R / (R - bend). Snell sets bend from ior; capped below the radius.
+        const float tilt = lens::domeTilt(std::max(-f.d, 0.f), f.dome);
+        const float bend =
+            std::min((1.f - 1.f / std::max(mat.ior, 1.01f)) * thickPx * 1.6f, f.dome * 0.45f);
+        sxr -= f.nx * tilt * bend * kx;
+        syr -= f.ny * tilt * bend * ky;
+        // The surface swell bends what lies beneath into soft waves.
+        const float dome = std::max(f.dome, 1.f);
+        const lens::Swell sw = plateSwell(mat, px, py, dome);
+        sxr += sw.sx * bend * mat.swellAmp * kx;
+        syr += sw.sy * bend * mat.swellAmp * ky;
+      }
+      // Ripple wobbles only the rim's refracted sample, as on the GPU; the
+      // pane keeps the body lens alone.
+      float ripX = 0.f;
+      float ripY = 0.f;
+      if (glassRipples(mat)) {
+        waterRipple(px, py, plateW, plateH, mat, ripX, ripY);
+        ripX *= src.size.x / plateW * 0.6f;
+        ripY *= src.size.y / plateH * 0.6f;
+      }
       Pixel p;
       if (aligned) {
-        const float sx = static_cast<float>(ox + x) + 0.5f;
-        const float syc = static_cast<float>(oy + y) + 0.5f;
+        const float sx = static_cast<float>(ox + x) + 0.5f + sxr;
+        const float syc = static_cast<float>(oy + y) + 0.5f + syr;
         p = frostR > 0.f ? sampleCheapFrost(dest, dw, dh, sx, syc, frostR)
                          : sampleDest(dest, dw, dh, sx, syc);
       } else {
-        const float sx = src.origin.x + px / plateW * src.size.x;
-        p = frostR > 0.f ? sampleCheapFrost(dest, dw, dh, sx, sy, frostR)
-                         : sampleDestBilinear(dest, dw, dh, sx, sy);
+        const float sx = src.origin.x + px / plateW * src.size.x + sxr;
+        p = frostR > 0.f ? sampleCheapFrost(dest, dw, dh, sx, sy + syr, frostR)
+                         : sampleDestBilinear(dest, dw, dh, sx, sy + syr);
       }
-      plate[i] = shadeGlass(p, f, mat, mask);
+      if (refractive) {
+        const float delta = std::max(-f.d, 0.f);
+        const float wrapT =
+            12.f * prN + (std::max(thickPx, f.corner * 0.6f) - 12.f * prN) * f.fillet;
+        const float diag = lens::saturate(std::fabs(f.nx * f.ny) * 2.f);
+        const lens::RimRefract rr =
+            lens::rimRefract(delta, wrapT, mat.ior, mat.refDistance, prN, f.fillet, diag);
+        if (rr.wrapX > 0.f) {
+          const float bx = (aligned ? static_cast<float>(ox + x) + 0.5f
+                                    : src.origin.x + px / plateW * src.size.x) +
+                           sxr + ripX;
+          const float by = (aligned ? static_cast<float>(oy + y) + 0.5f : sy) + syr + ripY;
+          const float ox0 = f.nx * rr.magPx * kx;
+          const float oy0 = f.ny * rr.magPx * ky;
+          Pixel w = sampleDestBilinear(dest, dw, dh, bx + ox0, by + oy0);
+          const float gamma = mat.dispersion;
+          if (gamma > 0.f && rr.wrapX > 0.08f) {
+            w.r =
+                sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f - gamma), by + oy0 * (1.f - gamma))
+                    .r;
+            w.b =
+                sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f + gamma), by + oy0 * (1.f + gamma))
+                    .b;
+          }
+          if (frostR > 0.f) {
+            const Pixel fz = sampleCheapFrost(dest, dw, dh, bx + ox0, by + oy0, frostR);
+            w.r += (fz.r - w.r) * 0.88f;
+            w.g += (fz.g - w.g) * 0.88f;
+            w.b += (fz.b - w.b) * 0.88f;
+          }
+          const float wm = regular ? std::pow(rr.wrapX, 1.25f) : rr.wrapX;
+          p.r += (w.r - p.r) * wm;
+          p.g += (w.g - p.g) * wm;
+          p.b += (w.b - p.b) * wm;
+        }
+      }
+      plate[i] = shadeGlass(p, f, mat, mask, px, py, plateW, plateH);
     }
   }
 }
@@ -1084,36 +1219,40 @@ void paintShapes(
   visitGroup(
       g,
       [&](const Shape& s) {
-        const Shape xf = transformShape(world, s);
         const Blend blend = g.params.blend;
-        if (const auto* blit = std::get_if<Blit>(&xf)) {
-          blitImage(
-              dest, w, h, *blit, images, premulLinear(blit->matter.color), clip, false, blend
-          );
-          return;
-        }
-        if (std::get_if<SlotHole>(&xf)) {
-          return;
-        }
-        if (std::get_if<GlyphRun>(&xf)) {
-          std::vector<Quad> unused;
-          std::vector<BlitQuad> blits;
-          std::vector<GradientQuad> unusedGrads;
-          appendShape(unused, blits, unusedGrads, xf, clip);
-          for (const BlitQuad& q : blits) {
-            Blit b;
-            b.rect = {{q.x, q.y}, {q.w, q.h}};
-            b.matter.kind = MatterKind::Sampled;
-            b.matter.imageId = q.imageId;
-            b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-            blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0, blend);
+        // Blit/glyph fast path keeps AABB bake (now correct AABB);
+        // rotated quads go through the world-aware stripper.
+        if (std::get_if<Blit>(&s) || std::get_if<GlyphRun>(&s) || std::get_if<SlotHole>(&s)) {
+          const Shape xf = transformShape(world, s);
+          if (const auto* blit = std::get_if<Blit>(&xf)) {
+            blitImage(
+                dest, w, h, *blit, images, premulLinear(blit->matter.color), clip, false, blend
+            );
+            return;
           }
-          return;
+          if (std::get_if<SlotHole>(&xf)) {
+            return;
+          }
+          if (std::get_if<GlyphRun>(&xf)) {
+            std::vector<Quad> unused;
+            std::vector<BlitQuad> blits;
+            std::vector<GradientQuad> unusedGrads;
+            appendShape(unused, blits, unusedGrads, xf, clip);
+            for (const BlitQuad& q : blits) {
+              Blit b;
+              b.rect = {{q.x, q.y}, {q.w, q.h}};
+              b.matter.kind = MatterKind::Sampled;
+              b.matter.imageId = q.imageId;
+              b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
+              blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0, blend);
+            }
+            return;
+          }
         }
         std::vector<Quad> quads;
         std::vector<BlitQuad> unused;
         std::vector<GradientQuad> grads;
-        appendShape(quads, unused, grads, xf, clip);
+        appendShapeWorld(quads, unused, grads, s, world, clip);
         fillQuads(dest, w, h, quads, blend);
         fillGradients(dest, w, h, grads, blend);
       },
@@ -1177,17 +1316,7 @@ void rasterGroup(
     std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
     const Rect xf = transformRect(world, surface);
     if (glassWork) {
-      Glass mat{};
-      if (g.params.glass.has_value()) {
-        mat = *g.params.glass;
-      } else {
-        for (const auto& c : g.children) {
-          if (c && c->params.glass.has_value()) {
-            mat = *c->params.glass;
-            break;
-          }
-        }
-      }
+      const Glass& mat = glassMaterial(g);
       GlassPill pills[kMaxGlassPills];
       const int n = collectGlassPills(g, pills);
       if (n > 0) {
@@ -1196,17 +1325,11 @@ void rasterGroup(
       }
     } else {
       const float sigma = snapBackdropSigma(g.params.backdropBlur);
-      if (sigma > 0.f || g.params.backdropBend > 0.f) {
-        if (g.params.backdropBend > 0.f) {
-          samplePlate(tmp, iw, ih, dest, w, h, xf, specFromGroup(g, surface, pr));
-        } else {
-          PlateSpec copy = specFromGroup(g, surface, pr);
-          copyDestPlate(tmp, iw, ih, dest, w, h, xf);
-          if (sigma > 0.f) {
-            blurCheap(tmp, iw, ih, sigma * pr * 0.5f);
-          }
-          maskFrostPlate(tmp, iw, ih, copy);
-        }
+      if (sigma > 0.f) {
+        PlateSpec copy = specFromGroup(g, surface, pr);
+        copyDestPlate(tmp, iw, ih, dest, w, h, xf);
+        blurCheap(tmp, iw, ih, sigma * pr * 0.5f);
+        maskFrostPlate(tmp, iw, ih, copy);
       }
     }
     auto local = cloneGroup(g);
@@ -1335,19 +1458,13 @@ void rasterIsolate(
       );
       sampleGlassPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass, field);
     }
-  } else if (iso.backdropSigma > 0.f || iso.backdropBend > 0.f) {
+  } else if (iso.backdropSigma > 0.f) {
     const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
     const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
-    if (iso.backdropBend > 0.f) {
-      samplePlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR, specFromIsolate(iso, pr));
-    } else {
-      PlateSpec copy = specFromIsolate(iso, pr);
-      copyDestPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR);
-      if (iso.backdropSigma > 0.f) {
-        blurCheap(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
-      }
-      maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
-    }
+    PlateSpec copy = specFromIsolate(iso, pr);
+    copyDestPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR);
+    blurCheap(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
+    maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
   }
   if (iso.hasShadow || iso.contentSigma > 0.f) {
     std::vector<Pixel> card(

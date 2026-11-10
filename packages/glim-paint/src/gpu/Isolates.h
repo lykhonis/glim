@@ -12,7 +12,6 @@ struct PlateInstance {
   float rect[4];
   float uv[4];
   float extra[4];
-  float light[4];
   float pill0[4];
   float pill1[4];
   float pill2[4];
@@ -57,13 +56,24 @@ struct GlassUniforms {
   float edge;
   float destUv0[2];
   float destUv1[2];
+  // Material block. material: 0 glass, 1 liquid metal, 2 water.
+  float material;
+  float transmit;
+  float rippleAmp;
+  float timeSec;
+  float swellAmp;
+  float envSoft;
+  float absorbK;
+  float envLight;
+  float swellScale[2];
+  float swellPhase;
+  float _padS;
 };
 
-static_assert(sizeof(GlassUniforms) == 384, "GlassUniforms packed std430");
+static_assert(sizeof(GlassUniforms) == 432, "GlassUniforms packed std430");
 
 void setProjection(gpu::Pass& pass, const Mat4& m);
 Mat4 presentProjection(const Mat4& ortho, int degrees);
-float glassBlurRadius(const Glass& g);
 GlassUniforms makeGlassUniforms(
     const Glass& g,
     const GlassPill* pills,
@@ -86,13 +96,7 @@ PlateInstance makePlate(
     float u1,
     float v1,
     float sigma,
-    float bend,
-    float mergeK,
-    float press,
     bool flat,
-    float lx,
-    float ly,
-    float lz,
     const BackdropPill* pills,
     int n
 );
@@ -133,6 +137,31 @@ void* blurGlass(
     float sv1,
     float sigmaFull,
     Stats* stats
+);
+// Blur (when the material wants one), then lens-shade `sharp` into `dst`;
+// falls back to a plain blit when no lens pipeline or pills. `drawStats` is
+// optional and only counts the lens draw plus the blur passes.
+void encodeGlassPlate(
+    gpu::CommandEncoder& encoder,
+    const Renderer::Pipelines& pipes,
+    void* sampler,
+    gpu::Device& device,
+    Renderer::TargetPool& targets,
+    Stats& stats,
+    Stats* drawStats,
+    const Glass& mat,
+    const GlassUniforms& gu,
+    int pillCount,
+    void* sharp,
+    void* dst,
+    int iw,
+    int ih,
+    float pixelRatio,
+    const Mat4& proj,
+    float u0,
+    float v0,
+    float u1,
+    float v1
 );
 void* snapshotBackdrop(
     gpu::CommandEncoder& encoder,

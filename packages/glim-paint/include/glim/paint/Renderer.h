@@ -16,6 +16,7 @@
 #include <glim/paint/Scene.h>
 #endif
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -181,8 +182,27 @@ class Renderer {
       Vec2 logicalSize,
       const Mat4& extra = Mat4::identity()
   );
+  // What decides whether a frame repeats the last one drawn.
+  struct FrameKey {
+    std::uint64_t hash = 0;
+    Vec2 origin{};
+    Vec2 logical{};
+    float pixelRatio = 1.f;
+    float prBucket = 1.f;
+    unsigned tiles = 0;
+    bool reusable = false;
+  };
+  FrameKey frameKey(const Scene& scene, int targetW, int targetH);
+  bool repeats(const FrameKey& key) const;
+  void skipRepeat(const FrameKey& key, std::chrono::steady_clock::time_point t0);
   void drawInto(
-      const Scene& scene, int targetW, int targetH, void* nativeColor, const gpu::Drawable* drawable
+      const Scene& scene,
+      int targetW,
+      int targetH,
+      void* nativeColor,
+      const gpu::Drawable* drawable,
+      const FrameKey& key,
+      std::chrono::steady_clock::time_point t0
   );
 #endif
   gpu::Device& device_;

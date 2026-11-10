@@ -35,11 +35,27 @@ Rect strokeBounds(const Stroke&);
 
 void flattenRounded(const Rect&, Radius, std::vector<Strip>&);
 void flattenStroke(const Rect&, Radius, float width, std::vector<Strip>&);
+void flattenSolidPolyline(const Vec2*, std::size_t n, float width, std::vector<Strip>&);
 void clipStrips(std::vector<Strip>&, const ClipState&);
 void stripsToQuads(const std::vector<Strip>&, const Vec4& premul, std::vector<Quad>&);
 
 void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vector<GradientQuad>& gradients, const Shape& shape, const ClipState&);
 
+// World-aware append: axis-aligned worlds take the fast baked path;
+// rotated worlds rasterize via inverse-mapped coverage (true rotated
+// quads as 1px strips — no new shape kinds, works on CPU + GPU).
+void appendShapeWorld(
+    std::vector<Quad>& quads,
+    std::vector<BlitQuad>& blits,
+    std::vector<GradientQuad>& gradients,
+    const Shape& shape,
+    const Mat4& world,
+    const ClipState& clip
+);
+
 float roundedCoverage(const Rect&, Radius, float px, float py);
+float chamferCoverage(const Rect&, float cut, float px, float py);
+float arcCoverage(const Arc&, float px, float py);
+float polylineCoverage(const Vec2*, std::size_t n, float width, float dotPitch, float px, float py);
 
 }  // namespace glim::paint

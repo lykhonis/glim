@@ -70,8 +70,29 @@ constexpr bool hasEdge(GlassEdge e, GlassEdge side) {
   return (static_cast<std::uint8_t>(e) & static_cast<std::uint8_t>(side)) != 0;
 }
 
+enum class GlassMaterial : std::uint8_t { Glass, LiquidMetal, Water };
+
+// How the swell moves. Smooth: eases in and out. Spring: a damped spring
+// released toward the new rest, overshooting by `bounce` and settling.
+// Flow: never rests; drifts at a constant `travel` per `period`.
+enum class GlassMotionCurve : std::uint8_t { Smooth, Spring, Flow };
+
+// Swell motion, driven by Glass::timeSec. Smooth/Spring: each period the
+// surface surges by `travel`, settles within `moveShare` of the period, and
+// rests for the remainder; surges alternate direction (a slosh), so the
+// motion loops exactly every 2 * period. Flow: continuous drift that loops
+// seamlessly every 2*pi * period / travel seconds (moveShare/bounce unused).
+struct GlassMotion {
+  float period = 0.f;      // seconds per surge; 0 = still
+  float travel = 0.5f;     // swell phase per surge (radians); larger = farther
+  float moveShare = 0.5f;  // share of the period spent moving, (0, 1]
+  GlassMotionCurve curve = GlassMotionCurve::Smooth;
+  float bounce = 0.2f;  // Spring overshoot as a share of travel, [0.01, 0.9]
+};
+
 struct Glass {
   GlassVariant variant = GlassVariant::Regular;
+  GlassMaterial material = GlassMaterial::Glass;
   Color tint{};
   bool interactive = false;
   float ior = 1.45f;
@@ -82,6 +103,26 @@ struct Glass {
   bool flatten = false;
   // Edge light per side; the frost, milk, and refraction are untouched.
   GlassEdge edge = GlassEdge::Full;
+  // Material knobs. transmit 1 = refractive, 0 = fully reflective.
+  // rippleAmp/timeSec drive the water normal field (0 = frozen).
+  // envSoft is metal roughness: widens the blur of the mirrored surroundings.
+  // absorbK scales water depth absorption.
+  float transmit = 1.f;
+  float rippleAmp = 0.f;
+  float timeSec = 0.f;
+  float envSoft = 0.35f;
+  float absorbK = 1.f;
+  // Surface swell: a plate-local wave field (metal folds, water waves).
+  // swellAmp: strength (metal: fold tilt; water: share of the body bend
+  // that waves the content beneath; 0 = flat). swellScale: wave frequency
+  // per axis (> 1 = tighter waves; x < y stretches the waves along x).
+  // motion: how the swell moves over timeSec (see GlassMotion; still by default).
+  // envLight: how strongly the surroundings' brightness lights the metal's
+  // mirrored studio (0 = studio only; the backdrop never shows through).
+  float swellAmp = 0.f;
+  Vec2 swellScale{1.f, 1.f};
+  GlassMotion motion{};
+  float envLight = 0.f;
 
   static Glass clear() {
     Glass g;
@@ -89,6 +130,44 @@ struct Glass {
     g.thicknessPx = 16.f;
     g.ior = 1.33f;
     g.dispersion = 0.08f;
+    return g;
+  }
+
+  // Opaque reflective metal; tint is the metal color (gold, chrome, gunmetal).
+  // F0 goes metallic (0.9) in makeGlassUniforms via the material.
+  // Natural (untinted) metal is silver; a tint colors it (gold, copper).
+  static constexpr std::uint32_t kSilver = 0xc9ced4ff;
+  static Glass liquidMetal(Color tint = Color{kSilver}) {
+    Glass g;
+    g.material = GlassMaterial::LiquidMetal;
+    g.transmit = 0.f;
+    g.tint = tint.a() != 0 ? tint : Color{kSilver};
+    g.thicknessPx = 24.f;
+    g.ior = 1.45f;
+    g.envSoft = 0.85f;
+    g.swellAmp = 0.8f;
+    g.swellScale = Vec2{0.55f, 1.1f};
+    // Molten flow: a slow, steady drift (loops every ~42 s).
+    g.motion = GlassMotion{4.f, 0.6f, 1.f, GlassMotionCurve::Flow, 0.2f};
+    return g;
+  }
+
+  // Shallow refractive water; tint is the absorption color (teal).
+  // Still by default: the plate refracts the content beneath it.
+  // Set rippleAmp > 0 for chop (then timeSec drives the normal field).
+  static Glass water() {
+    Glass g;
+    g.material = GlassMaterial::Water;
+    g.variant = GlassVariant::Clear;  // sharp core, no milk, no dimmer
+    g.tint = Color{0x2a9d8fff};
+    g.ior = 1.33f;
+    g.dispersion = 0.1f;
+    g.thicknessPx = 18.f;
+    g.rippleAmp = 0.f;
+    g.absorbK = 1.f;
+    g.swellAmp = 0.6f;
+    // A gentle swell rolling through, then calm.
+    g.motion = GlassMotion{3.5f, 0.5f, 0.65f, GlassMotionCurve::Smooth, 0.2f};
     return g;
   }
 };
@@ -196,12 +275,6 @@ struct GroupParams {
   Rect clip{};
   Radius clipRadius{};
   float backdropBlur = 0.f;
-  float backdropBend = 0.f;
-  float backdropMerge = 0.f;
-  float backdropPress = 0.f;
-  float backdropLightX = 0.35f;
-  float backdropLightY = 0.8f;
-  float backdropLightZ = 0.5f;
   bool backdropFlat = false;
   std::optional<Glass> glass;
   bool glassContainer = false;
@@ -221,10 +294,39 @@ struct FillRounded {
   Matter matter;
 };
 
+struct FillChamfer {
+  Rect rect;
+  float cut = 0.f;
+  Matter matter;
+};
+
 struct Stroke {
   Rect rect;
   Radius radius;
   float width = 1.f;
+  Matter matter;
+};
+
+struct StrokeChamfer {
+  Rect rect;
+  float cut = 0.f;
+  float width = 1.f;
+  Matter matter;
+};
+
+struct Arc {
+  Vec2 center{};
+  float radius = 0.f;
+  float thickness = 1.f;
+  float startDeg = 0.f;
+  float sweepDeg = 0.f;
+  Matter matter;
+};
+
+struct Polyline {
+  std::vector<Vec2> points;
+  float width = 1.f;
+  float dotPitch = 0.f;
   Matter matter;
 };
 
@@ -252,7 +354,36 @@ struct SlotHole {
   std::uint32_t id = 0;
 };
 
-using Shape = std::variant<FillRect, FillRounded, Stroke, Blit, GlyphRun, SlotHole>;
+using Shape = std::variant<
+    FillRect,
+    FillRounded,
+    FillChamfer,
+    Stroke,
+    StrokeChamfer,
+    Arc,
+    Polyline,
+    Blit,
+    GlyphRun,
+    SlotHole>;
+
+inline constexpr std::size_t kShapeKinds = std::variant_size_v<Shape>;
+
+inline const char* shapeKindName(std::size_t index) {
+  static constexpr const char* kNames[] = {
+      "FillRect",
+      "FillRounded",
+      "FillChamfer",
+      "Stroke",
+      "StrokeChamfer",
+      "Arc",
+      "Polyline",
+      "Blit",
+      "GlyphRun",
+      "SlotHole",
+  };
+  static_assert(sizeof(kNames) / sizeof(kNames[0]) == kShapeKinds);
+  return index < kShapeKinds ? kNames[index] : "?";
+}
 
 struct SlotPlacement {
   std::uint32_t id = 0;
@@ -328,6 +459,12 @@ struct Scene {
 
 struct Stats {
   float encodeMs = 0;
+  // Time blocked waiting for a swapchain drawable: the GPU or display
+  // is behind when this approaches a vsync interval.
+  float acquireMs = 0;
+  // GPU execution time of the latest completed frame (usually an
+  // earlier one); 0 when the backend does not measure it.
+  float gpuMs = 0;
   unsigned draws = 0;
   unsigned instances = 0;
   unsigned isolateCount = 0;
@@ -341,6 +478,10 @@ struct Stats {
   unsigned dirtyTiles = 0;
   unsigned shadowPassCount = 0;
   unsigned contentBlurCount = 0;
+  // Encode cost by Shape alternative (index = Shape::index()); isolates excluded.
+  unsigned shapeCount[kShapeKinds]{};
+  unsigned shapeInstances[kShapeKinds]{};
+  float shapeEncodeMs[kShapeKinds]{};
 };
 
 float snapBackdropSigma(float sigma);
@@ -362,6 +503,25 @@ bool hasGlass(const Group&) noexcept;
 bool isGlassContainer(const Group&) noexcept;
 bool hasGlassWork(const Group&) noexcept;
 Rect glassSurface(const Group&);
+// Material on the group itself, else on its first glass child, else defaults.
+const Glass& glassMaterial(const Group&);
+// Fully reflective liquid metal: shaded from its environment, it samples
+// no backdrop. Shaders derive the same flag from material + transmit.
+bool glassOpaque(const Glass&);
+// Effective backdrop blur radius for a material (0 for opaque metal).
+float glassBlurRadius(const Glass&);
+// Physical plate thickness, scaled with plate size like the isolate gutter.
+float glassThicknessFor(const Glass& mat, Rect plateBounds);
+// True when timeSec changes the rendered plate: the water ripple field or a
+// drifting swell. Plates that ignore time skip hashing and uploading it, so
+// raster reuse is not defeated for no visual difference.
+bool glassAnimates(const Glass& mat);
+// True when the water ripple field reads timeSec directly.
+bool glassRipples(const Glass& mat);
+// Swell phase (radians) at timeSec under mat.motion; exactly constant while
+// the surface rests between surges, so resting frames reuse their raster.
+// 0 for plates whose swell does not move.
+float glassSwellPhase(const Glass& mat);
 int collectGlassPills(const Group&, std::span<GlassPill> out);
 void dropGlassPills(Group&);
 void clearGlassParams(GroupParams&);
@@ -396,9 +556,15 @@ void visitGroup(const Group& g, ShapeFn&& onShape, ChildFn&& onChild) {
 std::unique_ptr<Group> cloneGroup(const Group&);
 Group merge(Group, Stats* stats = nullptr);
 Rect transformRect(const Mat4&, Rect);
+bool isAxisAligned(const Mat4& t) noexcept;
+bool invert2DAffine(const Mat4& t, Mat4& out) noexcept;
 FillRect transformFill(const Mat4&, const FillRect&);
 FillRounded transformRounded(const Mat4&, const FillRounded&);
+FillChamfer transformChamfer(const Mat4&, const FillChamfer&);
 Stroke transformStroke(const Mat4&, const Stroke&);
+StrokeChamfer transformStrokeChamfer(const Mat4&, const StrokeChamfer&);
+Arc transformArc(const Mat4&, const Arc&);
+Polyline transformPolyline(const Mat4&, const Polyline&);
 Blit transformBlit(const Mat4&, const Blit&);
 GlyphRun transformGlyphs(const Mat4&, const GlyphRun&);
 SlotHole transformSlot(const Mat4&, const SlotHole&);
