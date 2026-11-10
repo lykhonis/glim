@@ -13,6 +13,7 @@
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/RunLoop.h>
+#include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Seats.h>
 #include <glim/toolkit/host/Telemetry.h>
@@ -52,6 +53,29 @@ int run(
     TelemetrySink telemetrySink
 ) {
   SeatViewFactory effective = makeSeatView != nullptr ? makeSeatView : &makeDefaultSeatView;
+  LayerFeed feed;
+  if (!record) {
+    record = [&](Frame& frame, const Block& tree, const Box& box) {
+      if (config.prepare) config.prepare(frame.context, store);
+      Engine e = measureEngine();
+      e.store = store;
+      paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
+    };
+  }
+  std::unique_ptr<DriveRun> drive;
+  if (!config.drive.empty()) {
+    drive = DriveRun::load(config.drive.c_str());
+    if (!drive) {
+      return 2;
+    }
+    // Tap paints through the telemetry seam; the app's sink still fires.
+    telemetrySink = [d = drive.get(), app = std::move(telemetrySink)](const FrameTelemetry& t) {
+      d->paint(t);
+      if (app) {
+        app(t);
+      }
+    };
+  }
   shell::Application host;
   shell::Window window;
   window.setTitle(config.title ? config.title : "Glim");
@@ -85,6 +109,11 @@ int run(
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
   Vec2 paintedSize{0.0f, 0.0f};
+  // Last drawable size pushed to the GPU device. setDrawableSize
+  // reallocates swapchain resources, so only push on actual change —
+  // pushing every painted frame stalls nextDrawable (~1s hitches).
+  int lastDrawableW = -1;
+  int lastDrawableH = -1;
   // Build engine: measuring env plus this run's Store, so scoped state
   // allocates where it renders. No retained tree cache — the compositor
   // owns idle-skip, so trees rebuild per event/paint.
@@ -124,22 +153,30 @@ int run(
   // snapshot fanned out to pull (hub) and push (sink).
   const auto paintBody = [&](const std::chrono::steady_clock::time_point& now, float frameMs) {
     const Vec2 size = window.size();
-    const auto b0 = std::chrono::steady_clock::now();
+    const bool wantTm = (telemetry != nullptr) || static_cast<bool>(telemetrySink);
+    const auto b0 =
+        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     auto [tree, box] = buildFresh(size);
-    const auto b1 = std::chrono::steady_clock::now();
+    const auto b1 =
+        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (a11ySink) {
       a11ySink(a11yNodes(tree, box, active), screen.focus);
     }
     context.setSize(size);
     context.beginFrame();
     Frame frame = frameAt(std::chrono::duration<float>(now - start).count());
-    const auto r0 = std::chrono::steady_clock::now();
+    const auto r0 =
+        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (record) {
       record(frame, tree, box);
     }
-    const auto r1 = std::chrono::steady_clock::now();
+    const auto r1 =
+        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     context.finish();
-    syncSeats(window, context.scene(), attached, effective);
+    // Zero-cost when no native seats: sawSlots bit avoids collectSlots walk.
+    if (!attached.empty() || context.sawSlots()) {
+      syncSeats(window, context.scene(), attached, effective);
+    }
 #if GLIM_SOFTWARE
     const int w = std::max(1, static_cast<int>(size.x));
     const int h = std::max(1, static_cast<int>(size.y));
@@ -155,9 +192,14 @@ int run(
     const Vec2 drawable = window.drawableSize();
     // Round, never truncate: a truncating cast would shrink the integral
     // layer size by up to a pixel mid-flight and desync the viewport.
-    device.setDrawableSize(
-        static_cast<int>(std::lround(drawable.x)), static_cast<int>(std::lround(drawable.y))
-    );
+    // Guard: setDrawableSize reallocates, pushing every frame stalls nextDrawable.
+    const int dw = static_cast<int>(std::lround(drawable.x));
+    const int dh = static_cast<int>(std::lround(drawable.y));
+    if (dw != lastDrawableW || dh != lastDrawableH) {
+      device.setDrawableSize(dw, dh);
+      lastDrawableW = dw;
+      lastDrawableH = dh;
+    }
     renderer.draw(context.scene());
 #endif
     if (telemetry != nullptr || telemetrySink) {
@@ -189,10 +231,10 @@ int run(
     screen.painted(store);
   };
 
-  const auto paint = [&] {
-    const auto now = tickClock();
-    paintBody(now, lastFrameMs);
-  };
+  // Input never paints inline: a burst of events between two vsyncs
+  // coalesces into the next Frame's one paint, so queued input is not
+  // stuck behind a GPU-bound paint per event.
+  const auto invalidate = [&] { screen.dirty.invalidate(); };
 
   window.setEventCallback([&](const shell::Event& e) {
     using T = shell::EventType;
@@ -202,13 +244,13 @@ int run(
     }
     if (e.type() == T::KeyDown && e.key() == shell::Key::Escape) {
       reduceTransparency = !reduceTransparency;
-      paint();
+      invalidate();
       return;
     }
     if (e.type() == T::PointerDown) {
       auto [tree, box] = buildFresh(window.size());
       if (screen.pointerDown(tree, box, e.x(), e.y(), e.pointerId(), active)) {
-        paint();
+        invalidate();
       } else if (config.customTitlebar && e.y() < config.titleDragHeight) {
         // Empty chrome drags: toolkit ignored the press inside the
         // custom header strip, so hand it to AppKit. Controls that
@@ -220,7 +262,7 @@ int run(
     if (e.type() == T::PointerUp) {
       auto [tree, box] = buildFresh(window.size());
       if (screen.pointerUp(tree, box, e.x(), e.y(), active)) {
-        paint();
+        invalidate();
       }
       return;
     }
@@ -229,7 +271,7 @@ int run(
       if (!pressed) return;
       auto [tree, box] = buildFresh(window.size());
       if (screen.pointerMove(tree, box, e.x(), e.y(), pressed, e.pointerId(), active)) {
-        paint();
+        invalidate();
       }
       return;
     }
@@ -237,7 +279,7 @@ int run(
       tickClock();
       auto [tree, box] = buildFresh(window.size());
       if (screen.wheel(tree, box, e.x(), e.y(), e.dx(), e.dy(), active)) {
-        paint();
+        invalidate();
       }
       return;
     }
@@ -245,7 +287,7 @@ int run(
       if (auto key = mapKey(e.key())) {
         auto [tree, box] = buildFresh(window.size());
         if (screen.key(tree, box, *key, active)) {
-          paint();
+          invalidate();
         }
       }
       return;
@@ -282,7 +324,13 @@ int run(
     }
   });
   window.show();
+  if (drive) {
+    drive->start(window);
+  }
   host.run();
+  if (drive && !drive->finish(config.driveTrace.empty() ? nullptr : config.driveTrace.c_str())) {
+    return 1;
+  }
   return 0;
 }
 
@@ -299,26 +347,8 @@ int run(
   Store store;
   Screen screen;
   Engine engine = measureEngine();
-  LayerFeed feed;
-  Record effective = record;
-  if (!effective) {
-    effective = [&](Frame& frame, const Block& tree, const Box& box) {
-      Engine e = measureEngine();
-      e.store = store;
-      paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
-    };
-  }
   return run(
-      config,
-      screen,
-      store,
-      engine,
-      build,
-      effective,
-      makeSeatView,
-      a11ySink,
-      telemetry,
-      telemetrySink
+      config, screen, store, engine, build, record, makeSeatView, a11ySink, telemetry, telemetrySink
   );
 }
 

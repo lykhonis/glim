@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "glim/toolkit/A11y.h"
@@ -34,6 +35,14 @@ struct Config {
   bool customTitlebar = false;
   // Draggable strip height in logical px from the top edge.
   float titleDragHeight = 52.0f;
+  // Profiling: replay this input script into the live window, then
+  // close it and print a latency report (see Drive.h). The trace path,
+  // when set, also gets a Chrome trace of events and paints.
+  std::string drive;
+  std::string driveTrace;
+  // Per-frame context setup before the default paint (e.g. registering
+  // cached images); same hook as TestApp::prepare. Ignored with a Record.
+  std::function<void(paint::Context&, Store&)> prepare;
 };
 
 struct Frame {
@@ -57,7 +66,7 @@ using Record = std::function<void(Frame&, const Block&, const Box&)>;
 // (default) skips the walk entirely — zero cost when unused.
 using A11ySink = std::function<void(const std::vector<A11yNode>& nodes, int focused)>;
 
-// Null factory means the platform default.
+// A null record paints the screen with the default focus ring and layers.
 // Getting-started path: the host owns Store, Screen, measuring Engine, and
 // the default paint; scoped state allocates into the host Store where it renders.
 // Telemetry is opt-in both ways: hub retains the ring for pull (dashboard

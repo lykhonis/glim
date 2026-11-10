@@ -1,12 +1,61 @@
+#include <glim/paint/Software.h>
 #include <glim/toolkit.h>
 #include <glim/toolkit/host/Codec.h>
+#include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Host.h>
+#include <glim/toolkit/host/Paint.h>
+#include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
 
 #include <cassert>
+#include <cmath>
+#include <cstring>
+#include <filesystem>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <typeinfo>
 #include <vector>
+
+namespace {
+
+// Custom element that paints its own effects: a shadow whose caster is
+// hidden (opacity 0) and an additive glow, both through the AnySink.
+struct FxCard {
+  static constexpr const char* kKind = "FxCard";
+  glim::toolkit::Box place(glim::toolkit::Constraints c, const glim::toolkit::Engine&) const {
+    return glim::toolkit::detail::resolveSize(60.f, 40.f, c);
+  }
+  void record(const glim::toolkit::Box& box, glim::toolkit::Rec& rec) const {
+    rec.push(kKind, box);
+  }
+  void
+  paint(const glim::toolkit::Box& b, glim::toolkit::AnySink& sink, const glim::toolkit::Engine&)
+      const {
+    sink.pushShadow(6.f, 8.f, 8.f, 0x000000ffu, 0.f, 0.f);
+    sink.fillRounded(b, 4, 0xff0000ffu);
+    sink.pop();
+    sink.pushEffect(
+        b, 10, static_cast<std::uint32_t>(glim::toolkit::EffectKind::Glow), 0x00ff00ffu, 1.f
+    );
+    sink.pop();
+  }
+};
+
+glim::toolkit::Block fxScene() {
+  using namespace glim::toolkit;
+  return column(
+      gap(0),
+      pad(40),
+      column(
+          shadow(6.f, 0.f, 0.f, 0x000000ffu, 0.f, 0.5f),
+          effectGlow(0x0000ffffu, 1.f, 4),
+          finish(FxCard{})
+      )
+  );
+}
+
+}  // namespace
 
 int main() {
   using glim::shell::Key;
@@ -65,6 +114,175 @@ int main() {
     assert(!glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back));
   }
 
+  // Every newer op kind survives the archive round trip field for field.
+  {
+    using glim::toolkit::Op;
+    using glim::toolkit::OpsRecorder;
+    OpsRecorder rec;
+    const float pts[6] = {0, 0, 5, 5, 10, 0};
+    rec.pushTransform(3.0f, -4.0f);
+    rec.pushRotate(30.0f, 5.0f, 6.0f);
+    rec.fillRadial({0, 0, 10, 10}, 2, 0xff0000ff, 0xff000000, "r");
+    rec.fillChamfer({0, 0, 10, 10}, 3.0f, 0x00ff00ff);
+    rec.strokeChamfer({0, 0, 10, 10}, 3.0f, 1.5f, 0x0000ffff, "c");
+    rec.arc(5, 5, 4, 1, -90, 180, 0xffffffff);
+    rec.polyline(pts, 3, 2.0f, 6.0f, 0x123456ff, "p");
+    rec.pushShadow(12.0f, 1.0f, 4.0f, 0x000000a6, 2.0f, 0.25f);
+    rec.pushEffect({0, 0, 10, 10}, 5, 0, 0xff6a00ff, 0.3f);
+    for (int i = 0; i < 4; ++i) rec.pop();
+    std::vector<std::uint8_t> bytes;
+    glim::toolkit::host::encodeOps(rec.ops, bytes);
+    std::vector<Op> back;
+    assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back));
+    assert(back == rec.ops);
+  }
+
+  // Lens material survives the op archive round trip.
+  {
+    using glim::toolkit::Box;
+    using glim::toolkit::Op;
+    using glim::toolkit::OpsRecorder;
+    OpsRecorder rec;
+    rec.pushGlass({0, 0, 10, 10}, 12, false, 15, 0xd8a84eff, 1);
+    rec.pushGlass({0, 0, 10, 10}, 8, false, 15, 0, 2);
+    std::vector<std::uint8_t> bytes;
+    glim::toolkit::host::encodeOps(rec.ops, bytes);
+    std::vector<Op> back;
+    assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back));
+    assert(back == rec.ops);
+    assert(back[0].material == 1 && back[0].tint == 0xd8a84eff);
+    assert(back[1].material == 2);
+  }
+
+  // Pre-v4 archives carry no material byte: decode as refractive glass.
+  {
+    using glim::toolkit::Op;
+    std::vector<std::uint8_t> v3;
+    const char* magic = "GLIMUI02";
+    for (int i = 0; i < 8; ++i) v3.push_back(static_cast<std::uint8_t>(magic[i]));
+    v3.push_back(3);
+    v3.push_back(0);  // u16 version 3, little-endian
+    v3.push_back(1);
+    v3.push_back(0);
+    v3.push_back(0);
+    v3.push_back(0);  // u32 op count 1
+    v3.push_back(static_cast<std::uint8_t>(Op::Kind::PushGlass));
+    auto putF32 = [&](float f) {
+      std::uint32_t u = 0;
+      std::memcpy(&u, &f, sizeof(u));
+      for (int i = 0; i < 4; ++i) v3.push_back(static_cast<std::uint8_t>((u >> (8 * i)) & 0xff));
+    };
+    putF32(0.f);
+    putF32(0.f);
+    putF32(10.f);
+    putF32(10.f);  // box
+    v3.push_back(0);
+    v3.push_back(0);  // empty mark
+    v3.push_back(12);
+    v3.push_back(0);
+    v3.push_back(0);
+    v3.push_back(0);   // i32 radius 12
+    v3.push_back(1);   // clear
+    v3.push_back(15);  // edge
+    v3.push_back(0);
+    v3.push_back(0);
+    v3.push_back(0);
+    v3.push_back(0);  // u32 tint 0
+    std::vector<Op> back;
+    assert(glim::toolkit::host::decodeOps(v3.data(), v3.size(), back));
+    assert(back.size() == 1);
+    assert(back[0].kind == Op::Kind::PushGlass);
+    assert(back[0].material == 0);
+    assert(back[0].clear && back[0].edge == 15 && back[0].radius == 12);
+  }
+
+  // Effects mix: tags on a composed node and effects a custom element
+  // paints itself nest in one op stream, survive the archive, and render.
+  {
+    using namespace glim::toolkit;
+    host::LayerFeed feed;
+    Block t = fxScene();
+    const Box tb = place(t, {0, 200, 0, 200});
+    OpsRecorder rec;
+    paintTree(t, tb, Engine{}, rec, feed);
+    std::vector<Op::Kind> pushes;
+    std::vector<float> casters;
+    int depth = 0, maxDepth = 0;
+    for (const Op& o : rec.ops) {
+      if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushEffect) {
+        pushes.push_back(o.kind);
+        maxDepth = std::max(maxDepth, ++depth);
+        if (o.kind == Op::Kind::PushShadow) casters.push_back(o.casterOpacity);
+      }
+      if (o.kind == Op::Kind::Pop) --depth;
+    }
+    // Tag shadow, tag effect, then the card's own shadow and glow inside them.
+    assert(
+        (pushes ==
+         std::vector<Op::Kind>{
+             Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushShadow, Op::Kind::PushEffect
+         })
+    );
+    assert((casters == std::vector<float>{0.5f, 0.f}));
+    assert(maxDepth == 3 && depth == 0);
+    std::vector<std::uint8_t> bytes;
+    host::encodeOps(rec.ops, bytes);
+    std::vector<Op> back;
+    assert(host::decodeOps(bytes.data(), bytes.size(), back) && back == rec.ops);
+
+    // Same tree through the paint pipeline (CPU raster).
+    glim::paint::Context ctx;
+    ctx.setSize({200, 200});
+    ctx.beginFrame();
+    ctx.setFillColor(0x404040ffu);
+    ctx.fill(glim::Rect::fromSize({200, 200}));
+    host::ContextSink sink{ctx};
+    paintTree(t, tb, Engine{}, sink, feed);
+    ctx.finish();
+    std::vector<std::uint8_t> px(200 * 200 * 4);
+    glim::paint::rasterScene(ctx.scene(), 200, 200, px.data());
+    auto at = [&](int x, int y) { return &px[static_cast<std::size_t>((y * 200 + x) * 4)]; };
+    // Card at (40,40,60,40) on gray: the hidden caster paints no red, the
+    // glow adds green, and the card's own shadow darkens below-right.
+    const std::uint8_t bg = at(5, 5)[0];
+    const std::uint8_t* c = at(70, 60);
+    assert(c[0] < bg && c[1] > 150);
+    const std::uint8_t* s = at(104, 84);
+    assert(s[0] < bg && s[1] < bg && s[2] < bg);
+  }
+
+  // pushGlass material maps to the matching paint lens preset.
+  {
+    using glim::toolkit::GlassMaterial;
+    using glim::toolkit::host::ContextSink;
+    auto painted = [](std::uint8_t material, std::uint32_t tint) {
+      glim::paint::Context ctx;
+      ctx.setSize({100, 100});
+      ctx.beginFrame();
+      ContextSink sink{ctx};
+      sink.pushGlass({0, 0, 50, 50}, 12, false, 15, tint, material);
+      sink.pop();
+      ctx.finish();
+      const glim::paint::Scene& scene = ctx.scene();
+      assert(!scene.root.children.empty());
+      const auto& params = scene.root.children[0]->params;
+      assert(params.glass.has_value());
+      return *params.glass;
+    };
+    const glim::paint::Glass def = painted(0, 0);
+    assert(def.material == glim::paint::GlassMaterial::Glass);
+    const glim::paint::Glass metal =
+        painted(static_cast<std::uint8_t>(GlassMaterial::LiquidMetal), 0xd8a84eff);
+    assert(metal.material == glim::paint::GlassMaterial::LiquidMetal);
+    assert(metal.transmit == 0.f && metal.tint.rgba == 0xd8a84eff);
+    const glim::paint::Glass water = painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0);
+    assert(water.material == glim::paint::GlassMaterial::Water);
+    assert(water.transmit == 1.f);
+    const glim::paint::Glass teal =
+        painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0x2a9d8fff);
+    assert(teal.tint.rgba == 0x2a9d8fff);
+  }
+
   // Theme defaults mirror the fallback; a themed scope overrides them.
   {
     using glim::toolkit::Engine;
@@ -89,6 +307,104 @@ int main() {
     );
     glim::toolkit::place(tree, {0, 720, 0, 480});
     assert(seen == 0x123456ff);
+  }
+
+  // Probe: one command surface; every answer ends in ok/err.
+  {
+    namespace host = glim::toolkit::host;
+    host::TestApp app;
+    app.w = 96;
+    app.h = 32;
+    app.build = [](const glim::toolkit::Engine&) { return glim::toolkit::lines("Probe"); };
+    const std::string dir =
+        (std::filesystem::temp_directory_path() / "glim-host-test-probe").string();
+    std::ostringstream out;
+    host::Probe probe(app, out);
+    assert(probe.exec("out " + dir));
+    assert(probe.exec("snap " + dir + "-ref.png cpu"));
+    assert(probe.exec("ref " + dir + "-ref.png"));
+    assert(probe.exec("region all 0 0 96 32"));
+    assert(probe.exec("compare self"));
+    const std::string s = out.str();
+    assert(s.find("region all mad=0.00") != std::string::npos);
+    assert(s.find("over2=0") != std::string::npos);
+    assert(s.find("ok\n") != std::string::npos);
+    assert(probe.exec("hit 2 2"));
+    assert(probe.exec("expect Probe"));
+    assert(!probe.exec("expect Missing"));
+    assert(!probe.exec("no-such-command"));
+    assert(out.str().rfind("err\n") == out.str().size() - 4);
+    assert(probe.exec("encode"));
+    assert(out.str().find("shape GlyphRun count=") != std::string::npos);
+    assert(probe.exec("bbox cur 0 0 96 32 bright"));
+    assert(probe.exec("prof ref row 16"));
+    assert(host::probeLineFromE2e("tap:i:1") == "tap i 1");
+    assert(host::probeLineFromE2e("wheel:1,2,3,4") == "wheel 1 2 3 4");
+    assert(host::probeLineFromE2e("~FRAME") == "expect FRAME");
+    assert(host::probeLineFromE2e("snap:/a,b.png") == "snap /a,b.png");
+    std::filesystem::remove_all(dir);
+    std::filesystem::remove(dir + "-ref.png");
+  }
+
+  // Drive scripts: a timeline of shell events; any bad line rejects
+  // the whole script.
+  {
+    namespace host = glim::toolkit::host;
+    using glim::shell::EventType;
+    const host::DriveScript s = host::parseDriveScript(
+        "# warm up\n"
+        "wait 1\n"
+        "click 10 20 2 0.2   # two taps\n"
+        "drag 0 0 100 50 0.5 10\n"
+        "key right\n"
+    );
+    assert(s.error.empty());
+    // 2 clicks (down+up) + drag (down, 5 moves, up) + key.
+    assert(s.steps.size() == 4 + 7 + 1);
+    assert(s.steps[0].event.type() == EventType::PointerDown && s.steps[0].at == 1.0f);
+    assert(s.steps[0].event.x() == 10.0f && s.steps[0].event.y() == 20.0f);
+    assert(s.steps[1].event.type() == EventType::PointerUp && s.steps[1].at > 1.0f);
+    assert(std::fabs(s.steps[2].at - 1.2f) < 1e-5f);
+    const auto& dragEnd = s.steps[10];
+    assert(dragEnd.event.type() == EventType::PointerUp && dragEnd.event.x() == 100.0f);
+    assert(std::fabs(dragEnd.at - 1.9f) < 1e-5f);
+    assert(s.steps[9].event.type() == EventType::PointerMove && s.steps[9].event.y() == 50.0f);
+    assert(
+        s.steps[11].event.type() == EventType::KeyDown && s.steps[11].event.key() == Key::DpadRight
+    );
+    for (std::size_t i = 1; i < s.steps.size(); ++i) assert(s.steps[i].at >= s.steps[i - 1].at);
+    assert(!host::parseDriveScript("click 1\n").error.empty());
+    assert(!host::parseDriveScript("wait 1\nfly 2\n").error.empty());
+    assert(host::parseDriveScript("wait 1\nfly 2\n").steps.empty());
+    assert(!host::parseDriveScript("key warp\n").error.empty());
+
+    // Report: percentiles over what was recorded; a long wait or a
+    // frozen frame is a stall.
+    host::DriveReport r;
+    host::FrameTelemetry t;
+    t.frameMs = 16.7f;
+    t.buildMs = 1.0f;
+    t.recordMs = 1.0f;
+    t.encodeMs = 3.0f;
+    t.stats.acquireMs = 2.0f;
+    t.stats.gpuMs = 4.0f;
+    for (int i = 0; i < 10; ++i) {
+      r.event(i * 10.0f, EventType::PointerDown, 1.0f, 0.5f);
+      r.paint(i * 16.7f, t);
+    }
+    assert(!r.stalled());
+    const std::string sum = r.summary();
+    assert(sum.find("10 events, 10 paints") != std::string::npos);
+    assert(sum.find("0 events lagged, 0 frame gaps") != std::string::npos);
+    assert(sum.find("  gpu      p50    4.00") != std::string::npos);
+    assert(r.traceJson().find("\"name\":\"down\"") != std::string::npos);
+    host::DriveReport late = r;
+    late.event(200.0f, EventType::PointerUp, 450.0f, 0.5f);
+    assert(late.stalled() && late.summary().find("1 events lagged") != std::string::npos);
+    host::DriveReport frozen = r;
+    t.frameMs = 1000.0f;
+    frozen.paint(1200.0f, t);
+    assert(frozen.stalled() && frozen.summary().find("1 frame gaps") != std::string::npos);
   }
 
   std::cout << "host_test ok\n";

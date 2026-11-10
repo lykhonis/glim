@@ -96,7 +96,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 1);  // version
+  detail::putU16(out, 5);  // version 5: PushShadow caster opacity
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -117,9 +117,52 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putU8(out, o.clear ? 1 : 0);
       detail::putU8(out, o.edge);
       detail::putU32(out, o.tint);
+      detail::putU8(out, o.material);
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       detail::putU8(out, o.plus ? 1 : 0);
+    } else if (o.kind == K::PushTransform) {
+      detail::putF32(out, o.dx);
+      detail::putF32(out, o.dy);
+    } else if (o.kind == K::PushRotate) {
+      detail::putF32(out, o.angleDeg);
+      detail::putF32(out, o.rcx);
+      detail::putF32(out, o.rcy);
+    } else if (o.kind == K::FillRadial) {
+      detail::putI32(out, o.radius);
+      detail::putU32(out, o.rgba);
+      detail::putU32(out, o.rgba2);
+    } else if (o.kind == K::FillChamfer) {
+      detail::putF32(out, o.cut);
+      detail::putU32(out, o.rgba);
+    } else if (o.kind == K::StrokeChamfer) {
+      detail::putF32(out, o.cut);
+      detail::putF32(out, o.width);
+      detail::putU32(out, o.rgba);
+    } else if (o.kind == K::Arc) {
+      detail::putF32(out, o.cut);
+      detail::putF32(out, o.thickness);
+      detail::putF32(out, o.startDeg);
+      detail::putF32(out, o.sweepDeg);
+      detail::putU32(out, o.rgba);
+    } else if (o.kind == K::Polyline) {
+      detail::putF32(out, o.width);
+      detail::putF32(out, o.dotPitch);
+      detail::putU32(out, o.rgba);
+      detail::putU32(out, static_cast<std::uint32_t>(o.pts.size()));
+      for (float v : o.pts) detail::putF32(out, v);
+    } else if (o.kind == K::PushShadow) {
+      detail::putF32(out, o.sigma);
+      detail::putF32(out, o.sox);
+      detail::putF32(out, o.soy);
+      detail::putU32(out, o.shadowColor);
+      detail::putF32(out, o.expand);
+      detail::putF32(out, o.casterOpacity);
+    } else if (o.kind == K::PushEffect) {
+      detail::putI32(out, o.radius);
+      detail::putU32(out, o.effect);
+      detail::putU32(out, o.rgba);
+      detail::putF32(out, o.e0);
     } else if (o.kind == K::Slot) {
       detail::putU32(out, o.slot);
     } else if (o.kind == K::Fill) {
@@ -139,6 +182,8 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putStr(out, o.text);
       detail::putU32(out, o.rgba);
       detail::putF32(out, o.size);
+      detail::putF32(out, o.condense);
+      detail::putF32(out, o.textWeight);
     } else if (o.kind == K::Image) {
       detail::putU32(out, o.image);
       detail::putU8(out, o.foreign ? 1 : 0);
@@ -151,7 +196,8 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
-  if (r.u16() != 1) return false;
+  const std::uint16_t ver = r.u16();
+  if (ver < 1 || ver > 5) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -182,9 +228,56 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.clear = r.u8() != 0;
       o.edge = r.u8();
       o.tint = r.u32();
+      // Pre-v4 archives carry no material byte: default refractive glass.
+      o.material = (ver >= 4 && r.ok) ? r.u8() : 0;
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       o.plus = r.u8() != 0;
+    } else if (o.kind == K::PushTransform) {
+      o.dx = r.f32();
+      o.dy = r.f32();
+    } else if (o.kind == K::PushRotate) {
+      o.angleDeg = r.f32();
+      o.rcx = r.f32();
+      o.rcy = r.f32();
+    } else if (o.kind == K::FillRadial) {
+      o.radius = r.i32();
+      o.rgba = r.u32();
+      o.rgba2 = r.u32();
+    } else if (o.kind == K::FillChamfer) {
+      o.cut = r.f32();
+      o.rgba = r.u32();
+    } else if (o.kind == K::StrokeChamfer) {
+      o.cut = r.f32();
+      o.width = r.f32();
+      o.rgba = r.u32();
+    } else if (o.kind == K::Arc) {
+      o.cut = r.f32();
+      o.thickness = r.f32();
+      o.startDeg = r.f32();
+      o.sweepDeg = r.f32();
+      o.rgba = r.u32();
+    } else if (o.kind == K::Polyline) {
+      o.width = r.f32();
+      o.dotPitch = r.f32();
+      o.rgba = r.u32();
+      std::uint32_t n = r.u32();
+      o.pts.clear();
+      o.pts.reserve(n);
+      for (std::uint32_t i = 0; i < n; ++i) o.pts.push_back(r.f32());
+    } else if (o.kind == K::PushShadow) {
+      o.sigma = r.f32();
+      o.sox = r.f32();
+      o.soy = r.f32();
+      o.shadowColor = r.u32();
+      o.expand = r.f32();
+      o.casterOpacity = ver >= 5 ? r.f32() : 1.f;
+    } else if (o.kind == K::PushEffect) {
+      if (ver < 3) return false;
+      o.radius = r.i32();
+      o.effect = r.u32();
+      o.rgba = r.u32();
+      o.e0 = r.f32();
     } else if (o.kind == K::Slot) {
       o.slot = r.u32();
     } else if (o.kind == K::Fill) {
@@ -204,6 +297,10 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.text = r.str();
       o.rgba = r.u32();
       o.size = r.f32();
+      if (ver >= 2) {
+        o.condense = r.f32();
+        o.textWeight = r.f32();
+      }
     } else if (o.kind == K::Image) {
       o.image = r.u32();
       o.foreign = r.u8() != 0;

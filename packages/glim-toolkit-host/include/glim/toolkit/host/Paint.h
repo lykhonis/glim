@@ -20,6 +20,14 @@ namespace glim {
 namespace toolkit {
 namespace host {
 
+namespace detail {
+// Packed RGBA with alpha scaled by a clamped to 0..1, rounded.
+inline std::uint32_t scaleAlpha(std::uint32_t rgba, float a) {
+  a = a < 0.f ? 0.f : (a > 1.f ? 1.f : a);
+  return (rgba & 0xffffff00u) | (static_cast<unsigned>((rgba & 0xffu) * a + 0.5f) & 0xffu);
+}
+}  // namespace detail
+
 struct LayerFeed {
   std::uint32_t id = 0;
   bool foreign = false;
@@ -90,6 +98,26 @@ struct ContextSink {
         {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)}, s.c_str(), size
     );
   }
+  void textStyled(
+      float x,
+      float y,
+      const std::string& s,
+      std::uint32_t rgba,
+      float size,
+      float condense,
+      float weight,
+      const std::string& = {}
+  ) {
+    ::glim::paint::TextSize m = ctx.measureTextStyled(s.c_str(), size, condense);
+    ctx.setFillColor(rgba);
+    ctx.textStyled(
+        {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)},
+        s.c_str(),
+        size,
+        condense,
+        weight
+    );
+  }
   void image(const Box& b, std::uint32_t imageId, bool foreign, const std::string& = {}) {
     if (imageId == 0) return;
     ctx.blit(
@@ -97,35 +125,61 @@ struct ContextSink {
         foreign ? ::glim::paint::Matter::foreign(imageId) : ::glim::paint::Matter::sampled(imageId)
     );
   }
-  void pushGlass(const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
+  void pushGlass(
+      const Box& b,
+      int radius,
+      bool clear,
+      std::uint8_t edge,
+      std::uint32_t tint,
+      std::uint8_t material = 0
+  ) {
     ::glim::paint::GroupParams p;
     p.bounds = toRect(b);
     p.clip = toRect(b);
     p.clipRadius = Radius{static_cast<float>(radius)};
     // Glass thickness is a physical constant, never a scoped token, so read
     // the default directly instead of plumbing an engine through the sink.
-    ::glim::paint::Glass g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
+    // Twin enums; the asserts pin the shared bit layout so drift fails the build.
+    using PaintEdge = ::glim::paint::GlassEdge;
+    static_assert(static_cast<int>(toolkit::GlassEdge::None) == static_cast<int>(PaintEdge::None));
+    static_assert(static_cast<int>(toolkit::GlassEdge::Left) == static_cast<int>(PaintEdge::Left));
+    static_assert(
+        static_cast<int>(toolkit::GlassEdge::Right) == static_cast<int>(PaintEdge::Right)
+    );
+    static_assert(static_cast<int>(toolkit::GlassEdge::Top) == static_cast<int>(PaintEdge::Top));
+    static_assert(
+        static_cast<int>(toolkit::GlassEdge::Bottom) == static_cast<int>(PaintEdge::Bottom)
+    );
+    static_assert(static_cast<int>(toolkit::GlassEdge::Full) == static_cast<int>(PaintEdge::Full));
+    using PaintMaterial = ::glim::paint::GlassMaterial;
+    static_assert(
+        static_cast<int>(toolkit::GlassMaterial::Glass) == static_cast<int>(PaintMaterial::Glass)
+    );
+    static_assert(
+        static_cast<int>(toolkit::GlassMaterial::LiquidMetal) ==
+        static_cast<int>(PaintMaterial::LiquidMetal)
+    );
+    static_assert(
+        static_cast<int>(toolkit::GlassMaterial::Water) == static_cast<int>(PaintMaterial::Water)
+    );
+    ::glim::paint::Glass g;
+    if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::LiquidMetal)) {
+      g = ::glim::paint::Glass::liquidMetal(::glim::Color{tint});
+    } else if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::Water)) {
+      g = ::glim::paint::Glass::water();
+      if (tint != 0) {
+        g.tint = ::glim::Color{tint};
+      }
+    } else {
+      g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
+    }
     g.thicknessPx = Tokens::kGlassThickness;
-    // Twin enums, translated explicitly (no default: -Wswitch flags drift).
-    switch (static_cast<toolkit::GlassEdge>(edge)) {
-      case toolkit::GlassEdge::None:
-        g.edge = ::glim::paint::GlassEdge::None;
-        break;
-      case toolkit::GlassEdge::Left:
-        g.edge = ::glim::paint::GlassEdge::Left;
-        break;
-      case toolkit::GlassEdge::Right:
-        g.edge = ::glim::paint::GlassEdge::Right;
-        break;
-      case toolkit::GlassEdge::Top:
-        g.edge = ::glim::paint::GlassEdge::Top;
-        break;
-      case toolkit::GlassEdge::Bottom:
-        g.edge = ::glim::paint::GlassEdge::Bottom;
-        break;
-      case toolkit::GlassEdge::Full:
-        g.edge = ::glim::paint::GlassEdge::Full;
-        break;
+    g.edge = static_cast<PaintEdge>(edge);
+    // Flat plates are panels, not droplets: they never melt into neighbors
+    // and have no lens bevel, so their sides stay square.
+    if (edge == static_cast<std::uint8_t>(toolkit::GlassEdge::None)) {
+      g.mergeKPx = 0.f;
+      g.thicknessPx = 0.f;
     }
     g.tint = ::glim::Color{tint};
     p.glass = g;
@@ -142,6 +196,106 @@ struct ContextSink {
     ::glim::paint::GroupParams p;
     p.blend = m == BlendMode::Plus ? ::glim::paint::Blend::Plus : ::glim::paint::Blend::SrcOver;
     ctx.pushGroup(p);
+  }
+  void pushTransform(float dx, float dy) {
+    ::glim::paint::GroupParams p;
+    p.transform = ::glim::Mat4::translate(dx, dy);
+    ctx.pushGroup(p);
+  }
+  void pushRotate(float angleDeg, float cx, float cy) {
+    const float rad = angleDeg * 3.14159265f / 180.0f;
+    ::glim::Mat4 m = ::glim::Mat4::translate(cx, cy) * ::glim::Mat4::rotateZ(rad) *
+                     ::glim::Mat4::translate(-cx, -cy);
+    ::glim::paint::GroupParams p;
+    p.transform = m;
+    ctx.pushGroup(p);
+  }
+  void fillRadial(
+      const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& = {}
+  ) {
+    const float cx = b.x + b.w * 0.5f, cy = b.y + b.h * 0.5f;
+    ::glim::paint::GradientStop stops[2] = {
+        {0.0f, ::glim::Color{center}},
+        {1.0f, ::glim::Color{edge}},
+    };
+    ctx.setFill(
+        ::glim::paint::Matter::radialGradient({cx, cy}, 0.5f * std::hypot(b.w, b.h), stops, 2)
+    );
+    ctx.fillRounded(toRect(b), Radius{static_cast<float>(radius)});
+  }
+  void fillChamfer(const Box& b, float cut, std::uint32_t rgba, const std::string& = {}) {
+    ctx.setFillColor(rgba);
+    ctx.fillChamfer(toRect(b), cut);
+  }
+  void strokeChamfer(
+      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& = {}
+  ) {
+    ctx.setFillColor(rgba);
+    ctx.strokeChamfer(toRect(b), cut, width);
+  }
+  void arc(
+      float cx,
+      float cy,
+      float radius,
+      float thickness,
+      float startDeg,
+      float sweepDeg,
+      std::uint32_t rgba,
+      const std::string& = {}
+  ) {
+    ctx.setFillColor(rgba);
+    ::glim::paint::Arc a;
+    a.center = {cx, cy};
+    a.radius = radius;
+    a.thickness = thickness;
+    a.startDeg = startDeg;
+    a.sweepDeg = sweepDeg;
+    ctx.arc(a);
+  }
+  void polyline(
+      const float* xy,
+      std::size_t n,
+      float width,
+      float dotPitch,
+      std::uint32_t rgba,
+      const std::string& = {}
+  ) {
+    ctx.setFillColor(rgba);
+    ::glim::paint::Polyline pl;
+    pl.width = width;
+    pl.dotPitch = dotPitch;
+    pl.points.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+      pl.points.push_back({xy[i * 2], xy[i * 2 + 1]});
+    }
+    ctx.polyline(pl);
+  }
+  // Opacity fades the caster only. The shadow blit stays full strength, so
+  // a plate can cast without covering the backdrop the glass samples.
+  void pushShadow(
+      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+  ) {
+    ::glim::paint::GroupParams p;
+    ::glim::paint::ShadowBlur sb;
+    sb.sigma = sigma;
+    sb.offset = {ox, oy};
+    sb.color = ::glim::Color{color};
+    sb.expandPx = expand;
+    p.shadow = sb;
+    p.opacity = opacity;
+    ctx.pushGroup(p);
+  }
+  // Effect scope. Glow lowers to an additive radial gradient: color at
+  // `intensity` alpha in the center, transparent at the edge. No isolate,
+  // no blur.
+  void pushEffect(
+      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+  ) {
+    ::glim::paint::GroupParams p;
+    p.blend = ::glim::paint::Blend::Plus;
+    ctx.pushGroup(p);
+    if (kind == static_cast<std::uint32_t>(toolkit::EffectKind::Glow))
+      fillRadial(b, radius, detail::scaleAlpha(color, intensity), color & 0xffffff00u);
   }
   void pop() { ctx.popGroup(); }
   void slot(const Box& b, std::uint32_t id) { ctx.slot(toRect(b), id); }
