@@ -18,7 +18,7 @@ void recordGlass(
     bool = false
 );
 
-// Per-scene GPU parity band (harness H3): glass uses SDF smoothing
+// Per-scene GPU parity band: glass uses SDF smoothing
 // that legitimately differs per backend, so the band is wide. Pinned
 // 2026-11-03; tighten only with a measured justification.
 constexpr std::size_t kMaxOverDelta = 280000;
@@ -62,7 +62,11 @@ int main(int argc, char** argv) {
   const char* goldenPath =
       argc > 1 ? argv[1] : "examples/glass/golden/glass.png";
   glim::gpu::DeviceCreateInfo info{};
+#if defined(GLIM_GOLDEN_METAL)
+  info.backend = glim::gpu::Backend::Metal;
+#else
   info.backend = glim::gpu::Backend::Vulkan;
+#endif
   auto created = glim::gpu::Device::create(info);
   if (!created.ok()) {
     std::cerr << "headless device failed: " << created.message()
@@ -101,6 +105,9 @@ int main(int argc, char** argv) {
               << " (CPU golden is source of truth)\n";
     return EXIT_FAILURE;
   }
+  if (std::getenv("GLIM_GOT_DIR") != nullptr) {
+    glim::image::writeGot(argv[0], got);
+  }
   const glim::image::Diff diff = glim::image::compare(got, want);
   const int maxDelta = diagnose(got, want);
   if (!diff.sameSize || diff.overDelta > kMaxOverDelta ||
@@ -113,10 +120,6 @@ int main(int argc, char** argv) {
                 << " (limit " << kMaxOverDelta
                 << "), maxDelta=" << maxDelta << " (limit "
                 << kMaxChannelDelta << ")\n";
-    }
-    if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
-      (void)dir;
-      glim::image::writeGot(argv[0], got);
     }
     return EXIT_FAILURE;
   }

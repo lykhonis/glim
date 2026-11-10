@@ -1,0 +1,16 @@
+# Controls under load at the default 1240x760 window, Live on (the
+# dashboard also repaints every vsync). Greeting left, controls right:
+# energy and Wi-Fi on top, living room and lighting below.
+#   glim-smarthome --drive examples/smarthome/drive/controls.drive
+wait 1.0
+click 863 321 10 0.12          # living room thermostat switch, rapid toggles
+click 1161 321 10 0.12         # lighting switch
+drag 769 487 690 487 0.6       # thermostat ruler: drag the scale
+click 680 487 5 0.2            # thermostat ruler: tap numbers
+drag 820 487 690 487 0.15 120  # thermostat ruler: fast flick, spins on after release
+wait 1.0
+drag 690 487 820 487 0.15 120  # ...and back the other way
+wait 1.0
+drag 969 497 1067 403 0.5      # light dial: sweep up
+drag 1067 403 1165 497 0.5     # light dial: sweep on to the end
+click 1161 119 6 0.15          # Wi-Fi switch

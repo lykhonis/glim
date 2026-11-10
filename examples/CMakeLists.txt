@@ -1,5 +1,6 @@
 add_subdirectory(common)
-add_subdirectory(showcase)
+add_subdirectory(smarthome)
+add_subdirectory(infotainment)
 add_subdirectory(hello)
 add_subdirectory(glass)
 add_subdirectory(gradients)

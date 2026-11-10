@@ -1,0 +1,94 @@
+# Pixel match of the cluster against paQys.jpg (1168x784).
+#   glim-infotainment --cluster-only --probe examples/infotainment/tests/cluster.probe
+# then inspect interactively with --probe - (same commands, see `help`).
+out /tmp/glim-probe/cluster
+ref ~/Downloads/paQys.jpg
+region battery 18 20 240 278
+region altitude 18 306 245 210
+region systems 18 527 292 196
+region vsi 912 18 240 310
+region nav 908 338 240 183
+region env 892 532 260 216
+region gauge 325 80 520 505
+region gauge-digits 505 375 165 115
+region modebar 322 655 548 84
+region map-top 262 0 644 78
+region map-left 262 80 60 570
+region map-right 846 80 60 450
+# Placement items: ink bounds inside a search rect (measured on paQys.jpg).
+item batt-title 70 35 80 20 #9aa0a6:58
+item batt-icon 36 34 34 20 #9aa0a6:58
+item batt-72 95 115 62 50 orange
+item batt-pct 154 135 26 30 orange
+item batt-est 88 200 92 20 #9aa0a6:58
+item batt-412 94 222 42 24 #9aa0a6:58
+item batt-km 138 222 30 24 #9aa0a6:58
+item batt-bar 40 252 192 24 orange
+item alt-title 40 320 80 20 #9aa0a6:58
+item alt-285 38 355 80 40 #9aa0a6:58
+item alt-magl 118 375 50 20 #9aa0a6:58
+item alt-mtn 178 352 66 42 orange
+item alt-target 38 485 140 20 #9aa0a6:58
+item sys-title 64 540 80 20 #9aa0a6:58
+item sys-shield 36 537 26 26 #9aa0a6:58
+item sys-power 36 575 60 18 #9aa0a6:58
+item sys-prop 36 608 80 18 #9aa0a6:58
+item sys-avio 36 642 70 18 #9aa0a6:58
+item sys-sens 36 676 70 18 #9aa0a6:58
+item sys-nom1 242 575 54 18 orange
+item sys-dot1 228 575 14 16 orange
+item vsi-title 958 35 165 20 #9aa0a6:58
+item vsi-icon 935 30 22 28 #9aa0a6:58
+item vsi-l10 945 75 35 20 #c8cacc:60
+item vsi-r10 1066 75 35 20 #c8cacc:60
+item vsi-ms 1066 92 35 18 #c8cacc:60
+item vsi-r5 1066 122 30 20 #c8cacc:60
+item vsi-r0 1066 165 30 20 #c8cacc:60
+item vsi-rm5 1066 210 30 20 #c8cacc:60
+item vsi-rm10 1066 253 35 20 #c8cacc:60
+item vsi-lm10 945 253 35 20 #c8cacc:60
+item vsi-val 980 278 80 36 orange
+item vsi-unit 1060 292 40 22 #b07a40:50
+item nav-title 930 350 100 20 #9aa0a6:58
+item nav-wp 930 383 80 20 #9aa0a6:58
+item nav-alpha 930 402 90 22 orange
+item nav-dist 930 435 80 20 #9aa0a6:58
+item nav-124 930 455 50 24 #9aa0a6:58
+item nav-km 980 458 30 20 #9aa0a6:58
+item nav-hdg 930 488 95 22 orange
+item nav-arrow 1078 482 30 30 #9aa0a6:58
+item env-title 950 543 115 20 #9aa0a6:58
+item env-ticon 915 540 30 24 #9aa0a6:58
+item env-wind 950 577 50 18 #9aa0a6:58
+item env-windv 950 598 80 22 #9aa0a6:58
+item env-temp 950 628 50 18 #9aa0a6:58
+item env-tempv 950 646 50 22 #9aa0a6:58
+item env-vis 950 678 80 18 #9aa0a6:58
+item env-good 950 697 60 22 #9aa0a6:58
+item env-wicon 910 580 38 30 orange
+item env-ticon2 915 626 30 40 orange
+item env-vicon 910 680 40 40 #9aa0a6:58
+item mb-auto 370 682 45 16 #9aa0a6:58
+item mb-nav 370 701 45 20 #9aa0a6:58
+item mb-fm 450 682 85 16 #9aa0a6:58
+item mb-cruise 450 701 85 20 #9aa0a6:58
+item mb-stab 560 682 80 16 #9aa0a6:58
+item mb-eng 560 701 80 20 orange
+item mb-safety 770 682 60 16 #9aa0a6:58
+item mb-active 770 701 60 20 #9aa0a6:58
+item mb-cube 668 680 44 40 #9aa0a6:58
+item mb-shield 734 682 30 36 orange
+item g-178 505 380 165 75 orange
+item g-kmh 545 455 85 25 orange
+item g-target 500 498 170 30 orange
+item g-0 425 415 30 35 #d0d2d4:45
+item g-50 400 300 45 35 #d0d2d4:45
+item g-100 450 200 55 35 #d0d2d4:45
+item g-150 555 160 55 35 #d0d2d4:45
+item g-200 655 200 60 35 #d0d2d4:45
+item g-250 712 300 58 35 #d0d2d4:45
+item g-300 685 415 58 35 #d0d2d4:45
+render cpu
+compare
+items
+stats

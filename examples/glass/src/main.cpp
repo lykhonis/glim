@@ -28,6 +28,9 @@ void recordGlass(
   }
   const Rect win = Rect::fromSize(size);
   const Rect area = safeArea.size.x > 0.f ? safeArea : win;
+  // Reduce Motion freezes every animated input at t=0 (stripes, merge,
+  // ripples).
+  const float t = reduceTransparency ? 0.f : timeSeconds;
   const float m = std::min(area.size.x, area.size.y);
   const float pad = std::clamp(m * 0.055f, 14.f, 26.f);
 
@@ -36,7 +39,7 @@ void recordGlass(
 
   const float stripe = std::clamp(m * 0.22f, 96.f, 140.f);
   const float period = stripe * 4.f;
-  const float scroll = std::fmod(timeSeconds * 13.f, period);
+  const float scroll = std::fmod(t * 13.f, period);
   const float origin = -scroll;
   const int first = static_cast<int>(std::floor(-origin / stripe)) - 1;
   const int last =
@@ -51,73 +54,52 @@ void recordGlass(
     context.setFillColor(c);
     context.fill(Rect{{x, 0.f}, {stripe, win.size.y}});
   }
+  // Tile grid (as in the reference): thin lines give the lenses
+  // structure to bend, mirror, and focus in both axes.
+  const float tile = stripe * 0.5f;
+  context.setFillColor(0x1a222866);
+  for (float gx = origin + static_cast<float>(first) * stripe;
+       gx < win.size.x;
+       gx += tile) {
+    context.fill(Rect{{gx - 0.75f, 0.f}, {1.5f, win.size.y}});
+  }
+  for (float gy = std::fmod(win.size.y * 0.5f, tile) - tile;
+       gy < win.size.y;
+       gy += tile) {
+    context.fill(Rect{{0.f, gy - 0.75f}, {win.size.x, 1.5f}});
+  }
 
   const float gap = pad * 0.65f;
   const float pillH = std::clamp(m * 0.15f, 60.f, 88.f);
   const float inner = area.size.x - pad * 2.f;
-  const float pillW = std::max(72.f, (inner - gap * 2.f) / 3.f);
-  const float pillsY = area.origin.y + 52.f + pad;
-  const Rect frostR{{area.origin.x + pad, pillsY}, {pillW, pillH}};
-  const Rect clearR{
-      {frostR.origin.x + pillW + gap, pillsY}, {pillW, pillH}
-  };
+  const float cellW = (inner - gap * 2.f) / 3.f;
+  const float rowGap = pad * 0.9f;
+  const float totalH = pillH * 2.f + rowGap;
+  const float rowY = area.origin.y + (area.size.y - totalH) * 0.5f;
+  const float rowY2 = rowY + pillH + rowGap;
+  const Rect clearR{{area.origin.x + pad, rowY}, {cellW, pillH}};
   const Rect frostedR{
-      {clearR.origin.x + pillW + gap, pillsY}, {pillW, pillH}
+      {clearR.origin.x + cellW + gap, rowY}, {cellW, pillH}
   };
 
-  const float mergeY = pillsY + pillH + pad * 1.35f;
-  const float mergeH = std::clamp(m * 0.18f, 72.f, 108.f);
-  const float circleS = mergeH;
-  const float rectW = std::clamp(circleS * 1.55f, 100.f, 180.f);
-  const float mergeT = 0.5f + 0.5f * std::sin(timeSeconds * 0.35f);
+  // Merge pair shares the third cell; the animated gap stays inside it.
+  const float circleS = pillH;
+  const float rectW = circleS * 1.2f;
+  const float mergeT =
+      0.5f - 0.5f * std::cos(t * 0.35f);  // t=0: pair overlaps, neck
+  const float mergeGapMax = cellW - circleS - rectW;
   const float mergeGap =
-      -circleS * 0.22f + (pad * 2.4f + circleS * 0.22f) * mergeT;
+      -circleS * 0.1f + (mergeGapMax + circleS * 0.1f) * mergeT;
   const float mergeInner = circleS + mergeGap + rectW;
-  const float mergeX =
-      area.origin.x + pad + std::max(0.f, (inner - mergeInner) * 0.5f);
-  const Rect circleR{{mergeX, mergeY}, {circleS, circleS}};
+  const float mergeX = frostedR.origin.x + cellW + gap +
+                       std::max(0.f, (cellW - mergeInner) * 0.5f);
+  const Rect circleR{{mergeX, rowY}, {circleS, circleS}};
   const Rect rectR{
-      {circleR.origin.x + circleS + mergeGap,
-       mergeY + (mergeH - circleS) * 0.5f},
-      {rectW, circleS}
+      {circleR.origin.x + circleS + mergeGap, rowY}, {rectW, circleS}
   };
-  const float unionX0 = std::min(circleR.origin.x, rectR.origin.x);
-  const float unionY0 = std::min(circleR.origin.y, rectR.origin.y);
-  const float unionX1 = std::max(
-      circleR.origin.x + circleR.size.x, rectR.origin.x + rectR.size.x
-  );
-  const float unionY1 = std::max(
-      circleR.origin.y + circleR.size.y, rectR.origin.y + rectR.size.y
-  );
-  const Rect mergeBox{
-      {unionX0, unionY0}, {unionX1 - unionX0, unionY1 - unionY0}
-  };
+  const Rect mergeBox{{mergeX, rowY}, {mergeInner, circleS}};
 
-  const float orbR = pillH * 0.54f;
-  const float orbU = 0.5f + 0.5f * std::sin(timeSeconds * 0.25f);
-  const float orbX0 = frostR.origin.x - orbR * 0.2f;
-  const float orbX1 = frostedR.origin.x + frostedR.size.x - orbR * 1.8f;
-  const float orbX = orbX0 + (orbX1 - orbX0) * orbU;
-  const float orbY = pillsY + pillH * 0.87f - orbR;
-  context.setFillColor(0xf8fafcff);
-  context.fillRounded(
-      {{orbX, orbY}, {orbR * 2.f, orbR * 2.f}}, Radius{orbR}
-  );
-
-  GroupParams frostP;
-  frostP.bounds = frostR;
-  frostP.clip = frostR;
-  frostP.clipRadius = Radius{pillH * 0.5f};
-  frostP.backdropBlur = 28.f;
-  frostP.backdropFlat = reduceTransparency;
-  context.pushGroup(frostP);
-  context.popGroup();
-
-  Glass clear;
-  clear.variant = GlassVariant::Clear;
-  clear.thicknessPx = 16.f;
-  clear.ior = 1.33f;
-  clear.dispersion = 0.08f;
+  Glass clear = Glass::clear();
   clear.flatten = reduceTransparency;
   GroupParams clearP;
   clearP.bounds = clearR;
@@ -136,6 +118,34 @@ void recordGlass(
   frostedP.clipRadius = Radius{pillH * 0.5f};
   frostedP.glass = frosted;
   context.pushGroup(frostedP);
+  context.popGroup();
+
+  // Second row: metal + water, centered under the glass row. No labels.
+  const float row2W = cellW * 2.f + gap;
+  const float row2X0 = area.origin.x + pad + (inner - row2W) * 0.5f;
+  const Rect metalR{{row2X0, rowY2}, {cellW, pillH}};
+  const Rect waterR{{row2X0 + cellW + gap, rowY2}, {cellW, pillH}};
+
+  Glass metal = Glass::liquidMetal();
+  metal.flatten = reduceTransparency;
+  metal.timeSec = t;
+  GroupParams metalP;
+  metalP.bounds = metalR;
+  metalP.clip = metalR;
+  metalP.clipRadius = Radius{pillH * 0.5f};
+  metalP.glass = metal;
+  context.pushGroup(metalP);
+  context.popGroup();
+
+  Glass water = Glass::water();
+  water.flatten = reduceTransparency;
+  water.timeSec = t;
+  GroupParams waterP;
+  waterP.bounds = waterR;
+  waterP.clip = waterR;
+  waterP.clipRadius = Radius{pillH * 0.5f};
+  waterP.glass = water;
+  context.pushGroup(waterP);
   context.popGroup();
 
   Glass mergeG;
@@ -162,39 +172,6 @@ void recordGlass(
   context.pushGroup(rnd);
   context.popGroup();
   context.popGroup();
-
-  const float dockH = std::clamp(m * 0.12f, 52.f, 72.f);
-  const float dockW = std::min(inner, std::max(280.f, inner * 0.92f));
-  const float dockX = area.origin.x + pad + (inner - dockW) * 0.5f;
-  const float dockY = area.origin.y + area.size.y - pad - dockH;
-  const Rect dockR{{dockX, dockY}, {dockW, dockH}};
-  Glass dockG;
-  dockG.variant = GlassVariant::Clear;
-  dockG.thicknessPx = 20.f;
-  dockG.ior = 1.33f;
-  dockG.dispersion = 0.08f;
-  dockG.flatten = reduceTransparency;
-  GroupParams dockP;
-  dockP.bounds = dockR;
-  dockP.clip = dockR;
-  dockP.clipRadius = Radius{dockH * 0.5f};
-  dockP.glass = dockG;
-  context.pushGroup(dockP);
-  context.popGroup();
-
-  const float label = 17.f;
-  const std::uint32_t ink =
-      reduceTransparency ? 0xf8fafcff : 0x1a2228ff;
-  context.setFillColor(ink);
-  const float ly = pillsY + pillH * 0.5f - 7.f;
-  context.text({frostR.origin.x + pad * 0.35f, ly}, "frost", label);
-  context.text({clearR.origin.x + pad * 0.35f, ly}, "clear", label);
-  context.text({frostedR.origin.x + pad * 0.35f, ly}, "frosted", label);
-  context.text(
-      {circleR.origin.x + 8.f, circleR.origin.y + circleS * 0.5f - 8.f},
-      "merge",
-      label
-  );
 }
 
 #ifndef GLIM_GOLDEN

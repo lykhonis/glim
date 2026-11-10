@@ -1,0 +1,80 @@
+{
+  "name": "infotainment",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/infotainment",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["toolkit"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-infotainment"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/infotainment/glim-infotainment"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-infotainment-golden",
+        "ctestRegex": "glim-infotainment-golden"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-infotainment"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/infotainment/glim-infotainment.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.infotainment"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-infotainment"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/infotainment/glim-infotainment.apk",
+        "android": true,
+        "packageName": "com.glim.infotainment"
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "smarthome",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/smarthome",
+  "projectType": "application",
+  "tags": ["example"],
+  "implicitDependencies": ["toolkit"],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-smarthome"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/smarthome/glim-smarthome"
+      },
+      "configurations": {
+        "release": {
+          "preset": "macos-metal-release"
+        }
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-smarthome-golden",
+        "ctestRegex": "glim-smarthome-"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-smarthome"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-ios-sim"],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/smarthome/glim-smarthome.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.smarthome"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-smarthome"
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": ["build-android"],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/smarthome/glim-smarthome.apk",
+        "android": true,
+        "packageName": "com.glim.smarthome"
+      }
+    }
+  }
+}

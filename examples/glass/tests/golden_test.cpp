@@ -38,9 +38,11 @@ int main(int argc, char** argv) {
   recordGlass(ctx, {720, 480}, 0.0f);
   ctx.finish();
 
+  glim::paint::RasterOptions options;
+  options.glassMerge = true;
   glim::image::Image got = glim::image::Image::rgba8(720, 480);
   glim::paint::rasterScene(
-      ctx.scene(), got.width, got.height, got.rgba.data()
+      ctx.scene(), got.width, got.height, got.rgba.data(), options
   );
 
   if (!fileExists(goldenPath)) {

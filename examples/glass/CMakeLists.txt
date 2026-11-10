@@ -16,6 +16,15 @@ if(GLIM_HOST_TESTS)
         target_compile_definitions(glim-glass-vulkan-golden PRIVATE GLIM_GOLDEN=1)
         add_test(NAME glim-glass-vulkan-golden
                  COMMAND glim-glass-vulkan-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/glass.png")
+    elseif(GLIM_GPU STREQUAL "metal")
+        # Same harness on the headless Metal device: native shaders vs CPU golden.
+        add_executable(glim-glass-metal-golden tests/vulkan_golden.cpp src/main.cpp)
+        target_include_directories(glim-glass-metal-golden PRIVATE src)
+        target_link_libraries(glim-glass-metal-golden PRIVATE glim::glim glim::image)
+        glim_target_defaults(glim-glass-metal-golden)
+        target_compile_definitions(glim-glass-metal-golden PRIVATE GLIM_GOLDEN=1 GLIM_GOLDEN_METAL=1)
+        add_test(NAME glim-glass-metal-golden
+                 COMMAND glim-glass-metal-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/glass.png")
     endif()
 endif()
 
