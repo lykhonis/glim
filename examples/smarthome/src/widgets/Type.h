@@ -69,7 +69,8 @@ Block heroLines(std::string text, As&&... as) {
   l.text = std::move(text);
   l.sizeKey = kShowHeroSize;
   l.fallback = Show::kHeroSize;
-  return scaledLines(std::move(l), std::forward<As>(as)...);
+  configureTags(l, std::forward<As>(as)...);
+  return finish(std::move(l), std::forward<As>(as)...);
 }
 
 }  // namespace toolkit
