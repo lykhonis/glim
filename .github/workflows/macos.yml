@@ -7,7 +7,7 @@ jobs:
   ci:
     uses: ./.github/workflows/native.yml
     with:
-      runs-on: macos-14
+      runs-on: macos-15
       nx: |
         pnpm exec nx run-many -t test --output-style=stream
         pnpm exec nx run examples:build
