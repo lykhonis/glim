@@ -2,7 +2,7 @@
 """Gate: props-form factory rule (docs/toolkit.md section 5).
 
 Scope: element factories (packages/glim-toolkit/include/.../elements/),
-showcase widgets, and themed(). For each Block/auto-returning factory:
+smarthome widgets, and themed(). For each Block/auto-returning factory:
 
 Rule A (props-form): a template factory with 2+ fixed leading params
 must take the element struct instead. Allowlist: tap (child is the
@@ -22,7 +22,7 @@ ALLOW_MULTIFIXED = {"tap", "list"}
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIRS = [
     ROOT / "packages/glim-toolkit/include/glim/toolkit/elements",
-    ROOT / "examples/showcase/src/widgets",
+    ROOT / "examples/smarthome/src/widgets",
 ]
 FILES = [ROOT / "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h"]
 
