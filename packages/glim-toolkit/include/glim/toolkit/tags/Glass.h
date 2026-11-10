@@ -21,18 +21,47 @@ enum class GlassEdge : std::uint8_t {
   Full = 15,
 };
 
+// Lens material preset id. Values pin paint::GlassMaterial (0/1/2);
+// the host asserts the shared layout so drift fails the build.
+enum class GlassMaterial : std::uint8_t {
+  Glass = 0,
+  LiquidMetal = 1,
+  Water = 2,
+};
+
 struct GlassTag {
   bool clear = false;
   int radius = Tokens::kGlassRadius;
   GlassEdge edge = GlassEdge::Full;
   // Plate tint (0xRRGGBBAA). Transparent keeps the white milk wash;
   // a set tint drives the wash toward its color at its alpha.
+  // For LiquidMetal this is the metal color (gold, chrome, gunmetal).
   std::uint32_t tint = 0;
+  // Lens material preset id (GlassMaterial bits, 0 = refractive glass).
+  // No new tag types: metal and water ride the same glass pipeline.
+  GlassMaterial material = GlassMaterial::Glass;
 };
 
 inline GlassTag glass(int radius = Tokens::kGlassRadius) { return {false, radius}; }
 
 inline GlassTag glassClear(int radius = Tokens::kGlassRadius) { return {true, radius}; }
+
+// Opaque reflective metal; tint is the metal color (0xRRGGBBAA).
+inline GlassTag glassMetal(std::uint32_t tint, int radius = Tokens::kGlassRadius) {
+  GlassTag t;
+  t.material = GlassMaterial::LiquidMetal;
+  t.tint = tint;
+  t.radius = radius;
+  return t;
+}
+
+// Shallow refractive water; zero tint keeps the preset teal absorption.
+inline GlassTag glassWater(int radius = Tokens::kGlassRadius) {
+  GlassTag t;
+  t.material = GlassMaterial::Water;
+  t.radius = radius;
+  return t;
+}
 
 template <>
 struct is_tag<GlassTag> : std::true_type {};

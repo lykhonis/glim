@@ -12,7 +12,9 @@ namespace toolkit {
 bool Screen::pointerDown(
     const Block& tree, const Box& box, float x, float y, int pointerId, const Engine& engine
 ) {
-  Event down = Event::borrow(PointerDown{x, y});
+  // Events borrow: the payload must outlive the dispatch.
+  const PointerDown press{x, y, clock.now};
+  Event down = Event::borrow(press);
   if (dispatchPointer(tree, box, x, y, down, engine)) {
     // Capture only on a focusable hit; a handled non-focusable clears stale capture.
     int hit = focusAt(tree, box, x, y, engine);
@@ -31,7 +33,8 @@ bool Screen::pointerDown(
 }
 
 bool Screen::pointerUp(const Block& tree, const Box& box, float x, float y, const Engine& engine) {
-  Event up = Event::borrow(PointerUp{x, y});
+  const PointerUp release{x, y, clock.now};
+  Event up = Event::borrow(release);
   drag = -1;
   return dispatchPointer(tree, box, x, y, up, engine);
 }
@@ -46,7 +49,7 @@ bool Screen::pointerMove(
     const Engine& engine
 ) {
   if (!pressed) return false;
-  PointerMove move{x, y, pressed};
+  PointerMove move{x, y, pressed, clock.now};
   Event moved = Event::borrow(move);
   if (drag >= 0) {
     // Second finger never hijacks the drag.

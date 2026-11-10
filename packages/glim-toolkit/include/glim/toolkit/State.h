@@ -177,55 +177,75 @@ class Store {
   struct WatchState {
     std::atomic<std::uint32_t> next{1};
     std::unordered_map<std::uint32_t, ValueStep> watched;
+    // Current token per watched id: a re-armed cell keeps its id, so
+    // only the newest Watch may unregister it.
+    std::unordered_map<std::uint32_t, std::uint32_t> tokens;
   };
   class Watch {
    public:
     Watch() = default;
     Watch(const Watch&) = delete;
     Watch& operator=(const Watch&) = delete;
-    Watch(Watch&& o) noexcept : state_(std::move(o.state_)), id_(o.id_) { o.id_ = 0; }
+    Watch(Watch&& o) noexcept : state_(std::move(o.state_)), id_(o.id_), token_(o.token_) {
+      o.id_ = 0;
+      o.token_ = 0;
+    }
     Watch& operator=(Watch&& o) noexcept {
       if (this != &o) {
-        const bool same = id_ != 0 && id_ == o.id_ && !state_.owner_before(o.state_) &&
-                          !o.state_.owner_before(state_);
-        if (!same) reset();
+        reset();
         state_ = std::move(o.state_);
         id_ = o.id_;
+        token_ = o.token_;
         o.id_ = 0;
+        o.token_ = 0;
       }
       return *this;
     }
     ~Watch() { reset(); }
     void reset() {
-      if (auto s = state_.lock()) s->watched.erase(id_);
+      // Erasing a step can destroy its captures, which may own other
+      // Watches that reset into the same maps: take it out first.
+      ValueStep dropped;
+      if (auto s = state_.lock()) {
+        if (current(*s)) {
+          auto it = s->watched.find(id_);
+          if (it != s->watched.end()) {
+            dropped = std::move(it->second);
+            s->watched.erase(it);
+          }
+          s->tokens.erase(id_);
+        }
+      }
       state_.reset();
       id_ = 0;
+      token_ = 0;
     }
     bool live() const {
-      if (auto s = state_.lock()) return s->watched.find(id_) != s->watched.end();
+      if (auto s = state_.lock()) return current(*s) && s->watched.count(id_) != 0;
       return false;
     }
 
    private:
     friend class Store;
-    Watch(std::weak_ptr<WatchState> s, std::uint32_t id) : state_(std::move(s)), id_(id) {}
+    Watch(std::weak_ptr<WatchState> s, std::uint32_t id, std::uint32_t token)
+        : state_(std::move(s)), id_(id), token_(token) {}
+    bool current(const WatchState& s) const {
+      auto it = s.tokens.find(id_);
+      return it != s.tokens.end() && it->second == token_;
+    }
     std::weak_ptr<WatchState> state_;
     std::uint32_t id_ = 0;
+    std::uint32_t token_ = 0;
   };
-  // Bind a step to a cell; re-arming replaces it.
+  // Bind a step to a cell; re-arming replaces it and retires the old
+  // Watch token, so the old owner going away leaves the new step alone.
   template <class T>
   Watch watchCell(const State<T>& cell, ValueStep step) {
     const std::uint32_t id = cell.id();
     assert(id && "watchCell needs a live State cell");
-    watchState()->watched[id] = std::move(step);
-    return Watch(watchState(), id);
+    return arm(id, std::move(step));
   }
-  Watch watchFrame(ValueStep step) {
-    auto s = watchState();
-    const std::uint32_t id = s->next.fetch_add(1);
-    s->watched[id] = std::move(step);
-    return Watch(std::move(s), id);
-  }
+  Watch watchFrame(ValueStep step) { return arm(watchState()->next.fetch_add(1), std::move(step)); }
   bool valuesLive() const { return watchState_ && !watchState_->watched.empty(); }
   void stepValues(float now) {
     if (!watchState_) return;
@@ -238,10 +258,25 @@ class Store {
       if (watched.find(id) == watched.end()) continue;
       if (!fn(now)) done.push_back(id);
     }
-    for (auto id : done) watched.erase(id);
+    for (auto id : done) {
+      watched.erase(id);
+      watchState_->tokens.erase(id);
+    }
   }
 
  private:
+  Watch arm(std::uint32_t id, ValueStep step) {
+    auto s = watchState();
+    const std::uint32_t token = s->next.fetch_add(1);
+    // The replaced step dies last, after the new token is current, so
+    // its captured Watches see themselves stale and erase nothing.
+    ValueStep replaced;
+    ValueStep& slot = s->watched[id];
+    replaced.swap(slot);
+    slot = std::move(step);
+    s->tokens[id] = token;
+    return Watch(std::move(s), id, token);
+  }
   template <class T>
   State<T> slot(const std::string& key, T init) {
     auto it = slots_.find(key);

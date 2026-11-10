@@ -89,6 +89,105 @@ inline bool clipsChildren(const Block& b) {
 struct MarkFrame {
   AnySink* inner = nullptr;
   std::optional<std::reference_wrapper<const std::string>> mark;
+
+  const std::string& markOf(const std::string& m) const {
+    return (m.empty() && mark && !mark->get().empty()) ? mark->get() : m;
+  }
+  void fill(const Box& b, std::uint32_t rgba, const std::string& m) {
+    inner->fill(b, rgba, markOf(m));
+  }
+  void fillRounded(const Box& b, int radius, std::uint32_t rgba, const std::string& m) {
+    inner->fillRounded(b, radius, rgba, markOf(m));
+  }
+  void fillGradient(
+      const Box& b, int radius, std::uint32_t top, std::uint32_t bottom, const std::string& m
+  ) {
+    inner->fillGradient(b, radius, top, bottom, markOf(m));
+  }
+  void fillRadial(
+      const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& m
+  ) {
+    inner->fillRadial(b, radius, center, edge, markOf(m));
+  }
+  void fillChamfer(const Box& b, float cut, std::uint32_t rgba, const std::string& m) {
+    inner->fillChamfer(b, cut, rgba, markOf(m));
+  }
+  void strokeChamfer(
+      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& m
+  ) {
+    inner->strokeChamfer(b, cut, width, rgba, markOf(m));
+  }
+  void stroke(const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
+    inner->stroke(b, radius, width, rgba, markOf(m));
+  }
+  void arc(
+      float cx,
+      float cy,
+      float radius,
+      float thickness,
+      float startDeg,
+      float sweepDeg,
+      std::uint32_t rgba,
+      const std::string& m
+  ) {
+    inner->arc(cx, cy, radius, thickness, startDeg, sweepDeg, rgba, markOf(m));
+  }
+  void polyline(
+      const float* xy,
+      std::size_t n,
+      float width,
+      float dotPitch,
+      std::uint32_t rgba,
+      const std::string& m
+  ) {
+    inner->polyline(xy, n, width, dotPitch, rgba, markOf(m));
+  }
+  void text(
+      float x, float y, const std::string& str, std::uint32_t rgba, float size, const std::string& m
+  ) {
+    inner->text(x, y, str, rgba, size, markOf(m));
+  }
+  void textStyled(
+      float x,
+      float y,
+      const std::string& str,
+      std::uint32_t rgba,
+      float size,
+      float condense,
+      float weight,
+      const std::string& m
+  ) {
+    inner->textStyled(x, y, str, rgba, size, condense, weight, markOf(m));
+  }
+  void image(const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
+    inner->image(b, id, foreign, markOf(m));
+  }
+  void pushGlass(
+      const Box& b,
+      int radius,
+      bool clear,
+      std::uint8_t edge,
+      std::uint32_t tint,
+      std::uint8_t material
+  ) {
+    inner->pushGlass(b, radius, clear, edge, tint, material);
+  }
+  void pushClip(const Box& b) { inner->pushClip(b); }
+  void pushBlend(BlendMode m) { inner->pushBlend(m); }
+  void pushTransform(float dx, float dy) { inner->pushTransform(dx, dy); }
+  void pushRotate(float angleDeg, float cx, float cy) { inner->pushRotate(angleDeg, cx, cy); }
+  void pushShadow(
+      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+  ) {
+    inner->pushShadow(sigma, ox, oy, color, expand, opacity);
+  }
+  void pushEffect(
+      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+  ) {
+    inner->pushEffect(b, radius, kind, color, intensity);
+  }
+  void pop() { inner->pop(); }
+  void slot(const Box& b, std::uint32_t id) { inner->slot(b, id); }
 };
 
 inline AnySink markSink(
@@ -100,86 +199,18 @@ inline AnySink markSink(
   a.sink = &frame;
   a.feed = inner.feed;
   a.layer = inner.layer;
-  a.entryFn = [](void* s, void* f, const Rec::Entry& en) {
+  // Entries go through the inner sink's own feed.
+  a.entryFn = [](void* s, void*, const Rec::Entry& en) {
     const auto* fr = static_cast<const MarkFrame*>(s);
     if (en.mark.empty() && fr->mark && !fr->mark->get().empty()) {
       Rec::Entry patched = en;
       patched.mark = fr->mark->get();
-      fr->inner->entryFn(fr->inner->sink, f, patched);
+      fr->inner->entry(patched);
     } else {
-      fr->inner->entryFn(fr->inner->sink, f, en);
+      fr->inner->entry(en);
     }
   };
-  a.fillFn = [](void* s, const Box& b, std::uint32_t rgba, const std::string& m) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    const std::string& use =
-        (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-    fr->inner->fillFn(fr->inner->sink, b, rgba, use);
-  };
-  a.fillRoundedFn = [](void* s, const Box& b, int radius, std::uint32_t rgba, const std::string& m
-                    ) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    const std::string& use =
-        (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-    fr->inner->fillRoundedFn(fr->inner->sink, b, radius, rgba, use);
-  };
-  a.fillGradientFn = [](void* s,
-                        const Box& b,
-                        int radius,
-                        std::uint32_t top,
-                        std::uint32_t bottom,
-                        const std::string& m) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    const std::string& use =
-        (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-    fr->inner->fillGradientFn(fr->inner->sink, b, radius, top, bottom, use);
-  };
-  a.textFn = [](void* s,
-                float x,
-                float y,
-                const std::string& str,
-                std::uint32_t rgba,
-                float size,
-                const std::string& m) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    const std::string& use =
-        (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-    fr->inner->textFn(fr->inner->sink, x, y, str, rgba, size, use);
-  };
-  a.imageFn = [](void* s, const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    const std::string& use =
-        (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-    fr->inner->imageFn(fr->inner->sink, b, id, foreign, use);
-  };
-  a.pushGlassFn =
-      [](void* s, const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
-        const auto* fr = static_cast<const MarkFrame*>(s);
-        fr->inner->pushGlassFn(fr->inner->sink, b, radius, clear, edge, tint);
-      };
-  a.pushClipFn = [](void* s, const Box& b) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    fr->inner->pushClipFn(fr->inner->sink, b);
-  };
-  a.pushBlendFn = [](void* s, BlendMode m) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    fr->inner->pushBlendFn(fr->inner->sink, m);
-  };
-  a.popFn = [](void* s) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    fr->inner->popFn(fr->inner->sink);
-  };
-  a.slotFn = [](void* s, const Box& b, std::uint32_t id) {
-    const auto* fr = static_cast<const MarkFrame*>(s);
-    fr->inner->slotFn(fr->inner->sink, b, id);
-  };
-  a.strokeFn =
-      [](void* s, const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
-        const auto* fr = static_cast<const MarkFrame*>(s);
-        const std::string& use =
-            (m.empty() && fr->mark && !fr->mark->get().empty()) ? fr->mark->get() : m;
-        fr->inner->strokeFn(fr->inner->sink, b, radius, width, rgba, use);
-      };
+  bindOps<MarkFrame>(a);
   return a;
 }
 

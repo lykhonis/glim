@@ -22,6 +22,7 @@ namespace detail {
 template <class S, class F>
 void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed) {
   std::vector<BlockRef> clips;
+  std::vector<BlockRef> transforms;
   walk(
       b,
       box,
@@ -32,6 +33,18 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
           sink.slot(bx, seat->get().id);
           return false;
         }
+        // Shadow wraps self + children: push before paintSelf so the
+        // card fill itself lands in the shadow group.
+        if (auto sh = n.tag<ShadowTag>()) {
+          const auto& s = sh->get();
+          sink.pushShadow(s.sigma, s.offsetX, s.offsetY, s.color, s.expandPx, s.opacity);
+          transforms.push_back(std::cref(n));
+        }
+        if (auto fx = n.tag<EffectTag>()) {
+          const auto& f = fx->get();
+          sink.pushEffect(bx, f.radius, static_cast<std::uint32_t>(f.kind), f.color, f.intensity);
+          transforms.push_back(std::cref(n));
+        }
         paintSelf(n, bx, sink, feed, en);
         // Glass tags go on fill-only containers; text inside glass would frost.
         // Edge mask rides the group so flat plates skip the rim/hairline.
@@ -41,9 +54,18 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
               g->get().radius,
               g->get().clear,
               static_cast<std::uint8_t>(g->get().edge),
-              g->get().tint
+              g->get().tint,
+              static_cast<std::uint8_t>(g->get().material)
           );
           sink.pop();
+        }
+        if (auto t = n.tag<TransformTag>()) {
+          sink.pushTransform(t->get().dx, t->get().dy);
+          transforms.push_back(std::cref(n));
+        }
+        if (auto rt = n.tag<RotateTag>()) {
+          sink.pushRotate(rt->get().angleDeg, rt->get().cx, rt->get().cy);
+          transforms.push_back(std::cref(n));
         }
         if (clipsChildren(n)) {
           sink.pushClip(bx);
@@ -54,6 +76,12 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
       [&](const Block& n, const Box&, const Engine&) {
         if (!clips.empty() && clips.back() && &clips.back()->get() == &n) {
           clips.pop_back();
+          sink.pop();
+        }
+        // A node may hold both TransformTag and RotateTag (two groups);
+        // drain all of them so scopes never leak across siblings.
+        while (!transforms.empty() && transforms.back() && &transforms.back()->get() == &n) {
+          transforms.pop_back();
           sink.pop();
         }
       }

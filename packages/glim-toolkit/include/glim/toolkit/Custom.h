@@ -79,10 +79,26 @@ struct AnySink {
       nullptr;
   void (*textFn)(void*, float, float, const std::string&, std::uint32_t, float, const std::string&) =
       nullptr;
+  void (*textStyledFn)(void*, float, float, const std::string&, std::uint32_t, float, float, float, const std::string&) =
+      nullptr;
   void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
-  void (*pushGlassFn)(void*, const Box&, int, bool, std::uint8_t, std::uint32_t) = nullptr;
+  void (*pushGlassFn)(void*, const Box&, int, bool, std::uint8_t, std::uint32_t, std::uint8_t) =
+      nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
+  void (*pushTransformFn)(void*, float, float) = nullptr;
+  void (*pushRotateFn)(void*, float, float, float) = nullptr;
+  void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
+      nullptr;
+  void (*fillChamferFn)(void*, const Box&, float, std::uint32_t, const std::string&) = nullptr;
+  void (*strokeChamferFn)(void*, const Box&, float, float, std::uint32_t, const std::string&) =
+      nullptr;
+  void (*arcFn)(void*, float, float, float, float, float, float, std::uint32_t, const std::string&) =
+      nullptr;
+  void (*polylineFn)(void*, const float*, std::size_t, float, float, std::uint32_t, const std::string&) =
+      nullptr;
+  void (*pushShadowFn)(void*, float, float, float, std::uint32_t, float, float) = nullptr;
+  void (*pushEffectFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, float) = nullptr;
   void (*popFn)(void*) = nullptr;
   void (*slotFn)(void*, const Box&, std::uint32_t) = nullptr;
   void (*strokeFn)(void*, const Box&, int, float, std::uint32_t, const std::string&) = nullptr;
@@ -102,6 +118,57 @@ struct AnySink {
   ) {
     fillGradientFn(sink, b, radius, top, bottom, mark);
   }
+  void fillRadial(
+      const Box& b,
+      int radius,
+      std::uint32_t center,
+      std::uint32_t edge,
+      const std::string& mark = {}
+  ) {
+    fillRadialFn(sink, b, radius, center, edge, mark);
+  }
+  void fillChamfer(const Box& b, float cut, std::uint32_t rgba, const std::string& mark = {}) {
+    fillChamferFn(sink, b, cut, rgba, mark);
+  }
+  void strokeChamfer(
+      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& mark = {}
+  ) {
+    strokeChamferFn(sink, b, cut, width, rgba, mark);
+  }
+  void arc(
+      float cx,
+      float cy,
+      float radius,
+      float thickness,
+      float startDeg,
+      float sweepDeg,
+      std::uint32_t rgba,
+      const std::string& mark = {}
+  ) {
+    arcFn(sink, cx, cy, radius, thickness, startDeg, sweepDeg, rgba, mark);
+  }
+  void polyline(
+      const float* xy,
+      std::size_t nPoints,
+      float width,
+      float dotPitch,
+      std::uint32_t rgba,
+      const std::string& mark = {}
+  ) {
+    polylineFn(sink, xy, nPoints, width, dotPitch, rgba, mark);
+  }
+  // `opacity` fades the caster, not the shadow. 0 casts a plate that must
+  // not paint (the visible card is a sibling glass group).
+  void pushShadow(
+      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+  ) {
+    pushShadowFn(sink, sigma, ox, oy, color, expand, opacity);
+  }
+  void pushEffect(
+      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+  ) {
+    pushEffectFn(sink, b, radius, kind, color, intensity);
+  }
   void text(
       float x,
       float y,
@@ -112,14 +179,39 @@ struct AnySink {
   ) {
     textFn(sink, x, y, s, rgba, size, mark);
   }
+  void textStyled(
+      float x,
+      float y,
+      const std::string& s,
+      std::uint32_t rgba,
+      float size,
+      float condense,
+      float weight,
+      const std::string& mark = {}
+  ) {
+    if (textStyledFn) {
+      textStyledFn(sink, x, y, s, rgba, size, condense, weight, mark);
+      return;
+    }
+    textFn(sink, x, y, s, rgba, size, mark);
+  }
   void image(const Box& b, std::uint32_t id, bool foreign, const std::string& mark = {}) {
     imageFn(sink, b, id, foreign, mark);
   }
-  void pushGlass(const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
-    pushGlassFn(sink, b, radius, clear, edge, tint);
+  void pushGlass(
+      const Box& b,
+      int radius,
+      bool clear,
+      std::uint8_t edge,
+      std::uint32_t tint,
+      std::uint8_t material = 0
+  ) {
+    pushGlassFn(sink, b, radius, clear, edge, tint, material);
   }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
+  void pushTransform(float dx, float dy) { pushTransformFn(sink, dx, dy); }
+  void pushRotate(float angleDeg, float cx, float cy) { pushRotateFn(sink, angleDeg, cx, cy); }
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
   void stroke(
@@ -129,15 +221,10 @@ struct AnySink {
   }
 };
 
-template <class S, class F>
-AnySink wrapSink(S& sink, F& feed) {
-  AnySink a;
-  a.sink = &sink;
-  a.feed = &feed;
-  a.layer = LayerSource{feed.id, feed.foreign};
-  a.entryFn = [](void* s, void* f, const Rec::Entry& en) {
-    static_cast<S*>(s)->entry(en, *static_cast<F*>(f));
-  };
+// The one table from a concrete sink's methods to AnySink's ops; entry
+// and feed are bound by the caller.
+template <class S>
+void bindOps(AnySink& a) {
   a.fillFn = [](void* s, const Box& b, std::uint32_t rgba, const std::string& mark) {
     static_cast<S*>(s)->fill(b, rgba, mark);
   };
@@ -158,21 +245,96 @@ AnySink wrapSink(S& sink, F& feed) {
                 std::uint32_t rgba,
                 float size,
                 const std::string& m) { static_cast<S*>(s)->text(x, y, str, rgba, size, m); };
+  a.textStyledFn = [](void* s,
+                      float x,
+                      float y,
+                      const std::string& str,
+                      std::uint32_t rgba,
+                      float size,
+                      float condense,
+                      float weight,
+                      const std::string& m) {
+    static_cast<S*>(s)->textStyled(x, y, str, rgba, size, condense, weight, m);
+  };
   a.imageFn = [](void* s, const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
     static_cast<S*>(s)->image(b, id, foreign, m);
   };
-  a.pushGlassFn =
-      [](void* s, const Box& b, int radius, bool clear, std::uint8_t edge, std::uint32_t tint) {
-        static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint);
-      };
+  a.pushGlassFn = [](void* s,
+                     const Box& b,
+                     int radius,
+                     bool clear,
+                     std::uint8_t edge,
+                     std::uint32_t tint,
+                     std::uint8_t material) {
+    static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material);
+  };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
+  a.pushTransformFn = [](void* s, float dx, float dy) {
+    static_cast<S*>(s)->pushTransform(dx, dy);
+  };
+  a.pushRotateFn = [](void* s, float angleDeg, float cx, float cy) {
+    static_cast<S*>(s)->pushRotate(angleDeg, cx, cy);
+  };
+  a.fillRadialFn = [](void* s,
+                      const Box& b,
+                      int radius,
+                      std::uint32_t center,
+                      std::uint32_t edge,
+                      const std::string& m) {
+    static_cast<S*>(s)->fillRadial(b, radius, center, edge, m);
+  };
+  a.fillChamferFn = [](void* s, const Box& b, float cut, std::uint32_t rgba, const std::string& m) {
+    static_cast<S*>(s)->fillChamfer(b, cut, rgba, m);
+  };
+  a.strokeChamferFn =
+      [](void* s, const Box& b, float cut, float width, std::uint32_t rgba, const std::string& m) {
+        static_cast<S*>(s)->strokeChamfer(b, cut, width, rgba, m);
+      };
+  a.arcFn = [](void* s,
+               float cx,
+               float cy,
+               float radius,
+               float thickness,
+               float startDeg,
+               float sweepDeg,
+               std::uint32_t rgba,
+               const std::string& m) {
+    static_cast<S*>(s)->arc(cx, cy, radius, thickness, startDeg, sweepDeg, rgba, m);
+  };
+  a.polylineFn = [](void* s,
+                    const float* xy,
+                    std::size_t n,
+                    float width,
+                    float dotPitch,
+                    std::uint32_t rgba,
+                    const std::string& m) {
+    static_cast<S*>(s)->polyline(xy, n, width, dotPitch, rgba, m);
+  };
+  a.pushShadowFn =
+      [](void* s, float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity
+      ) { static_cast<S*>(s)->pushShadow(sigma, ox, oy, color, expand, opacity); };
+  a.pushEffectFn =
+      [](void* s, const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+      ) { static_cast<S*>(s)->pushEffect(b, radius, kind, color, intensity); };
   a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };
   a.slotFn = [](void* s, const Box& b, std::uint32_t id) { static_cast<S*>(s)->slot(b, id); };
   a.strokeFn =
       [](void* s, const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
         static_cast<S*>(s)->stroke(b, radius, width, rgba, m);
       };
+}
+
+template <class S, class F>
+AnySink wrapSink(S& sink, F& feed) {
+  AnySink a;
+  a.sink = &sink;
+  a.feed = &feed;
+  a.layer = LayerSource{feed.id, feed.foreign};
+  a.entryFn = [](void* s, void* f, const Rec::Entry& en) {
+    static_cast<S*>(s)->entry(en, *static_cast<F*>(f));
+  };
+  bindOps<S>(a);
   return a;
 }
 

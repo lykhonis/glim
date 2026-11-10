@@ -9,19 +9,24 @@ namespace toolkit {
 
 enum class Key { Left, Right, Up, Down, Next, Prev, Activate };
 
+// Pointer events carry Screen's run time (seconds) so a handler can
+// measure speed without a clock of its own; 0 when built by hand.
 struct PointerDown {
   float x = 0;
   float y = 0;
+  float time = 0;
 };
 struct PointerUp {
   float x = 0;
   float y = 0;
+  float time = 0;
 };
 struct PointerMove {
   float x = 0;
   float y = 0;
   // Set on drags; hover moves arrive clear and must be ignored.
   bool pressed = false;
+  float time = 0;
 };
 struct Wheel {
   float x = 0;

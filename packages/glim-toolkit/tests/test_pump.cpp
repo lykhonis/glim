@@ -92,5 +92,33 @@ void test_pump() {
       ms.stepValues(1.0f);
       assert(ticks == 2);
     }
+    {
+      // Re-arming a cell from a new owner while the old step is the last
+      // holder of the old owner: dropping the old step must not unregister
+      // the new one (the old token is stale, not the cell's).
+      Store rs;
+      State<float> cell = rs.make<float>(0.0f);
+      struct Owner {
+        Store::Watch w;
+      };
+      int oldCalls = 0, newCalls = 0;
+      {
+        auto first = std::make_shared<Owner>();
+        first->w = rs.watchCell(cell, [first, &oldCalls](float) { return ++oldCalls > 0; });
+      }
+      auto second = std::make_shared<Owner>();
+      second->w = rs.watchCell(cell, [&newCalls](float) { return ++newCalls < 2; });
+      assert(second->w.live() && rs.valuesLive());
+      rs.stepValues(0.0f);
+      assert(oldCalls == 0 && newCalls == 1 && second->w.live());
+      rs.stepValues(1.0f);
+      assert(newCalls == 2 && !second->w.live() && !rs.valuesLive());
+      // A stale token resetting late leaves the current registration alone.
+      Store::Watch stale = rs.watchCell(cell, [](float) { return true; });
+      Store::Watch fresh = rs.watchCell(cell, [](float) { return true; });
+      assert(!stale.live() && fresh.live());
+      stale.reset();
+      assert(fresh.live() && rs.valuesLive());
+    }
   }
 }
