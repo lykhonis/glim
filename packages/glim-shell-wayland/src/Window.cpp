@@ -330,6 +330,10 @@ void Window::setTitle(const std::string& title) {
 
 void Window::center() {}
 
+void Window::setCustomTitlebar(bool) {}
+
+void Window::dragWindow() {}
+
 void Window::setEventCallback(EventCallback callback) {
   auto* impl = static_cast<WindowImpl*>(window_);
   if (impl) {

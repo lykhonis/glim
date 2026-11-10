@@ -544,6 +544,10 @@ void Window::setTitle(const std::string& title) {
 
 void Window::center() {}
 
+void Window::setCustomTitlebar(bool) {}
+
+void Window::dragWindow() {}
+
 void Window::setEventCallback(EventCallback callback) {
     [(__bridge GlimView*)view_ setEventCallback:std::move(callback)];
 }

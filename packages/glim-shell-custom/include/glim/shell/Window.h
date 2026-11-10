@@ -30,6 +30,9 @@ class Window final {
   void setPixelRatio(float ratio);
   void setTitle(const std::string&);
   void center();
+  // No native titlebar here: both are no-ops (macOS draws its own).
+  void setCustomTitlebar(bool enabled);
+  void dragWindow();
   void show();
   void hide();
   void setEventCallback(EventCallback);

@@ -24,6 +24,10 @@ void Window::setTitle(const std::string& title) { title_ = title; }
 
 void Window::center() {}
 
+void Window::setCustomTitlebar(bool) {}
+
+void Window::dragWindow() {}
+
 void Window::show() { shown_ = true; }
 
 void Window::hide() { shown_ = false; }
