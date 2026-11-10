@@ -14,6 +14,5 @@ jobs:
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
         # GPU readback vs CPU goldens on Mesa's software Vulkan (lavapipe).
-        export VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd.*.json | head -n 1)
         cmake --build build/linux-vulkan-debug --target glim-hello-vulkan-golden glim-glass-vulkan-golden glim-gradients-vulkan-golden
         ctest --test-dir build/linux-vulkan-debug -R vulkan-golden --output-on-failure
