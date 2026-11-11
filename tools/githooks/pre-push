@@ -1,9 +1,11 @@
-#!/bin/sh
-# Pre-push: backstop for formatting (catches --no-verify commits or clones
-# without the hook configured).
-cd "$(git rev-parse --show-toplevel)" || exit 1
-if [ ! -d node_modules/@wasm-fmt/clang-format ]; then
-  echo "pre-push: run pnpm install for the formatter, skipping format check" >&2
-  exit 0
-fi
-exec node tools/format.mjs --check
+#!/usr/bin/env node
+// Pre-push: formatting backstop for --no-verify commits.
+const { execFileSync, spawnSync } = require("child_process");
+const fs = require("fs");
+const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+if (!fs.existsSync(`${root}/node_modules/@wasm-fmt/clang-format`)) {
+  console.error("pre-push: run pnpm install for the formatter, skipping format check");
+  process.exit(0);
+}
+const r = spawnSync("node", ["tools/format.mjs", "--check"], { cwd: root, stdio: "inherit" });
+process.exit(r.status ?? 1);

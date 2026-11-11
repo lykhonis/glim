@@ -1,14 +1,18 @@
-#!/bin/sh
-# Pre-commit: reject C++ that clang-format would reword. Warn-and-pass until
-# `pnpm install` has fetched the pinned formatter.
-cd "$(git rev-parse --show-toplevel)" || exit 1
-staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^vendor/' || true)
-if [ -z "$staged" ]; then
-  exit 0
-fi
-if [ ! -d node_modules/@wasm-fmt/clang-format ]; then
-  echo "pre-commit: run pnpm install for the formatter, skipping format check" >&2
-  exit 0
-fi
-# shellcheck disable=SC2086
-exec node tools/format.mjs --check $staged
+#!/usr/bin/env node
+// Pre-commit: reject staged C++ that clang-format would reword.
+const { execFileSync, spawnSync } = require("child_process");
+const fs = require("fs");
+const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+const staged = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACM"], {
+  cwd: root,
+  encoding: "utf8",
+})
+  .split("\n")
+  .filter((f) => /\.(cpp|h)$/.test(f) && !f.startsWith("vendor/"));
+if (!staged.length) process.exit(0);
+if (!fs.existsSync(`${root}/node_modules/@wasm-fmt/clang-format`)) {
+  console.error("pre-commit: run pnpm install for the formatter, skipping format check");
+  process.exit(0);
+}
+const r = spawnSync("node", ["tools/format.mjs", "--check", ...staged], { cwd: root, stdio: "inherit" });
+process.exit(r.status ?? 1);
