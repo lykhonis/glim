@@ -1,22 +1,14 @@
 #!/bin/sh
-# Pre-commit: reject C++ that clang-format would reword. Warn-and-pass when the
-# binary is missing; install it (or run pnpm format) instead of bypassing.
+# Pre-commit: reject C++ that clang-format would reword. Warn-and-pass until
+# `pnpm install` has fetched the pinned formatter.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^vendor/' || true)
 if [ -z "$staged" ]; then
   exit 0
 fi
-if tools/clang-format.sh --version >/dev/null 2>&1; then
-  CF="tools/clang-format.sh"
-else
-  echo "pre-commit: clang-format not found, skipping format check" >&2
-  exit 0
-fi
-if ! $CF --require-version; then
+if [ ! -d node_modules/@wasm-fmt/clang-format ]; then
+  echo "pre-commit: run pnpm install for the formatter, skipping format check" >&2
   exit 0
 fi
 # shellcheck disable=SC2086
-if ! $CF --dry-run -Werror $staged; then
-  echo "pre-commit: run pnpm format on the files above and re-stage" >&2
-  exit 1
-fi
+exec node tools/format.mjs --check $staged

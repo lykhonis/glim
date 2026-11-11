@@ -1,12 +1,9 @@
 #!/bin/sh
 # Pre-push: backstop for formatting (catches --no-verify commits or clones
-# without the hook configured). Warn-and-pass when clang-format is missing.
+# without the hook configured).
 cd "$(git rev-parse --show-toplevel)" || exit 1
-if ! tools/clang-format.sh --version >/dev/null 2>&1; then
-  echo "pre-push: clang-format not found, skipping format check" >&2
+if [ ! -d node_modules/@wasm-fmt/clang-format ]; then
+  echo "pre-push: run pnpm install for the formatter, skipping format check" >&2
   exit 0
 fi
-if ! tools/clang-format.sh --require-version; then
-  exit 0
-fi
-exec tools/format-check.sh
+exec node tools/format.mjs --check

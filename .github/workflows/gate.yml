@@ -8,12 +8,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install clang-format
-        run: |
-          python3 -m pip install --user --quiet 'clang-format==18.1.8'
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Check formatting
-        run: tools/format-check.sh
+        run: pnpm format:check
       - name: Build glim-lint
         run: |
           cmake -S tools/glim-lint -B build/glim-lint -DCMAKE_BUILD_TYPE=Release
