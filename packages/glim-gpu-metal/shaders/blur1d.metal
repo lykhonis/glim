@@ -35,8 +35,8 @@ vertex VSOut vs_main(uint vid [[vertex_id]],
 }
 
 fragment float4 fs_main(VSOut in [[stage_in]],
-                         texture2d<float> tex [[texture(0)]],
-                         sampler samp [[sampler(0)]]) {
+                         texture2d<float> tex [[texture(2)]],
+                         sampler samp [[sampler(6)]]) {
     const float sigma = max(in.extra.x, 0.001);
     // Capped kernel: Renderer downsamples large sigmas so sigma here stays small.
     const int radius = clamp(int(ceil(3.0 * sigma)), 1, 12);

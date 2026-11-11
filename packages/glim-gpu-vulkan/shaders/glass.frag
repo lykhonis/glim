@@ -30,8 +30,9 @@ layout(std430, set = 0, binding = 0) readonly buffer Instances {
     GlassUniforms instances[];
 };
 
-layout(set = 0, binding = 2) uniform sampler2D u_sharp;
-layout(set = 0, binding = 3) uniform sampler2D u_blur;
+layout(set = 0, binding = 2) uniform texture2D u_sharp;
+layout(set = 0, binding = 3) uniform texture2D u_blur;
+layout(set = 0, binding = 6) uniform sampler samp;
 
 layout(location = 0) in vec2 v_uv;
 layout(location = 0) out vec4 out_color;
@@ -292,7 +293,7 @@ void main() {
     const vec2 uvL = mix(u.destUv0, u.destUv1, uvIso);
     // Clear is sharp: no interior frost. Regular keeps the milk blur core.
     const float frost = (u.blurEdge > 0.5) ? 0.88 : 0.0;
-    const vec3 pane = mix(textureLod(u_sharp, uvL, 0.0).rgb, textureLod(u_blur, uvIso, 0.0).rgb, frost);
+    const vec3 pane = mix(textureLod(sampler2D(u_sharp, samp), uvL, 0.0).rgb, textureLod(sampler2D(u_blur, samp), uvIso, 0.0).rgb, frost);
     // Outside the wrap band the refracted sample has zero weight: skip
     // its texture reads (most of a pane's pixels).
     vec3 sampleRgb = pane;
@@ -306,12 +307,12 @@ void main() {
             const vec2 uvIsoB = clamp(v_uv + offset * (1.0 + gamma), vec2(0.001), vec2(0.999));
             const vec2 uvR = mix(u.destUv0, u.destUv1, uvIsoR);
             const vec2 uvB = mix(u.destUv0, u.destUv1, uvIsoB);
-            wrapRgb = vec3(textureLod(u_sharp, uvR, 0.0).r, textureLod(u_sharp, uvW, 0.0).g,
-                           textureLod(u_sharp, uvB, 0.0).b);
+            wrapRgb = vec3(textureLod(sampler2D(u_sharp, samp), uvR, 0.0).r, textureLod(sampler2D(u_sharp, samp), uvW, 0.0).g,
+                           textureLod(sampler2D(u_sharp, samp), uvB, 0.0).b);
         } else {
-            wrapRgb = textureLod(u_sharp, uvW, 0.0).rgb;
+            wrapRgb = textureLod(sampler2D(u_sharp, samp), uvW, 0.0).rgb;
         }
-        wrapRgb = mix(wrapRgb, textureLod(u_blur, uvIsoW, 0.0).rgb, frost);
+        wrapRgb = mix(wrapRgb, textureLod(sampler2D(u_blur, samp), uvIsoW, 0.0).rgb, frost);
         const float wrapMix = pow(clamp(wrapX, 0.0, 1.0), (u.blurEdge > 0.5) ? 1.25 : 1.0);
         sampleRgb = mix(pane, wrapRgb, wrapMix);
     }
@@ -342,7 +343,7 @@ void main() {
             for (int j = -1; j <= 1; ++j) {
                 for (int i = -1; i <= 1; ++i) {
                     const vec2 q = clamp(uvM + vec2(float(i), float(j)) * rough * duv, vec2(0.0), vec2(1.0));
-                    env += textureLod(u_sharp, q, 0.0).rgb;
+                    env += textureLod(sampler2D(u_sharp, samp), q, 0.0).rgb;
                 }
             }
             envL = rec709(env / 9.0);

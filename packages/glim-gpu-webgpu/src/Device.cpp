@@ -413,8 +413,8 @@ struct Device::Impl {
         return false;
       }
     }
-    WGPUBindGroupLayoutEntry entries[8]{};
-    for (int i = 0; i < 8; ++i) {
+    WGPUBindGroupLayoutEntry entries[kBindingCount]{};
+    for (int i = 0; i < kBindingCount; ++i) {
       entries[i].binding = static_cast<std::uint32_t>(i);
       entries[i].bindingArraySize = 0;
     }
@@ -425,18 +425,18 @@ struct Device::Impl {
       entries[i].buffer.hasDynamicOffset = WGPU_FALSE;
       entries[i].buffer.minBindingSize = 0;
     }
-    for (int i = 2; i < 6; ++i) {
+    for (int i = kTextureBinding; i < kSamplerBinding; ++i) {
       entries[i].visibility = WGPUShaderStage_Fragment;
       entries[i].texture.sampleType = WGPUTextureSampleType_Float;
       entries[i].texture.viewDimension = WGPUTextureViewDimension_2D;
       entries[i].texture.multisampled = WGPU_FALSE;
     }
-    for (int i = 6; i < 8; ++i) {
+    for (int i = kSamplerBinding; i < kBindingCount; ++i) {
       entries[i].visibility = WGPUShaderStage_Fragment;
       entries[i].sampler.type = WGPUSamplerBindingType_Filtering;
     }
     WGPUBindGroupLayoutDescriptor bld{};
-    bld.entryCount = 8;
+    bld.entryCount = kBindingCount;
     bld.entries = entries;
     bindLayout = wgpuDeviceCreateBindGroupLayout(device, &bld);
     if (bindLayout == nullptr) {
@@ -502,8 +502,8 @@ struct Pass::Impl {
   WGPUBuffer b1 = nullptr;
   std::uint64_t b1off = 0;
   std::uint64_t b1size = 0;
-  WGPUTextureView tex[4] = {nullptr, nullptr, nullptr, nullptr};
-  WGPUSampler samp[2] = {nullptr, nullptr};
+  WGPUTextureView tex[kMaxFragmentTextures]{};
+  WGPUSampler samp[kMaxFragmentSamplers]{};
 };
 
 struct CommandEncoder::Impl {
@@ -565,13 +565,13 @@ void Pass::setFragmentBytes(std::uint32_t index, const void* data, std::uint64_t
 }
 
 void Pass::setFragmentTexture(std::uint32_t index, void* nativeTexture) {
-  if (impl_ && index < 4) {
+  if (impl_ && index < static_cast<std::uint32_t>(kMaxFragmentTextures)) {
     impl_->tex[index] = static_cast<WGPUTextureView>(nativeTexture);
   }
 }
 
 void Pass::setFragmentSampler(std::uint32_t index, void* nativeSampler) {
-  if (impl_ && index < 2) {
+  if (impl_ && index < static_cast<std::uint32_t>(kMaxFragmentSamplers)) {
     impl_->samp[index] = static_cast<WGPUSampler>(nativeSampler);
   }
 }
@@ -600,7 +600,7 @@ void Pass::draw(
   Device::Impl* dev = impl_->dev;
   WGPUBuffer b0 = impl_->b0 != nullptr ? impl_->b0 : dev->zeroBuf;
   WGPUBuffer b1 = impl_->b1 != nullptr ? impl_->b1 : dev->zeroBuf;
-  WGPUBindGroupEntry entries[8]{};
+  WGPUBindGroupEntry entries[kBindingCount]{};
   entries[0].binding = 0;
   entries[0].buffer = b0;
   entries[0].offset = impl_->b0 != nullptr ? impl_->b0off : 0;
@@ -609,17 +609,19 @@ void Pass::draw(
   entries[1].buffer = b1;
   entries[1].offset = impl_->b1 != nullptr ? impl_->b1off : 0;
   entries[1].size = impl_->b1 != nullptr ? impl_->b1size : 64;
-  for (int i = 0; i < 4; ++i) {
-    entries[2 + i].binding = static_cast<std::uint32_t>(2 + i);
-    entries[2 + i].textureView = impl_->tex[i] != nullptr ? impl_->tex[i] : dev->dummyView;
+  for (int i = 0; i < kMaxFragmentTextures; ++i) {
+    entries[kTextureBinding + i].binding = static_cast<std::uint32_t>(kTextureBinding + i);
+    entries[kTextureBinding + i].textureView =
+        impl_->tex[i] != nullptr ? impl_->tex[i] : dev->dummyView;
   }
-  for (int i = 0; i < 2; ++i) {
-    entries[6 + i].binding = static_cast<std::uint32_t>(6 + i);
-    entries[6 + i].sampler = impl_->samp[i] != nullptr ? impl_->samp[i] : dev->sampler;
+  for (int i = 0; i < kMaxFragmentSamplers; ++i) {
+    entries[kSamplerBinding + i].binding = static_cast<std::uint32_t>(kSamplerBinding + i);
+    entries[kSamplerBinding + i].sampler =
+        impl_->samp[i] != nullptr ? impl_->samp[i] : dev->sampler;
   }
   WGPUBindGroupDescriptor bgd{};
   bgd.layout = dev->bindLayout;
-  bgd.entryCount = 8;
+  bgd.entryCount = kBindingCount;
   bgd.entries = entries;
   WGPUBindGroup group = wgpuDeviceCreateBindGroup(dev->device, &bgd);
   if (group == nullptr) {

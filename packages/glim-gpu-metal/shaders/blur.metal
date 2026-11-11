@@ -106,8 +106,8 @@ float3 sampleBlur(texture2d<float> tex, sampler samp, float2 uv, float sigma, fl
 
 fragment float4 fs_main(VSOut in [[stage_in]],
                         constant Instance* instances [[buffer(0)]],
-                        texture2d<float> tex [[texture(0)]],
-                        sampler samp [[sampler(0)]]) {
+                        texture2d<float> tex [[texture(2)]],
+                        sampler samp [[sampler(6)]]) {
     const Instance inst = instances[in.iid];
     const float sigma = inst.extra.x;
     const bool flatten = ((int(inst.extra.w) >> 3) & 1) != 0;

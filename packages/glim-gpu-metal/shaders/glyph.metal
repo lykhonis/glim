@@ -35,8 +35,8 @@ vertex VSOut vs_main(uint vid [[vertex_id]],
 }
 
 fragment float4 fs_main(VSOut in [[stage_in]],
-                        texture2d<float> tex [[texture(0)]],
-                        sampler samp [[sampler(0)]]) {
+                        texture2d<float> tex [[texture(2)]],
+                        sampler samp [[sampler(6)]]) {
     const float sdf = tex.sample(samp, in.uv).r;
     // AA width from the UV scale (texels per pixel x SDF slope), as the CPU
     // path computes it. fwidth(sdf) collapses at a thin stem's peak (the

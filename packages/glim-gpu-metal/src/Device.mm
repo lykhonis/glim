@@ -90,12 +90,12 @@ void Pass::setFragmentBytes(std::uint32_t index, const void* data, std::uint64_t
 
 void Pass::setFragmentTexture(std::uint32_t index, void* nativeTexture) {
   id<MTLTexture> tex = (__bridge id<MTLTexture>)nativeTexture;
-  [impl_->encoder setFragmentTexture:tex atIndex:index];
+  [impl_->encoder setFragmentTexture:tex atIndex:kTextureBinding + index];
 }
 
 void Pass::setFragmentSampler(std::uint32_t index, void* nativeSampler) {
   id<MTLSamplerState> samp = (__bridge id<MTLSamplerState>)nativeSampler;
-  [impl_->encoder setFragmentSamplerState:samp atIndex:index];
+  [impl_->encoder setFragmentSamplerState:samp atIndex:kSamplerBinding + index];
 }
 
 void Pass::setViewport(float x, float y, float w, float h, float z0, float z1) {

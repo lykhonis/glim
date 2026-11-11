@@ -259,9 +259,9 @@ float rec709(float3 c) {
 
 fragment float4 fs_main(VSOut in [[stage_in]],
                          constant GlassUniforms* instances [[buffer(0)]],
-                         texture2d<float> u_sharp [[texture(0)]],
-                         texture2d<float> u_blur [[texture(1)]],
-                         sampler samp [[sampler(0)]]) {
+                         texture2d<float> u_sharp [[texture(2)]],
+                         texture2d<float> u_blur [[texture(3)]],
+                         sampler samp [[sampler(6)]]) {
     constant GlassUniforms& u = instances[0];
     const float2 p = in.uv * u.resolution;
     float d = shapeSdf(u, p);

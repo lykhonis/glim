@@ -733,7 +733,7 @@ struct Pass::Impl {
   std::vector<uint8_t> bytes0;
   std::vector<uint8_t> bytes1;
   void* fragmentViews[glim::gpu::kMaxFragmentTextures]{};
-  void* fragmentSampler = nullptr;
+  void* fragmentSamplers[glim::gpu::kMaxFragmentSamplers]{};
   VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -801,8 +801,10 @@ void Pass::setFragmentTexture(std::uint32_t index, void* nativeTexture) {
   }
 }
 
-void Pass::setFragmentSampler(std::uint32_t, void* nativeSampler) {
-  impl_->fragmentSampler = nativeSampler;
+void Pass::setFragmentSampler(std::uint32_t index, void* nativeSampler) {
+  if (index < static_cast<std::uint32_t>(kMaxFragmentSamplers)) {
+    impl_->fragmentSamplers[index] = nativeSampler;
+  }
 }
 
 void Pass::setViewport(float x, float y, float w, float h, float z0, float z1) {
@@ -848,7 +850,7 @@ void Pass::draw(
     return off;
   };
   const VkDeviceSize off0 = upload(impl_->bytes0, d->ringAlign);
-  const VkDeviceSize off1 = upload(impl_->bytes1, d->props.limits.minUniformBufferOffsetAlignment);
+  const VkDeviceSize off1 = upload(impl_->bytes1, d->ringAlign);
 
   VkDescriptorSetAllocateInfo ai{};
   ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -864,22 +866,25 @@ void Pass::draw(
   ssbo.buffer = d->ring.buffer;
   ssbo.offset = impl_->bytes0.empty() ? 0 : off0;
   ssbo.range = impl_->bytes0.empty() ? 16 : impl_->bytes0.size();
-  VkDescriptorBufferInfo ubo{};
-  ubo.buffer = d->ring.buffer;
-  ubo.offset = impl_->bytes1.empty() ? 0 : off1;
-  ubo.range = impl_->bytes1.empty() ? 64 : impl_->bytes1.size();
+  VkDescriptorBufferInfo uniforms{};
+  uniforms.buffer = d->ring.buffer;
+  uniforms.offset = impl_->bytes1.empty() ? 0 : off1;
+  uniforms.range = impl_->bytes1.empty() ? 64 : impl_->bytes1.size();
   VkDescriptorImageInfo images[kMaxFragmentTextures]{};
-  VkSampler samp =
-      impl_->fragmentSampler ? reinterpret_cast<VkSampler>(impl_->fragmentSampler) : d->sampler;
   for (int i = 0; i < kMaxFragmentTextures; ++i) {
-    images[i].sampler = samp;
     images[i].imageView = impl_->fragmentViews[i]
                               ? reinterpret_cast<VkImageView>(impl_->fragmentViews[i])
                               : d->dummyImage.view;
     images[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   }
+  VkDescriptorImageInfo samplers[kMaxFragmentSamplers]{};
+  for (int i = 0; i < kMaxFragmentSamplers; ++i) {
+    samplers[i].sampler = impl_->fragmentSamplers[i]
+                              ? reinterpret_cast<VkSampler>(impl_->fragmentSamplers[i])
+                              : d->sampler;
+  }
 
-  VkWriteDescriptorSet writes[2 + kMaxFragmentTextures]{};
+  VkWriteDescriptorSet writes[kBindingCount]{};
   writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   writes[0].dstSet = set;
   writes[0].dstBinding = 0;
@@ -890,17 +895,26 @@ void Pass::draw(
   writes[1].dstSet = set;
   writes[1].dstBinding = 1;
   writes[1].descriptorCount = 1;
-  writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  writes[1].pBufferInfo = &ubo;
+  writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  writes[1].pBufferInfo = &uniforms;
   for (int i = 0; i < kMaxFragmentTextures; ++i) {
     writes[2 + i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[2 + i].dstSet = set;
     writes[2 + i].dstBinding = static_cast<uint32_t>(2 + i);
     writes[2 + i].descriptorCount = 1;
-    writes[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     writes[2 + i].pImageInfo = &images[i];
   }
-  vkUpdateDescriptorSets(d->device, 2 + kMaxFragmentTextures, writes, 0, nullptr);
+  for (int i = 0; i < kMaxFragmentSamplers; ++i) {
+    VkWriteDescriptorSet& w = writes[2 + kMaxFragmentTextures + i];
+    w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet = set;
+    w.dstBinding = static_cast<uint32_t>(kSamplerBinding + i);
+    w.descriptorCount = 1;
+    w.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    w.pImageInfo = &samplers[i];
+  }
+  vkUpdateDescriptorSets(d->device, kBindingCount, writes, 0, nullptr);
   vkCmdBindDescriptorSets(
       impl_->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d->pipelineLayout, 0, 1, &set, 0, nullptr
   );
@@ -1421,24 +1435,31 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     return Result<Device>::fail("vkCreateRenderPass failed");
   }
 
-  VkDescriptorSetLayoutBinding binds[2 + kMaxFragmentTextures]{};
+  VkDescriptorSetLayoutBinding binds[kBindingCount]{};
   binds[0].binding = 0;
   binds[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   binds[0].descriptorCount = 1;
   binds[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   binds[1].binding = 1;
-  binds[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  binds[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   binds[1].descriptorCount = 1;
   binds[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   for (int i = 0; i < kMaxFragmentTextures; ++i) {
     binds[2 + i].binding = static_cast<uint32_t>(2 + i);
-    binds[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binds[2 + i].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     binds[2 + i].descriptorCount = 1;
     binds[2 + i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
   }
+  for (int i = 0; i < kMaxFragmentSamplers; ++i) {
+    VkDescriptorSetLayoutBinding& b = binds[2 + kMaxFragmentTextures + i];
+    b.binding = static_cast<uint32_t>(kSamplerBinding + i);
+    b.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    b.descriptorCount = 1;
+    b.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  }
   VkDescriptorSetLayoutCreateInfo sl{};
   sl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  sl.bindingCount = 2 + kMaxFragmentTextures;
+  sl.bindingCount = kBindingCount;
   sl.pBindings = binds;
   if (vkCreateDescriptorSetLayout(d.device, &sl, nullptr, &d.setLayout) != VK_SUCCESS) {
     return Result<Device>::fail("vkCreateDescriptorSetLayout failed");
@@ -1506,11 +1527,11 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   constexpr uint32_t kMaxSetsPerFrame = 4096;
   VkDescriptorPoolSize poolSizes[3]{};
   poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  poolSizes[0].descriptorCount = kMaxSetsPerFrame;
-  poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  poolSizes[1].descriptorCount = kMaxSetsPerFrame;
-  poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  poolSizes[2].descriptorCount = kMaxSetsPerFrame * kMaxFragmentTextures;
+  poolSizes[0].descriptorCount = kMaxSetsPerFrame * 2;
+  poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  poolSizes[1].descriptorCount = kMaxSetsPerFrame * kMaxFragmentTextures;
+  poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+  poolSizes[2].descriptorCount = kMaxSetsPerFrame * kMaxFragmentSamplers;
   VkDescriptorPoolCreateInfo dpi{};
   dpi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   dpi.maxSets = kMaxSetsPerFrame;

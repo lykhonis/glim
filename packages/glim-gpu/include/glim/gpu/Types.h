@@ -8,7 +8,14 @@ enum class Backend { Metal, Vulkan, WebGpu };
 
 using Handle = std::uint32_t;
 
+// Shader slot convention, shared by every backend and the shader sources:
+// buffers at bindings 0 (instances) and 1 (uniforms), fragment texture i at
+// kTextureBinding + i, fragment sampler i at kSamplerBinding + i.
 constexpr int kMaxFragmentTextures = 4;
+constexpr int kMaxFragmentSamplers = 2;
+constexpr int kTextureBinding = 2;
+constexpr int kSamplerBinding = kTextureBinding + kMaxFragmentTextures;
+constexpr int kBindingCount = kSamplerBinding + kMaxFragmentSamplers;
 
 enum class ShaderStage { Vertex, Fragment };
 

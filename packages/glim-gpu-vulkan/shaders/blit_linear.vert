@@ -8,7 +8,7 @@ struct Instance {
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances { Instance instances[]; };
 
-layout(std140, set = 0, binding = 1) uniform Uniforms { mat4 projection; };
+layout(std430, set = 0, binding = 1) readonly buffer Uniforms { mat4 projection; };
 
 layout(location = 0) out vec2 v_uv;
 layout(location = 1) out vec4 v_tint;

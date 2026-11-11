@@ -10,7 +10,7 @@ layout(std430, set = 0, binding = 0) readonly buffer Instances {
     Instance instances[];
 };
 
-layout(std140, set = 0, binding = 1) uniform Uniforms {
+layout(std430, set = 0, binding = 1) readonly buffer Uniforms {
     mat4 projection;
 };
 

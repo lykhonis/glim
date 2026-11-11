@@ -41,7 +41,7 @@ vertex VSOut vs_main(
 }
 
 fragment float4
-fs_main(VSOut in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler samp [[sampler(0)]]) {
+fs_main(VSOut in [[stage_in]], texture2d<float> tex [[texture(2)]], sampler samp [[sampler(6)]]) {
   // Frame-target copy: source is an sRGB render target, so the
   // sample already arrives decoded to linear (hardware). No manual
   // EOTF — that path is for UNORM image textures in blit.metal.

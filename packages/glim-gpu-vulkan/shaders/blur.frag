@@ -20,7 +20,8 @@ layout(location = 1) in vec2 v_local;
 layout(location = 2) flat in int v_iid;
 layout(location = 0) out vec4 out_color;
 
-layout(set = 0, binding = 2) uniform sampler2D tex;
+layout(set = 0, binding = 2) uniform texture2D tex;
+layout(set = 0, binding = 6) uniform sampler samp;
 
 float sdRoundBox(vec2 p, vec2 b, float r) {
     r = min(r, min(b.x, b.y));
@@ -79,7 +80,7 @@ vec3 sampleBlur(vec2 uv, float sigma, vec2 texel) {
         const float y = float(j - 2) * s.y;
         for (int i = 0; i < 5; ++i) {
             const vec2 p = uv + vec2(float(i - 2) * s.x, y);
-            c += textureLod(tex, clamp(p, 0.0, 1.0), 0.0).rgb * (w[i] * w[j]);
+            c += textureLod(sampler2D(tex, samp), clamp(p, 0.0, 1.0), 0.0).rgb * (w[i] * w[j]);
         }
     }
     return c;
@@ -98,7 +99,7 @@ void main() {
         out_color = vec4(0.0);
         return;
     }
-    const vec2 texel = 1.0 / vec2(textureSize(tex, 0));
+    const vec2 texel = 1.0 / vec2(textureSize(sampler2D(tex, samp), 0));
     const vec2 uv = clamp(v_uv, 0.0, 1.0);
     vec3 col = sampleBlur(uv, sigma, texel);
     if (flatten) {

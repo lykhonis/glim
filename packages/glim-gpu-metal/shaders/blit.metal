@@ -41,7 +41,7 @@ vertex VSOut vs_main(
 }
 
 fragment float4
-fs_main(VSOut in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler samp [[sampler(0)]]) {
+fs_main(VSOut in [[stage_in]], texture2d<float> tex [[texture(2)]], sampler samp [[sampler(6)]]) {
   // Image bytes are sRGB in a UNORM texture (no hardware decode),
   // so decode manually to the linear working space. Frame targets
   // are sRGB views (hardware decodes on sample) and must use
