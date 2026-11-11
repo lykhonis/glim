@@ -10,6 +10,9 @@ add_library(glim-paint STATIC
     src/Software.cpp
     src/ImageStore.cpp
     src/Strip.cpp
+    src/StripCoverage.cpp
+    src/StripFlatten.cpp
+    src/StripGeometry.cpp
     src/Reuse.cpp
     src/Font.cpp)
 add_library(glim::paint ALIAS glim-paint)

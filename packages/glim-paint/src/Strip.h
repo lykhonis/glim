@@ -38,6 +38,19 @@ void flattenStroke(const Rect&, Radius, float width, std::vector<Strip>&);
 void flattenSolidPolyline(const Vec2*, std::size_t n, float width, std::vector<Strip>&);
 void clipStrips(std::vector<Strip>&, const ClipState&);
 void stripsToQuads(const std::vector<Strip>&, const Vec4& premul, std::vector<Quad>&);
+void stripsToGradientQuads(const std::vector<Strip>&, const Matter&, std::vector<GradientQuad>&);
+void appendGradientQuad(
+    std::vector<GradientQuad>& out,
+    float x,
+    float y,
+    float w,
+    float h,
+    float coverage,
+    const Matter& m
+);
+void flattenDottedPolyline(
+    const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
+);
 
 void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vector<GradientQuad>& gradients, const Shape& shape, const ClipState&);
 
@@ -57,5 +70,6 @@ float roundedCoverage(const Rect&, Radius, float px, float py);
 float chamferCoverage(const Rect&, float cut, float px, float py);
 float arcCoverage(const Arc&, float px, float py);
 float polylineCoverage(const Vec2*, std::size_t n, float width, float dotPitch, float px, float py);
+float segDist(Vec2 p, Vec2 a, Vec2 b, float& tOut, float& lenOut);
 
 }  // namespace glim::paint
