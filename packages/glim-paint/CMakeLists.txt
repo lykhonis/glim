@@ -4,6 +4,9 @@ add_library(glim-paint STATIC
     src/HitTest.cpp
     src/Glass.cpp
     src/Encode.cpp
+    src/RasterFill.cpp
+    src/RasterGlass.cpp
+    src/RasterPlate.cpp
     src/Software.cpp
     src/ImageStore.cpp
     src/Strip.cpp
