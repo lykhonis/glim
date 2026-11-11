@@ -132,6 +132,20 @@ int main() {
   ctx.finish();
   const glim::paint::FramePacket packet = glim::paint::encode(ctx.scene());
   expect(packet.quads.size() == 1, "SlotHole emits no coverage");
+
+  glim::paint::Context below;
+  below.setSize({100, 100});
+  below.beginFrame();
+  below.slot(glim::Rect{{10, 150}, {40, 20}}, 5);
+  below.slot(glim::Rect{{10, 90}, {40, 20}}, 6);
+  below.finish();
+  placed.clear();
+  glim::paint::collectSlots(below.scene(), &placed);
+  expect(placed.size() == 1 && placed[0].id == 6, "off-viewport seat is not collected");
+  expect(
+      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.size.y, 10.f),
+      "partially visible seat clipped to viewport"
+  );
   expect(packet.blits.empty(), "SlotHole is not a blit");
 
   const int w = 32;

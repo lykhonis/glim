@@ -782,7 +782,12 @@ void collectSlots(const Scene& scene, std::vector<SlotPlacement>* out) {
   if (!out) {
     return;
   }
-  collectSlotsIn(scene.root, Mat4::identity(), {}, false, false, out);
+  // Off-viewport seats are dropped so a native view never lingers over
+  // unpainted area eating input (archived input notes §1, roadmap P0.8).
+  const bool viewport = scene.logicalSize.x > 0.f && scene.logicalSize.y > 0.f;
+  collectSlotsIn(
+      scene.root, Mat4::identity(), Rect::fromSize(scene.logicalSize), viewport, false, out
+  );
 }
 
 int coarseTileCount(Vec2 logicalSize, float pixelRatio) {
