@@ -4,10 +4,20 @@ on:
   workflow_call:
 
 jobs:
-  ci:
+  build:
     uses: ./.github/workflows/native.yml
     with:
       name: ios
       runs-on: macos-15
       nx: |
         pnpm exec nx run examples:build-ios-sim
+
+  # Launch every example on the simulator; fail if one dies.
+  e2e:
+    needs: [build]
+    uses: ./.github/workflows/native.yml
+    with:
+      name: ios-e2e
+      runs-on: macos-15
+      nx: |
+        pnpm exec nx run-many -t run-ios --projects=tag:example --parallel=1 --smoke=15

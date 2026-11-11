@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  ci:
+  build:
     uses: ./.github/workflows/native.yml
     with:
       name: android
@@ -17,3 +17,26 @@ jobs:
         cmake --preset android-arm64-vulkan-release
         cmake --build build/android-arm64-vulkan-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-vulkan glim-volk glim-android-glue
         node tools/size-budgets.mjs android-toolkit
+
+  # Launch every example on an x86_64 emulator (KVM; GitHub's Linux runners
+  # cannot accelerate arm64); fail if one dies.
+  e2e:
+    needs: [build]
+    uses: ./.github/workflows/native.yml
+    with:
+      name: android-e2e
+      runs-on: ubuntu-24.04
+      packages: ninja-build glslang-tools
+      ndk: r26d
+      nx: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+        sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+        sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
+        image="system-images;android-34;google_apis;x86_64"
+        yes | "$sdk/sdkmanager" --licenses > /dev/null || true
+        "$sdk/sdkmanager" --install emulator platform-tools "$image" > /dev/null
+        echo no | "$sdk/avdmanager" create avd -n e2e -k "$image" -d pixel_6
+        "$ANDROID_HOME/emulator/emulator" -avd e2e -no-window -no-audio -no-boot-anim \
+          -gpu swiftshader_indirect -no-snapshot &
+        "$ANDROID_HOME/platform-tools/adb" wait-for-device
+        pnpm exec nx run-many -t run-android --projects=tag:example --parallel=1 --smoke=20 -c x86_64
