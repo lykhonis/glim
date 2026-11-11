@@ -2,8 +2,8 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-function run(cmd, args, cwd) {
-  const r = spawnSync(cmd, args, { cwd, stdio: "inherit" });
+function run(cmd, args, cwd, env) {
+  const r = spawnSync(cmd, args, { cwd, stdio: "inherit", env: { ...process.env, ...env } });
   if (r.error) {
     throw r.error;
   }
@@ -172,6 +172,7 @@ exports.default = async function cmakeExecutor(options, context) {
         "ctest",
         ["--test-dir", buildDir, "--output-on-failure", "-R", options.ctestRegex],
         root,
+        options.ctestEnv,
       );
       if (!ok) return { success: false };
     }

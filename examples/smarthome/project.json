@@ -40,6 +40,16 @@
         "ctestRegex": "glim-smarthome-"
       }
     },
+    "regen-goldens": {
+      "executor": "@glim/native:cmake",
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-smarthome-golden",
+        "ctestRegex": "^glim-smarthome-png-golden$",
+        "ctestEnv": { "GLIM_GOLDEN_UPDATE": "1" }
+      }
+    },
     "build-ios-sim": {
       "executor": "@glim/native:cmake",
       "options": {

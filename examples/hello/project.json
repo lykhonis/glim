@@ -48,6 +48,16 @@
         "ctestRegex": "glim-hello-golden"
       }
     },
+    "regen-goldens": {
+      "executor": "@glim/native:cmake",
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-hello-golden",
+        "ctestRegex": "^glim-hello-golden$",
+        "ctestEnv": { "GLIM_GOLDEN_UPDATE": "1" }
+      }
+    },
     "build-ios-sim": {
       "executor": "@glim/native:cmake",
       "options": {

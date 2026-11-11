@@ -9,6 +9,11 @@
       "type": "string",
       "description": "If set, run ctest -R <regex> in the CMake build directory after the build"
     },
+    "ctestEnv": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Extra environment for the ctest run (e.g. GLIM_GOLDEN_UPDATE=1 for regen-goldens)"
+    },
     "install": {
       "type": "boolean",
       "description": "If true, cmake --install only this target's component into dist/{projectName}. Off by default so test targets do not require every installable binary to exist."

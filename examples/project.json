@@ -28,6 +28,11 @@
       "cache": false,
       "dependsOn": [{ "target": "build-android", "projects": "tag:example" }]
     },
+    "regen-goldens": {
+      "executor": "nx:noop",
+      "cache": false,
+      "dependsOn": [{ "target": "regen-goldens", "projects": "tag:example" }]
+    },
     "build-web": {
       "executor": "nx:noop",
       "cache": false,

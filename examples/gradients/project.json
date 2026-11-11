@@ -48,6 +48,16 @@
         "ctestRegex": "glim-gradients-golden"
       }
     },
+    "regen-goldens": {
+      "executor": "@glim/native:cmake",
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-gradients-golden",
+        "ctestRegex": "^glim-gradients-golden$",
+        "ctestEnv": { "GLIM_GOLDEN_UPDATE": "1" }
+      }
+    },
     "build-ios-sim": {
       "executor": "@glim/native:cmake",
       "options": {

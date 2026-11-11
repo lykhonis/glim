@@ -1,5 +1,6 @@
 #include "SmartHome.h"
 
+#include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -114,6 +115,18 @@ std::size_t cardColumns(float width) {
   return xs.size();
 }
 
+glim::image::Image paintSmartHome(Store& app, int height) {
+  glim::paint::Context ctx;
+  ctx.setSize({1240.0f, static_cast<float>(height)});
+  ctx.beginFrame();
+  host::LayerFeed feed;
+  paintSmartHomeScene(ctx, feed, app);
+  ctx.finish();
+  auto img = glim::image::Image::rgba8(1240, height);
+  glim::paint::rasterScene(ctx.scene(), 1240, height, img.rgba.data());
+  return img;
+}
+
 bool press(const Block& tree, const Box& box, Box at, const Engine& e) {
   return dispatchPointer(
       tree,
@@ -128,24 +141,27 @@ bool press(const Block& tree, const Box& box, Box at, const Engine& e) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Default scene vs the PNG golden (L2): --golden
+  // path/to/smarthome.png.
+  if (argc > 2 && std::string(argv[1]) == "--golden") {
+    Store app;
+    return glim::image::matchCpuGolden(
+               paintSmartHome(app, 760), argv[2], argv[0], "smarthome"
+           )
+               ? EXIT_SUCCESS
+               : EXIT_FAILURE;
+  }
   // Headless eyeball: --paint out.png [live] [light] [height] renders
   // the full scene through the software rasterizer, no window needed.
   if (argc > 2 && std::string(argv[1]) == "--paint") {
-    glim::paint::Context ctx;
-    int paintH = argc > 5 ? std::max(200, std::atoi(argv[5])) : 760;
-    ctx.setSize({1240.0f, static_cast<float>(paintH)});
-    ctx.beginFrame();
-    host::LayerFeed feed;
+    const int paintH =
+        argc > 5 ? std::max(200, std::atoi(argv[5])) : 760;
     Store app;
     if (argc > 3) app.state("live", true) = (std::atoi(argv[3]) != 0);
     if (argc > 4) app.state("theme", true) = (std::atoi(argv[4]) != 0);
-    paintSmartHomeScene(ctx, feed, app);
-    ctx.finish();
-    auto img = glim::image::Image::rgba8(1240, paintH);
-    glim::paint::rasterScene(
-        ctx.scene(), 1240, paintH, img.rgba.data()
-    );
-    if (!glim::image::Png::write(argv[2], img)) {
+    if (!glim::image::Png::write(
+            argv[2], paintSmartHome(app, paintH)
+        )) {
       std::cerr << "could not write " << argv[2] << '\n';
       return EXIT_FAILURE;
     }
