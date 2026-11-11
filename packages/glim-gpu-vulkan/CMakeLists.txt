@@ -23,7 +23,6 @@ endif()
 find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
 set(_glim_glsl_dir "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(_glim_spv_dir "${CMAKE_CURRENT_BINARY_DIR}/spirv")
-set(_glim_spirv_script "${CMAKE_SOURCE_DIR}/tools/scripts/compile-spirv.sh")
 set(_glim_spv_outputs)
 foreach(_shader solid.vert solid.frag blit.vert blit.frag blit_linear.vert blit_linear.frag rounded.vert rounded.frag glyph.vert
                  glyph.frag blur.vert blur.frag blur1d.vert blur1d.frag glass.vert glass.frag
@@ -32,8 +31,8 @@ foreach(_shader solid.vert solid.frag blit.vert blit.frag blit_linear.vert blit_
     add_custom_command(
         OUTPUT "${_spv}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${_glim_spv_dir}"
-        COMMAND /bin/bash "${_glim_spirv_script}" "${_glim_glsl_dir}/${_shader}" "${_spv}"
-        DEPENDS "${_glim_glsl_dir}/${_shader}" "${_glim_spirv_script}"
+        COMMAND "${GLSLANG_VALIDATOR}" -V --target-env vulkan1.1 "${_glim_glsl_dir}/${_shader}" -o "${_spv}"
+        DEPENDS "${_glim_glsl_dir}/${_shader}"
         COMMENT "SPIR-V ${_shader}"
         VERBATIM)
     list(APPEND _glim_spv_outputs "${_spv}")

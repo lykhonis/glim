@@ -132,11 +132,6 @@ exports.default = async function cmakeExecutor(options, context) {
   const lockFile = path.join(path.dirname(buildDir), `.${path.basename(buildDir)}.cmake.lock`);
   const extraDefines = [];
 
-  const compilerId = path.join(root, "tools/scripts/compiler-id.sh");
-  if (fs.existsSync(compilerId)) {
-    spawnSync("bash", [compilerId], { cwd: root, stdio: "inherit" });
-  }
-
   if (/^(web|wasm)-/.test(preset || "")) {
     const toolchain = emscriptenToolchain();
     if (toolchain.error) {
