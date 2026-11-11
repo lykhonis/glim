@@ -7,7 +7,7 @@
 //
 // Needs gcovr (brew install gcovr / pipx install gcovr).
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,8 +124,10 @@ const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
 const floor = baseline[host] ?? { total: { lines: 0, functions: 0 }, packages: {} };
 if (!baseline[host]) console.warn(`no coverage floors for ${host} yet; run with --update to record them`);
 
-for (const f of readdirSync(path.join(root, "build", preset), { recursive: true, encoding: "utf8" })) {
-  if (f.endsWith(".gcda")) rmSync(path.join(root, "build", preset, f));
+const buildDir = path.join(root, "build", preset);
+const stale = existsSync(buildDir) ? readdirSync(buildDir, { recursive: true, encoding: "utf8" }) : [];
+for (const f of stale) {
+  if (f.endsWith(".gcda")) rmSync(path.join(buildDir, f));
 }
 checks.hostTests(preset);
 const got = floorsOf(measure(preset));
