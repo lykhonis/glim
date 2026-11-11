@@ -3,7 +3,7 @@
 // by the floors in tools/coverage-baseline.json.
 //
 //   node tools/coverage.mjs            build, test, report, fail below a floor
-//   node tools/coverage.mjs --update   same, then raise the floors and badge
+//   node tools/coverage.mjs --update   same, then raise floors (never lower) and badge
 //
 // Needs gcovr (brew install gcovr / pipx install gcovr).
 import { execFileSync } from "node:child_process";
@@ -22,6 +22,12 @@ const checks = createRequire(import.meta.url)("./githooks/checks.js");
 /** @typedef {{total: Percent, packages: Record<string, number>}} Floors */
 /** @typedef {{lc: number, lt: number, fc: number, ft: number}} Counts */
 
+// Timing-dependent test paths flip single lines between runs.
+const slack = 0.1;
+
+/** @param {number} value @param {number} floor */
+const below = (value, floor) => Math.round((floor - value) * 10) > Math.round(slack * 10);
+
 /** @param {number} covered @param {number} total */
 const percent = (covered, total) => (total === 0 ? 100 : Math.floor((1000 * covered) / total) / 10);
 
@@ -32,7 +38,7 @@ function measure(preset) {
     "gcovr",
     [
       "--root", root, path.join(root, "build", preset), ...gcov,
-      "--merge-mode-functions=separate", "-j", "8",
+      "--merge-mode-functions=separate", "--merge-lines", "-j", "8",
       "--filter", "packages/", "--exclude", ".*/tests/.*",
       "--json-summary", "-",
     ],
@@ -80,20 +86,33 @@ const badgePattern = /https:\/\/img\.shields\.io\/badge\/coverage-[^"]+\.svg/;
 function regressions(got, floor) {
   const out = [];
   for (const key of /** @type {const} */ (["lines", "functions"])) {
-    if (got.total[key] < floor.total[key]) out.push(`total ${key} ${got.total[key]}% < ${floor.total[key]}%`);
+    if (below(got.total[key], floor.total[key])) out.push(`total ${key} ${got.total[key]}% < ${floor.total[key]}%`);
   }
   for (const [name, min] of Object.entries(floor.packages)) {
     const value = got.packages[name];
     if (value === undefined) out.push(`${name}: no coverage data`);
-    else if (value < min) out.push(`${name} lines ${value}% < ${min}%`);
+    else if (below(value, min)) out.push(`${name} lines ${value}% < ${min}%`);
   }
   return out;
+}
+
+/** @param {Floors} got @param {Floors} floor @returns {Floors} */
+function ratchet(got, floor) {
+  return {
+    total: {
+      lines: Math.max(got.total.lines, floor.total.lines),
+      functions: Math.max(got.total.functions, floor.total.functions),
+    },
+    packages: Object.fromEntries(
+      Object.entries(got.packages).map(([name, v]) => [name, Math.max(v, floor.packages[name] ?? 0)]),
+    ),
+  };
 }
 
 /** @param {string} host @param {Floors} got @param {Floors} floor */
 function table(host, got, floor) {
   const row = (/** @type {string} */ name, /** @type {number} */ v, /** @type {number | undefined} */ min) =>
-    `| ${name} | ${v}% | ${min === undefined ? "new" : `${min}%`} | ${min !== undefined && v < min ? "❌" : "✅"} |`;
+    `| ${name} | ${v}% | ${min === undefined ? "new" : `${min}%`} | ${min !== undefined && below(v, min) ? "❌" : "✅"} |`;
   return [
     `### Coverage (${host})`,
     "",
@@ -134,9 +153,10 @@ if (failed.length) {
 
 const readme = readFileSync(readmePath, "utf8");
 if (update) {
-  baseline[host] = got;
+  const raised = ratchet(got, floor);
+  baseline[host] = raised;
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
-  if (host === badgeHost) writeFileSync(readmePath, readme.replace(badgePattern, badge(got.total.lines)));
+  if (host === badgeHost) writeFileSync(readmePath, readme.replace(badgePattern, badge(raised.total.lines)));
   console.log("floors and badge raised to the measured values");
 } else if (host === badgeHost && readme.match(badgePattern)?.[0] !== badge(floor.total.lines)) {
   console.error("README coverage badge does not match the floor: run node tools/coverage.mjs --update");
