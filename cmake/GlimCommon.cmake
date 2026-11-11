@@ -28,7 +28,7 @@ function(glim_target_defaults target)
     target_compile_definitions(${target} PUBLIC
         $<$<CONFIG:Debug>:GLIM_DEBUG=1>)
     if(GLIM_COVERAGE)
-        target_compile_options(${target} PRIVATE --coverage)
+        target_compile_options(${target} PRIVATE --coverage -fprofile-update=atomic)
         target_link_options(${target} PUBLIC --coverage)
         target_compile_definitions(${target} PUBLIC GLIM_COVERAGE=1)
     endif()
