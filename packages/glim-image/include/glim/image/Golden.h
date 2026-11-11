@@ -5,6 +5,7 @@
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -43,6 +44,33 @@ inline bool checkCpuGolden(
   }
   writeGot(testName, got);
   return false;
+}
+
+// Compares `got` against the PNG at goldenPath. A missing golden fails in
+// strict mode and is written (passing) otherwise.
+inline bool matchCpuGolden(
+    const Image& got, const char* goldenPath, const char* testName, const char* what
+) {
+  if (std::FILE* f = std::fopen(goldenPath, "rb")) {
+    std::fclose(f);
+  } else {
+    if (goldenStrict()) {
+      std::cerr << "missing golden " << goldenPath << " (strict mode)\n";
+      return false;
+    }
+    if (!Png::write(goldenPath, got)) {
+      std::cerr << "could not write golden " << goldenPath << '\n';
+      return false;
+    }
+    std::cout << "wrote golden " << goldenPath << '\n';
+    return true;
+  }
+  Image want;
+  if (!Png::read(goldenPath, &want)) {
+    std::cerr << "could not read golden " << goldenPath << '\n';
+    return false;
+  }
+  return checkCpuGolden(got, want, testName, what);
 }
 
 }  // namespace glim::image

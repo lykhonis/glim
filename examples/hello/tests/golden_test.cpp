@@ -4,26 +4,12 @@
 #include <glim/paint/Context.h>
 #include <glim/paint/Software.h>
 
-#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 
 void recordHello(
     glim::paint::Context&, glim::Vec2, float, glim::Rect = {}
 );
-
-namespace {
-
-bool fileExists(const char* path) {
-  FILE* f = std::fopen(path, "rb");
-  if (!f) {
-    return false;
-  }
-  std::fclose(f);
-  return true;
-}
-
-}  // namespace
 
 int main(int argc, char** argv) {
   const char* goldenPath =
@@ -39,27 +25,7 @@ int main(int argc, char** argv) {
       ctx.scene(), got.width, got.height, got.rgba.data()
   );
 
-  if (!fileExists(goldenPath)) {
-    if (glim::image::goldenStrict()) {
-      std::cerr << "missing golden " << goldenPath
-                << " (strict mode)\n";
-      return EXIT_FAILURE;
-    }
-    if (!glim::image::Png::write(goldenPath, got)) {
-      std::cerr << "could not write golden " << goldenPath << '\n';
-      return EXIT_FAILURE;
-    }
-    std::cout << "wrote golden " << goldenPath << '\n';
-    return EXIT_SUCCESS;
-  }
-
-  glim::image::Image want;
-  if (!glim::image::Png::read(goldenPath, &want)) {
-    std::cerr << "could not read golden " << goldenPath << '\n';
-    return EXIT_FAILURE;
-  }
-
-  if (!glim::image::checkCpuGolden(got, want, argv[0], "hello"))
+  if (!glim::image::matchCpuGolden(got, goldenPath, argv[0], "hello"))
     return EXIT_FAILURE;
   std::cout << "golden_test ok\n";
   return EXIT_SUCCESS;
