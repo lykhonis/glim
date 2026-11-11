@@ -12,3 +12,6 @@ jobs:
         pnpm exec nx run-many -t test --output-style=stream
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
+        # GPU readback vs CPU goldens on the headless Metal device.
+        cmake --build build/macos-metal-debug --target glim-hello-metal-golden glim-glass-metal-golden glim-gradients-metal-golden
+        ctest --test-dir build/macos-metal-debug -R metal-golden --output-on-failure

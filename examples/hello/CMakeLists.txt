@@ -8,9 +8,7 @@ if(GLIM_HOST_TESTS)
     target_compile_definitions(glim-hello-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-hello-golden
              COMMAND glim-hello-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png")
-    if(GLIM_GPU STREQUAL "vulkan")
-        glim_add_gpu_golden(hello
-            GOLDEN "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png"
-            SOURCES tests/gpu_golden.cpp src/main.cpp)
-    endif()
+    glim_add_gpu_golden(hello
+        GOLDEN "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png"
+        SOURCES tests/gpu_golden.cpp src/main.cpp)
 endif()
