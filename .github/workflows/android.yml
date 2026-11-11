@@ -30,3 +30,10 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           pnpm exec nx run examples:build-android
+      - name: Size budget (release .so, stripped)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cmake --preset android-arm64-vulkan-release
+          cmake --build build/android-arm64-vulkan-release --target glim-hello
+          node tools/size-budgets.mjs android-so

@@ -36,6 +36,11 @@ jobs:
           test -f build/web-webgpu-debug/examples/web/serve/lib/glim.js
           test -f build/web-webgpu-debug/examples/web/serve/glim-app.js
           test -f build/web-webgpu-debug/examples/web/serve/glim-app.wasm
+      - name: Size budget (release hello wasm, gzip)
+        run: |
+          cmake --preset web-webgpu-release
+          cmake --build build/web-webgpu-release --target glim-hello
+          node tools/size-budgets.mjs wasm-gzip
 
   # Experimental: bundle serves over http. Screenshots need real Chrome.
   capture:
