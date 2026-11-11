@@ -97,13 +97,36 @@ function(glim_apple_app_icon target)
         set(_min 16.0)
     endif()
     set(_out "${CMAKE_CURRENT_BINARY_DIR}/${target}-appicon")
-    set(_script "${CMAKE_SOURCE_DIR}/tools/scripts/compile-app-icon.sh")
+    set(_assets "${CMAKE_SOURCE_DIR}/assets/apple")
+    if(_platform MATCHES "^appletv")
+        # Letterboxed 1280x768 / 2560x1536 icons are committed assets.
+        set(_icon_commands
+            COMMAND ${CMAKE_COMMAND} -E copy
+                "${_assets}/tvos/AppIcon.png" "${_assets}/tvos/AppIcon@2x.png" "${_out}")
+        set(_icon_depends "${_assets}/tvos/AppIcon.png" "${_assets}/tvos/AppIcon@2x.png")
+    else()
+        set(_catalog "${CMAKE_CURRENT_BINARY_DIR}/${target}-AppIcon.xcassets")
+        set(_icon_commands
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_assets}/AppIcon.xcassets" "${_catalog}"
+            COMMAND ${CMAKE_COMMAND} -E copy "${_icon}" "${_catalog}/AppIcon.appiconset/glim-icon.png"
+            COMMAND xcrun actool
+                --output-format human-readable-text --notices --warnings
+                --platform "${_platform}" --minimum-deployment-target "${_min}"
+                --app-icon AppIcon --compile "${_out}"
+                --output-partial-info-plist "${_out}/icon-partial.plist"
+                "${_catalog}")
+        set(_icon_depends
+            "${_icon}"
+            "${_assets}/AppIcon.xcassets/Contents.json"
+            "${_assets}/AppIcon.xcassets/AppIcon.appiconset/Contents.json")
+    endif()
     add_custom_command(
         OUTPUT "${_out}/.stamp"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${_out}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_out}"
-        COMMAND /bin/bash "${_script}" "${_icon}" "${_platform}" "${_min}" "${_out}"
+        ${_icon_commands}
         COMMAND ${CMAKE_COMMAND} -E touch "${_out}/.stamp"
-        DEPENDS "${_icon}" "${_script}"
+        DEPENDS ${_icon_depends}
         COMMENT "Compiling AppIcon for ${target} (${_platform})"
         VERBATIM)
     add_custom_target(${target}-appicon DEPENDS "${_out}/.stamp")
