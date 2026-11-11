@@ -1,8 +1,9 @@
 option(GLIM_WERROR "Treat warnings in Glim targets as errors" ON)
 
 include(CheckCXXCompilerFlag)
-# Partial designated initializers are the props-form idiom (K53); newer clang
-# flags them under -Wextra. Only this sub-warning is off.
+# Partial designated initializers are the props-form idiom (K53). Newer clang
+# flags them under -Wextra (-Wmissing-designated-field-initializers); GCC has
+# no narrower flag than -Wmissing-field-initializers. Only these are off.
 check_cxx_compiler_flag(-Wmissing-designated-field-initializers GLIM_HAS_WMDFI)
 
 function(glim_target_defaults target)
@@ -16,6 +17,8 @@ function(glim_target_defaults target)
         target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
         if(GLIM_HAS_WMDFI)
             target_compile_options(${target} PRIVATE -Wno-missing-designated-field-initializers)
+        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${target} PRIVATE -Wno-missing-field-initializers)
         endif()
     endif()
     if(GLIM_WERROR)

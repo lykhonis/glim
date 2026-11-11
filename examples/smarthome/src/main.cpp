@@ -63,7 +63,7 @@ Block header(State<bool> live, State<bool> light, std::uint32_t tint) {
 }
 
 const home::Device& byId(
-    const std::vector<home::Device>& devices, const std::string& id
+    const std::vector<home::Device>& devices, const char* id
 ) {
   return *std::find_if(
       devices.begin(),

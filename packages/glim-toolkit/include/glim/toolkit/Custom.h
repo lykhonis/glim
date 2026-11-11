@@ -479,7 +479,7 @@ struct Custom {
         "or 'const char* kind() const' (see elements/Row.h)"
     );
     vt = vtableFor<U>();
-    if (sizeof(U) <= kCapacity) {
+    if constexpr (sizeof(U) <= kCapacity) {
       new (buf) U(std::forward<T>(t));
       onHeap = false;
     } else {
