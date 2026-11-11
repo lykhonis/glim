@@ -5,7 +5,7 @@ if(GLIM_HOST_TESTS)
     add_executable(glim-smarthome-golden tests/smarthome_test.cpp src/main.cpp)
     target_include_directories(glim-smarthome-golden PRIVATE src)
     target_link_libraries(glim-smarthome-golden PRIVATE glim::toolkit-host glim::image)
-    glim_target_defaults(glim-smarthome-golden)
+    glim_test_defaults(glim-smarthome-golden)
     target_compile_definitions(glim-smarthome-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-smarthome-golden
              COMMAND glim-smarthome-golden)

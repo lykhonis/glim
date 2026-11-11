@@ -109,11 +109,13 @@ int run(
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
   Vec2 paintedSize{0.0f, 0.0f};
+#if !GLIM_SOFTWARE
   // Last drawable size pushed to the GPU device. setDrawableSize
   // reallocates swapchain resources, so only push on actual change —
   // pushing every painted frame stalls nextDrawable (~1s hitches).
   int lastDrawableW = -1;
   int lastDrawableH = -1;
+#endif
   // Build engine: measuring env plus this run's Store, so scoped state
   // allocates where it renders. No retained tree cache — the compositor
   // owns idle-skip, so trees rebuild per event/paint.

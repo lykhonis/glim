@@ -1,3 +1,10 @@
+option(GLIM_WERROR "Treat warnings in Glim targets as errors" ON)
+
+include(CheckCXXCompilerFlag)
+# Partial designated initializers are the props-form idiom (K53); newer clang
+# flags them under -Wextra. Only this sub-warning is off.
+check_cxx_compiler_flag(-Wmissing-designated-field-initializers GLIM_HAS_WMDFI)
+
 function(glim_target_defaults target)
     if(NOT TARGET ${target})
         message(FATAL_ERROR "glim_target_defaults: ${target} is not a target")
@@ -7,9 +14,22 @@ function(glim_target_defaults target)
         target_compile_options(${target} PRIVATE /W4)
     else()
         target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+        if(GLIM_HAS_WMDFI)
+            target_compile_options(${target} PRIVATE -Wno-missing-designated-field-initializers)
+        endif()
+    endif()
+    if(GLIM_WERROR)
+        target_compile_options(${target} PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>)
     endif()
     target_compile_definitions(${target} PUBLIC
         $<$<CONFIG:Debug>:GLIM_DEBUG=1>)
+endfunction()
+
+# Test executables keep assert() live in every build type: under NDEBUG an
+# assert-based test would compile to a no-op and pass while checking nothing.
+function(glim_test_defaults target)
+    glim_target_defaults(${target})
+    target_compile_options(${target} PRIVATE -UNDEBUG)
 endfunction()
 
 if(EMSCRIPTEN)

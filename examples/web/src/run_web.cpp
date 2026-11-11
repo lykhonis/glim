@@ -18,7 +18,6 @@ std::unique_ptr<glim::gpu::Device> gDevice;
 std::unique_ptr<glim::paint::Renderer> gRenderer;
 bool gReduceTransparency = false;
 float gTime = 0.f;
-float gLastTime = 0.f;
 int gZeroStreak = 0;
 std::vector<glim::paint::SlotPlacement> gSlots;
 
@@ -92,7 +91,6 @@ void paintOnce() {
       *gDevice
   };
   recordExample(frame);
-  gLastTime = gTime;
   gContext->finish();
   const glim::Vec2 drawable = gWindow->drawableSize();
   gDevice->setDrawableSize(

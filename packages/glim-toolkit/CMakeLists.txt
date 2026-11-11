@@ -30,6 +30,6 @@ if(GLIM_HOST_TESTS)
         tests/test_theme.cpp
     )
     target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)
-    glim_target_defaults(glim-toolkit-test)
+    glim_test_defaults(glim-toolkit-test)
     add_test(NAME glim-toolkit-test COMMAND glim-toolkit-test)
 endif()

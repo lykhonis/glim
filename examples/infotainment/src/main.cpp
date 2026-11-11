@@ -45,6 +45,7 @@ namespace {
 // steps it, builds read 0, the reference frame.
 constexpr const char* kFlightClock = "flight/t";
 
+#ifndef GLIM_GOLDEN  // the golden build has no run loop to drive it
 // Mirror the store's frame time into the flight clock while the watch
 // lives.
 Store::Watch followFlightClock(Store& store) {
@@ -54,6 +55,7 @@ Store::Watch followFlightClock(Store& store) {
     return true;
   });
 }
+#endif
 
 Flight flightOf(const Scope& app) {
   return flightAt(app.store ? *app.state(kFlightClock, 0.f) : 0.f);

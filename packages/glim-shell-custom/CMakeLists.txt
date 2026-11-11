@@ -13,7 +13,7 @@ set_source_files_properties(src/Window.cpp PROPERTIES COMPILE_DEFINITIONS GLIM_S
 if(GLIM_HOST_TESTS)
     add_executable(glim-custom-smoke tests/custom_smoke.cpp)
     target_link_libraries(glim-custom-smoke PRIVATE glim::shell)
-    glim_target_defaults(glim-custom-smoke)
+    glim_test_defaults(glim-custom-smoke)
     target_compile_definitions(glim-custom-smoke PRIVATE GLIM_SOFTWARE=1)
     add_test(NAME glim-custom-smoke COMMAND glim-custom-smoke)
 endif()
