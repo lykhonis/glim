@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate: props-form factory rule (docs/toolkit.md section 5).
+"""Gate: props-form factory rule.
 
 Scope: element factories (packages/glim-toolkit/include/.../elements/),
 smarthome widgets, and themed(). For each Block/auto-returning factory:

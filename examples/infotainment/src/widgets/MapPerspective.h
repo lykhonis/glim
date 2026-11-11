@@ -1,7 +1,7 @@
 #pragma once
 
 // MapPerspective: CPU-projection 3D map backdrop — the cross-platform
-// half of the dual 3D strategy (see Map3D.h, docs/compositor.md).
+// half of the dual 3D strategy (see Map3D.h).
 //
 // Why CPU projection: Glim v1 GPU is vertex+fragment only (K29) with no
 // required compute/mesh path, and the same Scene must run on

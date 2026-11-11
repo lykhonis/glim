@@ -6,7 +6,7 @@
 
 namespace glim::shell {
 
-// Binds a Window canvas to WebGPU; see docs/webgpu.md for the native layout.
+// Binds a Window canvas to WebGPU.
 class Surface final {
  public:
   Surface();

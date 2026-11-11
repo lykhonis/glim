@@ -91,8 +91,6 @@ int main() {
 
 Glim also embeds. A sandboxed guest, such as WASM or an out-of-process UI, encodes one frame packet per vsync, and the native host submits it while keeping its own swapchain and run loop.
 
-More in [docs/](docs/README.md): [architecture](docs/architecture.md), [compositor](docs/compositor.md), [effects](docs/effects.md), [toolkit](docs/toolkit.md) and [roadmap](docs/roadmap.md).
-
 ## Try it
 
 ```sh

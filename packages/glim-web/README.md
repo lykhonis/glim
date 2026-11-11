@@ -18,5 +18,5 @@ Framework-agnostic loader + frame driver for the Glim WebGPU canvas.
 ```
 
 React, Vue, Svelte, and vanilla apps all call the same two methods
-(`init()` + `start()`); see `docs/webgpu.md` for per-framework snippets.
+(`init()` + `start()`).
 Glim never touches the DOM outside its own canvas.

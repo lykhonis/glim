@@ -45,4 +45,4 @@ A page can cap the backing-store pixel ratio with
 Embed contract: the app-built wasm exports `glimWebSelect`,
 `glimWebResize`, `glimWebFrame`, `glimWebEvent`. React/Vue/Svelte call the
 same two methods from a canvas ref + effect. Glim never touches the DOM
-outside its canvas. See `docs/webgpu.md`.
+outside its canvas.
