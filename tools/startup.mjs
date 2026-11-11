@@ -1,14 +1,4 @@
 // @ts-check
-// Time to first frame: runs an app with --startup several times and reports
-// the median of each phase (process start to the first frame on screen; see
-// packages/glim-toolkit-host/include/glim/toolkit/host/Startup.h).
-//
-//   node tools/startup.mjs <app> [--runs N] [--cold] [--budget ms] [--base <app>] [-- app args]
-//
-//   --cold    every run misses the system shader cache, as on the first launch
-//             after an install (Metal; elsewhere runs are as warm as the OS leaves them)
-//   --budget  exit 1 when the median total exceeds this many ms
-//   --base    A/B: also run this binary, interleaved with <app>, and print the delta
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
@@ -74,7 +64,6 @@ const median = (v) => {
 const samples = [new Map(), new Map()];
 const bins = base ? [app, base] : [app];
 for (let r = 0; r < runs; ++r) {
-  // Interleaved, so drift (thermals, background work) hits both sides alike.
   bins.forEach((bin, side) => {
     for (const [phase, ms] of sample(bin)) {
       const list = samples[side].get(phase) ?? [];

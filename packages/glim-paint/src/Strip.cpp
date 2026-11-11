@@ -504,10 +504,6 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
     for (std::size_t i = 0; i + 1 < n; ++i) {
       const Vec2 a = pts[i], b = pts[i + 1];
       if (cy < std::min(a.y, b.y) - pad || cy > std::max(a.y, b.y) + pad) continue;
-      // Only the part of the segment within pad of this row can cover its pixels, so
-      // distances are evaluated over that reach alone (long diagonals cost width x
-      // height otherwise). The scan keeps the whole x-range: run merging below
-      // depends on it, and pixels out of every reach are zero anyway.
       float t0 = 0.f, t1 = 1.f;
       const float dy = b.y - a.y;
       if (std::fabs(dy) > 1e-6f) {
@@ -516,7 +512,6 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
         t1 = std::min(1.f, std::max(ta, tb));
       }
       const float xa = a.x + (b.x - a.x) * t0, xb = a.x + (b.x - a.x) * t1;
-      // One extra pixel absorbs rounding in the clip; it only adds zero coverage.
       const int lo = static_cast<int>(std::floor(std::min(xa, xb) - pad - 1.f));
       const int hi = static_cast<int>(std::ceil(std::max(xa, xb) + pad + 1.f));
       active.push_back({i, lo, hi});
@@ -542,7 +537,6 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
           float best = 1e9f;
           const Vec2 p{static_cast<float>(x) + 0.5f, cy};
           for (const Reach& r : active) {
-            // A segment out of reach is over pad away: it never sets coverage.
             if (x < r.lo || x > r.hi) continue;
             float t = 0.f, len = 0.f;
             best = std::min(best, segDist(p, pts[r.segment], pts[r.segment + 1], t, len));

@@ -60,10 +60,7 @@ int run(
     startup = std::make_unique<StartupReport>();
     startup->mark("launch");
   }
-  // First-paint phases are marked once; `presented` then ends the run.
   bool firstPainted = false;
-  // Ms since process start, set by the present callback (any thread; shared,
-  // as it can outlive this loop); -1 once reported.
   const auto presentedAt = std::make_shared<std::atomic<double>>(0.0);
   const auto startupMark = [&](const char* phase) {
     if (startup && !firstPainted) startup->mark(phase);
@@ -204,8 +201,6 @@ int run(
       syncSeats(window, context.scene(), attached, effective);
     }
 #if GLIM_SOFTWARE
-    // Device pixels: the layer shows the buffer at the backing scale, so a
-    // logical-size buffer fills a quarter of a Retina window.
     const Vec2 drawable = window.drawableSize();
     const int w = std::max(1, static_cast<int>(std::lround(drawable.x)));
     const int h = std::max(1, static_cast<int>(std::lround(drawable.y)));

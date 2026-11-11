@@ -77,8 +77,6 @@ int glimRunExample(
         }
         context.finish();
 #if GLIM_SOFTWARE
-        // Device pixels: the layer shows the buffer at the backing
-        // scale.
         const glim::Vec2 drawable = window.drawableSize();
         const int w =
             std::max(1, static_cast<int>(std::lround(drawable.x)));

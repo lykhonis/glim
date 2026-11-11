@@ -1220,12 +1220,8 @@ FlatShape flattenShape(const Shape& s, const Mat4& world, const ClipState& clip)
   return f;
 }
 
-// Below this a group flattens inline; thread start-up would cost more.
 constexpr std::size_t kParallelShapes = 256;
 
-// Flattening is pure per shape and dominates big vector scenes (a baked
-// city: 40k polylines), so large groups flatten across cores up front.
-// The fill below stays serial and in order, so pixels do not change.
 std::vector<FlatShape> flattenShapes(const Group& g, const Mat4& world, const ClipState& clip) {
   std::vector<FlatShape> flat;
   if (g.shapes.size() < kParallelShapes) return flat;

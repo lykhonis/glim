@@ -73,9 +73,6 @@ std::uint64_t mix64(std::uint64_t x) {
   return x ^ (x >> 33);
 }
 
-// Pixel content key. Byte-serial FNV over a full-screen image cost a
-// first frame ~13 ms; four independent lanes of 8-byte words do not
-// wait on each other's multiply.
 std::uint64_t hashPixels(const std::uint8_t* p, std::size_t n) {
   constexpr std::uint64_t kLaneSeed[4] = {
       0x9e3779b97f4a7c15ull, 0xbf58476d1ce4e5b9ull, 0x94d049bb133111ebull, 0x2545f4914f6cdd1dull

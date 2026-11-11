@@ -21,8 +21,6 @@ struct GlyphSdf {
   int w = 0, h = 0, xoff = 0, yoff = 0;
 };
 
-// Glyph SDFs are independent and dominate the bake (~20 ms serial), so they
-// are rendered across cores; packing stays serial, so the atlas is unchanged.
 std::vector<GlyphSdf> renderSdfs(const stbtt_fontinfo& info, float scale) {
   const float pixelDistScale = static_cast<float>(kSdfOnEdge) / static_cast<float>(kSdfPad);
   std::vector<GlyphSdf> sdfs(kEndGlyph - kFirstGlyph);

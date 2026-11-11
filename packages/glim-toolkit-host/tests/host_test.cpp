@@ -408,8 +408,6 @@ int main() {
     assert(frozen.stalled() && frozen.summary().find("1 frame gaps") != std::string::npos);
   }
 
-  // Startup report: each phase is the time since the previous mark, and
-  // tools/startup.mjs parses these exact lines.
   {
     namespace host = glim::toolkit::host;
     host::StartupReport r;

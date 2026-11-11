@@ -74,7 +74,6 @@ class Renderer {
     float offsets[8];
   };
   struct Pipelines {
-    // Starts compiling every shader in the background; ensure() then waits less.
     void prepare(gpu::Device& device);
     bool ensure(gpu::Device& device);
     gpu::Pipeline solid{};

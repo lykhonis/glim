@@ -337,7 +337,6 @@ int main() {
     }
   }
 
-  // A Retina target (2x the logical size): logical x 10..20 lands on 20..40.
   {
     glim::paint::Context ctx;
     ctx.setSize({20, 10});

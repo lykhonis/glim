@@ -394,8 +394,6 @@ int main() {
     expect(hb == plainB, "shared cache does not corrupt later hashes");
   }
 
-  // 11b. Any single changed byte changes the fingerprint, in the 32-byte
-  // lanes and in the tail they leave (5x3 RGBA = 60 bytes: 32 + 28).
   {
     auto hashOf = [](const std::vector<std::uint8_t>& px) {
       glim::paint::Context ctx;

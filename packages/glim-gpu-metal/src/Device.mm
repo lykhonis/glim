@@ -36,7 +36,6 @@ struct Device::Impl {
   // Shared with completion handlers, which may outlive the device.
   std::shared_ptr<std::atomic<float>> gpuMs = std::make_shared<std::atomic<float>>(0.f);
   std::function<void()> onPresented;
-  // Background compiles from prepareShaders; createShaders waits on them.
   dispatch_group_t compiling = nil;
   Queue queueWrapper;
   Handle next = 1;
@@ -209,8 +208,6 @@ void CommandEncoder::submit(Queue&) {
       fn();
     }];
 #else
-    // The iOS SDK does not declare addPresentedHandler; scheduled is the
-    // closest point: the frame is handed to the display.
     [impl_->commandBuffer addScheduledHandler:^(id<MTLCommandBuffer>) {
       fn();
     }];
@@ -518,8 +515,6 @@ NSString* shaderText(const ShaderSource& source) {
   NSString* text = [[NSString alloc] initWithBytes:source.code
                                             length:static_cast<NSUInteger>(source.size)
                                           encoding:NSUTF8StringEncoding];
-  // Startup profiling: a per-process comment misses the system shader
-  // cache, so a run measures a first launch after install.
   static const bool cold = std::getenv("GLIM_METAL_COLD_SHADERS") != nullptr;
   return cold ? [text stringByAppendingFormat:@"\n// cold %d\n", getpid()] : text;
 }
@@ -527,8 +522,6 @@ NSString* shaderText(const ShaderSource& source) {
 }  // namespace
 
 void Device::prepareShaders(std::span<const ShaderSource> sources) {
-  // The libraries are dropped: compiling fills the system shader cache,
-  // which the createShaders that follows then hits.
   if (!impl_->compiling) {
     impl_->compiling = dispatch_group_create();
   }
@@ -554,8 +547,6 @@ std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> 
     dispatch_group_wait(impl_->compiling, DISPATCH_TIME_FOREVER);
     impl_->compiling = nil;
   }
-  // Each library is an independent source compile (~50 ms when the system
-  // shader cache is cold), so the batch compiles across cores.
   const std::size_t n = sources.size();
   NSMutableArray* libraries = [NSMutableArray arrayWithCapacity:n];
   NSMutableArray* errors = [NSMutableArray arrayWithCapacity:n];

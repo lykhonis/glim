@@ -1,43 +1,41 @@
-const {serveStatic} = require('./serve');
-const {spawn, spawnSync} = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+const { serveStatic } = require("./serve");
+const { spawn, spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 function xcrun(args, opts = {}) {
-  return spawnSync('xcrun', args, {encoding: 'utf8', ...opts});
+  return spawnSync("xcrun", args, { encoding: "utf8", ...opts });
 }
 
 function timedOut(r) {
-  return Boolean(r && r.error && (r.error.code === 'ETIMEDOUT' || r.signal));
+  return Boolean(r && r.error && (r.error.code === "ETIMEDOUT" || r.signal));
 }
 
 function simulatorWindowOrientation(udid) {
-  const plist = `${process.env.HOME || ''}/Library/Preferences/com.apple.iphonesimulator.plist`;
+  const plist = `${process.env.HOME || ""}/Library/Preferences/com.apple.iphonesimulator.plist`;
   const r = spawnSync(
-      'plutil',
-      ['-extract', `DevicePreferences.${udid}.SimulatorWindowOrientation`, 'raw', plist],
-      {encoding: 'utf8'},
+    "plutil",
+    ["-extract", `DevicePreferences.${udid}.SimulatorWindowOrientation`, "raw", plist],
+    { encoding: "utf8" },
   );
   if (r.status !== 0) {
-    return '';
+    return "";
   }
-  return (r.stdout || '').trim();
+  return (r.stdout || "").trim();
 }
 
 function fail(message) {
   console.error(message);
-  return {success: false};
+  return { success: false };
 }
 
-// Smoke runs: the app must survive this long after launch. A debug build
-// aborts on any failed assert, so a dead process is a failed run.
 function smokeSeconds(options) {
   return Number(options.smoke) > 0 ? Number(options.smoke) : 0;
 }
 
 function hold(seconds) {
-  spawnSync('sleep', [String(seconds)]);
+  spawnSync("sleep", [String(seconds)]);
 }
 
 function alive(pid) {
@@ -51,17 +49,17 @@ function alive(pid) {
 
 function tail(file, lines) {
   if (!fs.existsSync(file)) {
-    return '';
+    return "";
   }
-  return fs.readFileSync(file, 'utf8').split('\n').slice(-lines).join('\n');
+  return fs.readFileSync(file, "utf8").split("\n").slice(-lines).join("\n");
 }
 
 function resolveAppBundle(exe) {
-  if (exe.endsWith('.app') && fs.existsSync(exe)) {
+  if (exe.endsWith(".app") && fs.existsSync(exe)) {
     return exe;
   }
   const dir = path.dirname(exe);
-  if (dir.endsWith('.app') && fs.existsSync(dir)) {
+  if (dir.endsWith(".app") && fs.existsSync(dir)) {
     return dir;
   }
   if (fs.existsSync(`${exe}.app`)) {
@@ -72,10 +70,10 @@ function resolveAppBundle(exe) {
 
 function runtimeKind(runtime) {
   if (/tvOS/i.test(runtime)) {
-    return 'tvos';
+    return "tvos";
   }
   if (/iOS/i.test(runtime)) {
-    return 'ios';
+    return "ios";
   }
   return null;
 }
@@ -89,27 +87,27 @@ function runtimeVersion(runtime) {
 }
 
 function listDevices() {
-  const listed = xcrun(['simctl', 'list', 'devices', '-j']);
+  const listed = xcrun(["simctl", "list", "devices", "-j"]);
   if (listed.status !== 0) {
-    const err = ((listed.stderr || (listed.error && listed.error.message) || '').trim());
-    return {error: err || 'xcrun simctl list failed'};
+    const err = ((listed.stderr || (listed.error && listed.error.message) || "").trim());
+    return { error: err || "xcrun simctl list failed" };
   }
   try {
-    return {data: JSON.parse(listed.stdout)};
+    return { data: JSON.parse(listed.stdout) };
   } catch (err) {
-    return {error: `could not parse simctl JSON: ${err.message}`};
+    return { error: `could not parse simctl JSON: ${err.message}` };
   }
 }
 
 function retry(times, delaySec, fn) {
-  let last = {status: 1};
+  let last = { status: 1 };
   for (let i = 0; i < times; i++) {
     last = fn();
     if (last.status === 0) {
       return last;
     }
     if (i + 1 < times) {
-      spawnSync('sleep', [String(delaySec)]);
+      spawnSync("sleep", [String(delaySec)]);
     }
   }
   return last;
@@ -118,10 +116,10 @@ function retry(times, delaySec, fn) {
 function pickSimulator(kind, nameHint) {
   const listed = listDevices();
   if (listed.error) {
-    return {error: listed.error};
+    return { error: listed.error };
   }
 
-  const hint = (nameHint || '').toLowerCase();
+  const hint = (nameHint || "").toLowerCase();
   const candidates = [];
   for (const [runtime, devices] of Object.entries(listed.data.devices || {})) {
     if (runtimeKind(runtime) !== kind) {
@@ -131,25 +129,27 @@ function pickSimulator(kind, nameHint) {
       if (device.isAvailable === false) {
         continue;
       }
-      if (hint && !String(device.name || '').toLowerCase().includes(hint)) {
+      if (hint && !String(device.name || "").toLowerCase().includes(hint)) {
         continue;
       }
-      candidates.push({...device, runtime});
+      candidates.push({ ...device, runtime });
     }
   }
   if (candidates.length === 0) {
-    const platform = kind === 'tvos' ? 'tvOS' : 'iOS';
+    const platform = kind === "tvos" ? "tvOS" : "iOS";
     return {
-      error: `No available ${platform} simulator.` + (hint ? ` None matched "${nameHint}".` : '') +
-          `\nInstall a ${platform} runtime (Xcode > Settings > Platforms) or:\n` +
-          `  xcodebuild -downloadPlatform ${platform}`,
+      error:
+        `No available ${platform} simulator.` +
+        (hint ? ` None matched "${nameHint}".` : "") +
+        `\nInstall a ${platform} runtime (Xcode > Settings > Platforms) or:\n` +
+        `  xcodebuild -downloadPlatform ${platform}`,
     };
   }
 
-  const preferredName = kind === 'tvos' ? /apple tv/i : /iphone/i;
+  const preferredName = kind === "tvos" ? /apple tv/i : /iphone/i;
   candidates.sort((a, b) => {
-    const aBoot = a.state === 'Booted' ? 1 : 0;
-    const bBoot = b.state === 'Booted' ? 1 : 0;
+    const aBoot = a.state === "Booted" ? 1 : 0;
+    const bBoot = b.state === "Booted" ? 1 : 0;
     if (aBoot !== bBoot) {
       return bBoot - aBoot;
     }
@@ -164,14 +164,14 @@ function pickSimulator(kind, nameHint) {
     }
     return String(a.name).localeCompare(String(b.name));
   });
-  return {device: candidates[0]};
+  return { device: candidates[0] };
 }
 
 function runOnSimulator(options, app) {
   const kind = options.simulator;
   const bundleId = options.bundleId;
   if (!bundleId) {
-    return fail('@glim/native:run with simulator requires options.bundleId');
+    return fail("@glim/native:run with simulator requires options.bundleId");
   }
 
   const picked = pickSimulator(kind, options.device);
@@ -181,19 +181,19 @@ function runOnSimulator(options, app) {
   const device = picked.device;
   console.log(`Simulator: ${device.name} (${device.runtime}, ${device.state})`);
 
-  if (device.state !== 'Booted') {
-    const boot = xcrun(['simctl', 'boot', device.udid], {encoding: 'utf8'});
-    const err = (boot.stderr || boot.stdout || '').trim();
+  if (device.state !== "Booted") {
+    const boot = xcrun(["simctl", "boot", device.udid], { encoding: "utf8" });
+    const err = (boot.stderr || boot.stdout || "").trim();
     if (boot.status !== 0 && !/current state:/i.test(err)) {
-      return fail(`simctl boot failed: ${err || 'unknown error'}`);
+      return fail(`simctl boot failed: ${err || "unknown error"}`);
     }
   }
 
-  spawnSync('open', ['-a', 'Simulator'], {stdio: 'ignore'});
+  spawnSync("open", ["-a", "Simulator"], { stdio: "ignore" });
 
-  if (device.state !== 'Booted') {
-    const ready = xcrun(['simctl', 'bootstatus', device.udid, '-b'], {
-      stdio: 'inherit',
+  if (device.state !== "Booted") {
+    const ready = xcrun(["simctl", "bootstatus", device.udid, "-b"], {
+      stdio: "inherit",
       timeout: 180000,
     });
     if (ready.status !== 0 && !timedOut(ready)) {
@@ -201,26 +201,22 @@ function runOnSimulator(options, app) {
     }
   }
 
-  const sign = spawnSync('codesign', ['--force', '--sign', '-', '--timestamp=none', app], {
-    encoding: 'utf8',
+  const sign = spawnSync("codesign", ["--force", "--sign", "-", "--timestamp=none", app], {
+    encoding: "utf8",
   });
   if (sign.status !== 0) {
-    const err = (sign.stderr || sign.stdout || '').trim();
-    return fail(`codesign failed: ${err || 'unknown error'}`);
+    const err = (sign.stderr || sign.stdout || "").trim();
+    return fail(`codesign failed: ${err || "unknown error"}`);
   }
 
   console.log(`Installing ${app}`);
-  let install = retry(
-      3,
-      1,
-      () => xcrun(['simctl', 'install', device.udid, app], {stdio: 'inherit', timeout: 30000}),
+  let install = retry(3, 1, () =>
+    xcrun(["simctl", "install", device.udid, app], { stdio: "inherit", timeout: 30000 }),
   );
   if (install.status !== 0) {
-    xcrun(['simctl', 'uninstall', device.udid, bundleId], {stdio: 'ignore', timeout: 10000});
-    install = retry(
-        3,
-        1,
-        () => xcrun(['simctl', 'install', device.udid, app], {stdio: 'inherit', timeout: 30000}),
+    xcrun(["simctl", "uninstall", device.udid, bundleId], { stdio: "ignore", timeout: 10000 });
+    install = retry(3, 1, () =>
+      xcrun(["simctl", "install", device.udid, app], { stdio: "inherit", timeout: 30000 }),
     );
   }
   if (install.status !== 0) {
@@ -229,70 +225,71 @@ function runOnSimulator(options, app) {
 
   console.log(`Launching ${bundleId} on ${device.name}`);
   const args = Array.isArray(options.args) ? options.args : [];
-  const env = {...process.env};
+  const env = { ...process.env };
   const simOrient = simulatorWindowOrientation(device.udid);
   if (/landscape/i.test(simOrient)) {
-    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = 'landscape';
+    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = "landscape";
   } else if (/portrait/i.test(simOrient)) {
-    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = 'portrait';
+    env.SIMCTL_CHILD_GLIM_SIM_ORIENTATION = "portrait";
   }
   if (simOrient) {
     console.log(`Simulator window: ${simOrient}`);
   }
   const smoke = smokeSeconds(options);
-  const logDir = smoke ? fs.mkdtempSync(path.join(os.tmpdir(), 'glim-smoke-')) : '';
-  const stdio = smoke ?
-      [`--stdout=${path.join(logDir, 'out.log')}`, `--stderr=${path.join(logDir, 'err.log')}`] :
-      [];
+  const logDir = smoke ? fs.mkdtempSync(path.join(os.tmpdir(), "glim-smoke-")) : "";
+  const stdio = smoke
+    ? [`--stdout=${path.join(logDir, "out.log")}`, `--stderr=${path.join(logDir, "err.log")}`]
+    : [];
   const launch = xcrun(
-      ['simctl', 'launch', '--terminate-running-process', ...stdio, device.udid, bundleId, ...args],
-      {encoding: 'utf8', timeout: 15000, env},
+    ["simctl", "launch", "--terminate-running-process", ...stdio, device.udid, bundleId, ...args],
+    { encoding: "utf8", timeout: 15000, env },
   );
   if (launch.status !== 0) {
-    const err =
-        (launch.stderr || launch.stdout || (launch.error && launch.error.message) || '').trim();
-    return fail(`simctl launch failed: ${err || 'unknown error'}`);
+    const err = (launch.stderr || launch.stdout || (launch.error && launch.error.message) || "").trim();
+    return fail(`simctl launch failed: ${err || "unknown error"}`);
   }
-  const launched = (launch.stdout || '').trim();
+  const launched = (launch.stdout || "").trim();
   if (launched) {
     console.log(launched);
   }
   if (!smoke) {
-    return {success: true};
+    return { success: true };
   }
-  // Simulator apps are host processes; simctl prints "<bundleId>: <pid>".
   const pid = Number((launched.match(/:\s*(\d+)\s*$/) || [])[1]);
   if (!pid) {
     return fail(`smoke: no pid in simctl launch output: ${launched}`);
   }
   hold(smoke);
   const survived = alive(pid);
-  xcrun(['simctl', 'terminate', device.udid, bundleId], {stdio: 'ignore', timeout: 10000});
+  xcrun(["simctl", "terminate", device.udid, bundleId], { stdio: "ignore", timeout: 10000 });
   if (!survived) {
     return fail(
-        `smoke: ${bundleId} died within ${smoke}s on ${device.name}\n` +
-            tail(path.join(logDir, 'err.log'), 40),
+      `smoke: ${bundleId} died within ${smoke}s on ${device.name}\n` +
+        tail(path.join(logDir, "err.log"), 40),
     );
   }
   console.log(`smoke: ${bundleId} alive after ${smoke}s on ${device.name}`);
-  return {success: true};
+  return { success: true };
 }
 
 function which(cmd) {
-  const bin = process.platform === 'win32' ? 'where' : 'which';
-  const r = spawnSync(bin, [cmd], {encoding: 'utf8'});
+  const bin = process.platform === "win32" ? "where" : "which";
+  const r = spawnSync(bin, [cmd], { encoding: "utf8" });
   if (r.status !== 0) {
     return null;
   }
-  return (r.stdout || '').split(/\r?\n/).map((s) => s.trim()).find(Boolean) || null;
+  return (r.stdout || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .find(Boolean) || null;
 }
 
 function androidSdkRoot() {
   const candidates = [
     process.env.ANDROID_HOME,
     process.env.ANDROID_SDK_ROOT,
-    path.join(os.homedir(), 'Library', 'Android', 'sdk'),
-    path.join(os.homedir(), 'Android', 'Sdk'),
+    path.join(os.homedir(), "Library", "Android", "sdk"),
+    path.join(os.homedir(), "Android", "Sdk"),
   ].filter(Boolean);
   for (const dir of candidates) {
     if (fs.existsSync(dir)) {
@@ -310,65 +307,67 @@ function androidTool(sdk, rel) {
   if (fs.existsSync(p)) {
     return p;
   }
-  if (process.platform === 'win32' && fs.existsSync(`${p}.exe`)) {
+  if (process.platform === "win32" && fs.existsSync(`${p}.exe`)) {
     return `${p}.exe`;
   }
   return null;
 }
 
 function findAdb(sdk) {
-  return androidTool(sdk, ['platform-tools', 'adb']) || which('adb');
+  return androidTool(sdk, ["platform-tools", "adb"]) || which("adb");
 }
 
 function findEmulator(sdk) {
-  return androidTool(sdk, ['emulator', 'emulator']) || which('emulator');
+  return androidTool(sdk, ["emulator", "emulator"]) || which("emulator");
 }
 
 function matchesHint(text, hint) {
   if (!hint) {
     return true;
   }
-  return String(text || '').toLowerCase().includes(hint);
+  return String(text || "").toLowerCase().includes(hint);
 }
 
 function listAdbDevices(adbPath) {
-  const r = spawnSync(adbPath, ['devices', '-l'], {encoding: 'utf8'});
+  const r = spawnSync(adbPath, ["devices", "-l"], { encoding: "utf8" });
   if (r.status !== 0) {
-    const err = ((r.stderr || r.stdout || '').trim());
-    return {error: err || 'adb devices failed'};
+    const err = ((r.stderr || r.stdout || "").trim());
+    return { error: err || "adb devices failed" };
   }
   const devices = [];
-  for (const line of (r.stdout || '').split('\n')) {
-    const m =
-        line.match(/^(\S+)\s+(device|offline|unauthorized|authorizing|no permissions)\s*(.*)$/);
+  for (const line of (r.stdout || "").split("\n")) {
+    const m = line.match(/^(\S+)\s+(device|offline|unauthorized|authorizing|no permissions)\s*(.*)$/);
     if (!m) {
       continue;
     }
     const serial = m[1];
-    const rest = m[3] || '';
-    const model = (rest.match(/model:(\S+)/) || [])[1] || '';
-    const product = (rest.match(/product:(\S+)/) || [])[1] || '';
+    const rest = m[3] || "";
+    const model = (rest.match(/model:(\S+)/) || [])[1] || "";
+    const product = (rest.match(/product:(\S+)/) || [])[1] || "";
     devices.push({
       serial,
       state: m[2],
       model,
       product,
-      avd: '',
-      emulator: serial.startsWith('emulator-'),
+      avd: "",
+      emulator: serial.startsWith("emulator-"),
       name: model || product || serial,
     });
   }
-  return {devices};
+  return { devices };
 }
 
 function listAvds(emulatorPath) {
-  const r = spawnSync(emulatorPath, ['-list-avds'], {encoding: 'utf8'});
+  const r = spawnSync(emulatorPath, ["-list-avds"], { encoding: "utf8" });
   if (r.status !== 0) {
-    const err = ((r.stderr || r.stdout || '').trim());
-    return {error: err || 'emulator -list-avds failed'};
+    const err = ((r.stderr || r.stdout || "").trim());
+    return { error: err || "emulator -list-avds failed" };
   }
   return {
-    avds: (r.stdout || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+    avds: (r.stdout || "")
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean),
   };
 }
 
@@ -378,21 +377,22 @@ function waitForAndroidDevice(adbPath, serial, timeoutMs, emulatorOnly, excludeS
     const listed = listAdbDevices(adbPath);
     if (!listed.error) {
       const ready = listed.devices.filter(
-          (d) => d.state === 'device' && (!emulatorOnly || d.emulator) &&
-              (!excludeSerials || !excludeSerials.has(d.serial)),
+        (d) =>
+          d.state === "device" &&
+          (!emulatorOnly || d.emulator) &&
+          (!excludeSerials || !excludeSerials.has(d.serial)),
       );
       const d = serial ? ready.find((x) => x.serial === serial) : ready[0];
       if (d) {
-        const boot =
-            spawnSync(adbPath, ['-s', d.serial, 'shell', 'getprop', 'sys.boot_completed'], {
-              encoding: 'utf8',
-            });
-        if ((boot.stdout || '').trim() === '1') {
+        const boot = spawnSync(adbPath, ["-s", d.serial, "shell", "getprop", "sys.boot_completed"], {
+          encoding: "utf8",
+        });
+        if ((boot.stdout || "").trim() === "1") {
           return d;
         }
       }
     }
-    spawnSync('sleep', ['1']);
+    spawnSync("sleep", ["1"]);
   }
   return null;
 }
@@ -402,11 +402,11 @@ function fillAvdNames(adbPath, devices) {
     if (!d.emulator) {
       continue;
     }
-    const name = spawnSync(adbPath, ['-s', d.serial, 'emu', 'avd', 'name'], {
-      encoding: 'utf8',
+    const name = spawnSync(adbPath, ["-s", d.serial, "emu", "avd", "name"], {
+      encoding: "utf8",
       timeout: 2000,
     });
-    const avd = (name.stdout || '').split(/\r?\n/).map((s) => s.trim()).find(Boolean) || '';
+    const avd = (name.stdout || "").split(/\r?\n/).map((s) => s.trim()).find(Boolean) || "";
     if (avd) {
       d.avd = avd;
       d.name = avd;
@@ -415,15 +415,15 @@ function fillAvdNames(adbPath, devices) {
 }
 
 function pickAndroid(adbPath, emulatorPath, nameHint) {
-  const hint = (nameHint || '').toLowerCase();
+  const hint = (nameHint || "").toLowerCase();
   const listed = listAdbDevices(adbPath);
   if (listed.error) {
-    return {error: listed.error};
+    return { error: listed.error };
   }
   fillAvdNames(adbPath, listed.devices);
 
   const online = listed.devices.filter((d) => {
-    if (d.state !== 'device') {
+    if (d.state !== "device") {
       return false;
     }
     return matchesHint(`${d.serial} ${d.name} ${d.model} ${d.product} ${d.avd}`, hint);
@@ -437,33 +437,36 @@ function pickAndroid(adbPath, emulatorPath, nameHint) {
     return String(a.name).localeCompare(String(b.name));
   });
   if (online.length > 0) {
-    return {device: online[0]};
+    return { device: online[0] };
   }
 
   if (hint) {
     const serialMatch = listed.devices.find((d) => d.serial.toLowerCase() === hint);
-    if (serialMatch && serialMatch.state !== 'device') {
-      return {device: serialMatch};
+    if (serialMatch && serialMatch.state !== "device") {
+      return { device: serialMatch };
     }
   }
 
   if (!emulatorPath) {
     return {
-      error: 'No Android device connected, and the emulator binary was not found.\n' +
-          'Connect a device with USB debugging, or install Android emulator:\n' +
-          '  sdkmanager emulator',
+      error:
+        "No Android device connected, and the emulator binary was not found.\n" +
+        "Connect a device with USB debugging, or install Android emulator:\n" +
+        "  sdkmanager emulator",
     };
   }
 
   const avds = listAvds(emulatorPath);
   if (avds.error) {
-    return {error: avds.error};
+    return { error: avds.error };
   }
   const candidates = avds.avds.filter((name) => matchesHint(name, hint));
   if (candidates.length === 0) {
     return {
-      error: 'No Android device or emulator.' + (hint ? ` None matched "${nameHint}".` : '') +
-          '\nConnect a device, or create an AVD in Android Studio (Device Manager).',
+      error:
+        "No Android device or emulator." +
+        (hint ? ` None matched "${nameHint}".` : "") +
+        "\nConnect a device, or create an AVD in Android Studio (Device Manager).",
     };
   }
   candidates.sort((a, b) => {
@@ -471,16 +474,16 @@ function pickAndroid(adbPath, emulatorPath, nameHint) {
     const d = score(b) - score(a);
     return d !== 0 ? d : a.localeCompare(b);
   });
-  return {avd: candidates[0]};
+  return { avd: candidates[0] };
 }
 
 function bootAvd(emulatorPath, sdk, avd) {
-  const child = spawn(emulatorPath, ['-avd', avd], {
+  const child = spawn(emulatorPath, ["-avd", avd], {
     detached: true,
-    stdio: 'ignore',
+    stdio: "ignore",
     env: {
       ...process.env,
-      ...(sdk ? {ANDROID_HOME: sdk, ANDROID_SDK_ROOT: sdk} : {}),
+      ...(sdk ? { ANDROID_HOME: sdk, ANDROID_SDK_ROOT: sdk } : {}),
     },
   });
   child.unref();
@@ -489,18 +492,18 @@ function bootAvd(emulatorPath, sdk, avd) {
 function runOnAndroid(options, apk) {
   const pkg = options.packageName;
   if (!pkg) {
-    return fail('@glim/native:run with android requires options.packageName');
+    return fail("@glim/native:run with android requires options.packageName");
   }
 
   const sdk = androidSdkRoot();
   const adbPath = findAdb(sdk);
   if (!adbPath) {
     return fail(
-        'adb not found. Set ANDROID_HOME, or install platform-tools:\n' +
-            '  sdkmanager platform-tools',
+      "adb not found. Set ANDROID_HOME, or install platform-tools:\n" +
+        "  sdkmanager platform-tools",
     );
   }
-  spawnSync(adbPath, ['start-server'], {stdio: 'ignore'});
+  spawnSync(adbPath, ["start-server"], { stdio: "ignore" });
 
   const emulatorPath = findEmulator(sdk);
   const picked = pickAndroid(adbPath, emulatorPath, options.device);
@@ -530,86 +533,84 @@ function runOnAndroid(options, apk) {
   }
 
   console.log(`Installing ${apk}`);
-  const install = retry(
-      5,
-      2,
-      () => spawnSync(adbPath, ['-s', serial, 'install', '-r', '-t', apk], {stdio: 'inherit'}),
+  const install = retry(5, 2, () =>
+    spawnSync(adbPath, ["-s", serial, "install", "-r", "-t", apk], { stdio: "inherit" }),
   );
   if (install.status !== 0) {
     return fail(`adb install failed for ${apk}`);
   }
 
   const component = `${pkg}/android.app.NativeActivity`;
-  spawnSync(adbPath, ['-s', serial, 'shell', 'am', 'force-stop', pkg], {stdio: 'ignore'});
+  spawnSync(adbPath, ["-s", serial, "shell", "am", "force-stop", pkg], { stdio: "ignore" });
   const smoke = smokeSeconds(options);
   if (smoke) {
-    spawnSync(adbPath, ['-s', serial, 'logcat', '-c'], {stdio: 'ignore'});
+    spawnSync(adbPath, ["-s", serial, "logcat", "-c"], { stdio: "ignore" });
   }
   console.log(`Launching ${component} on ${serial}`);
   const args = Array.isArray(options.args) ? options.args : [];
   const launch = spawnSync(
-      adbPath,
-      ['-s', serial, 'shell', 'am', 'start', '-n', component, ...args],
-      {stdio: 'inherit'},
+    adbPath,
+    ["-s", serial, "shell", "am", "start", "-n", component, ...args],
+    { stdio: "inherit" },
   );
   if (launch.error) {
     return fail(launch.error.message);
   }
   if (launch.status !== 0 || !smoke) {
-    return {success: launch.status === 0};
+    return { success: launch.status === 0 };
   }
   hold(smoke);
-  const pid = spawnSync(adbPath, ['-s', serial, 'shell', 'pidof', pkg], {encoding: 'utf8'});
-  const survived = (pid.stdout || '').trim() !== '';
-  spawnSync(adbPath, ['-s', serial, 'shell', 'am', 'force-stop', pkg], {stdio: 'ignore'});
+  const pid = spawnSync(adbPath, ["-s", serial, "shell", "pidof", pkg], { encoding: "utf8" });
+  const survived = (pid.stdout || "").trim() !== "";
+  spawnSync(adbPath, ["-s", serial, "shell", "am", "force-stop", pkg], { stdio: "ignore" });
   if (!survived) {
-    const log = spawnSync(adbPath, ['-s', serial, 'logcat', '-d', '-v', 'brief'], {
-      encoding: 'utf8',
+    const log = spawnSync(adbPath, ["-s", serial, "logcat", "-d", "-v", "brief"], {
+      encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     });
-    const relevant = (log.stdout || '')
-                         .split('\n')
-                         .filter((l) => /glim|Glim|FATAL|AndroidRuntime|DEBUG|libc/.test(l))
-                         .slice(-60)
-                         .join('\n');
+    const relevant = (log.stdout || "")
+      .split("\n")
+      .filter((l) => /glim|Glim|FATAL|AndroidRuntime|DEBUG|libc/.test(l))
+      .slice(-60)
+      .join("\n");
     return fail(`smoke: ${pkg} died within ${smoke}s on ${serial}\n${relevant}`);
   }
   console.log(`smoke: ${pkg} alive after ${smoke}s on ${serial}`);
-  return {success: true};
+  return { success: true };
 }
 
 function runInBrowser(root, preset, options) {
   if (!options.serveDir) {
-    return fail('@glim/native:run with browser requires options.serveDir');
+    return fail("@glim/native:run with browser requires options.serveDir");
   }
-  const dir = path.isAbsolute(options.serveDir) ?
-      options.serveDir :
-      path.join(root, 'build', preset, options.serveDir);
-  if (!fs.existsSync(path.join(dir, 'index.html'))) {
+  const dir = path.isAbsolute(options.serveDir)
+    ? options.serveDir
+    : path.join(root, "build", preset, options.serveDir);
+  if (!fs.existsSync(path.join(dir, "index.html"))) {
     return fail(`missing index.html in ${dir} (build the example first)`);
   }
   const port = options.port || 8080;
   return serveStatic(dir, port).then(
-      ({server}) => {
-        const url = `http://127.0.0.1:${port}/index.html`;
-        console.log(`Serving ${dir}\n  ${url}`);
-        if (options.open !== false) {
-          const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
-          spawn(opener, [url], {stdio: 'ignore', detached: true}).unref();
-        }
-        return new Promise((resolve) => server.on('close', () => resolve({success: true})));
-      },
-      (e) => fail(`cannot serve on port ${port} (${e.message}); retry with --port`),
+    ({ server }) => {
+      const url = `http://127.0.0.1:${port}/index.html`;
+      console.log(`Serving ${dir}\n  ${url}`);
+      if (options.open !== false) {
+        const opener = process.platform === "darwin" ? "open" : "xdg-open";
+        spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+      }
+      return new Promise((resolve) => server.on("close", () => resolve({ success: true })));
+    },
+    (e) => fail(`cannot serve on port ${port} (${e.message}); retry with --port`),
   );
 }
 
 function resolvePreset(preset) {
-  if (process.platform === 'linux') {
+  if (process.platform === "linux") {
     if (!preset || /^macos-/.test(preset)) {
-      return /release/i.test(preset || '') ? 'linux-vulkan-release' : 'linux-vulkan-debug';
+      return /release/i.test(preset || "") ? "linux-vulkan-release" : "linux-vulkan-debug";
     }
   }
-  return preset || 'macos-metal-debug';
+  return preset || "macos-metal-debug";
 }
 
 exports.default = async function runExecutor(options, context) {
@@ -619,10 +620,11 @@ exports.default = async function runExecutor(options, context) {
     return runInBrowser(root, preset, options);
   }
   if (!options.binary) {
-    return fail('@glim/native:run requires options.binary');
+    return fail("@glim/native:run requires options.binary");
   }
-  const exe = path.isAbsolute(options.binary) ? options.binary :
-                                                path.join(root, 'build', preset, options.binary);
+  const exe = path.isAbsolute(options.binary)
+    ? options.binary
+    : path.join(root, "build", preset, options.binary);
 
   if (options.simulator) {
     const app = resolveAppBundle(exe);
@@ -647,21 +649,20 @@ exports.default = async function runExecutor(options, context) {
   if (smoke) {
     return smokeDesktop(exe, args, root, smoke);
   }
-  const r = spawnSync(exe, args, {cwd: root, stdio: 'inherit'});
+  const r = spawnSync(exe, args, { cwd: root, stdio: "inherit" });
   if (r.error) {
     return fail(r.error.message);
   }
-  return {success: r.status === 0};
+  return { success: r.status === 0 };
 };
 
 function smokeDesktop(exe, args, root, seconds) {
-  const child = spawn(exe, args, {cwd: root, stdio: ['ignore', 'inherit', 'inherit']});
+  const child = spawn(exe, args, { cwd: root, stdio: ["ignore", "inherit", "inherit"] });
   let exit = null;
-  child.on('exit', (code, signal) => {
+  child.on("exit", (code, signal) => {
     exit = signal || code;
   });
   return new Promise((resolve) => {
-    // The child's exit event needs the event loop, so wait asynchronously.
     const deadline = Date.now() + seconds * 1000;
     const poll = () => {
       if (exit !== null) {
@@ -669,7 +670,7 @@ function smokeDesktop(exe, args, root, seconds) {
       } else if (Date.now() >= deadline) {
         child.kill();
         console.log(`smoke: ${path.basename(exe)} alive after ${seconds}s`);
-        resolve({success: true});
+        resolve({ success: true });
       } else {
         setTimeout(poll, 100);
       }

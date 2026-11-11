@@ -1208,7 +1208,6 @@ int Device::presentRotationDegrees() const { return 0; }
 
 float Device::lastGpuMs() const { return 0.f; }
 
-// No browser device here, so nothing is ever presented.
 void Device::notifyNextPresented(std::function<void()>) {}
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc&) {
   return Result<FrameTarget>::fail("glim-gpu-webgpu: browser target requires Emscripten");

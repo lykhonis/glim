@@ -10,8 +10,6 @@ void recordGlass(
     bool reduceTransparency
 );
 
-// One scene for now. glimWebSelect stays in the embed contract so pages
-// keep working when more examples return.
 extern "C" void glimWebSelect(int) {}
 
 void recordExample(ExampleFrame& frame) {

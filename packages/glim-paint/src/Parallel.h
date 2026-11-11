@@ -7,8 +7,6 @@
 
 namespace glim::paint {
 
-// Runs fn(i) for every i in [0, count) across cores. Callers write only to
-// slot i, so results do not depend on scheduling.
 template <class Fn>
 void parallelFor(std::size_t count, Fn&& fn) {
   const auto strided = [&](std::size_t begin, std::size_t step) {

@@ -17,7 +17,6 @@ jobs:
         for f in index.html main.js lib/glim.js glim-app.js glim-app.wasm; do
           test -f "$serve/$f" || { echo "missing $serve/$f"; exit 1; }
         done
-        # Size budget: the release toolkit archives, gzipped.
         cmake --preset web-webgpu-release
         cmake --build build/web-webgpu-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-webgpu
         node tools/size-budgets.mjs wasm-toolkit

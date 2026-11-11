@@ -192,9 +192,6 @@ class Device {
   // backend does not measure it. Completion is asynchronous, so during
   // a frame this is usually an earlier frame's cost.
   float lastGpuMs() const;
-  // Calls `fn` once, when the next submitted present reaches the screen
-  // (Metal); backends that cannot observe the display call it once that
-  // present is queued. May run on any thread.
   void notifyNextPresented(std::function<void()> fn);
   Result<FrameTarget> createFrameTarget(const FrameTargetDesc&);
   bool headless() const;
@@ -206,13 +203,7 @@ class Device {
   Result<Texture> wrapNativeTexture(void* native, int width, int height);
   Result<Texture> importSurface(void* surface, int width, int height, SampleFormat);
   Result<Shader> createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size);
-  // One result per source, in order. Backends that compile source at run
-  // time (Metal) compile the batch across cores: a cold start compiles
-  // every shader at once.
   std::vector<Result<Shader>> createShaders(std::span<const ShaderSource> sources);
-  // Starts compiling `sources` in the background where that is slow (Metal),
-  // so a later createShaders of the same sources only waits for the rest.
-  // The sources need not outlive the call. A no-op elsewhere.
   void prepareShaders(std::span<const ShaderSource> sources);
   Result<Pipeline> createPipeline(const PipelineDesc&);
   Result<Bindings> createBindings(const BindingsDesc&);
@@ -227,7 +218,6 @@ class Device {
   std::unique_ptr<Impl> impl_;
 };
 
-// createShaders for backends where creating a shader is cheap: one at a time.
 inline std::vector<Result<Shader>> createShadersInOrder(
     Device& device, std::span<const ShaderSource> sources
 ) {

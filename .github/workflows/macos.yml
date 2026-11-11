@@ -14,12 +14,10 @@ jobs:
         pnpm -s test:host
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
-        # Size budget: the release toolkit archives.
         cmake --preset macos-metal-release
         cmake --build build/macos-metal-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-metal
         node tools/size-budgets.mjs metal-toolkit
 
-  # Launch every example (Metal and software); fail if one dies.
   e2e:
     needs: [build]
     uses: ./.github/workflows/native.yml

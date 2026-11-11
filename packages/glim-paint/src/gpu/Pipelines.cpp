@@ -47,7 +47,6 @@ std::string shaderCode(const char* name, gpu::ShaderStage stage) {
   return {};
 }
 
-// Every pipeline's shaders, compiled as one batch: vertex then fragment per name.
 constexpr const char* kShaderNames[] = {
     "solid",
     "blit",
@@ -94,7 +93,6 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
   }
   gpu::PipelineDesc pd;
   pd.blend = gpu::Blend::SrcOver;
-  // Same order as kShaderNames.
   const struct Entry {
     const char* name;
     bool required;

@@ -58,7 +58,6 @@ struct FrameTargetDesc {
   bool mipmaps = false;
 };
 
-// MSL or WGSL text, or a SPIR-V blob (Vulkan).
 struct ShaderSource {
   ShaderStage stage = ShaderStage::Vertex;
   const char* code = nullptr;

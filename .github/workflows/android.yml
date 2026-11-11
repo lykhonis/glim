@@ -13,13 +13,10 @@ jobs:
       ndk: r26d
       nx: |
         pnpm exec nx run examples:build-android
-        # Size budget: the release toolkit archives, debug info stripped.
         cmake --preset android-arm64-vulkan-release
         cmake --build build/android-arm64-vulkan-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-vulkan glim-volk glim-android-glue
         node tools/size-budgets.mjs android-toolkit
 
-  # Launch every example on an x86_64 emulator (KVM; GitHub's Linux runners
-  # cannot accelerate arm64); fail if one dies.
   e2e:
     needs: [build]
     uses: ./.github/workflows/native.yml

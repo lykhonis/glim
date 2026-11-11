@@ -12,7 +12,6 @@ jobs:
       nx: |
         pnpm exec nx run examples:build-tvos-sim
 
-  # Launch every example on the simulator; fail if one dies.
   e2e:
     needs: [build]
     uses: ./.github/workflows/native.yml

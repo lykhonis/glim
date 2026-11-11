@@ -106,8 +106,6 @@ int main() {
     expect(pkt.stats.backdropCount == 0, "independence: no backdrop pyramid");
   }
 
-  // Glass may follow an overlay (a live smarthome screen does): the second
-  // run starts anew instead of asserting, in every renderer.
   {
     glim::paint::GroupOrder runs;
     expect(!runs.next(false, true), "first glass run is not a restart");

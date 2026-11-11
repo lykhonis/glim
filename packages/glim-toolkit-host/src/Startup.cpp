@@ -42,7 +42,6 @@ double processUptimeMs() {
            static_cast<double>(now.tv_usec - start.tv_usec) / 1000.0;
   }
 #elif defined(__linux__)
-  // Field 22 of /proc/self/stat: start time in clock ticks after boot.
   std::ifstream stat("/proc/self/stat");
   std::string text((std::istreambuf_iterator<char>(stat)), std::istreambuf_iterator<char>());
   const auto paren = text.rfind(')');

@@ -18,9 +18,6 @@ const MB = 1024 * 1024;
 
 /** @typedef {{files: string[], measure: (files: string[]) => number, limit: number}} Budget */
 
-// The whole toolkit a GPU app links: toolkit, host, paint with its GPU
-// encoder, the GPU backend, the shell and image decoding. CPU and embed
-// variants are alternatives to these, so they are not counted.
 /** @param {string} preset @param {string[]} platform package-relative archives */
 function toolkit(preset, platform) {
   return [
@@ -39,7 +36,6 @@ const total = (files) => files.reduce((sum, f) => sum + statSync(f).size, 0);
 
 /** @type {Record<string, Budget>} */
 const budgets = {
-  // Debug info stripped (release archives still carry it on the NDK).
   "android-toolkit": {
     files: toolkit("android-arm64-vulkan-release", [
       "glim-gpu-vulkan/libglim-gpu-vulkan.a",
@@ -58,7 +54,6 @@ const budgets = {
     measure: total,
     limit: 4 * MB,
   },
-  // What a browser downloads scales with the gzipped code.
   "wasm-toolkit": {
     files: toolkit("web-webgpu-release", [
       "glim-gpu-webgpu/libglim-gpu-webgpu.a",
