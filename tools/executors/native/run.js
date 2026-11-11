@@ -242,7 +242,7 @@ function runOnSimulator(options, app) {
     : [];
   const launch = xcrun(
     ["simctl", "launch", "--terminate-running-process", ...stdio, device.udid, bundleId, ...args],
-    { encoding: "utf8", timeout: 15000, env },
+    { encoding: "utf8", timeout: 120000, env },
   );
   if (launch.status !== 0) {
     const err = (launch.stderr || launch.stdout || (launch.error && launch.error.message) || "").trim();
