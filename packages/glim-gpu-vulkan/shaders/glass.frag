@@ -366,14 +366,7 @@ void main() {
         color = mix(mc * Fm + specm, vec3(1.0), bevel);
     } else if (!isWater) {
     const float milkPull = (u.blurEdge > 0.5) ? 0.2 : 0.7;
-    const float milk = (u.lumaOn > 0.5 ? 0.04 : 0.008) * (1.0 - wrapX * milkPull);
-    color = mix(color, vec3(1.0), milk);
-    if (u.lumaOn > 0.5) {
-        const float high = clamp((L - 0.72) / 0.28, 0.0, 1.0);
-        const float low = clamp((0.28 - L) / 0.28, 0.0, 1.0);
-        color *= 1.0 - high * u.lumaShadow;
-        color = mix(color, color + vec3(0.06, 0.07, 0.08), low * u.lumaLift);
-    }
+    // Plate wash: a set tint drives it, else the white milk.
     vec3 washRgb;
     float washA;
     if (u.tint.a > 0.0) {
@@ -381,9 +374,15 @@ void main() {
         washA = u.tint.a;
     } else {
         washRgb = vec3(1.0);
-        washA = milk;
+        washA = (u.lumaOn > 0.5 ? 0.04 : 0.008) * (1.0 - wrapX * milkPull);
     }
     color = mix(color, washRgb, washA);
+    if (u.lumaOn > 0.5) {
+        const float high = clamp((L - 0.72) / 0.28, 0.0, 1.0);
+        const float low = clamp((0.28 - L) / 0.28, 0.0, 1.0);
+        color *= 1.0 - high * u.lumaShadow;
+        color = mix(color, color + vec3(0.06, 0.07, 0.08), low * u.lumaLift);
+    }
     // Clear dimmer: 35% darkening when plate luma exceeds 0.6 (spec S9).
     if (u.dimmer > 0.0 && L > 0.6) {
         color *= 1.0 - u.dimmer;
