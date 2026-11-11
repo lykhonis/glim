@@ -180,19 +180,20 @@ function(glim_add_example name)
         elseif(EXISTS "$ENV{HOME}/Android/Sdk")
             set(_glim_sdk "$ENV{HOME}/Android/Sdk")
         endif()
-        set(_glim_apk_script "${CMAKE_SOURCE_DIR}/tools/scripts/package-android-apk.sh")
+        set(_glim_apk_script "${CMAKE_SOURCE_DIR}/tools/package-android-apk.mjs")
+        find_program(GLIM_NODE node)
         set(_manifest "${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml")
         set(GLIM_EXAMPLE_PACKAGE "com.glim.${name}")
         set(GLIM_EXAMPLE_LABEL "${ARG_TITLE}")
         set(GLIM_EXAMPLE_LIB "${_target}")
         configure_file("${CMAKE_SOURCE_DIR}/examples/common/AndroidManifest.xml.in" "${_manifest}" @ONLY)
-        if(_glim_sdk AND EXISTS "${_glim_apk_script}")
+        if(_glim_sdk AND GLIM_NODE)
             set(_glim_apk "${CMAKE_CURRENT_BINARY_DIR}/${_target}.apk")
             add_custom_command(TARGET ${_target} POST_BUILD
-                COMMAND /bin/bash "${_glim_apk_script}"
+                COMMAND "${GLIM_NODE}" "${_glim_apk_script}"
                     "$<TARGET_FILE:${_target}>"
                     "${_manifest}"
-                    "${CMAKE_SOURCE_DIR}/assets/glim-icon.png"
+                    "${CMAKE_SOURCE_DIR}/assets/android/res"
                     "${_glim_apk}"
                     "${_glim_sdk}"
                     "${ANDROID_ABI}"
