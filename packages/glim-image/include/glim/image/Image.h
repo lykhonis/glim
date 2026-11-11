@@ -33,7 +33,9 @@ struct Image {
 
 struct Diff {
   bool sameSize = false;
-  std::size_t overDelta = 0;
+  std::size_t overDelta = 0;   // channels beyond tolerance (RGBA)
+  std::size_t overPixels = 0;  // pixels with an RGB channel beyond tolerance
+  int maxDelta = 0;            // largest RGB channel delta among those pixels
 
   bool match() const { return sameSize && overDelta == 0; }
 };

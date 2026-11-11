@@ -46,6 +46,7 @@ int main() {
   const glim::image::Diff delta = glim::image::compare(a, off, 2);
   expect(delta.sameSize && delta.overDelta == 1 && !delta.match(), "channel over delta");
   expect(glim::image::compare(a, off, 3).match(), "within larger delta");
+  expect(delta.overPixels > 0 && delta.maxDelta > 2, "pixel stats on over-tolerance");
 
   glim::image::Image otherSize = glim::image::Image::rgba8(1, 1);
   const glim::image::Diff sized = glim::image::compare(a, otherSize);

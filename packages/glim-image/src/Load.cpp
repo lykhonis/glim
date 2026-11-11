@@ -5,6 +5,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_JPEG
+#define STBI_ONLY_PNG
 #define STBI_NO_STDIO
 #include <algorithm>
 #include <vector>
@@ -23,8 +24,10 @@ bool load(const char* path, Image* out) {
   while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) bytes.insert(bytes.end(), buf, buf + n);
   std::fclose(f);
   static constexpr unsigned char kPngSig[8] = {137, 'P', 'N', 'G', '\r', '\n', 26, '\n'};
-  if (bytes.size() >= 8 && std::equal(kPngSig, kPngSig + 8, bytes.begin()))
-    return Png::read(path, out);
+  // Png::read covers glim's own RGBA output; other PNG layouts (RGB
+  // browser screenshots) fall through to stb.
+  if (bytes.size() >= 8 && std::equal(kPngSig, kPngSig + 8, bytes.begin()) && Png::read(path, out))
+    return true;
   int w = 0, h = 0, comp = 0;
   unsigned char* px =
       stbi_load_from_memory(bytes.data(), static_cast<int>(bytes.size()), &w, &h, &comp, 4);

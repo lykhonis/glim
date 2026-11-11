@@ -66,5 +66,6 @@ jobs:
         uses: browser-actions/setup-chrome@v1
       - name: WebGPU screenshots vs CPU goldens
         run: |
-          pip install --quiet pillow
-          bash tools/scripts/run-web-goldens.sh
+          cmake -S tools/glim-golden -B build/glim-golden -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/glim-golden
+          node tools/web-goldens.mjs
