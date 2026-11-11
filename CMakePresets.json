@@ -16,6 +16,13 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
     },
     {
+      "name": "macos-metal-coverage",
+      "displayName": "macOS Metal Coverage",
+      "inherits": "macos-metal-debug",
+      "binaryDir": "${sourceDir}/build/macos-metal-coverage",
+      "cacheVariables": { "GLIM_COVERAGE": "ON" }
+    },
+    {
       "name": "macos-metal-release",
       "displayName": "macOS Metal Release",
       "generator": "Ninja",
@@ -107,6 +114,13 @@
         "GLIM_SHELL": "wayland"
       },
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "linux-vulkan-coverage",
+      "displayName": "Linux Vulkan Coverage",
+      "inherits": "linux-vulkan-debug",
+      "binaryDir": "${sourceDir}/build/linux-vulkan-coverage",
+      "cacheVariables": { "GLIM_COVERAGE": "ON" }
     },
     {
       "name": "linux-vulkan-release",

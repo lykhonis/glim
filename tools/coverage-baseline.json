@@ -1,0 +1,19 @@
+{
+  "macos-metal": {
+    "total": {
+      "lines": 73.1,
+      "functions": 80.5
+    },
+    "packages": {
+      "glim-core": 96.4,
+      "glim-gpu": 44.4,
+      "glim-gpu-metal": 59,
+      "glim-image": 81.9,
+      "glim-paint": 74,
+      "glim-shell": 34.6,
+      "glim-shell-macos": 0,
+      "glim-toolkit": 88.3,
+      "glim-toolkit-host": 58.1
+    }
+  }
+}

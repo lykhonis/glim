@@ -1,4 +1,5 @@
 option(GLIM_WERROR "Treat warnings in Glim targets as errors" ON)
+option(GLIM_COVERAGE "Instrument Glim targets for gcov line coverage" OFF)
 
 include(CheckCXXCompilerFlag)
 # Partial designated initializers are the props-form idiom (K53). Newer clang
@@ -26,6 +27,10 @@ function(glim_target_defaults target)
     endif()
     target_compile_definitions(${target} PUBLIC
         $<$<CONFIG:Debug>:GLIM_DEBUG=1>)
+    if(GLIM_COVERAGE)
+        target_compile_options(${target} PRIVATE --coverage)
+        target_link_options(${target} PUBLIC --coverage)
+    endif()
 endfunction()
 
 # Test executables keep assert() live in every build type: under NDEBUG an

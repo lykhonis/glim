@@ -9,12 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lykhonis/glim/actions/workflows/macos.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/macos.yml/badge.svg" alt="macOS"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/ios.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/ios.yml/badge.svg" alt="iOS"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/tvos.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/tvos.yml/badge.svg" alt="tvOS"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/linux.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/linux.yml/badge.svg" alt="Linux"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/android.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/android.yml/badge.svg" alt="Android"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/web.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/web.yml/badge.svg" alt="Web"></a>
+  <a href="https://github.com/lykhonis/glim/actions/workflows/ci.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/lykhonis/glim/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-73.1%25-yellow.svg" alt="Coverage"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20iOS%20%7C%20tvOS%20%7C%20Linux%20%7C%20Android%20%7C%20Web-informational.svg" alt="Platforms: macOS, iOS, tvOS, Linux, Android, Web">
+  <img src="https://img.shields.io/badge/C%2B%2B-20-blue.svg" alt="C++20">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 

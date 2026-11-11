@@ -40,8 +40,12 @@ function lintTests() {
 
 // Host debug configure + full build + every registered ctest. Shared by
 // pre-push and CI so no test depends on a hand-kept regex list.
-function hostTests() {
-  const preset = process.platform === "darwin" ? "macos-metal-debug" : "linux-vulkan-debug";
+/** @param {"debug" | "coverage"} variant */
+function hostPreset(variant = "debug") {
+  return `${process.platform === "darwin" ? "macos-metal" : "linux-vulkan"}-${variant}`;
+}
+
+function hostTests(preset = hostPreset()) {
   const dir = path.join("build", preset);
   step(`configure ${preset}`, "cmake", ["--preset", preset]);
   step(`build ${preset}`, "cmake", ["--build", dir]);
@@ -60,4 +64,4 @@ function stagedCpp() {
     .filter((f) => /\.(cpp|h)$/.test(f) && !f.startsWith("vendor/"));
 }
 
-module.exports = { format, lint, lintTests, typecheck, hostTests, stagedCpp };
+module.exports = { format, lint, lintTests, typecheck, hostPreset, hostTests, stagedCpp };
