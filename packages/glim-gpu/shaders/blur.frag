@@ -20,6 +20,8 @@ layout(location = 1) in vec2 v_local;
 layout(location = 2) flat in int v_iid;
 layout(location = 0) out vec4 out_color;
 
+#define inst instances[v_iid]
+
 layout(set = 0, binding = 2) uniform texture2D tex;
 layout(set = 0, binding = 6) uniform sampler samp;
 
@@ -29,7 +31,7 @@ float sdRoundBox(vec2 p, vec2 b, float r) {
     return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
-vec4 pillAt(Instance inst, int i) {
+vec4 pillAt(int i) {
     if (i == 1) {
         return inst.pill1;
     }
@@ -42,7 +44,7 @@ vec4 pillAt(Instance inst, int i) {
     return inst.pill0;
 }
 
-float radiusAt(Instance inst, int i) {
+float radiusAt(int i) {
     if (i == 1) {
         return inst.radii.y;
     }
@@ -55,16 +57,16 @@ float radiusAt(Instance inst, int i) {
     return inst.radii.x;
 }
 
-float fieldSdf(Instance inst, vec2 p) {
+float fieldSdf(vec2 p) {
     const int count = max(1, int(inst.extra.w) & 7);
     float sdf = 1e6;
     for (int i = 0; i < 4; ++i) {
         if (i >= count) {
             break;
         }
-        const vec4 pill = pillAt(inst, i);
+        const vec4 pill = pillAt(i);
         const vec2 c = pill.xy + 0.5 * pill.zw;
-        const float d = sdRoundBox(p - c, 0.5 * pill.zw, radiusAt(inst, i));
+        const float d = sdRoundBox(p - c, 0.5 * pill.zw, radiusAt(i));
         sdf = (i == 0) ? d : min(sdf, d);
     }
     return sdf;
@@ -87,12 +89,11 @@ vec3 sampleBlur(vec2 uv, float sigma, vec2 texel) {
 }
 
 void main() {
-    const Instance inst = instances[v_iid];
     const float sigma = inst.extra.x;
     const bool flatten = ((int(inst.extra.w) >> 3) & 1) != 0;
     const vec2 size = inst.rect.zw;
     const vec2 p = v_local * size;
-    const float sdf = fieldSdf(inst, p);
+    const float sdf = fieldSdf(p);
     const float aa = max(fwidth(sdf), 1e-3);
     const float mask = clamp(-sdf / aa, 0.0, 1.0);
     if (mask < 0.001) {

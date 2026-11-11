@@ -27,7 +27,7 @@ struct GlassUniforms {
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {
-    GlassUniforms instances[];
+    GlassUniforms u;
 };
 
 layout(set = 0, binding = 2) uniform texture2D u_sharp;
@@ -81,7 +81,7 @@ float sdRoundedPx(vec2 p, vec2 c, vec2 he, float r, float n) {
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
-float shapeSdf(GlassUniforms u, vec2 p) {
+float shapeSdf(vec2 p) {
     const int count = clamp(int(u.shapeCount), 0, 8);
     if (count <= 0) {
         return 1e6;
@@ -119,10 +119,10 @@ float shapeSdf(GlassUniforms u, vec2 p) {
     return d;
 }
 
-vec2 sdfNormal(GlassUniforms u, vec2 p) {
+vec2 sdfNormal(vec2 p) {
     const float e = max(1.5 * u.dpr, 1.0);
-    vec2 g = vec2(shapeSdf(u, p + vec2(e, 0.0)) - shapeSdf(u, p - vec2(e, 0.0)),
-                  shapeSdf(u, p + vec2(0.0, e)) - shapeSdf(u, p - vec2(0.0, e)));
+    vec2 g = vec2(shapeSdf(p + vec2(e, 0.0)) - shapeSdf(p - vec2(e, 0.0)),
+                  shapeSdf(p + vec2(0.0, e)) - shapeSdf(p - vec2(0.0, e)));
     const float glen = length(g);
     if (glen > 1e-3) {
         return g / glen;
@@ -145,7 +145,7 @@ vec2 sdfNormal(GlassUniforms u, vec2 p) {
     return bl > 1e-4 ? best / bl : vec2(0.0, 1.0);
 }
 
-float filletWeight(GlassUniforms u, vec2 p) {
+float filletWeight(vec2 p) {
     const int count = clamp(int(u.shapeCount), 0, 8);
     float w = 0.0;
     for (int i = 0; i < 8; ++i) {
@@ -219,9 +219,8 @@ float rec709(vec3 c) {
 }
 
 void main() {
-    const GlassUniforms u = instances[0];
     const vec2 p = v_uv * u.resolution;
-    float d = shapeSdf(u, p);
+    float d = shapeSdf(p);
     const vec2 he0 = u.shapes[0].halfExtent * u.dpr;
     const float r0 = min(u.shapes[0].corner * u.dpr, min(he0.x, he0.y));
     const float alphaShape = smoothstep(0.75, -0.75, d);
@@ -246,8 +245,8 @@ void main() {
     // Skip the normal (4 SDF evals) and fillet loop for these bulk pixels.
     const float maxWrap = max(12.0 * dprN0, max(T, r0 * 0.6));
     const bool deep = delta > maxWrap && !isMetal && !isWater;
-    const vec2 n2 = deep ? vec2(0.0, 1.0) : sdfNormal(u, p);
-    const float fillet = deep ? 0.0 : filletWeight(u, p);
+    const vec2 n2 = deep ? vec2(0.0, 1.0) : sdfNormal(p);
+    const float fillet = deep ? 0.0 : filletWeight(p);
     const float wrapT = mix(12.0 * dprN0, max(T, r0 * 0.6), fillet);
     float wrapX = 0.0;
     float wrapE = 0.0;

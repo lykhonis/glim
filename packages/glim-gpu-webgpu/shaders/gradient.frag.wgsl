@@ -19,7 +19,6 @@ var<private> out_color: vec4<f32>;
 var<private> v_pos_1: vec2<f32>;
 
 fn main_1() {
-    var inst: Instance;
     var n: i32;
     var d: vec2<f32>;
     var denom: f32;
@@ -35,130 +34,130 @@ fn main_1() {
     var f: f32;
     var local_4: f32;
 
-    let _e39 = v_iid_1;
-    let _e42 = unnamed.instances[_e39];
-    inst.rect = _e42.rect;
-    inst.grad = _e42.grad;
-    inst.misc = _e42.misc;
-    inst.colors[0i] = _e42.colors[0];
-    inst.colors[1i] = _e42.colors[1];
-    inst.colors[2i] = _e42.colors[2];
-    inst.colors[3i] = _e42.colors[3];
-    inst.colors[4i] = _e42.colors[4];
-    inst.colors[5i] = _e42.colors[5];
-    inst.colors[6i] = _e42.colors[6];
-    inst.colors[7i] = _e42.colors[7];
-    inst.off0_ = _e42.off0_;
-    inst.off1_ = _e42.off1_;
-    let _e73 = inst.misc[3u];
-    n = i32((_e73 + 0.5f));
-    let _e76 = n;
-    if (_e76 <= 0i) {
+    let _e36 = v_iid_1;
+    let _e41 = unnamed.instances[_e36].misc[3u];
+    n = i32((_e41 + 0.5f));
+    let _e44 = n;
+    if (_e44 <= 0i) {
         out_color = vec4<f32>(0f, 0f, 0f, 0f);
         return;
     }
-    let _e80 = inst.misc[0u];
-    if (_e80 < 0.5f) {
-        let _e83 = inst.grad;
-        let _e86 = inst.grad;
-        d = (_e83.zw - _e86.xy);
-        let _e89 = d;
-        let _e90 = d;
-        denom = dot(_e89, _e90);
-        let _e92 = denom;
-        if (_e92 > 0.00000001f) {
-            let _e94 = v_pos_1;
-            let _e96 = inst.grad;
-            let _e99 = d;
-            let _e101 = denom;
-            local = (dot((_e94 - _e96.xy), _e99) / _e101);
+    let _e46 = v_iid_1;
+    let _e51 = unnamed.instances[_e46].misc[0u];
+    if (_e51 < 0.5f) {
+        let _e53 = v_iid_1;
+        let _e57 = unnamed.instances[_e53].grad;
+        let _e59 = v_iid_1;
+        let _e63 = unnamed.instances[_e59].grad;
+        d = (_e57.zw - _e63.xy);
+        let _e66 = d;
+        let _e67 = d;
+        denom = dot(_e66, _e67);
+        let _e69 = denom;
+        if (_e69 > 0.00000001f) {
+            let _e71 = v_pos_1;
+            let _e72 = v_iid_1;
+            let _e76 = unnamed.instances[_e72].grad;
+            let _e79 = d;
+            let _e81 = denom;
+            local = (dot((_e71 - _e76.xy), _e79) / _e81);
         } else {
             local = 0f;
         }
-        let _e103 = local;
-        t = _e103;
+        let _e83 = local;
+        t = _e83;
     } else {
-        let _e106 = inst.misc[1u];
-        if (_e106 > 0.000001f) {
-            let _e108 = v_pos_1;
-            let _e110 = inst.grad;
-            let _e116 = inst.misc[1u];
-            local_1 = (length((_e108 - _e110.xy)) / _e116);
+        let _e84 = v_iid_1;
+        let _e89 = unnamed.instances[_e84].misc[1u];
+        if (_e89 > 0.000001f) {
+            let _e91 = v_pos_1;
+            let _e92 = v_iid_1;
+            let _e96 = unnamed.instances[_e92].grad;
+            let _e100 = v_iid_1;
+            let _e105 = unnamed.instances[_e100].misc[1u];
+            local_1 = (length((_e91 - _e96.xy)) / _e105);
         } else {
             local_1 = 0f;
         }
-        let _e118 = local_1;
-        t = _e118;
+        let _e107 = local_1;
+        t = _e107;
     }
-    let _e119 = t;
-    t = clamp(_e119, 0f, 1f);
-    let _e123 = inst.colors[0i];
-    c = _e123;
+    let _e108 = t;
+    t = clamp(_e108, 0f, 1f);
+    let _e110 = v_iid_1;
+    let _e115 = unnamed.instances[_e110].colors[0i];
+    c = _e115;
     i = 1i;
     loop {
-        let _e124 = i;
-        if (_e124 < 8i) {
-            let _e126 = i;
-            let _e127 = n;
-            if (_e126 >= _e127) {
+        let _e116 = i;
+        if (_e116 < 8i) {
+            let _e118 = i;
+            let _e119 = n;
+            if (_e118 >= _e119) {
                 break;
             }
-            let _e129 = i;
-            if (_e129 <= 4i) {
-                let _e131 = i;
-                let _e135 = inst.off0_[(_e131 - 1i)];
-                local_2 = _e135;
+            let _e121 = i;
+            if (_e121 <= 4i) {
+                let _e123 = v_iid_1;
+                let _e124 = i;
+                let _e130 = unnamed.instances[_e123].off0_[(_e124 - 1i)];
+                local_2 = _e130;
             } else {
-                let _e136 = i;
-                let _e140 = inst.off1_[(_e136 - 5i)];
-                local_2 = _e140;
+                let _e131 = v_iid_1;
+                let _e132 = i;
+                let _e138 = unnamed.instances[_e131].off1_[(_e132 - 5i)];
+                local_2 = _e138;
             }
-            let _e141 = local_2;
-            o0_ = _e141;
-            let _e142 = i;
-            if (_e142 < 4i) {
-                let _e144 = i;
-                let _e147 = inst.off0_[_e144];
-                local_3 = _e147;
+            let _e139 = local_2;
+            o0_ = _e139;
+            let _e140 = i;
+            if (_e140 < 4i) {
+                let _e142 = v_iid_1;
+                let _e143 = i;
+                let _e148 = unnamed.instances[_e142].off0_[_e143];
+                local_3 = _e148;
             } else {
-                let _e148 = i;
-                let _e152 = inst.off1_[(_e148 - 4i)];
-                local_3 = _e152;
+                let _e149 = v_iid_1;
+                let _e150 = i;
+                let _e156 = unnamed.instances[_e149].off1_[(_e150 - 4i)];
+                local_3 = _e156;
             }
-            let _e153 = local_3;
-            o1_ = _e153;
-            let _e154 = o1_;
-            let _e155 = o0_;
-            if (_e154 > _e155) {
-                let _e157 = t;
-                let _e158 = o0_;
-                let _e160 = o1_;
-                let _e161 = o0_;
-                local_4 = clamp(((_e157 - _e158) / (_e160 - _e161)), 0f, 1f);
+            let _e157 = local_3;
+            o1_ = _e157;
+            let _e158 = o1_;
+            let _e159 = o0_;
+            if (_e158 > _e159) {
+                let _e161 = t;
+                let _e162 = o0_;
+                let _e164 = o1_;
+                let _e165 = o0_;
+                local_4 = clamp(((_e161 - _e162) / (_e164 - _e165)), 0f, 1f);
             } else {
-                let _e165 = t;
-                let _e166 = o1_;
-                local_4 = select(0f, 1f, (_e165 >= _e166));
+                let _e169 = t;
+                let _e170 = o1_;
+                local_4 = select(0f, 1f, (_e169 >= _e170));
             }
-            let _e169 = local_4;
-            f = _e169;
-            let _e170 = c;
-            let _e171 = i;
-            let _e174 = inst.colors[_e171];
-            let _e175 = f;
-            c = mix(_e170, _e174, vec4(_e175));
+            let _e173 = local_4;
+            f = _e173;
+            let _e174 = c;
+            let _e175 = v_iid_1;
+            let _e176 = i;
+            let _e181 = unnamed.instances[_e175].colors[_e176];
+            let _e182 = f;
+            c = mix(_e174, _e181, vec4(_e182));
             continue;
         } else {
             break;
         }
         continuing {
-            let _e178 = i;
-            i = (_e178 + 1i);
+            let _e185 = i;
+            i = (_e185 + 1i);
         }
     }
-    let _e180 = c;
-    let _e183 = inst.misc[2u];
-    out_color = (_e180 * _e183);
+    let _e187 = c;
+    let _e188 = v_iid_1;
+    let _e193 = unnamed.instances[_e188].misc[2u];
+    out_color = (_e187 * _e193);
     return;
 }
 

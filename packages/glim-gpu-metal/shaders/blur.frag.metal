@@ -57,24 +57,12 @@ struct Instance
     float4 radii;
 };
 
-struct Instance_1
-{
-    float4 rect;
-    float4 uv;
-    float4 extra;
-    float4 pill0;
-    float4 pill1;
-    float4 pill2;
-    float4 pill3;
-    float4 radii;
-};
-
 struct Instances
 {
-    Instance_1 instances[1];
+    Instance instances[1];
 };
 
-constant spvUnsafeArray<float, 5> _281 = spvUnsafeArray<float, 5>({ 0.0625, 0.25, 0.375, 0.25, 0.0625 });
+constant spvUnsafeArray<float, 5> _290 = spvUnsafeArray<float, 5>({ 0.0625, 0.25, 0.375, 0.25, 0.0625 });
 
 struct fs_main_out
 {
@@ -89,39 +77,39 @@ struct fs_main_in
 };
 
 static inline __attribute__((always_inline))
-float4 pillAt(thread const Instance& inst, thread const int& i)
+float4 pillAt(thread const int& i, const device Instances& _82, thread int& v_iid)
 {
     if (i == 1)
     {
-        return inst.pill1;
+        return _82.instances[v_iid].pill1;
     }
     if (i == 2)
     {
-        return inst.pill2;
+        return _82.instances[v_iid].pill2;
     }
     if (i == 3)
     {
-        return inst.pill3;
+        return _82.instances[v_iid].pill3;
     }
-    return inst.pill0;
+    return _82.instances[v_iid].pill0;
 }
 
 static inline __attribute__((always_inline))
-float radiusAt(thread const Instance& inst, thread const int& i)
+float radiusAt(thread const int& i, const device Instances& _82, thread int& v_iid)
 {
     if (i == 1)
     {
-        return inst.radii.y;
+        return ((device float*)&_82.instances[v_iid].radii)[1u];
     }
     if (i == 2)
     {
-        return inst.radii.z;
+        return ((device float*)&_82.instances[v_iid].radii)[2u];
     }
     if (i == 3)
     {
-        return inst.radii.w;
+        return ((device float*)&_82.instances[v_iid].radii)[3u];
     }
-    return inst.radii.x;
+    return ((device float*)&_82.instances[v_iid].radii)[0u];
 }
 
 static inline __attribute__((always_inline))
@@ -133,37 +121,35 @@ float sdRoundBox(thread const float2& p, thread const float2& b, thread float& r
 }
 
 static inline __attribute__((always_inline))
-float fieldSdf(thread const Instance& inst, thread const float2& p)
+float fieldSdf(thread const float2& p, const device Instances& _82, thread int& v_iid)
 {
-    int count = max(1, (int(inst.extra.w) & 7));
+    int count = max(1, (int(((device float*)&_82.instances[v_iid].extra)[3u]) & 7));
     float sdf = 1000000.0;
-    float _193;
+    float _202;
     for (int i = 0; i < 4; i++)
     {
         if (i >= count)
         {
             break;
         }
-        Instance param = inst;
-        int param_1 = i;
-        float4 pill = pillAt(param, param_1);
+        int param = i;
+        float4 pill = pillAt(param, _82, v_iid);
         float2 c = pill.xy + (pill.zw * 0.5);
-        Instance param_2 = inst;
-        int param_3 = i;
-        float2 param_4 = p - c;
-        float2 param_5 = pill.zw * 0.5;
-        float param_6 = radiusAt(param_2, param_3);
-        float _190 = sdRoundBox(param_4, param_5, param_6);
-        float d = _190;
+        int param_1 = i;
+        float2 param_2 = p - c;
+        float2 param_3 = pill.zw * 0.5;
+        float param_4 = radiusAt(param_1, _82, v_iid);
+        float _199 = sdRoundBox(param_2, param_3, param_4);
+        float d = _199;
         if (i == 0)
         {
-            _193 = d;
+            _202 = d;
         }
         else
         {
-            _193 = fast::min(sdf, d);
+            _202 = fast::min(sdf, d);
         }
-        sdf = _193;
+        sdf = _202;
     }
     return sdf;
 }
@@ -181,31 +167,21 @@ float3 sampleBlur(thread float2& uv, thread const float& sigma, thread const flo
         for (int i = 0; i < 5; i++)
         {
             float2 p = uv + float2(float(i - 2) * s.x, y);
-            c += (tex.sample(samp, fast::clamp(p, float2(0.0), float2(1.0)), level(0.0)).xyz * (_281[i] * _281[j]));
+            c += (tex.sample(samp, fast::clamp(p, float2(0.0), float2(1.0)), level(0.0)).xyz * (_290[i] * _290[j]));
         }
     }
     return c;
 }
 
-fragment fs_main_out fs_main(fs_main_in in [[stage_in]], const device Instances& _307 [[buffer(0)]], texture2d<float> tex [[texture(2)]], sampler samp [[sampler(6)]])
+fragment fs_main_out fs_main(fs_main_in in [[stage_in]], const device Instances& _82 [[buffer(0)]], texture2d<float> tex [[texture(2)]], sampler samp [[sampler(6)]])
 {
     fs_main_out out = {};
-    Instance inst;
-    inst.rect = _307.instances[in.v_iid].rect;
-    inst.uv = _307.instances[in.v_iid].uv;
-    inst.extra = _307.instances[in.v_iid].extra;
-    inst.pill0 = _307.instances[in.v_iid].pill0;
-    inst.pill1 = _307.instances[in.v_iid].pill1;
-    inst.pill2 = _307.instances[in.v_iid].pill2;
-    inst.pill3 = _307.instances[in.v_iid].pill3;
-    inst.radii = _307.instances[in.v_iid].radii;
-    float sigma = inst.extra.x;
-    bool flatten = ((int(inst.extra.w) >> 3) & 1) != 0;
-    float2 size = inst.rect.zw;
+    float sigma = ((device float*)&_82.instances[in.v_iid].extra)[0u];
+    bool flatten = ((int(((device float*)&_82.instances[in.v_iid].extra)[3u]) >> 3) & 1) != 0;
+    float2 size = _82.instances[in.v_iid].rect.zw;
     float2 p = in.v_local * size;
-    Instance param = inst;
-    float2 param_1 = p;
-    float sdf = fieldSdf(param, param_1);
+    float2 param = p;
+    float sdf = fieldSdf(param, _82, in.v_iid);
     float aa = fast::max(fwidth(sdf), 0.001000000047497451305389404296875);
     float mask = fast::clamp((-sdf) / aa, 0.0, 1.0);
     if (mask < 0.001000000047497451305389404296875)
@@ -215,11 +191,11 @@ fragment fs_main_out fs_main(fs_main_in in [[stage_in]], const device Instances&
     }
     float2 texel = float2(1.0) / float2(int2(tex.get_width(), tex.get_height()));
     float2 uv = fast::clamp(in.v_uv, float2(0.0), float2(1.0));
-    float2 param_2 = uv;
-    float param_3 = sigma;
-    float2 param_4 = texel;
-    float3 _399 = sampleBlur(param_2, param_3, param_4, tex, samp);
-    float3 col = _399;
+    float2 param_1 = uv;
+    float param_2 = sigma;
+    float2 param_3 = texel;
+    float3 _381 = sampleBlur(param_1, param_2, param_3, tex, samp);
+    float3 col = _381;
     if (flatten)
     {
         float lum = dot(col, float3(0.2125999927520751953125, 0.715200006961822509765625, 0.072200000286102294921875));

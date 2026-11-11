@@ -14,13 +14,13 @@ struct Instances {
     instances: array<Instance>,
 }
 
+@group(0) @binding(0) 
+var<storage> unnamed: Instances;
+var<private> v_iid_1: i32;
 @group(0) @binding(2) 
 var tex: texture_2d<f32>;
 @group(0) @binding(6) 
 var samp: sampler;
-@group(0) @binding(0) 
-var<storage> unnamed: Instances;
-var<private> v_iid_1: i32;
 var<private> v_local_1: vec2<f32>;
 var<private> out_color: vec4<f32>;
 var<private> v_uv_1: vec2<f32>;
@@ -110,63 +110,70 @@ fn sdRoundBox_u0028_vf2_u003b_vf2_u003b_f1_u003b(p_1: ptr<function, vec2<f32>>, 
     return ((length(max(_e64, vec2<f32>(0f, 0f))) + min(max(_e68, _e70), 0f)) - _e74);
 }
 
-fn radiusAt_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_i1_u003b(inst: ptr<function, Instance>, i_1: ptr<function, i32>) -> f32 {
-    let _e48 = (*i_1);
-    if (_e48 == 1i) {
-        let _e52 = (*inst).radii[1u];
-        return _e52;
+fn radiusAt_u0028_i1_u003b(i_1: ptr<function, i32>) -> f32 {
+    let _e47 = (*i_1);
+    if (_e47 == 1i) {
+        let _e49 = v_iid_1;
+        let _e54 = unnamed.instances[_e49].radii[1u];
+        return _e54;
     }
-    let _e53 = (*i_1);
-    if (_e53 == 2i) {
-        let _e57 = (*inst).radii[2u];
-        return _e57;
-    }
-    let _e58 = (*i_1);
-    if (_e58 == 3i) {
-        let _e62 = (*inst).radii[3u];
+    let _e55 = (*i_1);
+    if (_e55 == 2i) {
+        let _e57 = v_iid_1;
+        let _e62 = unnamed.instances[_e57].radii[2u];
         return _e62;
     }
-    let _e65 = (*inst).radii[0u];
-    return _e65;
+    let _e63 = (*i_1);
+    if (_e63 == 3i) {
+        let _e65 = v_iid_1;
+        let _e70 = unnamed.instances[_e65].radii[3u];
+        return _e70;
+    }
+    let _e71 = v_iid_1;
+    let _e76 = unnamed.instances[_e71].radii[0u];
+    return _e76;
 }
 
-fn pillAt_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_i1_u003b(inst_1: ptr<function, Instance>, i_2: ptr<function, i32>) -> vec4<f32> {
-    let _e48 = (*i_2);
-    if (_e48 == 1i) {
-        let _e51 = (*inst_1).pill1_;
-        return _e51;
+fn pillAt_u0028_i1_u003b(i_2: ptr<function, i32>) -> vec4<f32> {
+    let _e47 = (*i_2);
+    if (_e47 == 1i) {
+        let _e49 = v_iid_1;
+        let _e53 = unnamed.instances[_e49].pill1_;
+        return _e53;
     }
-    let _e52 = (*i_2);
-    if (_e52 == 2i) {
-        let _e55 = (*inst_1).pill2_;
-        return _e55;
+    let _e54 = (*i_2);
+    if (_e54 == 2i) {
+        let _e56 = v_iid_1;
+        let _e60 = unnamed.instances[_e56].pill2_;
+        return _e60;
     }
-    let _e56 = (*i_2);
-    if (_e56 == 3i) {
-        let _e59 = (*inst_1).pill3_;
-        return _e59;
+    let _e61 = (*i_2);
+    if (_e61 == 3i) {
+        let _e63 = v_iid_1;
+        let _e67 = unnamed.instances[_e63].pill3_;
+        return _e67;
     }
-    let _e61 = (*inst_1).pill0_;
-    return _e61;
+    let _e68 = v_iid_1;
+    let _e72 = unnamed.instances[_e68].pill0_;
+    return _e72;
 }
 
-fn fieldSdf_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_vf2_u003b(inst_2: ptr<function, Instance>, p_2: ptr<function, vec2<f32>>) -> f32 {
+fn fieldSdf_u0028_vf2_u003b(p_2: ptr<function, vec2<f32>>) -> f32 {
     var count: i32;
     var sdf: f32;
     var i_3: i32;
     var pill: vec4<f32>;
-    var param: Instance;
-    var param_1: i32;
+    var param: i32;
     var c_1: vec2<f32>;
     var d: f32;
-    var param_2: Instance;
-    var param_3: i32;
-    var param_4: vec2<f32>;
-    var param_5: vec2<f32>;
-    var param_6: f32;
+    var param_1: i32;
+    var param_2: vec2<f32>;
+    var param_3: vec2<f32>;
+    var param_4: f32;
     var local: f32;
 
-    let _e64 = (*inst_2).extra[3u];
+    let _e59 = v_iid_1;
+    let _e64 = unnamed.instances[_e59].extra[3u];
     count = max(1i, (i32(_e64) & 7i));
     sdf = 1000000f;
     i_3 = 0i;
@@ -178,138 +185,123 @@ fn fieldSdf_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_
             if (_e70 >= _e71) {
                 break;
             }
-            let _e73 = (*inst_2);
+            let _e73 = i_3;
             param = _e73;
-            let _e74 = i_3;
-            param_1 = _e74;
-            let _e75 = pillAt_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_i1_u003b((&param), (&param_1));
-            pill = _e75;
-            let _e76 = pill;
-            let _e78 = pill;
-            c_1 = (_e76.xy + (_e78.zw * 0.5f));
-            let _e82 = (*p_2);
-            let _e83 = c_1;
-            let _e85 = pill;
-            let _e88 = (*inst_2);
-            param_2 = _e88;
-            let _e89 = i_3;
-            param_3 = _e89;
-            let _e90 = radiusAt_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_i1_u003b((&param_2), (&param_3));
-            param_4 = (_e82 - _e83);
-            param_5 = (_e85.zw * 0.5f);
-            param_6 = _e90;
-            let _e91 = sdRoundBox_u0028_vf2_u003b_vf2_u003b_f1_u003b((&param_4), (&param_5), (&param_6));
-            d = _e91;
-            let _e92 = i_3;
-            if (_e92 == 0i) {
-                let _e94 = d;
-                local = _e94;
+            let _e74 = pillAt_u0028_i1_u003b((&param));
+            pill = _e74;
+            let _e75 = pill;
+            let _e77 = pill;
+            c_1 = (_e75.xy + (_e77.zw * 0.5f));
+            let _e81 = (*p_2);
+            let _e82 = c_1;
+            let _e84 = pill;
+            let _e87 = i_3;
+            param_1 = _e87;
+            let _e88 = radiusAt_u0028_i1_u003b((&param_1));
+            param_2 = (_e81 - _e82);
+            param_3 = (_e84.zw * 0.5f);
+            param_4 = _e88;
+            let _e89 = sdRoundBox_u0028_vf2_u003b_vf2_u003b_f1_u003b((&param_2), (&param_3), (&param_4));
+            d = _e89;
+            let _e90 = i_3;
+            if (_e90 == 0i) {
+                let _e92 = d;
+                local = _e92;
             } else {
-                let _e95 = sdf;
-                let _e96 = d;
-                local = min(_e95, _e96);
+                let _e93 = sdf;
+                let _e94 = d;
+                local = min(_e93, _e94);
             }
-            let _e98 = local;
-            sdf = _e98;
+            let _e96 = local;
+            sdf = _e96;
             continue;
         } else {
             break;
         }
         continuing {
-            let _e99 = i_3;
-            i_3 = (_e99 + 1i);
+            let _e97 = i_3;
+            i_3 = (_e97 + 1i);
         }
     }
-    let _e101 = sdf;
-    return _e101;
+    let _e99 = sdf;
+    return _e99;
 }
 
 fn main_1() {
-    var inst_3: Instance;
     var sigma_1: f32;
     var flatten: bool;
     var size: vec2<f32>;
     var p_3: vec2<f32>;
     var sdf_1: f32;
-    var param_7: Instance;
-    var param_8: vec2<f32>;
+    var param_5: vec2<f32>;
     var aa: f32;
     var mask: f32;
     var texel_1: vec2<f32>;
     var uv_1: vec2<f32>;
     var col: vec3<f32>;
-    var param_9: vec2<f32>;
-    var param_10: f32;
-    var param_11: vec2<f32>;
+    var param_6: vec2<f32>;
+    var param_7: f32;
+    var param_8: vec2<f32>;
     var lum: f32;
     var frost: f32;
 
-    let _e64 = v_iid_1;
-    let _e67 = unnamed.instances[_e64];
-    inst_3.rect = _e67.rect;
-    inst_3.uv = _e67.uv;
-    inst_3.extra = _e67.extra;
-    inst_3.pill0_ = _e67.pill0_;
-    inst_3.pill1_ = _e67.pill1_;
-    inst_3.pill2_ = _e67.pill2_;
-    inst_3.pill3_ = _e67.pill3_;
-    inst_3.radii = _e67.radii;
-    let _e86 = inst_3.extra[0u];
-    sigma_1 = _e86;
-    let _e89 = inst_3.extra[3u];
-    flatten = (((i32(_e89) >> bitcast<u32>(3i)) & 1i) != 0i);
-    let _e96 = inst_3.rect;
-    size = _e96.zw;
-    let _e98 = v_local_1;
-    let _e99 = size;
-    p_3 = (_e98 * _e99);
-    let _e101 = inst_3;
-    param_7 = _e101;
-    let _e102 = p_3;
-    param_8 = _e102;
-    let _e103 = fieldSdf_u0028_struct_u002d_Instance_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf4_u002d_vf41_u003b_vf2_u003b((&param_7), (&param_8));
-    sdf_1 = _e103;
-    let _e104 = sdf_1;
-    let _e105 = fwidth(_e104);
-    aa = max(_e105, 0.001f);
-    let _e107 = sdf_1;
-    let _e109 = aa;
-    mask = clamp((-(_e107) / _e109), 0f, 1f);
-    let _e112 = mask;
-    if (_e112 < 0.001f) {
+    let _e62 = v_iid_1;
+    let _e67 = unnamed.instances[_e62].extra[0u];
+    sigma_1 = _e67;
+    let _e68 = v_iid_1;
+    let _e73 = unnamed.instances[_e68].extra[3u];
+    flatten = (((i32(_e73) >> bitcast<u32>(3i)) & 1i) != 0i);
+    let _e79 = v_iid_1;
+    let _e83 = unnamed.instances[_e79].rect;
+    size = _e83.zw;
+    let _e85 = v_local_1;
+    let _e86 = size;
+    p_3 = (_e85 * _e86);
+    let _e88 = p_3;
+    param_5 = _e88;
+    let _e89 = fieldSdf_u0028_vf2_u003b((&param_5));
+    sdf_1 = _e89;
+    let _e90 = sdf_1;
+    let _e91 = fwidth(_e90);
+    aa = max(_e91, 0.001f);
+    let _e93 = sdf_1;
+    let _e95 = aa;
+    mask = clamp((-(_e93) / _e95), 0f, 1f);
+    let _e98 = mask;
+    if (_e98 < 0.001f) {
         out_color = vec4<f32>(0f, 0f, 0f, 0f);
         return;
     }
-    let _e114 = textureDimensions(tex, 0i);
-    texel_1 = (vec2(1f) / vec2<f32>(vec2<i32>(_e114)));
-    let _e119 = v_uv_1;
-    uv_1 = clamp(_e119, vec2(0f), vec2(1f));
-    let _e123 = uv_1;
-    param_9 = _e123;
-    let _e124 = sigma_1;
-    param_10 = _e124;
-    let _e125 = texel_1;
-    param_11 = _e125;
-    let _e126 = sampleBlur_u0028_vf2_u003b_f1_u003b_vf2_u003b((&param_9), (&param_10), (&param_11));
-    col = _e126;
-    let _e127 = flatten;
-    if _e127 {
-        let _e128 = col;
-        lum = dot(_e128, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
-        let _e130 = lum;
-        col = mix(vec3<f32>(0.18f, 0.18f, 0.18f), vec3<f32>(0.92f, 0.92f, 0.92f), vec3(step(0.45f, _e130)));
+    let _e100 = textureDimensions(tex, 0i);
+    texel_1 = (vec2(1f) / vec2<f32>(vec2<i32>(_e100)));
+    let _e105 = v_uv_1;
+    uv_1 = clamp(_e105, vec2(0f), vec2(1f));
+    let _e109 = uv_1;
+    param_6 = _e109;
+    let _e110 = sigma_1;
+    param_7 = _e110;
+    let _e111 = texel_1;
+    param_8 = _e111;
+    let _e112 = sampleBlur_u0028_vf2_u003b_f1_u003b_vf2_u003b((&param_6), (&param_7), (&param_8));
+    col = _e112;
+    let _e113 = flatten;
+    if _e113 {
+        let _e114 = col;
+        lum = dot(_e114, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
+        let _e116 = lum;
+        col = mix(vec3<f32>(0.18f, 0.18f, 0.18f), vec3<f32>(0.92f, 0.92f, 0.92f), vec3(step(0.45f, _e116)));
     } else {
-        let _e134 = sigma_1;
-        frost = mix(0.06f, 0.36f, clamp((_e134 / 12f), 0f, 1f));
-        let _e138 = col;
-        let _e139 = frost;
-        col = mix(_e138, vec3<f32>(1f, 1f, 1f), vec3(_e139));
+        let _e120 = sigma_1;
+        frost = mix(0.06f, 0.36f, clamp((_e120 / 12f), 0f, 1f));
+        let _e124 = col;
+        let _e125 = frost;
+        col = mix(_e124, vec3<f32>(1f, 1f, 1f), vec3(_e125));
     }
-    let _e142 = col;
-    let _e143 = mask;
-    let _e144 = (_e142 * _e143);
-    let _e145 = mask;
-    out_color = vec4<f32>(_e144.x, _e144.y, _e144.z, _e145);
+    let _e128 = col;
+    let _e129 = mask;
+    let _e130 = (_e128 * _e129);
+    let _e131 = mask;
+    out_color = vec4<f32>(_e130.x, _e130.y, _e130.z, _e131);
     return;
 }
 

@@ -18,8 +18,9 @@ layout(location = 1) flat in uint v_iid;
 
 layout(location = 0) out vec4 out_color;
 
+#define inst instances[v_iid]
+
 void main() {
-    const Instance inst = instances[v_iid];
     const int n = int(inst.misc.w + 0.5);
     if (n <= 0) {
         out_color = vec4(0.0);
