@@ -1,4 +1,11 @@
-add_library(glim-gpu-webgpu STATIC src/Device.cpp)
+if(EMSCRIPTEN)
+    add_library(glim-gpu-webgpu STATIC
+        src/Device.cpp
+        src/WebGpuBootstrap.cpp
+        src/WebGpuPass.cpp)
+else()
+    add_library(glim-gpu-webgpu STATIC src/DeviceStub.cpp)
+endif()
 add_library(glim::gpu-webgpu ALIAS glim-gpu-webgpu)
 target_include_directories(glim-gpu-webgpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(glim-gpu-webgpu PUBLIC glim::gpu)
