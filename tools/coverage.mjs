@@ -121,8 +121,11 @@ const preset = checks.hostPreset("coverage");
 const host = preset.replace(/-coverage$/, "");
 /** @type {Record<string, Floors>} */
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
-const floor = baseline[host] ?? { total: { lines: 0, functions: 0 }, packages: {} };
-if (!baseline[host]) console.warn(`no coverage floors for ${host} yet; run with --update to record them`);
+const floor = baseline[host];
+if (!floor) {
+  console.error(`no coverage floors for ${host} in tools/coverage-baseline.json`);
+  process.exit(1);
+}
 
 const buildDir = path.join(root, "build", preset);
 const stale = existsSync(buildDir) ? readdirSync(buildDir, { recursive: true, encoding: "utf8" }) : [];
@@ -140,8 +143,6 @@ if (failed.length) {
   console.error(`coverage below the floor:\n  ${failed.join("\n  ")}`);
   process.exit(1);
 }
-
-if (!baseline[host]) console.log(JSON.stringify(got, null, 2));
 
 if (update) {
   const raised = ratchet(got, floor);
