@@ -9,12 +9,10 @@ jobs:
     with:
       runs-on: macos-15
       nx: |
-        pnpm exec nx run-many -t test --output-style=stream
+        # Full build + every registered ctest (units, CPU goldens, GPU goldens).
+        pnpm -s test:host
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
-        # GPU readback vs CPU goldens on the headless Metal device.
-        cmake --build build/macos-metal-debug --target glim-hello-metal-golden glim-glass-metal-golden glim-gradients-metal-golden
-        ctest --test-dir build/macos-metal-debug -R metal-golden --output-on-failure
         # Size budget: release static Metal slice.
         cmake --preset macos-metal-release
         cmake --build build/macos-metal-release --target glim-core glim-paint glim-paint-gpu glim-gpu-metal glim-shell

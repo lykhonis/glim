@@ -10,9 +10,7 @@ jobs:
       runs-on: ubuntu-24.04
       packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
       nx: |
-        pnpm exec nx run-many -t test --output-style=stream
+        # Full build + every registered ctest (units, CPU goldens, GPU goldens).
+        pnpm -s test:host
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
-        # GPU readback vs CPU goldens on Mesa's software Vulkan (lavapipe).
-        cmake --build build/linux-vulkan-debug --target glim-hello-vulkan-golden glim-glass-vulkan-golden glim-gradients-vulkan-golden
-        ctest --test-dir build/linux-vulkan-debug -R vulkan-golden --output-on-failure

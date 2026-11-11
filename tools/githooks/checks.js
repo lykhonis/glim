@@ -15,15 +15,11 @@ function step(name, cmd, args) {
   }
 }
 
-function formatter() {
-  return fs.existsSync(path.join(root, "node_modules/@wasm-fmt/clang-format"));
-}
-
 /** @param {string[]} files */
 function format(files = []) {
-  if (!formatter()) {
-    console.error("run pnpm install for the formatter; skipping format check");
-    return;
+  if (!fs.existsSync(path.join(root, "node_modules/@wasm-fmt/clang-format"))) {
+    console.error("formatter missing: run pnpm install");
+    process.exit(1);
   }
   step("format (run pnpm format)", "node", ["tools/format.mjs", "--check", ...files]);
 }
@@ -38,16 +34,16 @@ function lintTests() {
   step("glim-lint tests", "ctest", ["--test-dir", "build/glim-lint", "--output-on-failure"]);
 }
 
-// Host debug build + tests; skipped where no preset is configured.
+// Host debug configure + full build + every registered ctest. Shared by
+// pre-push and CI so no test depends on a hand-kept regex list.
 function hostTests() {
   const preset = process.platform === "darwin" ? "macos-metal-debug" : "linux-vulkan-debug";
   const dir = path.join("build", preset);
-  if (!fs.existsSync(path.join(root, dir, "CMakeCache.txt"))) {
-    console.error(`${dir} not configured; skipping build and tests`);
-    return;
-  }
-  step(`build ${preset}`, "cmake", ["--build", dir, "-j", "8"]);
-  step(`test ${preset}`, "ctest", ["--test-dir", dir, "-j", "6", "--timeout", "900", "--output-on-failure"]);
+  step(`configure ${preset}`, "cmake", ["--preset", preset]);
+  step(`build ${preset}`, "cmake", ["--build", dir]);
+  step(`test ${preset}`, "ctest", [
+    "--test-dir", dir, "-j", "6", "--timeout", "900", "--output-on-failure", "--no-tests=error",
+  ]);
 }
 
 /** Staged C++ files, excluding vendor. */
