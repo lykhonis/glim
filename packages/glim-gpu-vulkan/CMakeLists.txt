@@ -55,7 +55,13 @@ add_custom_command(
 add_custom_target(glim-vulkan-shaders DEPENDS "${_glim_vk_header}")
 set(GLIM_VULKAN_SHADER_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
 
-add_library(glim-gpu-vulkan STATIC src/Device.cpp)
+add_library(glim-gpu-vulkan STATIC
+    src/Device.cpp
+    src/VulkanCreate.cpp
+    src/VulkanObjects.cpp
+    src/VulkanPass.cpp
+    src/VulkanResources.cpp
+    src/VulkanSwapchain.cpp)
 add_library(glim::gpu-vulkan ALIAS glim-gpu-vulkan)
 target_link_libraries(glim-gpu-vulkan PUBLIC glim::gpu glim::volk)
 add_dependencies(glim-gpu-vulkan glim-vulkan-shaders)
