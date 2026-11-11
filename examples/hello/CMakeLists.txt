@@ -9,12 +9,8 @@ if(GLIM_HOST_TESTS)
     add_test(NAME glim-hello-golden
              COMMAND glim-hello-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png")
     if(GLIM_GPU STREQUAL "vulkan")
-        add_executable(glim-hello-vulkan-golden tests/vulkan_golden.cpp src/main.cpp)
-        target_include_directories(glim-hello-vulkan-golden PRIVATE src)
-        target_link_libraries(glim-hello-vulkan-golden PRIVATE glim::glim glim::image)
-        glim_target_defaults(glim-hello-vulkan-golden)
-        target_compile_definitions(glim-hello-vulkan-golden PRIVATE GLIM_GOLDEN=1)
-        add_test(NAME glim-hello-vulkan-golden
-                 COMMAND glim-hello-vulkan-golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png")
+        glim_add_gpu_golden(hello
+            GOLDEN "${CMAKE_CURRENT_SOURCE_DIR}/golden/hello.png"
+            SOURCES tests/gpu_golden.cpp src/main.cpp)
     endif()
 endif()

@@ -1,32 +1,30 @@
+#include "GpuGolden.h"
+
 #include <glim/gpu/Device.h>
 #include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
-#include <glim/paint/Context.h>
 #include <glim/paint/Renderer.h>
 
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
-#include <string>
 
-void recordGlass(
-    glim::paint::Context&,
-    glim::Vec2,
-    float,
-    glim::Rect = {},
-    bool = false
-);
+namespace glim::examples {
+namespace {
 
-// Per-scene GPU parity band: glass uses SDF smoothing
-// that legitimately differs per backend, so the band is wide. Pinned
-// 2026-11-03; tighten only with a measured justification.
-constexpr std::size_t kMaxOverDelta = 280000;
-constexpr int kMaxChannelDelta = 224;
+#if defined(GLIM_GOLDEN_METAL)
+constexpr gpu::Backend kBackend = gpu::Backend::Metal;
+constexpr const char* kName = "metal";
+#else
+constexpr gpu::Backend kBackend = gpu::Backend::Vulkan;
+constexpr const char* kName = "vulkan";
+#endif
 
-static int diagnose(
-    const glim::image::Image& got, const glim::image::Image& want
-) {
+constexpr int kWidth = 720;
+constexpr int kHeight = 480;
+
+int diagnose(const image::Image& got, const image::Image& want) {
   std::size_t buckets[4] = {};
   int maxDelta = 0;
   int shown = 0;
@@ -58,71 +56,77 @@ static int diagnose(
   return maxDelta;
 }
 
-int main(int argc, char** argv) {
-  const char* goldenPath =
-      argc > 1 ? argv[1] : "examples/glass/golden/glass.png";
-  glim::gpu::DeviceCreateInfo info{};
-#if defined(GLIM_GOLDEN_METAL)
-  info.backend = glim::gpu::Backend::Metal;
-#else
-  info.backend = glim::gpu::Backend::Vulkan;
-#endif
-  auto created = glim::gpu::Device::create(info);
+}  // namespace
+
+int runGpuGolden(
+    int argc,
+    char** argv,
+    const char* defaultGolden,
+    GpuBand band,
+    const RecordScene& record
+) {
+  const char* goldenPath = argc > 1 ? argv[1] : defaultGolden;
+  gpu::DeviceCreateInfo info{};
+  info.backend = kBackend;
+  auto created = gpu::Device::create(info);
   if (!created.ok()) {
     std::cerr << "headless device failed: " << created.message()
               << '\n';
     return EXIT_FAILURE;
   }
-  glim::gpu::Device device = std::move(created.value());
+  gpu::Device device = std::move(created.value());
   if (!device.headless()) {
     std::cerr << "expected headless device\n";
     return EXIT_FAILURE;
   }
-  auto target = device.createFrameTarget({720, 480});
+  auto target = device.createFrameTarget({kWidth, kHeight});
   if (!target.ok()) {
     std::cerr << "frame target failed: " << target.message() << '\n';
     return EXIT_FAILURE;
   }
-  glim::paint::Context ctx;
-  ctx.setSize({720, 480});
+  const Vec2 size{
+      static_cast<float>(kWidth), static_cast<float>(kHeight)
+  };
+  paint::Context ctx;
+  ctx.setSize(size);
   ctx.beginFrame();
-  recordGlass(ctx, {720, 480}, 0.0f);
+  record(ctx, size);
   ctx.finish();
 
-  glim::paint::Renderer renderer(device);
+  paint::Renderer renderer(device);
   renderer.drawToTarget(ctx.scene(), target.value());
 
-  glim::image::Image got = glim::image::Image::rgba8(720, 480);
+  image::Image got = image::Image::rgba8(kWidth, kHeight);
   if (!device.readPixels(
           target.value(), got.rgba.data(), got.rgba.size()
       )) {
     std::cerr << "readPixels failed\n";
     return EXIT_FAILURE;
   }
-  glim::image::Image want;
-  if (!glim::image::Png::read(goldenPath, &want)) {
+  image::Image want;
+  if (!image::Png::read(goldenPath, &want)) {
     std::cerr << "could not read golden " << goldenPath
               << " (CPU golden is source of truth)\n";
     return EXIT_FAILURE;
   }
-  if (std::getenv("GLIM_GOT_DIR") != nullptr) {
-    glim::image::writeGot(argv[0], got);
-  }
-  const glim::image::Diff diff = glim::image::compare(got, want);
+  const image::Diff diff = image::compare(got, want);
   const int maxDelta = diagnose(got, want);
-  if (!diff.sameSize || diff.overDelta > kMaxOverDelta ||
-      maxDelta > kMaxChannelDelta) {
+  if (!diff.sameSize || diff.overDelta > band.maxOverDelta ||
+      maxDelta > band.maxChannelDelta) {
     if (!diff.sameSize) {
       std::cerr << "golden size mismatch\n";
     } else {
-      std::cerr << "vulkan golden mismatch: " << diff.overDelta
-                << " channels differ by >2"
-                << " (limit " << kMaxOverDelta
+      std::cerr << kName << " golden mismatch: " << diff.overDelta
+                << " channels differ by >2 (limit " << band.maxOverDelta
                 << "), maxDelta=" << maxDelta << " (limit "
-                << kMaxChannelDelta << ")\n";
+                << band.maxChannelDelta << ")\n";
     }
+    image::writeGot(argv[0], got);
     return EXIT_FAILURE;
   }
-  std::cout << "vulkan_golden ok\n";
+  std::cout << kName << "_golden ok (over=" << diff.overDelta
+            << ", maxDelta=" << maxDelta << ")\n";
   return EXIT_SUCCESS;
 }
+
+}  // namespace glim::examples
