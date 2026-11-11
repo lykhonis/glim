@@ -1,11 +1,7 @@
 #!/usr/bin/env node
-// Pre-push: formatting backstop for --no-verify commits.
-const { execFileSync, spawnSync } = require("child_process");
-const fs = require("fs");
-const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
-if (!fs.existsSync(`${root}/node_modules/@wasm-fmt/clang-format`)) {
-  console.error("pre-push: run pnpm install for the formatter, skipping format check");
-  process.exit(0);
-}
-const r = spawnSync("node", ["tools/format.mjs", "--check"], { cwd: root, stdio: "inherit" });
-process.exit(r.status ?? 1);
+// Pre-push (heavy): whole-tree format, lint with its own tests, host build and tests.
+const checks = require("./checks");
+checks.format();
+checks.lint();
+checks.lintTests();
+checks.hostTests();

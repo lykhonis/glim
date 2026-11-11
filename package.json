@@ -11,7 +11,7 @@
     "test": "nx run-many -t test",
     "format": "node tools/format.mjs",
     "format:check": "node tools/format.mjs --check",
-    "lint": "cmake -S tools/glim-lint -B build/glim-lint -DCMAKE_BUILD_TYPE=Release && cmake --build build/glim-lint && build/glim-lint/glim-lint --root .",
+    "lint": "node -e \"require('./tools/githooks/checks').lint()\"",
     "postinstall": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath tools/githooks || true",
     "hello": "nx run hello:run",
     "web-goldens": "cmake -S tools/glim-golden -B build/glim-golden -DCMAKE_BUILD_TYPE=Release && cmake --build build/glim-golden && node tools/web-goldens.mjs"
