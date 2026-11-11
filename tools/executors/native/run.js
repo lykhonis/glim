@@ -1,3 +1,4 @@
+const { serveStatic } = require("./serve");
 const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
@@ -519,26 +520,18 @@ function runInBrowser(root, preset, options) {
     return fail(`missing index.html in ${dir} (build the example first)`);
   }
   const port = options.port || 8080;
-  const python = which("python3") || which("python");
-  if (!python) {
-    return fail("python3 not found (required to serve the web example)");
-  }
-  const url = `http://localhost:${port}/index.html`;
-  console.log(`Serving ${dir}\n  ${url}`);
-  if (options.open !== false) {
-    const opener = process.platform === "darwin" ? "open" : "xdg-open";
-    spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
-  }
-  const r = spawnSync(python, ["-m", "http.server", String(port), "--directory", dir], {
-    stdio: "inherit",
-  });
-  if (r.error) {
-    return fail(r.error.message);
-  }
-  if (r.status !== 0) {
-    return fail(`server exited (port ${port} busy? retry with --port)`);
-  }
-  return { success: true };
+  return serveStatic(dir, port).then(
+    ({ server }) => {
+      const url = `http://127.0.0.1:${port}/index.html`;
+      console.log(`Serving ${dir}\n  ${url}`);
+      if (options.open !== false) {
+        const opener = process.platform === "darwin" ? "open" : "xdg-open";
+        spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+      }
+      return new Promise((resolve) => server.on("close", () => resolve({ success: true })));
+    },
+    (e) => fail(`cannot serve on port ${port} (${e.message}); retry with --port`),
+  );
 }
 
 function resolvePreset(preset) {

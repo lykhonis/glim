@@ -8,11 +8,11 @@
 // Env: GLIM_BUILD_DIR, GLIM_GOT_DIR, GLIM_GOLDEN_BIN, GLIM_WEB_BUDGET_MS,
 // WEBGPU_ANGLE, CHROME_BIN.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
-import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import serve from "./executors/native/serve.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const build = process.env.GLIM_BUILD_DIR ?? path.join(root, "build/web-webgpu-debug");
@@ -35,15 +35,6 @@ const cases = [
 ];
 const foreignPage = "foreign.html";
 const required = ["index.html", "glass.html", "gradients.html", foreignPage, "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
-
-/** @type {Record<string, string>} */
-const mime = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".wasm": "application/wasm",
-  ".png": "image/png",
-  ".json": "application/json",
-};
 
 function fail(/** @type {string} */ message) {
   console.error(message);
@@ -82,19 +73,7 @@ for (const f of required) {
 }
 mkdirSync(gotDir, { recursive: true });
 
-const server = http.createServer((req, res) => {
-  const rel = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
-  const file = path.join(serveDir, rel === "/" ? "index.html" : rel);
-  if (!file.startsWith(serveDir) || !existsSync(file) || !statSync(file).isFile()) {
-    res.writeHead(404).end();
-    return;
-  }
-  res.writeHead(200, { "content-type": mime[path.extname(file)] ?? "application/octet-stream" });
-  res.end(readFileSync(file));
-});
-await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(undefined)));
-const address = server.address();
-const port = typeof address === "object" && address ? address.port : 0;
+const { server, port } = await serve.serveStatic(serveDir, 0);
 
 // Async on purpose: the page is fetched from this process's own server,
 // which a blocking spawn would starve.
