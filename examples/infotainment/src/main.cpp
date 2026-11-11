@@ -72,45 +72,53 @@ Block clusterBoard(Scope app) {
   constexpr Anchor L = Anchor::Start, C = Anchor::Center,
                    R = Anchor::End;
   return pinned(
-      1168.f,
-      784.f,
-      {{{0, 0, 300, 784}, clusterChrome(false), L},
-       {{880, 0, 288, 784}, clusterChrome(true), R},
-       {{324, 70, 520, 520},
-        speedGauge(
-            {.value = d.speedKmh / 300.f,
-             .speedKmh = d.speedKmh,
-             .targetKmh = d.targetKmh,
-             .needleKmh = d.needleKmh,
-             .speedRoll = d.speedRoll}
-        ),
-        C,
-        fui::dialGlass(),
-        {325.5f, 76.f, 516.f, 516.f}},
-       {{18, 21, 238, 273},
-        batteryArc({.level = d.batteryLevel, .rangeKm = d.rangeKm}),
-        L,
-        card,
-        {},
-        lift},
-       {{22, 309, 236, 204},
-        altitudeCard({.altM = d.altM, .targetM = d.targetAltM}),
-        L,
-        card,
-        {},
-        lift},
-       {{21, 529, 283, 193}, sysStatus({}), L, card, {}, lift},
-       {{914, 21, 237, 303}, vsi({.rate = d.vsiRate}), R, card, {}, lift
-       },
-       {{913, 339, 233, 179},
-        navCard({.distanceKm = d.distanceKm, .headingDeg = d.headingDeg}
-        ),
-        R,
-        card,
-        {},
-        lift},
-       {{895, 532, 250, 198}, envCard({}), R, card, {}, lift},
-       {{323, 663, 543, 71}, modeBar({}), C, control, {}, lift}}
+      {.width = 1168.f,
+       .height = 784.f,
+       .pins =
+           {{{0, 0, 300, 784}, clusterChrome(false), L},
+            {{880, 0, 288, 784}, clusterChrome(true), R},
+            {{324, 70, 520, 520},
+             speedGauge(
+                 {.value = d.speedKmh / 300.f,
+                  .speedKmh = d.speedKmh,
+                  .targetKmh = d.targetKmh,
+                  .needleKmh = d.needleKmh,
+                  .speedRoll = d.speedRoll}
+             ),
+             C,
+             fui::dialGlass(),
+             {325.5f, 76.f, 516.f, 516.f}},
+            {{18, 21, 238, 273},
+             batteryArc({.level = d.batteryLevel, .rangeKm = d.rangeKm}
+             ),
+             L,
+             card,
+             {},
+             lift},
+            {{22, 309, 236, 204},
+             altitudeCard({.altM = d.altM, .targetM = d.targetAltM}),
+             L,
+             card,
+             {},
+             lift},
+            {{21, 529, 283, 193}, sysStatus({}), L, card, {}, lift},
+            {{914, 21, 237, 303},
+             vsi({.rate = d.vsiRate}),
+             R,
+             card,
+             {},
+             lift},
+            {{913, 339, 233, 179},
+             navCard(
+                 {.distanceKm = d.distanceKm, .headingDeg = d.headingDeg
+                 }
+             ),
+             R,
+             card,
+             {},
+             lift},
+            {{895, 532, 250, 198}, envCard({}), R, card, {}, lift},
+            {{323, 663, 543, 71}, modeBar({}), C, control, {}, lift}}}
   );
 }
 

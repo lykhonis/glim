@@ -140,22 +140,22 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
   // The roll fills the window and the header floats over its top; the
   // strut keeps the first row clear of the header at rest.
   return smartHomeThemed(
-      *light ? 1 : 0,
-      stack(
-          expand(),
-          backdrop(),
-          roll(
-              vertical(),
-              scrollOffset(vscroll),
-              column(
-                  gap(0),
-                  pad(36),
-                  strut({.height = kHeaderH}),
-                  overviewPage(data)
-              )
-          ),
-          header(live, light, tint)
-      )
+      {.light = *light,
+       .child = stack(
+           expand(),
+           backdrop(),
+           roll(
+               vertical(),
+               scrollOffset(vscroll),
+               column(
+                   gap(0),
+                   pad(36),
+                   strut({.height = kHeaderH}),
+                   overviewPage(data)
+               )
+           ),
+           header(live, light, tint)
+       )}
   );
 }
 

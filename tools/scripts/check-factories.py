@@ -4,7 +4,7 @@
 Scope: element factories (packages/glim-toolkit/include/.../elements/),
 smarthome widgets, and themed(). For each Block/auto-returning factory:
 
-Rule A (props-form): a template factory with 2+ fixed leading params
+Rule A (props-form): a factory (template or not) with 2+ fixed params
 must take the element struct instead. Allowlist: tap (child is the
 identity), list (count+generator, container-like).
 
@@ -23,6 +23,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIRS = [
     ROOT / "packages/glim-toolkit/include/glim/toolkit/elements",
     ROOT / "examples/smarthome/src/widgets",
+    ROOT / "examples/infotainment/src/widgets",
 ]
 FILES = [ROOT / "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h"]
 
@@ -85,7 +86,7 @@ def check_file(path):
         fixed = [p for p in params if "..." not in p]
         fwd = any("..." in p for p in params)
         is_template = bool(re.match(r"\s*template\s*<", s[m.start() : m.end()]))
-        if is_template and len(fixed) >= 2 and name not in ALLOW_MULTIFIXED:
+        if len(fixed) >= 2 and name not in ALLOW_MULTIFIXED:
             errors.append(
                 f"{path}:{line}: {name} takes {len(fixed)} fixed params "
                 f"({', '.join(fixed)}) - pass the element struct instead"

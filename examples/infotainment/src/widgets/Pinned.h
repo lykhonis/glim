@@ -108,11 +108,17 @@ struct Pinned {
   }
 };
 
-inline Block pinned(float width, float height, std::vector<Pin> pins) {
+struct PinnedLayout {
+  float width = 0.f;
+  float height = 0.f;
+  std::vector<Pin> pins;
+};
+
+inline Block pinned(PinnedLayout layout) {
   Pinned p;
-  p.width = width;
-  p.height = height;
-  for (Pin& pin : pins) {
+  p.width = layout.width;
+  p.height = layout.height;
+  for (Pin& pin : layout.pins) {
     p.rects.push_back(pin.at);
     p.anchors.push_back(pin.anchor);
     p.backings.push_back(pin.backing);

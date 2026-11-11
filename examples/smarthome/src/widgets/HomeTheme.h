@@ -102,8 +102,13 @@ struct ShowDark {
 // Root scope for the dashboard: one themed() holding the selected
 // ramp. Widgets keep their Show::* fallbacks, so dark == current
 // pixels and light only changes what the ramp overrides.
-inline Block smartHomeThemed(int theme, Block child) {
-  const bool light = theme == 1;
+struct SmartHomeTheme {
+  bool light = false;
+  Block child;
+};
+
+inline Block smartHomeThemed(SmartHomeTheme t) {
+  const bool light = t.light;
   return themed(
       themeColor(
           kThemeWindowBg,
@@ -155,7 +160,7 @@ inline Block smartHomeThemed(int theme, Block child) {
           light ? ShowLight::kScrimBottom : Show::kScrimBottom
       ),
       themeColor(kShowOk, Show::kOk),
-      std::move(child)
+      std::move(t.child)
   );
 }
 
