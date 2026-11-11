@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Pre-push (heavy): whole-tree format, lint with its own tests, host build and tests.
+// Pre-push (heavy): whole-tree format, lint with its own tests, tool typecheck, host build and tests.
 const checks = require("./checks");
 checks.format();
 checks.lint();
 checks.lintTests();
+checks.typecheck();
 checks.hostTests();

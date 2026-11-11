@@ -30,6 +30,10 @@ function lint() {
   step("glim-lint", "build/glim-lint/glim-lint", ["--root", "."]);
 }
 
+function typecheck() {
+  step("typecheck (tools/*.mjs)", "pnpm", ["-s", "typecheck"]);
+}
+
 function lintTests() {
   step("glim-lint tests", "ctest", ["--test-dir", "build/glim-lint", "--output-on-failure"]);
 }
@@ -56,4 +60,4 @@ function stagedCpp() {
     .filter((f) => /\.(cpp|h)$/.test(f) && !f.startsWith("vendor/"));
 }
 
-module.exports = { format, lint, lintTests, hostTests, stagedCpp };
+module.exports = { format, lint, lintTests, typecheck, hostTests, stagedCpp };

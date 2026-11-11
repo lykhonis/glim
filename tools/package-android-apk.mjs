@@ -22,12 +22,16 @@ import { crc32 } from "node:zlib";
 const [lib, manifest, res, out, sdk, abi = "arm64-v8a"] = process.argv.slice(2);
 const platforms = ["android-35", "android-34", "android-33", "android-32", "android-31", "android-30"];
 
-function fail(/** @type {string} */ message) {
+/** @param {string} message @returns {never} */
+function fail(message) {
   console.error(message);
   process.exit(1);
 }
 
-function skip(/** @type {string} */ message) {
+// Missing SDK pieces skip locally but fail in CI, where the APK must exist.
+/** @param {string} message @returns {never} */
+function skip(message) {
+  if (process.env.CI) fail(`${message}; APK required in CI`);
   console.error(`${message}; skipping APK`);
   process.exit(0);
 }
