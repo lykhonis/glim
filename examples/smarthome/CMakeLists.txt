@@ -9,6 +9,8 @@ if(GLIM_HOST_TESTS)
     target_compile_definitions(glim-smarthome-golden PRIVATE GLIM_GOLDEN=1)
     add_test(NAME glim-smarthome-golden
              COMMAND glim-smarthome-golden)
+    # Holds a wall-clock record gate (< 4 ms); parallel tests skew it.
+    set_tests_properties(glim-smarthome-golden PROPERTIES RUN_SERIAL TRUE)
     add_test(NAME glim-smarthome-png-golden
              COMMAND glim-smarthome-golden --golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/smarthome.png")
     # The app's own headless flags are the perf gate: soak fails on op

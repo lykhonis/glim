@@ -399,7 +399,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 3; ++i) recordOnce();
     double best = recordOnce();
     for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
-    std::cout << "record " << best << " ms\n";
+    std::cout << "record " << best << " ms" << std::endl;
     assert(best < 4.0);
   }
 
