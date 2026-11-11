@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 
+#include "GroupOrder.h"
 #include "Strip.h"
 
 namespace glim::paint {
@@ -166,10 +167,7 @@ void encodeTree(
 ) {
   const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
   const bool isPlus = g.params.blend == Blend::Plus;
-  bool seenBackdrop = false;
-  bool afterBackdrop = false;
-  bool seenGlass = false;
-  bool afterGlass = false;
+  GroupOrder runs;
   const auto flushWrap = [&](Group& wrap) {
     wrap.params.bounds = contentBounds(wrap);
     wrap.params.blend = g.params.blend;
@@ -187,7 +185,7 @@ void encodeTree(
   visitGroup(
       g,
       [&](const Shape& s) {
-        if (seenBackdrop || seenGlass) {
+        if (runs.seenBackdrop || runs.seenGlass) {
           // Plus parents add each shape on its own; normal-blend runs share
           // one isolate (src-over is associative), so overlay text and
           // strokes do not pay an offscreen each.
@@ -226,27 +224,8 @@ void encodeTree(
         flushOverlay();
         const bool backdrop = hasBackdrop(child);
         const bool glassWork = hasGlassWork(child);
-        if (backdrop) {
-          GLIM_ASSERT(
-              !afterBackdrop && !seenGlass,
-              "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-          );
-          seenBackdrop = true;
-        } else if (glassWork) {
-          GLIM_ASSERT(
-              !afterGlass,
-              "glass Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-          );
-          if (seenBackdrop) {
-            afterBackdrop = true;
-          }
-          seenGlass = true;
-        } else if (seenGlass) {
-          afterGlass = true;
-        } else if (seenBackdrop) {
-          afterBackdrop = true;
-        }
-        if (needsIsolate(child) || seenBackdrop || seenGlass) {
+        runs.next(backdrop, glassWork);
+        if (needsIsolate(child) || runs.seenBackdrop || runs.seenGlass) {
           isolates.push_back(encodeIsolate(child, extra, pixelRatio, logicalSize, stats));
           if (stats) {
             ++stats->isolateCount;

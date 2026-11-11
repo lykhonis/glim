@@ -74,7 +74,7 @@ inline constexpr const char* kE2eUsage =
     "[--snapshot out.png] [--dump-a11y] [--dump-ops out.bin] [--stats]\n"
     "  [--e2e \"tap:i:1;step:0.5;~TEXT\"] [--probe script|-]\n"
     "  [--trace-frames N [--trace-out out.csv] [--trace-json out.json]] [--soak N]\n"
-    "  [--drive script [--drive-trace out.json]]";
+    "  [--drive script [--drive-trace out.json]] [--startup]";
 
 struct E2eFlags {
   bool help = false;
@@ -89,6 +89,7 @@ struct E2eFlags {
   int soak = 0;
   // Windowed, not headless: hand these to Config::drive/driveTrace.
   std::string drive, driveTrace;
+  bool startup = false;
   bool any() const {
     return !script.empty() || !snapshot.empty() || !probe.empty() || dumpA11y || !dumpOps.empty() ||
            stats || traceFrames > 0 || !traceOut.empty() || soak > 0;

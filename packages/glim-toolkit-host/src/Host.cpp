@@ -1,8 +1,10 @@
 #include <glim/toolkit/host/Host.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -16,6 +18,7 @@
 #include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Seats.h>
+#include <glim/toolkit/host/Startup.h>
 #include <glim/toolkit/host/Telemetry.h>
 
 namespace glim {
@@ -52,6 +55,19 @@ int run(
     TelemetryHub* telemetry,
     TelemetrySink telemetrySink
 ) {
+  std::unique_ptr<StartupReport> startup;
+  if (config.startup) {
+    startup = std::make_unique<StartupReport>();
+    startup->mark("launch");
+  }
+  // First-paint phases are marked once; `presented` then ends the run.
+  bool firstPainted = false;
+  // Ms since process start, set by the present callback (any thread; shared,
+  // as it can outlive this loop); -1 once reported.
+  const auto presentedAt = std::make_shared<std::atomic<double>>(0.0);
+  const auto startupMark = [&](const char* phase) {
+    if (startup && !firstPainted) startup->mark(phase);
+  };
   SeatViewFactory effective = makeSeatView != nullptr ? makeSeatView : &makeDefaultSeatView;
   LayerFeed feed;
   if (!record) {
@@ -77,13 +93,16 @@ int run(
     };
   }
   shell::Application host;
+  startupMark("application");
   shell::Window window;
+  startupMark("window-new");
   window.setTitle(config.title ? config.title : "Glim");
   window.setSize(config.width, config.height);
   if (config.customTitlebar) {
     window.setCustomTitlebar(true);
   }
   window.center();
+  startupMark("window");
 
 #if !GLIM_SOFTWARE
   shell::Surface surface;
@@ -95,7 +114,9 @@ int run(
     return 1;
   }
   gpu::Device device = std::move(created.value());
+  startupMark("device");
   paint::Renderer renderer(device);
+  startupMark("renderer");
 #endif
   paint::Context context;
 #if GLIM_SOFTWARE
@@ -154,11 +175,13 @@ int run(
   // build/record around user paint, paint/gpu stats after draw, one
   // snapshot fanned out to pull (hub) and push (sink).
   const auto paintBody = [&](const std::chrono::steady_clock::time_point& now, float frameMs) {
+    startupMark("first-event");
     const Vec2 size = window.size();
     const bool wantTm = (telemetry != nullptr) || static_cast<bool>(telemetrySink);
     const auto b0 =
         wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     auto [tree, box] = buildFresh(size);
+    startupMark("build");
     const auto b1 =
         wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (a11ySink) {
@@ -172,6 +195,7 @@ int run(
     if (record) {
       record(frame, tree, box);
     }
+    startupMark("record");
     const auto r1 =
         wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     context.finish();
@@ -180,8 +204,11 @@ int run(
       syncSeats(window, context.scene(), attached, effective);
     }
 #if GLIM_SOFTWARE
-    const int w = std::max(1, static_cast<int>(size.x));
-    const int h = std::max(1, static_cast<int>(size.y));
+    // Device pixels: the layer shows the buffer at the backing scale, so a
+    // logical-size buffer fills a quarter of a Retina window.
+    const Vec2 drawable = window.drawableSize();
+    const int w = std::max(1, static_cast<int>(std::lround(drawable.x)));
+    const int h = std::max(1, static_cast<int>(std::lround(drawable.y)));
     std::uint8_t* pixels = window.mapSoftware(w, h);
     if (!renderer) {
       renderer = std::make_unique<paint::Renderer>(pixels, w, h);
@@ -190,6 +217,7 @@ int run(
     }
     renderer->draw(context.scene());
     window.presentSoftware();
+    if (startup && !firstPainted) *presentedAt = processUptimeMs();
 #else
     const Vec2 drawable = window.drawableSize();
     // Round, never truncate: a truncating cast would shrink the integral
@@ -201,6 +229,9 @@ int run(
       device.setDrawableSize(dw, dh);
       lastDrawableW = dw;
       lastDrawableH = dh;
+    }
+    if (startup && !firstPainted) {
+      device.notifyNextPresented([presentedAt] { *presentedAt = processUptimeMs(); });
     }
     renderer.draw(context.scene());
 #endif
@@ -230,6 +261,8 @@ int run(
         telemetrySink(sample);
       }
     }
+    startupMark("encode");
+    firstPainted = true;
     screen.painted(store);
   };
 
@@ -308,6 +341,11 @@ int run(
       return;
     }
     if (e.type() == T::Frame) {
+      if (startup && *presentedAt > 0.0) {
+        startup->markAt("presented", presentedAt->exchange(-1.0));
+        shell::RunLoop().stop();
+        return;
+      }
       // Clock ticks every vsync; the scene re-records only when Screen's
       // revision moved. Live values step first (tree-free); their writes
       // bump the revision and paint below.
@@ -326,10 +364,14 @@ int run(
     }
   });
   window.show();
+  startupMark("show");
   if (drive) {
     drive->start(window);
   }
   host.run();
+  if (startup) {
+    std::cout << startup->summary();
+  }
   if (drive && !drive->finish(config.driveTrace.empty() ? nullptr : config.driveTrace.c_str())) {
     return 1;
   }

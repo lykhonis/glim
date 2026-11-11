@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <memory>
 
 #if !GLIM_SOFTWARE
@@ -76,8 +77,13 @@ int glimRunExample(
         }
         context.finish();
 #if GLIM_SOFTWARE
-        const int w = std::max(1, static_cast<int>(size.x));
-        const int h = std::max(1, static_cast<int>(size.y));
+        // Device pixels: the layer shows the buffer at the backing
+        // scale.
+        const glim::Vec2 drawable = window.drawableSize();
+        const int w =
+            std::max(1, static_cast<int>(std::lround(drawable.x)));
+        const int h =
+            std::max(1, static_cast<int>(std::lround(drawable.y)));
         std::uint8_t* pixels = window.mapSoftware(w, h);
         if (!renderer) {
           renderer =

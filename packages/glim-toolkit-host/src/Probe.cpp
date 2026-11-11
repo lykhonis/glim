@@ -669,6 +669,8 @@ E2eFlags parseE2e(int argc, char** argv) {
       f.driveTrace = val("--drive-trace");
     else if (has("--drive"))
       f.drive = val("--drive");
+    else if (a == "--startup")
+      f.startup = true;
   }
   return f;
 }

@@ -18,6 +18,8 @@
 #include <unistd.h>
 #endif
 
+#include "GroupOrder.h"
+
 namespace {
 
 int failures = 0;
@@ -102,6 +104,46 @@ int main() {
     expect(found, "found glass isolate");
     expect(pkt.stats.glassPassCount >= 1, "encode glassPassCount");
     expect(pkt.stats.backdropCount == 0, "independence: no backdrop pyramid");
+  }
+
+  // Glass may follow an overlay (a live smarthome screen does): the second
+  // run starts anew instead of asserting, in every renderer.
+  {
+    glim::paint::GroupOrder runs;
+    expect(!runs.next(false, true), "first glass run is not a restart");
+    expect(!runs.next(false, false), "overlay after glass");
+    expect(runs.next(false, true), "glass after an overlay starts a new run");
+    expect(!runs.next(false, true), "consecutive glass stays in the run");
+  }
+  {
+    glim::paint::Context ctx;
+    ctx.setSize({80, 40});
+    ctx.beginFrame();
+    ctx.setFillColor(0xff0000ff);
+    ctx.fill(Rect::fromSize({80, 40}));
+    GroupParams first;
+    first.glass = Glass{};
+    first.bounds = Rect{{4, 4}, {20, 12}};
+    ctx.pushGroup(first);
+    ctx.popGroup();
+    GroupParams overlay;
+    overlay.opacity = 0.5f;
+    ctx.pushGroup(overlay);
+    ctx.setFillColor(0xff00ff00);
+    ctx.fill(Rect{{30, 4}, {10, 30}});
+    ctx.popGroup();
+    GroupParams second;
+    second.glass = Glass{};
+    second.bounds = Rect{{50, 4}, {20, 12}};
+    ctx.pushGroup(second);
+    ctx.popGroup();
+    ctx.finish();
+    const glim::paint::FramePacket pkt = glim::paint::encode(ctx.scene(), 1.f);
+    expect(pkt.stats.glassPassCount == 2, "glass, overlay, glass: both glass runs encode");
+    std::vector<std::uint8_t> buf(80 * 40 * 4);
+    glim::paint::Renderer renderer(buf.data(), 80, 40);
+    renderer.draw(ctx.scene());
+    expect(buf[(20 * 80 + 60) * 4 + 3] != 0, "glass, overlay, glass: second glass renders");
   }
 
   {

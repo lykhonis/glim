@@ -1,5 +1,6 @@
 #include <glim/paint/Reuse.h>
 
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -64,13 +65,44 @@ struct FpContext {
 void hashRect(FpContext& ctx, const Rect& r, bool normalize);
 void hashPoint(FpContext& ctx, Vec2 p, bool normalize);
 
+std::uint64_t mix64(std::uint64_t x) {
+  x ^= x >> 33;
+  x *= 0xff51afd7ed558ccdull;
+  x ^= x >> 33;
+  x *= 0xc4ceb9fe1a85ec53ull;
+  return x ^ (x >> 33);
+}
+
+// Pixel content key. Byte-serial FNV over a full-screen image cost a
+// first frame ~13 ms; four independent lanes of 8-byte words do not
+// wait on each other's multiply.
+std::uint64_t hashPixels(const std::uint8_t* p, std::size_t n) {
+  constexpr std::uint64_t kLaneSeed[4] = {
+      0x9e3779b97f4a7c15ull, 0xbf58476d1ce4e5b9ull, 0x94d049bb133111ebull, 0x2545f4914f6cdd1dull
+  };
+  std::uint64_t lanes[4] = {kLaneSeed[0], kLaneSeed[1], kLaneSeed[2], kLaneSeed[3]};
+  std::size_t i = 0;
+  for (; i + 32 <= n; i += 32) {
+    for (int l = 0; l < 4; ++l) {
+      std::uint64_t w = 0;
+      std::memcpy(&w, p + i + l * 8, 8);
+      lanes[l] = std::rotl((lanes[l] ^ w) * kFnvPrime, 29);
+    }
+  }
+  Hasher tail;
+  tail.bytes(p + i, n - i);
+  std::uint64_t h = mix64(tail.h);
+  for (const std::uint64_t lane : lanes) h = mix64(h ^ mix64(lane));
+  return h;
+}
+
 std::uint64_t fingerprintSampled(const StoredImage& img) {
   Hasher h;
   h.u32(static_cast<std::uint32_t>(img.width));
   h.u32(static_cast<std::uint32_t>(img.height));
   h.u64(static_cast<std::uint64_t>(img.rgba.size()));
   if (!img.rgba.empty()) {
-    h.bytes(img.rgba.data(), img.rgba.size());
+    h.u64(hashPixels(img.rgba.data(), img.rgba.size()));
   }
   return h.h;
 }

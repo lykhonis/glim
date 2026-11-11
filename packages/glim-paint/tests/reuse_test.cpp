@@ -394,6 +394,28 @@ int main() {
     expect(hb == plainB, "shared cache does not corrupt later hashes");
   }
 
+  // 11b. Any single changed byte changes the fingerprint, in the 32-byte
+  // lanes and in the tail they leave (5x3 RGBA = 60 bytes: 32 + 28).
+  {
+    auto hashOf = [](const std::vector<std::uint8_t>& px) {
+      glim::paint::Context ctx;
+      ctx.setSize({64, 64});
+      ctx.beginFrame();
+      const std::uint32_t img = ctx.addImage(5, 3, px.data());
+      ctx.blit(glim::Rect{{8, 8}, {16, 16}}, glim::paint::Matter::sampled(img));
+      ctx.finish();
+      return glim::paint::hashSceneStructure(ctx.scene(), 1.f);
+    };
+    const std::vector<std::uint8_t> base(5 * 3 * 4, 77);
+    const std::uint64_t h0 = hashOf(base);
+    for (const std::size_t at :
+         {std::size_t{0}, std::size_t{31}, std::size_t{32}, std::size_t{59}}) {
+      std::vector<std::uint8_t> px = base;
+      px[at] ^= 0x80;
+      expect(hashOf(px) != h0, "one changed pixel byte changes the image fingerprint");
+    }
+  }
+
   // 12. timeSec is invisible to reuse unless the material animates.
   {
     glim::paint::ReuseCache cache;

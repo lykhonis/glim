@@ -6,6 +6,7 @@
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
+#include <glim/toolkit/host/Startup.h>
 
 #include <cassert>
 #include <cmath>
@@ -405,6 +406,25 @@ int main() {
     t.frameMs = 1000.0f;
     frozen.paint(1200.0f, t);
     assert(frozen.stalled() && frozen.summary().find("1 frame gaps") != std::string::npos);
+  }
+
+  // Startup report: each phase is the time since the previous mark, and
+  // tools/startup.mjs parses these exact lines.
+  {
+    namespace host = glim::toolkit::host;
+    host::StartupReport r;
+    r.markAt("launch", 10.0);
+    r.markAt("record", 35.5);
+    r.markAt("presented", 40.0);
+    assert(r.totalMs() == 40.0);
+    assert(
+        r.summary() ==
+        "startup launch           10.0\n"
+        "startup record           25.5\n"
+        "startup presented         4.5\n"
+        "startup total            40.0\n"
+    );
+    assert(host::processUptimeMs() > 0.0);
   }
 
   std::cout << "host_test ok\n";

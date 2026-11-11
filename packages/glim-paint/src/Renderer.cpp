@@ -9,7 +9,9 @@
 namespace glim::paint {
 #if !GLIM_SOFTWARE
 
-Renderer::Renderer(gpu::Device& device) : device_(device), textures_(device) {}
+Renderer::Renderer(gpu::Device& device) : device_(device), textures_(device) {
+  pipes_.prepare(device_);
+}
 
 Renderer::~Renderer() = default;
 

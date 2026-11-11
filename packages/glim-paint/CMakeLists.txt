@@ -14,7 +14,8 @@ target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 target_include_directories(glim-paint PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     "${CMAKE_SOURCE_DIR}/vendor/stb")
-target_link_libraries(glim-paint PUBLIC glim::core)
+find_package(Threads REQUIRED)
+target_link_libraries(glim-paint PUBLIC glim::core PRIVATE Threads::Threads)
 glim_target_defaults(glim-paint)
 
 file(READ "${CMAKE_SOURCE_DIR}/vendor/inter/Inter-Latin.ttf" _glim_inter_hex HEX)
@@ -128,6 +129,7 @@ if(GLIM_HOST_TESTS)
 
     add_executable(glim-glass-test tests/glass_test.cpp)
     target_link_libraries(glim-glass-test PRIVATE glim::paint-cpu)
+    target_include_directories(glim-glass-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     glim_test_defaults(glim-glass-test)
     add_test(NAME glim-glass-test COMMAND glim-glass-test)
 

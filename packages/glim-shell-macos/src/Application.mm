@@ -228,6 +228,8 @@ void Application::run() {
     NSApplication* application = (__bridge NSApplication*)application_;
     [application finishLaunching];
     GlimEnsureDisplayLink();
+    // A new display link first ticks 2-3 vsyncs late; shown windows paint now.
+    GlimDispatchFrame();
 
     RunLoop runLoop;
     runLoop.scheduleRepeatedTask([application](RunLoop::TaskContext&) {

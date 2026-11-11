@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if defined(__EMSCRIPTEN__)
@@ -228,6 +229,7 @@ WGPUTextureView makeSingleMipView(WGPUTexture tex, WGPUTextureFormat format) {
 }  // namespace
 
 struct Device::Impl {
+  std::function<void()> onPresented;
   WGPUDevice device = nullptr;
   WGPUQueue queue = nullptr;
   WGPUSurface surface = nullptr;
@@ -708,6 +710,9 @@ void CommandEncoder::submit(Queue&) {
   }
   if (impl_->presented) {
     impl_->presented = false;
+    if (dev->onPresented) {
+      std::exchange(dev->onPresented, nullptr)();
+    }
   }
   dev->ringIndex = (dev->ringIndex + 1) % kRingFrames;
   dev->ringOffset = 0;
@@ -826,6 +831,8 @@ Extent Device::drawableSize() const {
 int Device::presentRotationDegrees() const { return 0; }
 
 float Device::lastGpuMs() const { return 0.f; }
+
+void Device::notifyNextPresented(std::function<void()> fn) { impl_->onPresented = std::move(fn); }
 
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
   const int w = std::max(desc.width, 1);
@@ -1022,6 +1029,12 @@ Result<Shader> Device::createShader(ShaderStage, const char* sourceUtf8, std::ui
   return Result<Shader>::ok(s);
 }
 
+std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> sources) {
+  return createShadersInOrder(*this, sources);
+}
+
+void Device::prepareShaders(std::span<const ShaderSource>) {}
+
 Result<Pipeline> Device::createPipeline(const PipelineDesc& desc) {
   if (!impl_->ensureCommon()) {
     return Result<Pipeline>::fail("webgpu common resources failed");
@@ -1194,6 +1207,9 @@ Extent Device::drawableSize() const {
 int Device::presentRotationDegrees() const { return 0; }
 
 float Device::lastGpuMs() const { return 0.f; }
+
+// No browser device here, so nothing is ever presented.
+void Device::notifyNextPresented(std::function<void()>) {}
 Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc&) {
   return Result<FrameTarget>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }
@@ -1218,6 +1234,11 @@ Result<Texture> Device::importSurface(void*, int, int, SampleFormat) {
 Result<Shader> Device::createShader(ShaderStage, const char*, std::uint64_t) {
   return Result<Shader>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }
+std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> sources) {
+  return createShadersInOrder(*this, sources);
+}
+
+void Device::prepareShaders(std::span<const ShaderSource>) {}
 Result<Pipeline> Device::createPipeline(const PipelineDesc&) {
   return Result<Pipeline>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }

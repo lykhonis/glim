@@ -4,12 +4,45 @@
 #include <algorithm>
 #include <cmath>
 #include <mutex>
+#include <vector>
 
+#include "Parallel.h"
 #include "inter_latin.h"
 #include "stb_truetype.h"
 
 namespace glim::paint {
 namespace {
+
+constexpr int kFirstGlyph = 32;
+constexpr int kEndGlyph = 127;
+
+struct GlyphSdf {
+  unsigned char* pixels = nullptr;
+  int w = 0, h = 0, xoff = 0, yoff = 0;
+};
+
+// Glyph SDFs are independent and dominate the bake (~20 ms serial), so they
+// are rendered across cores; packing stays serial, so the atlas is unchanged.
+std::vector<GlyphSdf> renderSdfs(const stbtt_fontinfo& info, float scale) {
+  const float pixelDistScale = static_cast<float>(kSdfOnEdge) / static_cast<float>(kSdfPad);
+  std::vector<GlyphSdf> sdfs(kEndGlyph - kFirstGlyph);
+  parallelFor(sdfs.size(), [&](std::size_t i) {
+    GlyphSdf& g = sdfs[i];
+    g.pixels = stbtt_GetCodepointSDF(
+        &info,
+        scale,
+        kFirstGlyph + static_cast<int>(i),
+        kSdfPad,
+        kSdfOnEdge,
+        pixelDistScale,
+        &g.w,
+        &g.h,
+        &g.xoff,
+        &g.yoff
+    );
+  });
+  return sdfs;
+}
 
 FontAtlas bakeLatin() {
   FontAtlas atlas;
@@ -34,11 +67,11 @@ FontAtlas bakeLatin() {
   atlas.height = kAtlas;
   atlas.rgba.assign(static_cast<std::size_t>(kAtlas * kAtlas * 4), 0);
 
-  const float pixelDistScale = static_cast<float>(kSdfOnEdge) / static_cast<float>(kSdfPad);
+  std::vector<GlyphSdf> sdfs = renderSdfs(info, scale);
   int x = 1;
   int y = 1;
   int rowH = 0;
-  for (int c = 32; c < 127; ++c) {
+  for (int c = kFirstGlyph; c < kEndGlyph; ++c) {
     FontGlyph& g = atlas.glyphs[c];
     int adv = 0;
     int lsb = 0;
@@ -46,13 +79,9 @@ FontAtlas bakeLatin() {
     g.advance = static_cast<float>(adv) * scale;
     g.present = true;
 
-    int gw = 0;
-    int gh = 0;
-    int xoff = 0;
-    int yoff = 0;
-    unsigned char* sdf = stbtt_GetCodepointSDF(
-        &info, scale, c, kSdfPad, kSdfOnEdge, pixelDistScale, &gw, &gh, &xoff, &yoff
-    );
+    const GlyphSdf& rendered = sdfs[static_cast<std::size_t>(c - kFirstGlyph)];
+    unsigned char* sdf = rendered.pixels;
+    const int gw = rendered.w, gh = rendered.h, xoff = rendered.xoff, yoff = rendered.yoff;
     if (!sdf || gw <= 0 || gh <= 0) {
       if (sdf) {
         stbtt_FreeSDF(sdf, nullptr);

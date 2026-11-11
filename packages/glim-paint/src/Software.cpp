@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "Font.h"
+#include "GroupOrder.h"
 #include "LensMath.h"
+#include "Parallel.h"
 #include "Strip.h"
 
 namespace glim::paint {
@@ -1202,6 +1204,38 @@ void sampleGlassPlate(
   }
 }
 
+bool bakesQuads(const Shape& s) {
+  return !std::get_if<Blit>(&s) && !std::get_if<GlyphRun>(&s) && !std::get_if<SlotHole>(&s);
+}
+
+struct FlatShape {
+  std::vector<Quad> quads;
+  std::vector<GradientQuad> grads;
+};
+
+FlatShape flattenShape(const Shape& s, const Mat4& world, const ClipState& clip) {
+  FlatShape f;
+  std::vector<BlitQuad> unused;
+  appendShapeWorld(f.quads, unused, f.grads, s, world, clip);
+  return f;
+}
+
+// Below this a group flattens inline; thread start-up would cost more.
+constexpr std::size_t kParallelShapes = 256;
+
+// Flattening is pure per shape and dominates big vector scenes (a baked
+// city: 40k polylines), so large groups flatten across cores up front.
+// The fill below stays serial and in order, so pixels do not change.
+std::vector<FlatShape> flattenShapes(const Group& g, const Mat4& world, const ClipState& clip) {
+  std::vector<FlatShape> flat;
+  if (g.shapes.size() < kParallelShapes) return flat;
+  flat.resize(g.shapes.size());
+  parallelFor(g.shapes.size(), [&](std::size_t i) {
+    if (bakesQuads(g.shapes[i])) flat[i] = flattenShape(g.shapes[i], world, clip);
+  });
+  return flat;
+}
+
 void paintShapes(
     std::vector<Pixel>& dest,
     int w,
@@ -1212,17 +1246,15 @@ void paintShapes(
     const ClipState& clip,
     float pixelRatio
 ) {
-  bool seenBackdrop = false;
-  bool afterBackdrop = false;
-  bool seenGlass = false;
-  bool afterGlass = false;
+  std::vector<FlatShape> flat = flattenShapes(g, world, clip);
+  GroupOrder runs;
   visitGroup(
       g,
       [&](const Shape& s) {
         const Blend blend = g.params.blend;
         // Blit/glyph fast path keeps AABB bake (now correct AABB);
         // rotated quads go through the world-aware stripper.
-        if (std::get_if<Blit>(&s) || std::get_if<GlyphRun>(&s) || std::get_if<SlotHole>(&s)) {
+        if (!bakesQuads(s)) {
           const Shape xf = transformShape(world, s);
           if (const auto* blit = std::get_if<Blit>(&xf)) {
             blitImage(
@@ -1249,36 +1281,16 @@ void paintShapes(
             return;
           }
         }
-        std::vector<Quad> quads;
-        std::vector<BlitQuad> unused;
-        std::vector<GradientQuad> grads;
-        appendShapeWorld(quads, unused, grads, s, world, clip);
-        fillQuads(dest, w, h, quads, blend);
-        fillGradients(dest, w, h, grads, blend);
+        const FlatShape f = flat.empty()
+                                ? flattenShape(s, world, clip)
+                                : std::move(flat[static_cast<std::size_t>(&s - g.shapes.data())]);
+        fillQuads(dest, w, h, f.quads, blend);
+        fillGradients(dest, w, h, f.grads, blend);
       },
       [&](const Group& child) {
         const bool backdrop = hasBackdrop(child);
         const bool glassWork = hasGlassWork(child);
-        if (backdrop) {
-          GLIM_ASSERT(
-              !afterBackdrop && !seenGlass,
-              "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-          );
-          seenBackdrop = true;
-        } else if (glassWork) {
-          GLIM_ASSERT(
-              !afterGlass,
-              "glass Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-          );
-          if (seenBackdrop) {
-            afterBackdrop = true;
-          }
-          seenGlass = true;
-        } else if (seenGlass) {
-          afterGlass = true;
-        } else if (seenBackdrop) {
-          afterBackdrop = true;
-        }
+        runs.next(backdrop, glassWork);
         rasterGroup(dest, w, h, child, images, world, clip, pixelRatio);
       }
   );
@@ -1553,7 +1565,7 @@ void rasterScene(
   Group root = merge(scene.root, nullptr);
   const float pr =
       scene.logicalSize.x > 0.f ? static_cast<float>(width) / scene.logicalSize.x : 1.f;
-  rasterGroup(buf, width, height, root, scene.images, Mat4::identity(), {}, pr);
+  rasterGroup(buf, width, height, root, scene.images, Mat4::scale(pr, pr), {}, pr);
   toRgba(buf, rgba);
 }
 

@@ -249,6 +249,7 @@ int main(int argc, char** argv) {
        .customTitlebar = true,
        .drive = flags.drive,
        .driveTrace = flags.driveTrace,
+       .startup = flags.startup,
        .prepare = ensureCityPlate},
       screen,
       store,

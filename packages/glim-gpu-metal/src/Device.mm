@@ -3,12 +3,17 @@
 #import <IOSurface/IOSurfaceRef.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#include <TargetConditionals.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
+
+#include <unistd.h>
 
 namespace glim::gpu {
 namespace {
@@ -30,6 +35,9 @@ struct Device::Impl {
   id<CAMetalDrawable> currentDrawable = nil;
   // Shared with completion handlers, which may outlive the device.
   std::shared_ptr<std::atomic<float>> gpuMs = std::make_shared<std::atomic<float>>(0.f);
+  std::function<void()> onPresented;
+  // Background compiles from prepareShaders; createShaders waits on them.
+  dispatch_group_t compiling = nil;
   Queue queueWrapper;
   Handle next = 1;
   std::vector<id<MTLFunction>> shaders;
@@ -194,6 +202,20 @@ void CommandEncoder::submit(Queue&) {
       gpuMs->store(static_cast<float>((cb.GPUEndTime - cb.GPUStartTime) * 1000.0));
     }];
   }
+  if (device && device->onPresented && impl_->drawable) {
+    std::function<void()> fn = std::exchange(device->onPresented, nullptr);
+#if TARGET_OS_OSX
+    [impl_->drawable addPresentedHandler:^(id<MTLDrawable>) {
+      fn();
+    }];
+#else
+    // The iOS SDK does not declare addPresentedHandler; scheduled is the
+    // closest point: the frame is handed to the display.
+    [impl_->commandBuffer addScheduledHandler:^(id<MTLCommandBuffer>) {
+      fn();
+    }];
+#endif
+  }
   if (synced && impl_->drawable) {
     [impl_->commandBuffer commit];
     [impl_->commandBuffer waitUntilScheduled];
@@ -277,6 +299,8 @@ Extent Device::drawableSize() const {
 int Device::presentRotationDegrees() const { return 0; }
 
 float Device::lastGpuMs() const { return impl_ ? impl_->gpuMs->load() : 0.f; }
+
+void Device::notifyNextPresented(std::function<void()> fn) { impl_->onPresented = std::move(fn); }
 
 Result<Drawable> Device::nextDrawable() {
   for (Impl::PooledTarget& t : impl_->targetPool) {
@@ -484,32 +508,101 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
 }
 
 Result<Shader> Device::createShader(ShaderStage stage, const char* sourceUtf8, std::uint64_t size) {
-  if (!sourceUtf8 || size == 0) {
-    return Result<Shader>::fail("empty shader source");
+  const ShaderSource source{stage, sourceUtf8, size};
+  return std::move(createShaders({&source, 1}).front());
+}
+
+namespace {
+
+NSString* shaderText(const ShaderSource& source) {
+  NSString* text = [[NSString alloc] initWithBytes:source.code
+                                            length:static_cast<NSUInteger>(source.size)
+                                          encoding:NSUTF8StringEncoding];
+  // Startup profiling: a per-process comment misses the system shader
+  // cache, so a run measures a first launch after install.
+  static const bool cold = std::getenv("GLIM_METAL_COLD_SHADERS") != nullptr;
+  return cold ? [text stringByAppendingFormat:@"\n// cold %d\n", getpid()] : text;
+}
+
+}  // namespace
+
+void Device::prepareShaders(std::span<const ShaderSource> sources) {
+  // The libraries are dropped: compiling fills the system shader cache,
+  // which the createShaders that follows then hits.
+  if (!impl_->compiling) {
+    impl_->compiling = dispatch_group_create();
   }
-  NSString* src = [[NSString alloc] initWithBytes:sourceUtf8
-                                           length:static_cast<NSUInteger>(size)
-                                         encoding:NSUTF8StringEncoding];
-  NSError* error = nil;
-  id<MTLLibrary> lib = [impl_->device newLibraryWithSource:src options:nil error:&error];
-  if (!lib) {
-    const char* msg = error.localizedDescription.UTF8String;
-    return Result<Shader>::fail(
-        msg ? std::string(msg) : std::string("Metal shader compile failed")
+  id<MTLDevice> device = impl_->device;
+  for (const ShaderSource& source : sources) {
+    if (!source.code || source.size == 0) {
+      continue;
+    }
+    NSString* text = shaderText(source);
+    dispatch_group_async(
+        impl_->compiling,
+        dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
+        ^{
+          NSError* error = nil;
+          (void)[device newLibraryWithSource:text options:nil error:&error];
+        }
     );
   }
-  id<MTLFunction> fn = [lib newFunctionWithName:functionNameForStage(stage)];
-  if (!fn) {
-    return Result<Shader>::fail("Metal function not found");
+}
+
+std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> sources) {
+  if (impl_->compiling) {
+    dispatch_group_wait(impl_->compiling, DISPATCH_TIME_FOREVER);
+    impl_->compiling = nil;
   }
-  Shader s;
-  s.handle_ = impl_->next++;
-  if (s.handle_ >= impl_->shaders.size()) {
-    impl_->shaders.resize(s.handle_ + 1);
+  // Each library is an independent source compile (~50 ms when the system
+  // shader cache is cold), so the batch compiles across cores.
+  const std::size_t n = sources.size();
+  NSMutableArray* libraries = [NSMutableArray arrayWithCapacity:n];
+  NSMutableArray* errors = [NSMutableArray arrayWithCapacity:n];
+  for (std::size_t i = 0; i < n; ++i) {
+    [libraries addObject:NSNull.null];
+    [errors addObject:@"empty shader source"];
   }
-  impl_->shaders[s.handle_] = fn;
-  s.native_ = (__bridge void*)fn;
-  return Result<Shader>::ok(s);
+  id<MTLDevice> device = impl_->device;
+  const ShaderSource* src = sources.data();
+  dispatch_apply(n, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^(size_t i) {
+    if (!src[i].code || src[i].size == 0) {
+      return;
+    }
+    NSString* text = shaderText(src[i]);
+    NSError* error = nil;
+    id<MTLLibrary> lib = [device newLibraryWithSource:text options:nil error:&error];
+    @synchronized(libraries) {
+      if (lib) {
+        libraries[i] = lib;
+      } else {
+        errors[i] = error ? error.localizedDescription : @"Metal shader compile failed";
+      }
+    }
+  });
+  std::vector<Result<Shader>> out;
+  out.reserve(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    if (libraries[i] == NSNull.null) {
+      out.push_back(Result<Shader>::fail(std::string([errors[i] UTF8String])));
+      continue;
+    }
+    id<MTLLibrary> lib = libraries[i];
+    id<MTLFunction> fn = [lib newFunctionWithName:functionNameForStage(sources[i].stage)];
+    if (!fn) {
+      out.push_back(Result<Shader>::fail("Metal function not found"));
+      continue;
+    }
+    Shader s;
+    s.handle_ = impl_->next++;
+    if (s.handle_ >= impl_->shaders.size()) {
+      impl_->shaders.resize(s.handle_ + 1);
+    }
+    impl_->shaders[s.handle_] = fn;
+    s.native_ = (__bridge void*)fn;
+    out.push_back(Result<Shader>::ok(s));
+  }
+  return out;
 }
 
 Result<Pipeline> Device::createPipeline(const PipelineDesc& desc) {

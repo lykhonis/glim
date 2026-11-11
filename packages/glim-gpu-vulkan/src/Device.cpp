@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
 #include <android/hardware_buffer.h>
@@ -114,6 +115,7 @@ struct Frame {
 };
 
 struct Device::Impl {
+  std::function<void()> onPresented;
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
   ANativeWindow* androidWindow = nullptr;
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
@@ -1174,6 +1176,9 @@ void CommandEncoder::submit(Queue&) {
     if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR) {
       d->recreateSwapchain();
     }
+    if (d->onPresented) {
+      std::exchange(d->onPresented, nullptr)();
+    }
   }
 }
 
@@ -1599,6 +1604,8 @@ Extent Device::drawableSize() const {
 }
 
 float Device::lastGpuMs() const { return 0.f; }
+
+void Device::notifyNextPresented(std::function<void()> fn) { impl_->onPresented = std::move(fn); }
 
 int Device::presentRotationDegrees() const {
   if (!impl_) {
@@ -2059,6 +2066,12 @@ Result<Shader> Device::createShader(ShaderStage, const char* sourceUtf8, std::ui
   s.native_ = mod;
   return Result<Shader>::ok(s);
 }
+
+std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> sources) {
+  return createShadersInOrder(*this, sources);
+}
+
+void Device::prepareShaders(std::span<const ShaderSource>) {}
 
 Result<Pipeline> Device::createPipeline(const PipelineDesc& desc) {
   if (desc.vertexShader >= impl_->shaders.size() || desc.fragmentShader >= impl_->shaders.size() ||

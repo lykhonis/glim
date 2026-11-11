@@ -40,6 +40,9 @@ struct Config {
   // when set, also gets a Chrome trace of events and paints.
   std::string drive;
   std::string driveTrace;
+  // Profiling: present the first frame, print the startup phases (see
+  // Startup.h) and exit.
+  bool startup = false;
   // Per-frame context setup before the default paint (e.g. registering
   // cached images); same hook as TestApp::prepare. Ignored with a Record.
   std::function<void(paint::Context&, Store&)> prepare;

@@ -337,6 +337,27 @@ int main() {
     }
   }
 
+  // A Retina target (2x the logical size): logical x 10..20 lands on 20..40.
+  {
+    glim::paint::Context ctx;
+    ctx.setSize({20, 10});
+    ctx.beginFrame();
+    ctx.setFillColor(0xff0000ff);
+    ctx.fill(glim::Rect{{10, 0}, {10, 10}});
+    ctx.finish();
+    const int w = 40;
+    const int h = 20;
+    std::vector<std::uint8_t> buf(static_cast<std::size_t>(w * h * 4), 0);
+    glim::paint::Renderer retina(buf.data(), w, h);
+    retina.draw(ctx.scene());
+    const std::size_t corner = static_cast<std::size_t>(((h - 1) * w + (w - 1)) * 4);
+    const std::size_t leftHalf = static_cast<std::size_t>((10 * w + 19) * 4);
+    if (buf[corner] < 250 || buf[leftHalf] > 5) {
+      std::cerr << "2x target should scale logical points by 2\n";
+      return EXIT_FAILURE;
+    }
+  }
+
   std::cout << "cpu_test ok\n";
   return EXIT_SUCCESS;
 }

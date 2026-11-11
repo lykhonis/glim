@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 
+#include "../GroupOrder.h"
 #include "../Strip.h"
 #include "Isolates.h"
 
@@ -182,10 +183,7 @@ void Renderer::encodeGroup(
     batch_.blit.push_back(inst);
   };
 
-  bool seenBackdrop = false;
-  bool afterBackdrop = false;
-  bool seenGlass = false;
-  bool afterGlass = false;
+  GroupOrder runs;
   bool snapshotted = false;
   bool glassFrozen = false;
 
@@ -399,24 +397,8 @@ void Renderer::encodeGroup(
       const Group* child = &childRef;
       const bool backdrop = hasBackdrop(*child);
       const bool glassWork = hasGlassWork(*child);
-      if (backdrop) {
-        GLIM_ASSERT(
-            !afterBackdrop && !seenGlass,
-            "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-        );
-        seenBackdrop = true;
-      } else if (glassWork) {
-        GLIM_ASSERT(
-            !afterGlass, "glass Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
-        );
-        if (seenBackdrop) {
-          afterBackdrop = true;
-        }
-        seenGlass = true;
-      } else if (seenGlass) {
-        afterGlass = true;
-      } else if (seenBackdrop) {
-        afterBackdrop = true;
+      if (runs.next(backdrop, glassWork)) {
+        glassFrozen = false;
       }
       if (needsIsolate(*child)) {
         flushActive(activeBlend);

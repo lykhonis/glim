@@ -1,7 +1,9 @@
+#include <glim/assert.h>
 #include <glim/paint/Renderer.h>
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 #if GLIM_GPU_VULKAN
 #include "glim_vulkan_shaders.h"
@@ -21,7 +23,7 @@ namespace glim::paint {
 
 namespace {
 
-auto makeShader(gpu::Device& device, const char* name, gpu::ShaderStage stage) {
+std::string shaderCode(const char* name, gpu::ShaderStage stage) {
   const bool vertex = stage == gpu::ShaderStage::Vertex;
 #if defined(GLIM_METAL_SHADER_DIR) && !GLIM_GPU_VULKAN && !GLIM_GPU_WEBGPU
   // Dev builds read the committed source so a regenerated shader needs no rebuild.
@@ -31,30 +33,60 @@ auto makeShader(gpu::Device& device, const char* name, gpu::ShaderStage stage) {
   if (in) {
     std::ostringstream ss;
     ss << in.rdbuf();
-    const std::string text = ss.str();
-    if (!text.empty()) {
-      return device.createShader(stage, text.data(), text.size());
+    if (!ss.str().empty()) {
+      return ss.str();
     }
   }
 #endif
   for (const shaders::Source& src : shaders::kSources) {
     if (std::strcmp(src.name, name) == 0) {
       const shaders::Stage& code = vertex ? src.vert : src.frag;
-      return device.createShader(stage, static_cast<const char*>(code.data), code.size);
+      return std::string(static_cast<const char*>(code.data), code.size);
     }
   }
-  return device.createShader(stage, nullptr, 0);
+  return {};
 }
 
-auto makeVertex(gpu::Device& device, const char* name) {
-  return makeShader(device, name, gpu::ShaderStage::Vertex);
-}
+// Every pipeline's shaders, compiled as one batch: vertex then fragment per name.
+constexpr const char* kShaderNames[] = {
+    "solid",
+    "blit",
+    "blit_linear",
+    "rounded",
+    "glyph",
+    "blur",
+    "blur1d",
+    "glass",
+    "gradient",
+};
+constexpr std::size_t kShaderCount = sizeof(kShaderNames) / sizeof(kShaderNames[0]);
 
-auto makeFragment(gpu::Device& device, const char* name) {
-  return makeShader(device, name, gpu::ShaderStage::Fragment);
+struct ShaderBatch {
+  std::vector<std::string> code;
+  std::vector<gpu::ShaderSource> sources() const {
+    std::vector<gpu::ShaderSource> out;
+    for (std::size_t i = 0; i < code.size(); ++i) {
+      const auto stage = i % 2 == 0 ? gpu::ShaderStage::Vertex : gpu::ShaderStage::Fragment;
+      out.push_back({stage, code[i].data(), code[i].size()});
+    }
+    return out;
+  }
+};
+
+ShaderBatch shaderBatch() {
+  ShaderBatch batch;
+  for (const char* name : kShaderNames) {
+    batch.code.push_back(shaderCode(name, gpu::ShaderStage::Vertex));
+    batch.code.push_back(shaderCode(name, gpu::ShaderStage::Fragment));
+  }
+  return batch;
 }
 
 }  // namespace
+
+void Renderer::Pipelines::prepare(gpu::Device& device) {
+  device.prepareShaders(shaderBatch().sources());
+}
 
 bool Renderer::Pipelines::ensure(gpu::Device& device) {
   if (ready_) {
@@ -62,11 +94,12 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
   }
   gpu::PipelineDesc pd;
   pd.blend = gpu::Blend::SrcOver;
+  // Same order as kShaderNames.
   const struct Entry {
     const char* name;
     bool required;
     gpu::Pipeline* out;
-  } entries[] = {
+  } entries[kShaderCount] = {
       {"solid", true, &solid},
       {"blit", true, &blit},
       {"blit_linear", true, &blitLinear},
@@ -84,11 +117,14 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
     bool vsOk = false;
     bool fsOk = false;
   };
-  Cached cached[9]{};
-  for (std::size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); ++i) {
+  const ShaderBatch batch = shaderBatch();
+  const std::vector<gpu::Result<gpu::Shader>> compiled = device.createShaders(batch.sources());
+  Cached cached[kShaderCount]{};
+  for (std::size_t i = 0; i < kShaderCount; ++i) {
     const Entry& e = entries[i];
-    auto vs = makeVertex(device, e.name);
-    auto fs = makeFragment(device, e.name);
+    GLIM_ASSERT(std::strcmp(e.name, kShaderNames[i]) == 0, "entries follow kShaderNames");
+    const auto& vs = compiled[2 * i];
+    const auto& fs = compiled[2 * i + 1];
     if (!vs.ok() || !fs.ok()) {
       if (!e.required) {
         continue;
@@ -132,16 +168,10 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
       }
     }
     if (!found) {
-      auto vs = makeVertex(device, e.name);
-      auto fs = makeFragment(device, e.name);
-      if (!vs.ok() || !fs.ok()) {
-        if (!e.required) {
-          continue;
-        }
-        return false;
+      if (!e.required) {
+        continue;
       }
-      vsH = vs->handle();
-      fsH = fs->handle();
+      return false;
     }
     pd.vertexShader = vsH;
     pd.fragmentShader = fsH;
