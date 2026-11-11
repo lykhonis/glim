@@ -1,8 +1,16 @@
 name: native
 
+# The one CI job template: checkout, toolchains, pnpm install, then the
+# caller's commands under bash -e with strict goldens. Actions are pinned
+# by commit SHA (tag in the trailing comment).
+
 on:
   workflow_call:
     inputs:
+      name:
+        description: Platform label, unique per caller (artifact name)
+        required: true
+        type: string
       runs-on:
         required: true
         type: string
@@ -10,41 +18,83 @@ on:
         required: false
         type: string
         default: ""
+      ndk:
+        description: Android NDK version; empty skips setup
+        required: false
+        type: string
+        default: ""
+      emsdk:
+        description: Emscripten SDK version; empty skips setup
+        required: false
+        type: string
+        default: ""
+      chrome:
+        required: false
+        type: boolean
+        default: false
+      timeout-minutes:
+        required: false
+        type: number
+        default: 60
       nx:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: pnpm
       - name: Install packages
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && inputs.packages != ''
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ inputs.packages }}
       - name: Install Ninja
         if: runner.os == 'macOS'
         run: brew install ninja
+      - name: Setup Android NDK
+        if: inputs.ndk != ''
+        uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1
+        id: setup-ndk
+        with:
+          ndk-version: ${{ inputs.ndk }}
+          link-to-sdk: false
+      - name: Export NDK path
+        if: inputs.ndk != ''
+        run: echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
+      - name: Setup Emscripten
+        if: inputs.emsdk != ''
+        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        with:
+          version: ${{ inputs.emsdk }}
+      - name: Setup Chrome
+        if: inputs.chrome
+        uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: CI
+        shell: bash
         env:
           GLIM_GOLDEN_STRICT: "1"
           GLIM_GOT_DIR: ${{ github.workspace }}/got
         run: |
+          set -euo pipefail
           mkdir -p "${{ github.workspace }}/got"
           ${{ inputs.nx }}
       - name: Upload golden failures
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: got-${{ inputs.runs-on }}
+          name: got-${{ inputs.name }}
           path: ${{ github.workspace }}/got
           if-no-files-found: ignore

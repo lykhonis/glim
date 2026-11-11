@@ -7,6 +7,7 @@ jobs:
   ci:
     uses: ./.github/workflows/native.yml
     with:
+      name: macos
       runs-on: macos-15
       nx: |
         # Full build + every registered ctest (units, CPU goldens, GPU goldens).

@@ -5,35 +5,15 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
-      - name: Install packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build glslang-tools
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        with:
-          ndk-version: r26d
-          link-to-sdk: false
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: CI
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: |
-          pnpm exec nx run examples:build-android
-      - name: Size budget (release .so, stripped)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: |
-          cmake --preset android-arm64-vulkan-release
-          cmake --build build/android-arm64-vulkan-release --target glim-hello
-          node tools/size-budgets.mjs android-so
+    uses: ./.github/workflows/native.yml
+    with:
+      name: android
+      runs-on: ubuntu-24.04
+      packages: ninja-build glslang-tools
+      ndk: r26d
+      nx: |
+        pnpm exec nx run examples:build-android
+        # Size budget: release hello .so, stripped.
+        cmake --preset android-arm64-vulkan-release
+        cmake --build build/android-arm64-vulkan-release --target glim-hello
+        node tools/size-budgets.mjs android-so

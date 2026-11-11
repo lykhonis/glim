@@ -7,6 +7,7 @@ jobs:
   ci:
     uses: ./.github/workflows/native.yml
     with:
+      name: ios
       runs-on: macos-15
       nx: |
         pnpm exec nx run examples:build-ios-sim

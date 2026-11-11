@@ -7,6 +7,7 @@ jobs:
   ci:
     uses: ./.github/workflows/native.yml
     with:
+      name: linux
       runs-on: ubuntu-24.04
       packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
       nx: |

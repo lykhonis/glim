@@ -36,7 +36,8 @@ const cases = [
 const foreignPage = "foreign.html";
 const required = ["index.html", "glass.html", "gradients.html", foreignPage, "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
 
-function fail(/** @type {string} */ message) {
+/** @param {string} message @returns {never} */
+function fail(message) {
   console.error(message);
   process.exit(1);
 }
@@ -63,8 +64,7 @@ function glimGolden(/** @type {string[]} */ args) {
   return r.status ?? 2;
 }
 
-const chrome = findChrome();
-if (!chrome) fail("no Chrome found; set CHROME_BIN");
+const chrome = findChrome() ?? fail("no Chrome found; set CHROME_BIN");
 if (!existsSync(golden)) fail(`missing ${golden}; build with: cmake -S tools/glim-golden -B build/glim-golden`);
 for (const f of required) {
   if (!existsSync(path.join(serveDir, f))) {
@@ -118,9 +118,11 @@ server.close();
 rmSync(profile, { recursive: true, force: true });
 
 const blanks = cases.filter((c) => !drawn(c.name)).length;
-if (blanks === cases.length && angle === "swiftshader") {
-  console.log("SKIP: SwiftShader cannot present WebGPU canvas; pixel-compare needs real GPU (local Metal is green)");
-  process.exit(0);
+// A canvas that never drew is a failure, never a skip: SwiftShader cannot
+// present WebGPU, so CI runs this with WEBGPU_ANGLE=metal on macOS.
+if (blanks > 0) {
+  console.error(`FAIL: ${blanks} page(s) never drew (WEBGPU_ANGLE=${angle}); use a real GPU`);
+  process.exit(1);
 }
 
 let failed = false;
