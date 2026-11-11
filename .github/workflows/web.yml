@@ -21,15 +21,3 @@ jobs:
         cmake --build build/web-webgpu-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-webgpu
         node tools/size-budgets.mjs wasm-toolkit
 
-  # WebGPU screenshots vs CPU goldens through Chrome on Metal (SwiftShader
-  # cannot present a WebGPU canvas). Gating; a blank page fails.
-  goldens:
-    uses: ./.github/workflows/native.yml
-    with:
-      name: web-goldens
-      runs-on: macos-15
-      emsdk: 6.0.9
-      chrome: true
-      nx: |
-        pnpm exec nx run examples:build-web
-        WEBGPU_ANGLE=metal pnpm -s web-goldens

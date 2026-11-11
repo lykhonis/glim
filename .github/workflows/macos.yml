@@ -9,21 +9,16 @@ jobs:
     with:
       name: macos
       runs-on: macos-15
+      timeout-minutes: 45
+      emsdk: 6.0.9
+      chrome: true
       nx: |
-        # Full build + every registered ctest (units, CPU goldens, GPU goldens).
         pnpm -s test:host
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
         cmake --preset macos-metal-release
         cmake --build build/macos-metal-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-metal
         node tools/size-budgets.mjs metal-toolkit
-
-  e2e:
-    needs: [build]
-    uses: ./.github/workflows/native.yml
-    with:
-      name: macos-e2e
-      runs-on: macos-15
-      nx: |
         pnpm exec nx run-many -t run run-software --projects=tag:example --exclude=web --parallel=1 --smoke=15
-
+        pnpm exec nx run examples:build-web
+        WEBGPU_ANGLE=metal pnpm -s web-goldens

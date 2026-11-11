@@ -35,7 +35,7 @@ on:
       timeout-minutes:
         required: false
         type: number
-        default: 60
+        default: 30
       nx:
         required: true
         type: string
@@ -58,9 +58,11 @@ jobs:
       - name: Install packages
         if: runner.os == 'Linux' && inputs.packages != ''
         run: |
-          sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors.txt|https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
-            /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get -o Acquire::Retries=5 update
+          for i in 1 2 3 4 5; do
+            sudo apt-get -o Acquire::Retries=3 --error-on=any update && break
+            test "$i" = 5 && exit 1
+            sleep $((i * 10))
+          done
           sudo apt-get -o Acquire::Retries=5 install -y ${{ inputs.packages }}
       - name: Install Ninja
         if: runner.os == 'macOS'

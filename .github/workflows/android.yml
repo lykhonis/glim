@@ -23,6 +23,7 @@ jobs:
     with:
       name: android-e2e
       runs-on: ubuntu-24.04
+      timeout-minutes: 40
       packages: ninja-build glslang-tools
       ndk: r26d
       nx: |
@@ -32,8 +33,13 @@ jobs:
         image="system-images;android-34;google_apis;x86_64"
         yes | "$sdk/sdkmanager" --licenses > /dev/null || true
         "$sdk/sdkmanager" --install emulator platform-tools "$image" > /dev/null
+        export ANDROID_AVD_HOME="$HOME/.android/avd"
+        mkdir -p "$ANDROID_AVD_HOME"
         echo no | "$sdk/avdmanager" create avd -n e2e -k "$image" -d pixel_6
+        "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx e2e
         "$ANDROID_HOME/emulator/emulator" -avd e2e -no-window -no-audio -no-boot-anim \
           -gpu swiftshader_indirect -no-snapshot &
-        "$ANDROID_HOME/platform-tools/adb" wait-for-device
+        adb="$ANDROID_HOME/platform-tools/adb"
+        timeout 600 "$adb" wait-for-device
+        timeout 600 bash -c "until [ \"\$('$adb' shell getprop sys.boot_completed | tr -d '\r')\" = 1 ]; do sleep 5; done"
         pnpm exec nx run-many -t run-android --projects=tag:example --parallel=1 --smoke=20 -c x86_64
