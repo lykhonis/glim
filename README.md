@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="https://github.com/lykhonis/glim/actions/workflows/ci.yml"><img src="https://github.com/lykhonis/glim/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://github.com/lykhonis/glim/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-72.3%25-yellow.svg" alt="Coverage"></a>
   <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20iOS%20%7C%20tvOS%20%7C%20Linux%20%7C%20Android%20%7C%20Web-informational.svg" alt="Platforms: macOS, iOS, tvOS, Linux, Android, Web">
   <img src="https://img.shields.io/badge/C%2B%2B-20-blue.svg" alt="C++20">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>

@@ -58,8 +58,10 @@ jobs:
       - name: Install packages
         if: runner.os == 'Linux' && inputs.packages != ''
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ inputs.packages }}
+          sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors.txt|https?://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y ${{ inputs.packages }}
       - name: Install Ninja
         if: runner.os == 'macOS'
         run: brew install ninja

@@ -3,7 +3,7 @@
 // by the floors in tools/coverage-baseline.json.
 //
 //   node tools/coverage.mjs            build, test, report, fail below a floor
-//   node tools/coverage.mjs --update   same, then raise floors (never lower) and badge
+//   node tools/coverage.mjs --update   same, then raise floors (never lower)
 //
 // Needs gcovr (brew install gcovr / pipx install gcovr).
 import { execFileSync } from "node:child_process";
@@ -14,8 +14,6 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baselinePath = path.join(root, "tools/coverage-baseline.json");
-const readmePath = path.join(root, "README.md");
-const badgeHost = "macos-metal";
 const checks = createRequire(import.meta.url)("./githooks/checks.js");
 
 /** @typedef {{lines: number, functions: number}} Percent */
@@ -74,13 +72,6 @@ function floorsOf(byPackage) {
     ),
   };
 }
-
-/** @param {number} lines */
-const badge = (lines) => {
-  const color = lines >= 90 ? "brightgreen" : lines >= 75 ? "green" : lines >= 60 ? "yellow" : "orange";
-  return `https://img.shields.io/badge/coverage-${lines}%25-${color}.svg`;
-};
-const badgePattern = /https:\/\/img\.shields\.io\/badge\/coverage-[^"]+\.svg/;
 
 /** @param {Floors} got @param {Floors} floor @returns {string[]} */
 function regressions(got, floor) {
@@ -151,14 +142,9 @@ if (failed.length) {
   process.exit(1);
 }
 
-const readme = readFileSync(readmePath, "utf8");
 if (update) {
   const raised = ratchet(got, floor);
   baseline[host] = raised;
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
-  if (host === badgeHost) writeFileSync(readmePath, readme.replace(badgePattern, badge(raised.total.lines)));
-  console.log("floors and badge raised to the measured values");
-} else if (host === badgeHost && readme.match(badgePattern)?.[0] !== badge(floor.total.lines)) {
-  console.error("README coverage badge does not match the floor: run node tools/coverage.mjs --update");
-  process.exit(1);
+  console.log("floors raised to the measured values");
 }
