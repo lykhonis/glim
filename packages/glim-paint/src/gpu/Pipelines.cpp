@@ -5,240 +5,53 @@
 
 #if GLIM_GPU_VULKAN
 #include "glim_vulkan_shaders.h"
+namespace shaders = glim::vulkan_shaders;
 #elif GLIM_GPU_WEBGPU
 #include "glim_webgpu_shaders.h"
+namespace shaders = glim::webgpu_shaders;
 #else
 #include <fstream>
 #include <sstream>
 
 #include "glim_metal_shaders.h"
+namespace shaders = glim::metal_shaders;
 #endif
 
 namespace glim::paint {
 
-#if !GLIM_GPU_VULKAN && !GLIM_GPU_WEBGPU
 namespace {
 
-std::string loadShader(const char* name) {
-#ifdef GLIM_METAL_SHADER_DIR
-  std::string path = std::string(GLIM_METAL_SHADER_DIR) + "/" + name;
-  std::ifstream in(path);
+auto makeShader(gpu::Device& device, const char* name, gpu::ShaderStage stage) {
+  const bool vertex = stage == gpu::ShaderStage::Vertex;
+#if defined(GLIM_METAL_SHADER_DIR) && !GLIM_GPU_VULKAN && !GLIM_GPU_WEBGPU
+  // Dev builds read the committed source so a regenerated shader needs no rebuild.
+  std::ifstream in(
+      std::string(GLIM_METAL_SHADER_DIR) + "/" + name + (vertex ? ".vert.metal" : ".frag.metal")
+  );
   if (in) {
     std::ostringstream ss;
     ss << in.rdbuf();
-    const std::string fromFile = ss.str();
-    if (!fromFile.empty()) {
-      return fromFile;
+    const std::string text = ss.str();
+    if (!text.empty()) {
+      return device.createShader(stage, text.data(), text.size());
     }
   }
 #endif
-  if (std::strcmp(name, "solid.metal") == 0) {
-    return glim::metal_shaders::solid;
+  for (const shaders::Source& src : shaders::kSources) {
+    if (std::strcmp(src.name, name) == 0) {
+      const shaders::Stage& code = vertex ? src.vert : src.frag;
+      return device.createShader(stage, static_cast<const char*>(code.data), code.size);
+    }
   }
-  if (std::strcmp(name, "blit.metal") == 0) {
-    return glim::metal_shaders::blit;
-  }
-  if (std::strcmp(name, "blit_linear.metal") == 0) {
-    return glim::metal_shaders::blitLinear;
-  }
-  if (std::strcmp(name, "rounded.metal") == 0) {
-    return glim::metal_shaders::rounded;
-  }
-  if (std::strcmp(name, "glyph.metal") == 0) {
-    return glim::metal_shaders::glyph;
-  }
-  if (std::strcmp(name, "blur.metal") == 0) {
-    return glim::metal_shaders::blur;
-  }
-  if (std::strcmp(name, "blur1d.metal") == 0) {
-    return glim::metal_shaders::blur1d;
-  }
-  if (std::strcmp(name, "glass.metal") == 0) {
-    return glim::metal_shaders::glass;
-  }
-  if (std::strcmp(name, "gradient.metal") == 0) {
-    return glim::metal_shaders::gradient;
-  }
-  return {};
+  return device.createShader(stage, nullptr, 0);
 }
-
-}  // namespace
-#endif
-
-namespace {
-
-#if GLIM_GPU_WEBGPU
-const char* webgpuSource(const char* name) {
-  if (std::strcmp(name, "solid") == 0) {
-    return glim::webgpu_shaders::solid;
-  }
-  if (std::strcmp(name, "blit") == 0) {
-    return glim::webgpu_shaders::blit;
-  }
-  if (std::strcmp(name, "blit_linear") == 0) {
-    return glim::webgpu_shaders::blitLinear;
-  }
-  if (std::strcmp(name, "rounded") == 0) {
-    return glim::webgpu_shaders::rounded;
-  }
-  if (std::strcmp(name, "glyph") == 0) {
-    return glim::webgpu_shaders::glyph;
-  }
-  if (std::strcmp(name, "blur") == 0) {
-    return glim::webgpu_shaders::blur;
-  }
-  if (std::strcmp(name, "blur1d") == 0) {
-    return glim::webgpu_shaders::blur1d;
-  }
-  if (std::strcmp(name, "glass") == 0) {
-    return glim::webgpu_shaders::glass;
-  }
-  return glim::webgpu_shaders::gradient;
-}
-#endif
 
 auto makeVertex(gpu::Device& device, const char* name) {
-#if GLIM_GPU_VULKAN
-  if (std::strcmp(name, "solid") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::solid_vert),
-        sizeof(glim::vulkan_shaders::solid_vert)
-    );
-  }
-  if (std::strcmp(name, "blit") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_vert),
-        sizeof(glim::vulkan_shaders::blit_vert)
-    );
-  }
-  if (std::strcmp(name, "blit_linear") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_linear_vert),
-        sizeof(glim::vulkan_shaders::blit_linear_vert)
-    );
-  }
-  if (std::strcmp(name, "rounded") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::rounded_vert),
-        sizeof(glim::vulkan_shaders::rounded_vert)
-    );
-  }
-  if (std::strcmp(name, "glyph") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::glyph_vert),
-        sizeof(glim::vulkan_shaders::glyph_vert)
-    );
-  }
-  if (std::strcmp(name, "blur") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blur_vert),
-        sizeof(glim::vulkan_shaders::blur_vert)
-    );
-  }
-  if (std::strcmp(name, "blur1d") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blur1d_vert),
-        sizeof(glim::vulkan_shaders::blur1d_vert)
-    );
-  }
-  if (std::strcmp(name, "glass") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Vertex,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::glass_vert),
-        sizeof(glim::vulkan_shaders::glass_vert)
-    );
-  }
-  return device.createShader(
-      gpu::ShaderStage::Vertex,
-      reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_vert),
-      sizeof(glim::vulkan_shaders::gradient_vert)
-  );
-#elif GLIM_GPU_WEBGPU
-  const char* src = webgpuSource(name);
-  return device.createShader(gpu::ShaderStage::Vertex, src, std::strlen(src));
-#else
-  const std::string src = loadShader((std::string(name) + ".metal").c_str());
-  return device.createShader(gpu::ShaderStage::Vertex, src.data(), src.size());
-#endif
+  return makeShader(device, name, gpu::ShaderStage::Vertex);
 }
 
 auto makeFragment(gpu::Device& device, const char* name) {
-#if GLIM_GPU_VULKAN
-  if (std::strcmp(name, "solid") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::solid_frag),
-        sizeof(glim::vulkan_shaders::solid_frag)
-    );
-  }
-  if (std::strcmp(name, "blit") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_frag),
-        sizeof(glim::vulkan_shaders::blit_frag)
-    );
-  }
-  if (std::strcmp(name, "blit_linear") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blit_linear_frag),
-        sizeof(glim::vulkan_shaders::blit_linear_frag)
-    );
-  }
-  if (std::strcmp(name, "rounded") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::rounded_frag),
-        sizeof(glim::vulkan_shaders::rounded_frag)
-    );
-  }
-  if (std::strcmp(name, "glyph") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::glyph_frag),
-        sizeof(glim::vulkan_shaders::glyph_frag)
-    );
-  }
-  if (std::strcmp(name, "blur") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blur_frag),
-        sizeof(glim::vulkan_shaders::blur_frag)
-    );
-  }
-  if (std::strcmp(name, "blur1d") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::blur1d_frag),
-        sizeof(glim::vulkan_shaders::blur1d_frag)
-    );
-  }
-  if (std::strcmp(name, "glass") == 0) {
-    return device.createShader(
-        gpu::ShaderStage::Fragment,
-        reinterpret_cast<const char*>(glim::vulkan_shaders::glass_frag),
-        sizeof(glim::vulkan_shaders::glass_frag)
-    );
-  }
-  return device.createShader(
-      gpu::ShaderStage::Fragment,
-      reinterpret_cast<const char*>(glim::vulkan_shaders::gradient_frag),
-      sizeof(glim::vulkan_shaders::gradient_frag)
-  );
-#elif GLIM_GPU_WEBGPU
-  const char* src = webgpuSource(name);
-  return device.createShader(gpu::ShaderStage::Fragment, src, std::strlen(src));
-#else
-  const std::string src = loadShader((std::string(name) + ".metal").c_str());
-  return device.createShader(gpu::ShaderStage::Fragment, src.data(), src.size());
-#endif
+  return makeShader(device, name, gpu::ShaderStage::Fragment);
 }
 
 }  // namespace

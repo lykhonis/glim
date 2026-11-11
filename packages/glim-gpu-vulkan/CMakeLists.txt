@@ -21,12 +21,13 @@ else()
 endif()
 
 find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
-set(_glim_glsl_dir "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+include(GlimShaders)
+set(_glim_glsl_dir "${GLIM_SHADER_SOURCE_DIR}")
 set(_glim_spv_dir "${CMAKE_CURRENT_BINARY_DIR}/spirv")
 set(_glim_spv_outputs)
-foreach(_shader solid.vert solid.frag blit.vert blit.frag blit_linear.vert blit_linear.frag rounded.vert rounded.frag glyph.vert
-                 glyph.frag blur.vert blur.frag blur1d.vert blur1d.frag glass.vert glass.frag
-                 gradient.vert gradient.frag)
+foreach(_name ${GLIM_SHADERS})
+  foreach(_stage ${GLIM_SHADER_STAGES})
+    set(_shader "${_name}.${_stage}")
     set(_spv "${_glim_spv_dir}/${_shader}.spv")
     add_custom_command(
         OUTPUT "${_spv}"
@@ -36,6 +37,7 @@ foreach(_shader solid.vert solid.frag blit.vert blit.frag blit_linear.vert blit_
         COMMENT "SPIR-V ${_shader}"
         VERBATIM)
     list(APPEND _glim_spv_outputs "${_spv}")
+  endforeach()
 endforeach()
 
 set(_glim_vk_header "${CMAKE_CURRENT_BINARY_DIR}/glim_vulkan_shaders.h")
@@ -43,11 +45,10 @@ add_custom_command(
     OUTPUT "${_glim_vk_header}"
     COMMAND "${CMAKE_COMMAND}"
         "-DGLIM_SPV_DIR=${_glim_spv_dir}"
-        "-DGLIM_HEADER_IN=${CMAKE_CURRENT_SOURCE_DIR}/glim_vulkan_shaders.h.in"
         "-DGLIM_HEADER_OUT=${_glim_vk_header}"
         -P "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedSpirv.cmake"
     DEPENDS ${_glim_spv_outputs}
-        "${CMAKE_CURRENT_SOURCE_DIR}/glim_vulkan_shaders.h.in"
+        "${CMAKE_SOURCE_DIR}/cmake/GlimShaders.cmake"
         "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedSpirv.cmake"
     COMMENT "Embedding Vulkan SPIR-V"
     VERBATIM)

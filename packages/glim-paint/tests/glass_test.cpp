@@ -505,11 +505,8 @@ int main() {
     if (cut != std::string::npos) {
       root = self.substr(0, cut);
     }
-    const char* shaders[3] = {
-        "packages/glim-gpu-metal/shaders/glass.metal",
-        "packages/glim-gpu-webgpu/shaders/glass.wgsl",
-        "packages/glim-gpu-vulkan/shaders/glass.frag",
-    };
+    // The single GLSL source; Metal and WGSL are generated from it.
+    const char* shaders[] = {"packages/glim-gpu/shaders/glass.frag"};
     // Previously-dead fields first, then the semantic switches.
     const char* fields[] = {
         "fresnelRange",  "fresnelHardness",  "fresnelIntensity", "glareAngle", "glareRange",

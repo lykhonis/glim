@@ -34,3 +34,19 @@ jobs:
         run: ctest --test-dir build/glim-lint --output-on-failure
       - name: Check factory form
         run: build/glim-lint/glim-lint --root .
+
+  # Metal and WGSL are generated from the GLSL sources and committed; this
+  # fails when they drift (fix: pnpm shaders install && pnpm shaders gen).
+  shaders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/shader-tools
+          key: shader-tools-${{ runner.os }}-${{ hashFiles('tools/shaders.mjs') }}
+      - name: Pinned shader tools
+        run: node tools/shaders.mjs install
+      - name: Generated shaders match sources
+        run: node tools/shaders.mjs check

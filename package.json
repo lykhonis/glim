@@ -12,6 +12,7 @@
     "format": "node tools/format.mjs",
     "format:check": "node tools/format.mjs --check",
     "lint": "node -e \"require('./tools/githooks/checks').lint()\"",
+    "shaders": "node tools/shaders.mjs",
     "doc-links": "node tools/doc-links.mjs",
     "typecheck": "tsc -p tools/tsconfig.json",
     "test:host": "node -e \"require('./tools/githooks/checks').hostTests()\"",

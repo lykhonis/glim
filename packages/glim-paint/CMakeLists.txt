@@ -27,56 +27,13 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/inter_latin.h"
     @ONLY)
 
-set(_glim_wgsl_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-webgpu/shaders")
+include(GlimShaders)
+glim_embed_text_shaders("${CMAKE_CURRENT_BINARY_DIR}/glim_webgpu_shaders.h" webgpu_shaders
+    "${CMAKE_SOURCE_DIR}/packages/glim-gpu-webgpu/shaders" wgsl)
+glim_embed_text_shaders("${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h" metal_shaders
+    "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders" metal)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${_glim_wgsl_dir}/solid.wgsl"
-    "${_glim_wgsl_dir}/blit.wgsl"
-    "${_glim_wgsl_dir}/blit_linear.wgsl"
-    "${_glim_wgsl_dir}/rounded.wgsl"
-    "${_glim_wgsl_dir}/glyph.wgsl"
-    "${_glim_wgsl_dir}/blur.wgsl"
-    "${_glim_wgsl_dir}/blur1d.wgsl"
-    "${_glim_wgsl_dir}/glass.wgsl"
-    "${_glim_wgsl_dir}/gradient.wgsl")
-file(READ "${_glim_wgsl_dir}/solid.wgsl" GLIM_SOLID_WGSL)
-file(READ "${_glim_wgsl_dir}/blit.wgsl" GLIM_BLIT_WGSL)
-file(READ "${_glim_wgsl_dir}/blit_linear.wgsl" GLIM_BLIT_LINEAR_WGSL)
-file(READ "${_glim_wgsl_dir}/rounded.wgsl" GLIM_ROUNDED_WGSL)
-file(READ "${_glim_wgsl_dir}/glyph.wgsl" GLIM_GLYPH_WGSL)
-file(READ "${_glim_wgsl_dir}/blur.wgsl" GLIM_BLUR_WGSL)
-file(READ "${_glim_wgsl_dir}/blur1d.wgsl" GLIM_BLUR1D_WGSL)
-file(READ "${_glim_wgsl_dir}/glass.wgsl" GLIM_GLASS_WGSL)
-file(READ "${_glim_wgsl_dir}/gradient.wgsl" GLIM_GRADIENT_WGSL)
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/glim_webgpu_shaders.h.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/glim_webgpu_shaders.h"
-    @ONLY)
-
-set(_glim_shader_dir "${CMAKE_SOURCE_DIR}/packages/glim-gpu-metal/shaders")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${_glim_shader_dir}/solid.metal"
-    "${_glim_shader_dir}/blit.metal"
-    "${_glim_shader_dir}/blit_linear.metal"
-    "${_glim_shader_dir}/rounded.metal"
-    "${_glim_shader_dir}/glyph.metal"
-    "${_glim_shader_dir}/blur.metal"
-    "${_glim_shader_dir}/blur1d.metal"
-    "${_glim_shader_dir}/glass.metal"
-    "${_glim_shader_dir}/gradient.metal"
     "${CMAKE_SOURCE_DIR}/vendor/inter/Inter-Latin.ttf")
-file(READ "${_glim_shader_dir}/solid.metal" GLIM_SOLID_METAL)
-file(READ "${_glim_shader_dir}/blit.metal" GLIM_BLIT_METAL)
-file(READ "${_glim_shader_dir}/blit_linear.metal" GLIM_BLIT_LINEAR_METAL)
-file(READ "${_glim_shader_dir}/rounded.metal" GLIM_ROUNDED_METAL)
-file(READ "${_glim_shader_dir}/glyph.metal" GLIM_GLYPH_METAL)
-file(READ "${_glim_shader_dir}/blur.metal" GLIM_BLUR_METAL)
-file(READ "${_glim_shader_dir}/blur1d.metal" GLIM_BLUR1D_METAL)
-file(READ "${_glim_shader_dir}/glass.metal" GLIM_GLASS_METAL)
-file(READ "${_glim_shader_dir}/gradient.metal" GLIM_GRADIENT_METAL)
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/glim_metal_shaders.h.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h"
-    @ONLY)
 
 function(glim_add_renderer name)
     cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
