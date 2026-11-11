@@ -1,4 +1,5 @@
-# Android NDK toolchain wrapper. Used by the android-arm64-vulkan-* presets.
+# Android NDK toolchain wrapper for the android-*-vulkan-* presets (arm64 by
+# default; the x86_64 emulator preset sets ANDROID_ABI).
 # Locates the NDK, then includes the NDK's android.toolchain.cmake.
 
 if(NOT ANDROID_NDK)

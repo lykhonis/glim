@@ -45,6 +45,10 @@
       "type": "number",
       "description": "Port to serve on (default 8080)"
     },
+    "smoke": {
+      "type": "number",
+      "description": "Smoke run: fail unless the app is still running this many seconds after launch, then stop it"
+    },
     "open": {
       "type": "boolean",
       "description": "Open the browser automatically (default true)"

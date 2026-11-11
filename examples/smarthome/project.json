@@ -73,6 +73,9 @@
       "options": {
         "preset": "android-arm64-vulkan-debug",
         "target": "glim-smarthome"
+      },
+      "configurations": {
+        "x86_64": { "preset": "android-x86_64-vulkan-debug" }
       }
     },
     "run-android": {
@@ -84,6 +87,9 @@
         "binary": "examples/smarthome/glim-smarthome.apk",
         "android": true,
         "packageName": "com.glim.smarthome"
+      },
+      "configurations": {
+        "x86_64": { "preset": "android-x86_64-vulkan-debug" }
       }
     }
   }

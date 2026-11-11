@@ -63,6 +63,9 @@
       "options": {
         "preset": "android-arm64-vulkan-debug",
         "target": "glim-infotainment"
+      },
+      "configurations": {
+        "x86_64": { "preset": "android-x86_64-vulkan-debug" }
       }
     },
     "run-android": {
@@ -74,6 +77,9 @@
         "binary": "examples/infotainment/glim-infotainment.apk",
         "android": true,
         "packageName": "com.glim.infotainment"
+      },
+      "configurations": {
+        "x86_64": { "preset": "android-x86_64-vulkan-debug" }
       }
     }
   }

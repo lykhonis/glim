@@ -140,6 +140,26 @@
       }
     },
     {
+      "name": "android-x86_64-vulkan-debug",
+      "displayName": "Android x86_64 Vulkan Debug (emulator)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android-x86_64-vulkan-debug",
+      "toolchainFile": "${sourceDir}/cmake/android-arm64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GLIM_GPU": "vulkan",
+        "GLIM_SHELL": "android",
+        "ANDROID_ABI": "x86_64"
+      },
+      "condition": {
+        "type": "anyOf",
+        "conditions": [
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+        ]
+      }
+    },
+    {
       "name": "android-arm64-vulkan-release",
       "displayName": "Android arm64 Vulkan Release",
       "generator": "Ninja",
@@ -210,6 +230,7 @@
     { "name": "linux-vulkan-debug", "configurePreset": "linux-vulkan-debug" },
     { "name": "linux-vulkan-release", "configurePreset": "linux-vulkan-release" },
     { "name": "android-arm64-vulkan-debug", "configurePreset": "android-arm64-vulkan-debug" },
+    { "name": "android-x86_64-vulkan-debug", "configurePreset": "android-x86_64-vulkan-debug" },
     { "name": "android-arm64-vulkan-release", "configurePreset": "android-arm64-vulkan-release" }
   ],
   "testPresets": [
