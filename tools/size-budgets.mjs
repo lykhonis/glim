@@ -3,7 +3,7 @@
 // release builds. Exits non-zero when any named budget is exceeded or its
 // artifact is missing.
 //
-//   node tools/size-budgets.mjs android-so | metal-static | wasm-gzip ...
+//   node tools/size-budgets.mjs android-toolkit | metal-toolkit | wasm-toolkit ...
 //
 // Env: ANDROID_NDK_HOME (for llvm-strip) or LLVM_STRIP.
 import { execFileSync } from "node:child_process";
@@ -18,37 +18,61 @@ const MB = 1024 * 1024;
 
 /** @typedef {{files: string[], measure: (files: string[]) => number, limit: number}} Budget */
 
+// The whole toolkit a GPU app links: toolkit, host, paint with its GPU
+// encoder, the GPU backend, the shell and image decoding. CPU and embed
+// variants are alternatives to these, so they are not counted.
+/** @param {string} preset @param {string[]} platform package-relative archives */
+function toolkit(preset, platform) {
+  return [
+    "glim-core/libglim-core.a",
+    "glim-image/libglim-image.a",
+    "glim-paint/libglim-paint.a",
+    "glim-paint/libglim-paint-gpu.a",
+    "glim-toolkit/libglim-toolkit.a",
+    "glim-toolkit-host/libglim-toolkit-host.a",
+    ...platform,
+  ].map((f) => `build/${preset}/packages/${f}`);
+}
+
+/** @param {string[]} files */
+const total = (files) => files.reduce((sum, f) => sum + statSync(f).size, 0);
+
 /** @type {Record<string, Budget>} */
 const budgets = {
-  // Embedded .so stripped, no fonts: CI fail > 3 MB (hard ceiling 5 MB).
-  "android-so": {
-    files: ["build/android-arm64-vulkan-release/examples/hello/libglim-hello.so"],
-    measure: stripped,
-    limit: 3 * MB,
+  // Debug info stripped (release archives still carry it on the NDK).
+  "android-toolkit": {
+    files: toolkit("android-arm64-vulkan-release", [
+      "glim-gpu-vulkan/libglim-gpu-vulkan.a",
+      "glim-gpu-vulkan/libglim-volk.a",
+      "glim-shell-android/libglim-shell.a",
+      "glim-shell-android/libglim-android-glue.a",
+    ]),
+    measure: (files) => files.reduce((sum, f) => sum + stripped(f), 0),
+    limit: 6 * MB,
   },
-  // Static glim::glim Metal slice (core + paint + paint-gpu + gpu-metal + shell), no fonts.
-  "metal-static": {
-    files: [
-      "glim-core/libglim-core.a",
-      "glim-paint/libglim-paint.a",
-      "glim-paint/libglim-paint-gpu.a",
+  "metal-toolkit": {
+    files: toolkit("macos-metal-release", [
       "glim-gpu-metal/libglim-gpu-metal.a",
       "glim-shell-macos/libglim-shell.a",
-    ].map((f) => `build/macos-metal-release/packages/${f}`),
-    measure: (files) => files.reduce((sum, f) => sum + statSync(f).size, 0),
-    limit: 2 * MB,
+    ]),
+    measure: total,
+    limit: 4 * MB,
   },
-  "wasm-gzip": {
-    files: ["build/web-webgpu-release/examples/hello/glim-hello.wasm"],
-    measure: (files) => gzipSync(readFileSync(files[0]), { level: 9 }).length,
+  // What a browser downloads scales with the gzipped code.
+  "wasm-toolkit": {
+    files: toolkit("web-webgpu-release", [
+      "glim-gpu-webgpu/libglim-gpu-webgpu.a",
+      "glim-shell-web/libglim-shell.a",
+    ]),
+    measure: (files) => gzipSync(Buffer.concat(files.map((f) => readFileSync(f))), { level: 9 }).length,
     limit: 1 * MB,
   },
 };
 
-/** @param {string[]} files */
-function stripped(files) {
+/** @param {string} file */
+function stripped(file) {
   const out = path.join(mkdtempSync(path.join(os.tmpdir(), "glim-size-")), "stripped");
-  execFileSync(llvmStrip(), ["-o", out, files[0]]);
+  execFileSync(llvmStrip(), ["--strip-debug", "-o", out, file]);
   return statSync(out).size;
 }
 

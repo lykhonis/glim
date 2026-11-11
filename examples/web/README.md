@@ -1,10 +1,8 @@
 # Web example
 
-Vanilla HTML + canvas. No frameworks, no bundler. One wasm runs all four
-examples: `index.html` (hello), `glass.html`, `gradients.html`,
-`foreign.html`. Each page passes its scene id through `GlimCanvas`
-(`example: 0..3`); the record functions are reused from
-`examples/{hello,glass,gradients,foreign}/src/main.cpp`, never copied.
+Vanilla HTML + canvas. No frameworks, no bundler. The wasm runs the glass
+example (`index.html`); its record function is reused from
+`examples/glass/src/main.cpp`, never copied.
 
 ## Build (Emscripten)
 

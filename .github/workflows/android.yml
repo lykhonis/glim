@@ -13,7 +13,7 @@ jobs:
       ndk: r26d
       nx: |
         pnpm exec nx run examples:build-android
-        # Size budget: release hello .so, stripped.
+        # Size budget: the release toolkit archives, debug info stripped.
         cmake --preset android-arm64-vulkan-release
-        cmake --build build/android-arm64-vulkan-release --target glim-hello
-        node tools/size-budgets.mjs android-so
+        cmake --build build/android-arm64-vulkan-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-vulkan glim-volk glim-android-glue
+        node tools/size-budgets.mjs android-toolkit

@@ -21,7 +21,7 @@ const gotDir = process.env.GLIM_GOT_DIR ?? path.join(build, "web-got");
 const golden = process.env.GLIM_GOLDEN_BIN ?? path.join(root, "build/glim-golden/glim-golden");
 const budgetMs = process.env.GLIM_WEB_BUDGET_MS ?? "60000";
 const angle = process.env.WEBGPU_ANGLE ?? "swiftshader";
-const canvas = "0,33,720,480"; // page chrome above the canvas is cropped away
+const canvas = "0,0,720,480"; // the canvas fills the page
 const attempts = 3;
 const shotTimeoutMs = Number(budgetMs) + 30000;
 // Fresh profile: a shared one can hand off to a running Chrome and hang.
@@ -29,12 +29,9 @@ const profile = mkdtempSync(path.join(os.tmpdir(), "glim-chrome-"));
 
 /** @type {{name: string, page: string, golden: string, maxOver: number, maxDelta: number}[]} */
 const cases = [
-  { name: "web-hello", page: "index.html", golden: "examples/hello/golden/hello.png", maxOver: 2000, maxDelta: 48 },
-  { name: "web-gradients", page: "gradients.html", golden: "examples/gradients/golden/gradients.png", maxOver: 4000, maxDelta: 48 },
-  { name: "web-glass", page: "glass.html", golden: "examples/glass/golden/glass.png", maxOver: 280000, maxDelta: 224 },
+  { name: "web-glass", page: "index.html", golden: "examples/glass/golden/glass.png", maxOver: 280000, maxDelta: 224 },
 ];
-const foreignPage = "foreign.html";
-const required = ["index.html", "glass.html", "gradients.html", foreignPage, "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
+const required = ["index.html", "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
 
 /** @param {string} message @returns {never} */
 function fail(message) {
@@ -111,9 +108,6 @@ for (const c of cases) {
   if (!ready) console.error(`${c.name} still blank after ${attempts} shots`);
 }
 
-const foreign = await fetch(`http://127.0.0.1:${port}/${foreignPage}?static=1`);
-if (!foreign.ok) fail(`foreign smoke failed: ${foreign.status}`);
-console.log("foreign smoke ok");
 server.close();
 rmSync(profile, { recursive: true, force: true });
 

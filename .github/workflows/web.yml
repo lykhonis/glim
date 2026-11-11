@@ -14,13 +14,13 @@ jobs:
       nx: |
         pnpm exec nx run examples:build-web
         serve=build/web-webgpu-debug/examples/web/serve
-        for f in index.html glass.html gradients.html foreign.html main.js lib/glim.js glim-app.js glim-app.wasm; do
+        for f in index.html main.js lib/glim.js glim-app.js glim-app.wasm; do
           test -f "$serve/$f" || { echo "missing $serve/$f"; exit 1; }
         done
-        # Size budget: release hello wasm, gzip.
+        # Size budget: the release toolkit archives, gzipped.
         cmake --preset web-webgpu-release
-        cmake --build build/web-webgpu-release --target glim-hello
-        node tools/size-budgets.mjs wasm-gzip
+        cmake --build build/web-webgpu-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-webgpu
+        node tools/size-budgets.mjs wasm-toolkit
 
   # WebGPU screenshots vs CPU goldens through Chrome on Metal (SwiftShader
   # cannot present a WebGPU canvas). Gating; a blank page fails.

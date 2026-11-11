@@ -14,7 +14,7 @@ jobs:
         pnpm -s test:host
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
-        # Size budget: release static Metal slice.
+        # Size budget: the release toolkit archives.
         cmake --preset macos-metal-release
-        cmake --build build/macos-metal-release --target glim-core glim-paint glim-paint-gpu glim-gpu-metal glim-shell
-        node tools/size-budgets.mjs metal-static
+        cmake --build build/macos-metal-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-metal
+        node tools/size-budgets.mjs metal-toolkit
