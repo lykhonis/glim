@@ -30,6 +30,7 @@ function(glim_target_defaults target)
     if(GLIM_COVERAGE)
         target_compile_options(${target} PRIVATE --coverage)
         target_link_options(${target} PUBLIC --coverage)
+        target_compile_definitions(${target} PUBLIC GLIM_COVERAGE=1)
     endif()
 endfunction()
 

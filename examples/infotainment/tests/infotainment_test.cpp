@@ -141,7 +141,9 @@ int main(int argc, char** argv) {
     double best = recordOnce();
     for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
     std::cout << "record " << best << " ms\n";
+#ifndef GLIM_COVERAGE
     assert(best < 4.0);
+#endif
   }
 
   // Interaction: single-tab cluster builds (no tab switching).

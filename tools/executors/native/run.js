@@ -8,10 +8,6 @@ function xcrun(args, opts = {}) {
   return spawnSync("xcrun", args, { encoding: "utf8", ...opts });
 }
 
-function timedOut(r) {
-  return Boolean(r && r.error && (r.error.code === "ETIMEDOUT" || r.signal));
-}
-
 function simulatorWindowOrientation(udid) {
   const plist = `${process.env.HOME || ""}/Library/Preferences/com.apple.iphonesimulator.plist`;
   const r = spawnSync(
@@ -191,14 +187,12 @@ function runOnSimulator(options, app) {
 
   spawnSync("open", ["-a", "Simulator"], { stdio: "ignore" });
 
-  if (device.state !== "Booted") {
-    const ready = xcrun(["simctl", "bootstatus", device.udid, "-b"], {
-      stdio: "inherit",
-      timeout: 180000,
-    });
-    if (ready.status !== 0 && !timedOut(ready)) {
-      return fail(`simulator ${device.name} did not finish booting`);
-    }
+  const ready = xcrun(["simctl", "bootstatus", device.udid, "-b"], {
+    stdio: "inherit",
+    timeout: 600000,
+  });
+  if (ready.status !== 0) {
+    return fail(`simulator ${device.name} did not finish booting`);
   }
 
   const sign = spawnSync("codesign", ["--force", "--sign", "-", "--timestamp=none", app], {

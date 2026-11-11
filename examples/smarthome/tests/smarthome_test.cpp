@@ -400,7 +400,9 @@ int main(int argc, char** argv) {
     double best = recordOnce();
     for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
     std::cout << "record " << best << " ms" << std::endl;
+#ifndef GLIM_COVERAGE
     assert(best < 4.0);
+#endif
   }
 
   // The grid reflows with the window: one column when narrow, three
