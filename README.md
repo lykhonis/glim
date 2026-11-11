@@ -110,7 +110,7 @@ glim-smarthome --soak 20 --stats                             # check for op grow
 glim-smarthome --drive examples/smarthome/drive/controls.drive   # live latency report
 ```
 
-## Contributing
+## Building
 
 Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 
@@ -118,5 +118,9 @@ Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 - **Android:** Android SDK and NDK (`android-*` presets).
 - **Web:** Emscripten (`web-webgpu-debug` preset; wipe `build/` after upgrading it) and Chrome.
 - **Linux:** `ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
+
+## Contributions
+
+Glim is maintained as a closed-contribution project. Pull requests are not accepted and will be closed without review. Bug reports and questions are welcome as issues, though a response is not guaranteed.
 
 [MIT](LICENSE) · [Volodymyr Lykhonis](https://lykhonis.com)
