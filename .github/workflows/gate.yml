@@ -22,6 +22,8 @@ jobs:
         run: pnpm format:check
       - name: Typecheck tool scripts
         run: pnpm typecheck
+      - name: Check release surface
+        run: pnpm release-check
       - name: Lint workflows
         run: |
           curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash | bash -s -- 1.7.12

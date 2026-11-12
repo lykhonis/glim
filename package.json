@@ -20,6 +20,7 @@
     "aar": "node tools/aar.mjs",
     "android-sample": "node tools/android-sample.mjs",
     "web-pack": "node tools/web-pack.mjs",
+    "release-check": "node tools/release.mjs",
     "doc-links": "node tools/doc-links.mjs",
     "typecheck": "tsc -p tools/tsconfig.json",
     "coverage": "node tools/coverage.mjs",

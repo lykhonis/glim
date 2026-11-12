@@ -152,6 +152,16 @@ The app defines `extern "C" int glim_app_main()` and points `NativeActivity` at 
 
 `pnpm web-pack` builds the release WebGPU module and packs `@glim/web`: the canvas loader (`js/glim.js`) and the glass module (`dist/glim-app.js`, `dist/glim-app.wasm`). It runs `npm publish --dry-run` and writes `build/web-pack/glim-web.tgz`. CI uploads that tarball. A page imports `GlimCanvas` and points `moduleURL` at `dist/glim-app.js`. An app that paints its own scene builds its own module and uses the same loader.
 
+## Stability
+
+Glim uses semantic versioning. The version is `project(glim VERSION x.y.z)` in `CMakeLists.txt`, and `packages/glim-web/package.json` matches it. `CHANGELOG.md` has a section for that version. `pnpm release-check` fails if the section is missing, or if a header is added or removed under `packages/*/include` without updating `cmake/public-headers.txt`.
+
+Before 1.0, a new minor version may change the API. A patch version does not.
+
+The public C++ API is those headers. A configured package installs the headers of the targets it built, including one shell. Anything else — sources, examples, tools — is not public. `@glim/web` exports `GlimCanvas`.
+
+Pushing the tag `vX.Y.Z` publishes the changelog section as a GitHub release. The tag does not publish to npm. `pnpm web-pack` is a dry run; the tarball is a CI artifact.
+
 ## Contributions
 
 Glim is maintained as a closed-contribution project. Pull requests are not accepted and will be closed without review. Bug reports and questions are welcome as issues, though a response is not guaranteed.

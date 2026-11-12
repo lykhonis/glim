@@ -1,0 +1,10 @@
+# Changelog
+
+The version is `project(glim VERSION ...)` in `CMakeLists.txt`. This file has one section per version. Pushing the tag `vX.Y.Z` publishes that section as a GitHub release.
+
+## [0.1.0] - 2026-11-12
+
+First versioned release of the public packages.
+
+- CMake package, Apple xcframework, Android prefab AAR, and `@glim/web` (loader and glass wasm).
+- Public C++ headers are the files under `packages/*/include`, listed in `cmake/public-headers.txt`.
