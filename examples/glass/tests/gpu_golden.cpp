@@ -1,16 +1,15 @@
 #include "Glass.h"
 #include "GpuGolden.h"
 
-// Wide band: glass SDF smoothing legitimately differs per backend.
-// Pinned 2026-11-03; tighten only with a measured justification
-// (roadmap P0.7).
+// The CPU lens is the LensMath reference; the band covers per-backend
+// SDF smoothing. Metal measured 139853 / 119 (2026-11-12).
 
 int main(int argc, char** argv) {
   return glim::examples::runGpuGolden(
       argc,
       argv,
       "examples/glass/golden/glass.png",
-      {.maxOverDelta = 280000, .maxChannelDelta = 224},
+      {.maxOverDelta = 210000, .maxChannelDelta = 180},
       [](glim::paint::Context& ctx, glim::Vec2 size) {
         recordGlass(ctx, size, 0.0f);
       }
