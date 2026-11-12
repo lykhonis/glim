@@ -21,9 +21,6 @@ constexpr gpu::Backend kBackend = gpu::Backend::Vulkan;
 constexpr const char* kName = "vulkan";
 #endif
 
-constexpr int kWidth = 720;
-constexpr int kHeight = 480;
-
 int diagnose(const image::Image& got, const image::Image& want) {
   std::size_t buckets[4] = {};
   int maxDelta = 0;
@@ -66,6 +63,14 @@ int runGpuGolden(
     const RecordScene& record
 ) {
   const char* goldenPath = argc > 1 ? argv[1] : defaultGolden;
+  image::Image want;
+  if (!image::Png::read(goldenPath, &want)) {
+    std::cerr << "could not read golden " << goldenPath
+              << " (CPU golden is source of truth)\n";
+    return EXIT_FAILURE;
+  }
+  const int width = want.width;
+  const int height = want.height;
   gpu::DeviceCreateInfo info{};
   info.backend = kBackend;
   auto created = gpu::Device::create(info);
@@ -79,13 +84,13 @@ int runGpuGolden(
     std::cerr << "expected headless device\n";
     return EXIT_FAILURE;
   }
-  auto target = device.createFrameTarget({kWidth, kHeight});
+  auto target = device.createFrameTarget({width, height});
   if (!target.ok()) {
     std::cerr << "frame target failed: " << target.message() << '\n';
     return EXIT_FAILURE;
   }
   const Vec2 size{
-      static_cast<float>(kWidth), static_cast<float>(kHeight)
+      static_cast<float>(width), static_cast<float>(height)
   };
   paint::Context ctx;
   ctx.setSize(size);
@@ -96,17 +101,11 @@ int runGpuGolden(
   paint::Renderer renderer(device);
   renderer.drawToTarget(ctx.scene(), target.value());
 
-  image::Image got = image::Image::rgba8(kWidth, kHeight);
+  image::Image got = image::Image::rgba8(width, height);
   if (!device.readPixels(
           target.value(), got.rgba.data(), got.rgba.size()
       )) {
     std::cerr << "readPixels failed\n";
-    return EXIT_FAILURE;
-  }
-  image::Image want;
-  if (!image::Png::read(goldenPath, &want)) {
-    std::cerr << "could not read golden " << goldenPath
-              << " (CPU golden is source of truth)\n";
     return EXIT_FAILURE;
   }
   const image::Diff diff = image::compare(got, want);
