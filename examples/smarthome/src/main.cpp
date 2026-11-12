@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "Overview.h"
+#include "Scene.h"
 #include "SmartHome.h"
 #include "VillaLoad.h"
 #include "glim/toolkit.h"
@@ -213,8 +214,8 @@ void paintSmartHomeScene(
     glim::paint::Context& ctx,
     host::LayerFeed& feed,
     Store& store,
-    int focus = -1,
-    bool focusVisible = true
+    int focus,
+    bool focusVisible
 ) {
   Engine engine = engineFor(store);
   ensureVilla(ctx, store);

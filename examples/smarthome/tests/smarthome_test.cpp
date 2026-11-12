@@ -1,3 +1,4 @@
+#include "Scene.h"
 #include "SmartHome.h"
 
 #include <glim/image/Golden.h>
@@ -32,17 +33,6 @@
 #include "widgets/Switch.h"
 
 using namespace glim::toolkit;
-
-std::string smartHomeDump(Store& store);
-std::string smartHomeFocusDump(Store& store);
-std::string smartHomeA11yDump(Store& store);
-void paintSmartHomeScene(
-    glim::paint::Context& ctx,
-    glim::toolkit::host::LayerFeed& feed,
-    Store& store,
-    int focus = -1,
-    bool focusVisible = true
-);
 
 namespace {
 

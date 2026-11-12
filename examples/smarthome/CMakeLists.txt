@@ -13,6 +13,10 @@ if(GLIM_HOST_TESTS)
     set_tests_properties(glim-smarthome-golden PROPERTIES RUN_SERIAL TRUE)
     add_test(NAME glim-smarthome-png-golden
              COMMAND glim-smarthome-golden --golden "${CMAKE_CURRENT_SOURCE_DIR}/golden/smarthome.png")
+    glim_add_gpu_golden(smarthome
+        GOLDEN "${CMAKE_CURRENT_SOURCE_DIR}/golden/smarthome.png"
+        SOURCES tests/gpu_golden.cpp src/main.cpp
+        LIBS glim::toolkit-host)
     # The app's own headless flags are the perf gate: soak fails on op
     # growth, e2e fails when a `~TEXT` check is missing.
     add_dependencies(glim-smarthome-golden glim-smarthome)
