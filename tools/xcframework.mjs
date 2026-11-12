@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stackArchives } from "./sdk-stack.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const work = path.join(root, "build", "apple");
@@ -17,16 +18,7 @@ const slices = {
   "tvos-sim": { preset: "tvos-sim-metal-debug", archs: "arm64;x86_64" },
 };
 
-const archives = [
-  "glim-core",
-  "glim-image",
-  "glim-paint",
-  "glim-paint-gpu",
-  "glim-gpu-metal",
-  "glim-shell",
-  "glim-toolkit",
-  "glim-toolkit-host",
-];
+const archives = stackArchives(["glim-gpu-metal"]);
 
 /** @param {string} cmd @param {string[]} args */
 function run(cmd, args) {
