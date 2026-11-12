@@ -17,6 +17,8 @@
     "package-test": "node tools/package-test.mjs",
     "xcframework": "node tools/xcframework.mjs",
     "apple-sample": "node tools/apple-sample.mjs",
+    "aar": "node tools/aar.mjs",
+    "android-sample": "node tools/android-sample.mjs",
     "doc-links": "node tools/doc-links.mjs",
     "typecheck": "tsc -p tools/tsconfig.json",
     "coverage": "node tools/coverage.mjs",

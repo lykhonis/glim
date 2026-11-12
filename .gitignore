@@ -16,3 +16,8 @@
 /apple/.build
 /apple/.swiftpm
 xcuserdata/
+/android/glim.aar
+/android/sample/build
+/android/sample/.gradle
+/android/sample/.cxx
+/android/sample/local.properties

@@ -43,3 +43,14 @@ jobs:
         timeout 600 "$adb" wait-for-device
         timeout 600 bash -c "until [ \"\$('$adb' shell getprop sys.boot_completed | tr -d '\r')\" = 1 ]; do sleep 5; done"
         pnpm exec nx run-many -t run-android --projects=tag:example --parallel=1 --smoke=20 -c x86_64
+
+  sdk:
+    uses: ./.github/workflows/native.yml
+    with:
+      name: android-sdk
+      runs-on: ubuntu-24.04
+      packages: ninja-build glslang-tools zip
+      ndk: r26d
+      nx: |
+        pnpm -s aar
+        pnpm -s android-sample
