@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -343,8 +344,102 @@ int main() {
     assert(host::probeLineFromE2e("wheel:1,2,3,4") == "wheel 1 2 3 4");
     assert(host::probeLineFromE2e("~FRAME") == "expect FRAME");
     assert(host::probeLineFromE2e("snap:/a,b.png") == "snap /a,b.png");
+
+    // Measurement commands answer about the image they name.
+    const auto said = [&](const std::string& cmd, const std::string& want) {
+      const std::size_t from = out.str().size();
+      const bool ok = probe.exec(cmd);
+      return ok && out.str().find(want, from) != std::string::npos;
+    };
+    assert(said("render", "ok"));
+    assert(said("pick cur 0 0", "pick #"));
+    assert(!probe.exec("pick cur 500 0"));
+    assert(said("color cur 0 0 96 32", "color ink="));
+    assert(said("item word 0 0 96 32 bright", "ok"));
+    assert(said("items", "items matched=1 mean_abs_px=0.00"));
+    assert(said("zoom 0 0 32 16 2 8", "mad=0.00"));
+    assert(said("ruler ref 0 0 32 16 2", "ruler "));
+    assert(said("prof cur row 16 0 95 raw", "peaks"));
+    assert(said("runs cur row 16 0 95 bright", "runs"));
+    assert(!probe.exec("runs cur row 16 0 95"));
+    assert(said("ray cur 48 16 0 0 20", "ray"));
+    assert(said("ring cur 48 16 10 bright", "ring"));
+    assert(said("bbox cur 0 0 1 1 dim", "bbox"));
+    assert(!probe.exec("bbox nope 0 0 1 1 dim"));
+    assert(said("tree", "Probe"));
+    assert(probe.exec("a11y"));
+    assert(said("stats", "ops"));
+    assert(said("ops", "ops total="));
+    assert(probe.exec("tops"));
+    assert(said("bench 2", "bench frames=2"));
+    assert(said("hit 2 2", "box="));
+    assert(probe.exec("tap 2 2") && probe.exec("tap i 0") && probe.exec("key Next"));
+    assert(!probe.exec("key NoSuchKey"));
+    assert(probe.exec("wheel 10 10 0 -5") && probe.exec("step 0.1"));
+    assert(said("size 120 40", "ok"));
+    assert(said("history", "ok"));
+    assert(said("help", "ok"));
+    assert(probe.exec("# comment") && probe.exec(""));
+    std::istringstream script("render\nbad-command\nrender\nquit\nrender\n");
+    assert(!probe.run(script, false));
+
+    host::Probe bare(app, out);
+    assert(!bare.exec("items") && !bare.exec("zoom 0 0 8 8"));
+    assert(!bare.exec("ref " + dir + "/missing.png"));
+    assert(!bare.exec("item x 0 0 8 8 nomask"));
     std::filesystem::remove_all(dir);
     std::filesystem::remove(dir + "-ref.png");
+  }
+
+  // Headless driver: every flag writes what it promises; soak passes
+  // on a static tree.
+  {
+    namespace host = glim::toolkit::host;
+    namespace fs = std::filesystem;
+    host::TestApp app;
+    app.w = 96;
+    app.h = 32;
+    app.build = [](const glim::toolkit::Engine&) { return glim::toolkit::lines("Driver"); };
+    const fs::path dir = fs::temp_directory_path() / "glim-host-test-e2e";
+    fs::create_directories(dir);
+    const auto flagsOf = [](std::vector<std::string> args) {
+      args.insert(args.begin(), "app");
+      std::vector<char*> argv;
+      for (std::string& a : args) argv.push_back(a.data());
+      return host::parseE2e(static_cast<int>(argv.size()), argv.data());
+    };
+    const host::E2eFlags f = flagsOf(
+        {"--e2e=step:0.1;~Driver",
+         "--soak",
+         "3",
+         "--trace-frames=4",
+         "--trace-out",
+         (dir / "trace.csv").string(),
+         "--trace-json=" + (dir / "trace.json").string(),
+         "--snapshot",
+         (dir / "snap.png").string(),
+         "--dump-ops",
+         (dir / "ops.bin").string(),
+         "--drive=d.drive",
+         "--drive-trace=d.json"}
+    );
+    assert(f.any() && f.soak == 3 && f.traceFrames == 4);
+    assert(f.drive == "d.drive" && f.driveTrace == "d.json");
+    assert(host::runE2e(app, f) == 0);
+    for (const char* name : {"trace.csv", "trace.json", "snap.png", "ops.bin"})
+      assert(fs::file_size(dir / name) > 0);
+    std::ifstream csv(dir / "trace.csv");
+    std::string header;
+    std::getline(csv, header);
+    assert(header == "frame,buildMs,recordMs,encodeMs,ops,rev");
+    assert(flagsOf({"--soak"}).soak == 60 && flagsOf({"--trace-frames"}).traceFrames == 60);
+    assert(flagsOf({"-h"}).help && !flagsOf({"--startup"}).any());
+    assert(host::runE2e(app, flagsOf({"--e2e", "~Missing"})) == 1);
+    assert(host::runE2e(app, flagsOf({"--probe", (dir / "none.probe").string()})) == 1);
+    { std::ofstream(dir / "ok.probe") << "# probe\nexpect Driver\n"; }
+    assert(host::runE2e(app, flagsOf({"--probe", (dir / "ok.probe").string()})) == 0);
+    assert(host::runE2e(app, flagsOf({"--trace-frames=1", "--trace-out=/no/such/dir/x.csv"})) == 1);
+    fs::remove_all(dir);
   }
 
   // Drive scripts: a timeline of shell events; any bad line rejects
@@ -399,6 +494,29 @@ int main() {
     assert(sum.find("0 events lagged, 0 frame gaps") != std::string::npos);
     assert(sum.find("  gpu      p50    4.00") != std::string::npos);
     assert(r.traceJson().find("\"name\":\"down\"") != std::string::npos);
+    host::DriveReport kinds;
+    for (EventType k :
+         {EventType::PointerMove, EventType::PointerUp, EventType::KeyDown, EventType::Frame})
+      kinds.event(0.0f, k, 0.0f, 0.0f);
+    const std::string kindsJson = kinds.traceJson();
+    for (const char* name : {"move", "up", "key", "other"})
+      assert(kindsJson.find(std::string("\"name\":\"") + name + "\"") != std::string::npos);
+
+    // Loading: a missing or bad script yields no run; a good one finishes
+    // and writes its trace.
+    namespace fs = std::filesystem;
+    const fs::path drive = fs::temp_directory_path() / "glim-host-test.drive";
+    const fs::path trace = fs::temp_directory_path() / "glim-host-test-drive.json";
+    assert(!host::DriveRun::load((fs::temp_directory_path() / "no-such.drive").c_str()));
+    std::ofstream(drive) << "fly 1\n";
+    assert(!host::DriveRun::load(drive.c_str()));
+    std::ofstream(drive) << "wait 0.1\n";
+    const std::unique_ptr<host::DriveRun> run = host::DriveRun::load(drive.c_str());
+    assert(run);
+    run->paint(t);
+    assert(run->finish(trace.c_str()) && fs::file_size(trace) > 0);
+    fs::remove(drive);
+    fs::remove(trace);
     host::DriveReport late = r;
     late.event(200.0f, EventType::PointerUp, 450.0f, 0.5f);
     assert(late.stalled() && late.summary().find("1 events lagged") != std::string::npos);
