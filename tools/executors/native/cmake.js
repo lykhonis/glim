@@ -67,7 +67,7 @@ function withBuildLock(lockPath, fn) {
   // pre-mkdir scheme and is never a live lock.
   fs.mkdirSync(path.dirname(lockPath), { recursive: true });
   const pidFile = path.join(lockPath, "pid");
-  const deadline = Date.now() + 120000;
+  let deadline = Date.now() + 120000;
   for (;;) {
     try {
       fs.mkdirSync(lockPath);
@@ -85,11 +85,13 @@ function withBuildLock(lockPath, fn) {
         continue;
       }
       let stale = false;
+      let owned = false;
       try {
         const pid = parseInt(fs.readFileSync(pidFile, "utf8"), 10);
         if (Number.isFinite(pid)) {
           try {
             process.kill(pid, 0);
+            owned = true; // a live owner's build ends on its own
           } catch {
             stale = true; // ESRCH: owner dead
           }
@@ -103,7 +105,9 @@ function withBuildLock(lockPath, fn) {
         } catch {}
         continue;
       }
-      if (Date.now() > deadline) {
+      if (owned) {
+        deadline = Date.now() + 120000;
+      } else if (Date.now() > deadline) {
         throw new Error(`timed out waiting for ${lockPath}`);
       }
       spawnSync("sleep", ["0.2"]);
