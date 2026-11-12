@@ -1,6 +1,7 @@
 #include <glim/paint/Software.h>
 #include <glim/toolkit.h>
 #include <glim/toolkit/host/Codec.h>
+#include <glim/toolkit/host/Crash.h>
 #include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/Paint.h>
@@ -8,6 +9,10 @@
 #include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/host/Startup.h>
+
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <cassert>
 #include <cmath>
@@ -582,6 +587,41 @@ int main() {
     assert(host::targetFps(policy) == 30.f);
     low = false;
     assert(host::targetFps(policy) == 50.f);
+  }
+
+  {
+    namespace host = glim::toolkit::host;
+    const std::string path =
+        (std::filesystem::temp_directory_path() / "glim-host-test.crash").string();
+    std::filesystem::remove(path);
+    assert(!host::takeCrashReport(path));
+
+    const auto crashChild = [&](int signal, bool chained) {
+      const pid_t pid = fork();
+      if (pid == 0) {
+        if (chained) {
+          ::signal(signal, [](int) { _exit(42); });
+        }
+        if (!host::installCrashHandler(path)) _exit(3);
+        raise(signal);
+        _exit(4);
+      }
+      int status = 0;
+      waitpid(pid, &status, 0);
+      return status;
+    };
+
+    const int killed = crashChild(SIGSEGV, false);
+    assert(WIFSIGNALED(killed) && WTERMSIG(killed) == SIGSEGV);
+    const auto report = host::takeCrashReport(path);
+    assert(report && report->rfind("glim crash\nsignal 11\n#0 0x", 0) == 0);
+    assert(report->find("glim-toolkit-host-test +0x") != std::string::npos);
+    assert(!host::takeCrashReport(path));
+
+    const int chained = crashChild(SIGABRT, true);
+    assert(WIFEXITED(chained) && WEXITSTATUS(chained) == 42);
+    const auto aborted = host::takeCrashReport(path);
+    assert(aborted && aborted->find("signal 6\n") != std::string::npos);
   }
 
   std::cout << "host_test ok\n";

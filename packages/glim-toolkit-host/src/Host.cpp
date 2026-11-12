@@ -55,6 +55,12 @@ int run(
     TelemetryHub* telemetry,
     TelemetrySink telemetrySink
 ) {
+  if (!config.crashReport.empty()) {
+    if (auto previous = takeCrashReport(config.crashReport); previous && config.crashSink) {
+      config.crashSink(*previous);
+    }
+    installCrashHandler(config.crashReport);
+  }
   std::unique_ptr<StartupReport> startup;
   if (config.startup != StartupUntil::Off) {
     startup = std::make_unique<StartupReport>();

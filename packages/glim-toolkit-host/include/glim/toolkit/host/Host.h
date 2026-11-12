@@ -18,6 +18,7 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Screen.h"
 #include "glim/toolkit/State.h"
+#include "glim/toolkit/host/Crash.h"
 #include "glim/toolkit/host/Power.h"
 #include "glim/toolkit/host/SeatView.h"
 #include "glim/toolkit/host/Startup.h"
@@ -47,6 +48,10 @@ struct Config {
   // cached images); same hook as TestApp::prepare. Ignored with a Record.
   std::function<void(paint::Context&, Store&)> prepare;
   PowerPolicy power;
+  // Crash capture: a fatal signal writes its report here; the next run
+  // hands that report to crashSink (see Crash.h). Empty path: off.
+  std::string crashReport;
+  CrashSink crashSink;
 };
 
 struct Frame {

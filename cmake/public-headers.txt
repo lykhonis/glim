@@ -100,6 +100,7 @@ packages/glim-toolkit/include/glim/toolkit/theme/Keys.h
 packages/glim-toolkit/include/glim/toolkit/theme/Themed.h
 packages/glim-toolkit/include/glim/toolkit.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Codec.h
+packages/glim-toolkit-host/include/glim/toolkit/host/Crash.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Drive.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Host.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Paint.h
