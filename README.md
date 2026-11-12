@@ -111,7 +111,7 @@ glim-smarthome --drive examples/smarthome/drive/controls.drive   # live latency 
 
 Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 
-- **Apple:** Xcode.
+- **Apple:** Xcode with the Metal toolchain (`xcodebuild -downloadComponent MetalToolchain` if `xcrun metal` is missing).
 - **Android:** Android SDK and NDK (`android-*` presets).
 - **Web:** Emscripten (`web-webgpu-debug` preset; wipe `build/` after upgrading it) and Chrome.
 - **Linux:** `ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
