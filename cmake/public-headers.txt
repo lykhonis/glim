@@ -103,6 +103,7 @@ packages/glim-toolkit-host/include/glim/toolkit/host/Codec.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Drive.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Host.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Paint.h
+packages/glim-toolkit-host/include/glim/toolkit/host/Power.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Probe.h
 packages/glim-toolkit-host/include/glim/toolkit/host/SeatView.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Seats.h

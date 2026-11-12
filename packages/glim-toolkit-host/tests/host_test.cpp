@@ -4,6 +4,7 @@
 #include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/Paint.h>
+#include <glim/toolkit/host/Power.h>
 #include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/host/Startup.h>
@@ -551,6 +552,36 @@ int main() {
     assert(startupOf("--startup") == host::StartupUntil::Presented);
     assert(startupOf("--startup-encoded") == host::StartupUntil::Encoded);
     assert(startupOf("--stats") == host::StartupUntil::Off);
+  }
+
+  {
+    namespace host = glim::toolkit::host;
+    const auto admitted = [](float fps) {
+      host::FramePacer pacer;
+      int count = 0;
+      for (int i = 0; i < 60; ++i) {
+        count += pacer.admit(i / 60.0 + (i % 2 ? 0.0004 : -0.0004), fps) ? 1 : 0;
+      }
+      return count;
+    };
+    assert(admitted(0.f) == 60);
+    assert(admitted(60.f) == 60);
+    assert(admitted(30.f) == 30);
+    assert(admitted(20.f) == 20);
+
+    host::PowerPolicy policy;
+    assert(host::targetFps(policy) == 0.f);
+    bool low = false;
+    policy.lowPower = [&low] { return low; };
+    assert(host::targetFps(policy) == 0.f);
+    low = true;
+    assert(host::targetFps(policy) == 30.f);
+    policy.maxFps = 24.f;
+    assert(host::targetFps(policy) == 24.f);
+    policy.maxFps = 50.f;
+    assert(host::targetFps(policy) == 30.f);
+    low = false;
+    assert(host::targetFps(policy) == 50.f);
   }
 
   std::cout << "host_test ok\n";

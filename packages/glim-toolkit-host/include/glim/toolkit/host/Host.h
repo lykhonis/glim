@@ -18,6 +18,7 @@
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Screen.h"
 #include "glim/toolkit/State.h"
+#include "glim/toolkit/host/Power.h"
 #include "glim/toolkit/host/SeatView.h"
 #include "glim/toolkit/host/Startup.h"
 #include "glim/toolkit/host/Telemetry.h"
@@ -45,6 +46,7 @@ struct Config {
   // Per-frame context setup before the default paint (e.g. registering
   // cached images); same hook as TestApp::prepare. Ignored with a Record.
   std::function<void(paint::Context&, Store&)> prepare;
+  PowerPolicy power;
 };
 
 struct Frame {

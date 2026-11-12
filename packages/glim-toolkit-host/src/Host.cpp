@@ -126,6 +126,7 @@ int run(
   auto lastTick = start;
   bool reduceTransparency = false;
   float lastFrameMs = 0.f;
+  FramePacer pacer;
 
   std::unordered_map<std::uint32_t, glim::Rect> attached;
   // States owned by the host loop; the window owns its size.
@@ -348,7 +349,12 @@ int run(
         shell::RunLoop().stop();
         return;
       }
-      // Clock ticks every vsync; the scene re-records only when Screen's
+      const double elapsed =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+      if (!pacer.admit(elapsed, targetFps(config.power))) {
+        return;
+      }
+      // Clock ticks every admitted vsync; the scene re-records only when Screen's
       // revision moved. Live values step first (tree-free); their writes
       // bump the revision and paint below.
       const auto now = tickClock();
