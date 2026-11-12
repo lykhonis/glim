@@ -18,19 +18,19 @@
   },
   "linux-vulkan": {
     "total": {
-      "lines": 70.5,
-      "functions": 82.5
+      "lines": 75.4,
+      "functions": 83.5
     },
     "packages": {
       "glim-core": 100,
-      "glim-gpu": 58.8,
-      "glim-gpu-vulkan": 62.3,
-      "glim-image": 79.6,
-      "glim-paint": 72.7,
+      "glim-gpu": 70.5,
+      "glim-gpu-vulkan": 66.4,
+      "glim-image": 87.7,
+      "glim-paint": 76.7,
       "glim-shell": 43.9,
       "glim-shell-wayland": 0,
-      "glim-toolkit": 92.7,
-      "glim-toolkit-host": 63
+      "glim-toolkit": 92.8,
+      "glim-toolkit-host": 78.7
     }
   }
 }
