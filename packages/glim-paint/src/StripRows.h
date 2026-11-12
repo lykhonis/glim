@@ -12,13 +12,21 @@ inline bool sharp(const Radius& r) {
   return r.lt <= kEps && r.rt <= kEps && r.lb <= kEps && r.rb <= kEps;
 }
 
+inline float snapCoverage(float c) {
+  if (c >= 1.f - 1e-3f) return 1.f;
+  if (c <= 1e-4f) return 0.f;
+  return c;
+}
+
+inline bool sameCoverage(float a, float b) { return std::fabs(a - b) <= 1e-3f; }
+
 inline void addSpan(Strip& strip, float x0, float x1, float coverage) {
   if (x1 <= x0 + 1e-6f || coverage <= 1e-4f) {
     return;
   }
   if (!strip.spans.empty()) {
     StripSpan& last = strip.spans.back();
-    if (std::fabs(last.coverage - coverage) <= 1e-3f && x0 <= last.x1 + 1e-3f) {
+    if (sameCoverage(last.coverage, coverage) && x0 <= last.x1 + 1e-3f) {
       last.x1 = std::max(last.x1, x1);
       return;
     }
@@ -45,7 +53,7 @@ inline void packHeight1(std::vector<Strip>& strips) {
       for (std::size_t s = 0; s < cur.spans.size(); ++s) {
         if (std::fabs(cur.spans[s].x0 - strips[i].spans[s].x0) > 1e-3f ||
             std::fabs(cur.spans[s].x1 - strips[i].spans[s].x1) > 1e-3f ||
-            std::fabs(cur.spans[s].coverage - strips[i].spans[s].coverage) > 1e-3f) {
+            !sameCoverage(cur.spans[s].coverage, strips[i].spans[s].coverage)) {
           same = false;
           break;
         }
@@ -91,16 +99,12 @@ void flattenCoverageRows(
         runCov = -1.f;
       };
       for (int x = ra; x < rb; ++x) {
-        float cov = covAt(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f);
-        if (cov >= 1.f - 1e-3f) {
-          cov = 1.f;
-        } else if (cov <= 1e-4f) {
-          cov = 0.f;
-        }
+        const float cov =
+            snapCoverage(covAt(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f));
         if (runCov < 0.f) {
           runX = x;
           runCov = cov;
-        } else if (std::fabs(cov - runCov) <= 1e-3f) {
+        } else if (sameCoverage(cov, runCov)) {
           continue;
         } else {
           flush(x);

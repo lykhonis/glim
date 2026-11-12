@@ -108,17 +108,13 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
             float t = 0.f, len = 0.f;
             best = std::min(best, segDist(p, pts[r.segment], pts[r.segment + 1], t, len));
           }
-          cov = std::clamp(0.5f - (best - half), 0.f, 1.f);
-          if (cov >= 1.f - 1e-3f)
-            cov = 1.f;
-          else if (cov <= 1e-4f)
-            cov = 0.f;
+          cov = snapCoverage(std::clamp(0.5f - (best - half), 0.f, 1.f));
         }
         if (x == lo) {
           runCov = cov;
           continue;
         }
-        if (x < hi && std::fabs(cov - runCov) <= 1e-3f) continue;
+        if (x < hi && sameCoverage(cov, runCov)) continue;
         if (runCov > 1e-4f) addSpan(s, static_cast<float>(runX), static_cast<float>(x), runCov);
         runX = x;
         runCov = cov;
