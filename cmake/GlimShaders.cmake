@@ -2,7 +2,7 @@
 # GLSL, hand-edited. tools/shaders.mjs generates the committed
 # <name>.<stage>.metal and .wgsl beside each backend from the same directory.
 set(GLIM_SHADER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../packages/glim-gpu/shaders")
-if(CMAKE_SCRIPT_MODE_FILE)  # GlimEmbedSpirv runs under cmake -P
+if(CMAKE_SCRIPT_MODE_FILE)  # GlimEmbedBinary runs under cmake -P
     file(GLOB _glim_vert_sources "${GLIM_SHADER_SOURCE_DIR}/*.vert")
 else()
     file(GLOB _glim_vert_sources CONFIGURE_DEPENDS "${GLIM_SHADER_SOURCE_DIR}/*.vert")

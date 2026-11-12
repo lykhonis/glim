@@ -44,12 +44,14 @@ set(_glim_vk_header "${CMAKE_CURRENT_BINARY_DIR}/glim_vulkan_shaders.h")
 add_custom_command(
     OUTPUT "${_glim_vk_header}"
     COMMAND "${CMAKE_COMMAND}"
-        "-DGLIM_SPV_DIR=${_glim_spv_dir}"
+        "-DGLIM_BLOB_DIR=${_glim_spv_dir}"
+        -DGLIM_BLOB_EXT=spv
+        -DGLIM_SHADER_NS=vulkan_shaders
         "-DGLIM_HEADER_OUT=${_glim_vk_header}"
-        -P "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedSpirv.cmake"
+        -P "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedBinary.cmake"
     DEPENDS ${_glim_spv_outputs}
         "${CMAKE_SOURCE_DIR}/cmake/GlimShaders.cmake"
-        "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedSpirv.cmake"
+        "${CMAKE_SOURCE_DIR}/cmake/GlimEmbedBinary.cmake"
     COMMENT "Embedding Vulkan SPIR-V"
     VERBATIM)
 add_custom_target(glim-vulkan-shaders DEPENDS "${_glim_vk_header}")
