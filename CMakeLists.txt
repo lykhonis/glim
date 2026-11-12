@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(glim LANGUAGES C CXX)
+project(glim VERSION 0.1.0 LANGUAGES C CXX)
 if(APPLE)
     enable_language(OBJC)
     enable_language(OBJCXX)
@@ -92,4 +92,9 @@ endif()
 
 if(NOT GLIM_SHELL STREQUAL "none")
     add_subdirectory(packages/glim-toolkit-host)
+endif()
+
+option(GLIM_INSTALL "Install the glim CMake package" ${PROJECT_IS_TOP_LEVEL})
+if(GLIM_INSTALL)
+    include(GlimInstall)
 endif()

@@ -14,6 +14,7 @@ jobs:
       chrome: true
       nx: |
         pnpm -s test:host
+        pnpm -s package-test
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
         cmake --preset macos-metal-release

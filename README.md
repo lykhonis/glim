@@ -117,6 +117,22 @@ Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 - **Linux:** `ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
 - **Coverage:** gcovr; `pnpm coverage` fails below the floors in `tools/coverage-baseline.json`.
 
+## Using Glim from CMake
+
+Install a configured preset, then find it from your project. The GPU and shell backends are fixed by the preset you installed.
+
+```sh
+cmake --build build/macos-metal-release
+cmake --install build/macos-metal-release --prefix ~/glim
+```
+
+```cmake
+find_package(glim 0.1 REQUIRED COMPONENTS toolkit-host)
+target_link_libraries(app PRIVATE glim::toolkit-host)
+```
+
+Components are `core`, `image`, `gpu`, `paint`, `paint-cpu`, `paint-gpu`, `embed`, `toolkit`, `toolkit-host`, `toolkit-host-cpu`, `shell`, the installed `gpu-*` backend, and `glim` (everything). `tests/package` is a working sample; `pnpm package-test` installs and builds it.
+
 ## Contributions
 
 Glim is maintained as a closed-contribution project. Pull requests are not accepted and will be closed without review. Bug reports and questions are welcome as issues, though a response is not guaranteed.

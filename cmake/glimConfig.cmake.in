@@ -1,0 +1,21 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+include("${CMAKE_CURRENT_LIST_DIR}/glimTargets.cmake")
+
+set(glim_GPU "@GLIM_GPU@")
+set(glim_SHELL "@GLIM_SHELL@")
+set(glim_COMPONENTS "@GLIM_INSTALLED_COMPONENTS@")
+
+foreach(_glim_component ${glim_FIND_COMPONENTS})
+    if(TARGET glim::${_glim_component})
+        set(glim_${_glim_component}_FOUND TRUE)
+    else()
+        set(glim_${_glim_component}_FOUND FALSE)
+        set(glim_NOT_FOUND_MESSAGE
+            "glim::${_glim_component} is not in this install (GPU=${glim_GPU}, SHELL=${glim_SHELL}; has: ${glim_COMPONENTS})")
+    endif()
+endforeach()
+check_required_components(glim)
