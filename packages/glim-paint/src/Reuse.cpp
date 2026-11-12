@@ -322,9 +322,9 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
   hashRadius(ctx, p.clipRadius);
   ctx.h.f32(snapBackdropSigma(p.backdropBlur));
   ctx.h.boolean(p.backdropFlat);
-  ctx.h.boolean(p.glass.has_value());
-  if (p.glass.has_value()) {
-    const Glass& gl = *p.glass;
+  ctx.h.boolean(p.lens.has_value());
+  if (p.lens.has_value()) {
+    const Lens& gl = *p.lens;
     ctx.h.u32(static_cast<std::uint32_t>(gl.variant));
     ctx.h.u32(static_cast<std::uint32_t>(gl.material));
     ctx.h.u32(gl.tint.rgba);
@@ -338,8 +338,8 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
     ctx.h.f32(gl.transmit);
     ctx.h.f32(gl.rippleAmp);
     // Time only through what it drives: resting swells hash the same phase.
-    ctx.h.f32(glassRipples(gl) ? gl.timeSec : 0.f);
-    ctx.h.f32(glassSwellPhase(gl));
+    ctx.h.f32(lensRipples(gl) ? gl.timeSec : 0.f);
+    ctx.h.f32(lensSwellPhase(gl));
     ctx.h.f32(gl.envSoft);
     ctx.h.f32(gl.absorbK);
     ctx.h.f32(gl.swellAmp);

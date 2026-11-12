@@ -268,19 +268,19 @@ int main() {
       const glim::paint::Scene& scene = ctx.scene();
       assert(!scene.root.children.empty());
       const auto& params = scene.root.children[0]->params;
-      assert(params.glass.has_value());
-      return *params.glass;
+      assert(params.lens.has_value());
+      return *params.lens;
     };
-    const glim::paint::Glass def = painted(0, 0);
-    assert(def.material == glim::paint::GlassMaterial::Glass);
-    const glim::paint::Glass metal =
+    const glim::paint::Lens def = painted(0, 0);
+    assert(def.material == glim::paint::LensMaterial::Glass);
+    const glim::paint::Lens metal =
         painted(static_cast<std::uint8_t>(GlassMaterial::LiquidMetal), 0xd8a84eff);
-    assert(metal.material == glim::paint::GlassMaterial::LiquidMetal);
+    assert(metal.material == glim::paint::LensMaterial::LiquidMetal);
     assert(metal.transmit == 0.f && metal.tint.rgba == 0xd8a84eff);
-    const glim::paint::Glass water = painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0);
-    assert(water.material == glim::paint::GlassMaterial::Water);
+    const glim::paint::Lens water = painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0);
+    assert(water.material == glim::paint::LensMaterial::Water);
     assert(water.transmit == 1.f);
-    const glim::paint::Glass teal =
+    const glim::paint::Lens teal =
         painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0x2a9d8fff);
     assert(teal.tint.rgba == 0x2a9d8fff);
   }

@@ -119,7 +119,7 @@ int main() {
   lens.setFillColor(0xff0000ff);
   lens.fill(glim::Rect::fromSize({100, 100}));
   glim::paint::GroupParams glass;
-  glass.glass = glim::paint::Glass{};
+  glass.lens = glim::paint::Lens{};
   glass.bounds = glim::Rect{{10, 10}, {40, 20}};
   lens.pushGroup(glass);
   lens.popGroup();
@@ -268,7 +268,7 @@ int main() {
   // Adjacent slot-tag markers fuse into one container; single plate, merged pills.
   auto glassMarker = [](glim::paint::Context& c, float x, float w, bool clear = false) {
     glim::paint::GroupParams gp;
-    gp.glass = clear ? glim::paint::Glass::clear() : glim::paint::Glass{};
+    gp.lens = clear ? glim::paint::Lens::clear() : glim::paint::Lens{};
     gp.bounds = glim::Rect{{x, 10}, {w, 60}};
     gp.clip = gp.bounds;
     c.pushGroup(gp);
@@ -349,7 +349,7 @@ int main() {
     manualCtx.setFillColor(0x202020ff);
     manualCtx.fill(glim::Rect::fromSize({200, 100}));
     glim::paint::GroupParams shaped;
-    shaped.glass = glim::paint::Glass{};
+    shaped.lens = glim::paint::Lens{};
     shaped.bounds = glim::Rect{{10, 10}, {40, 60}};
     manualCtx.pushGroup(shaped);
     manualCtx.setFillColor(0xffffff88);

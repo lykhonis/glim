@@ -433,7 +433,7 @@ void clearShadowParams(GroupParams& p) {
   p.contentBlur = 0.f;
 }
 
-bool hasGlass(const Group& g) noexcept { return g.params.glass.has_value(); }
+bool hasGlass(const Group& g) noexcept { return g.params.lens.has_value(); }
 
 bool isGlassContainer(const Group& g) noexcept { return g.params.glassContainer; }
 
@@ -573,14 +573,14 @@ bool isIdentityMatrix(const Mat4& t) {
   return true;
 }
 
-bool sameGlassMaterial(const Glass& a, const Glass& b) {
+bool sameLens(const Lens& a, const Lens& b) {
   return a.variant == b.variant && a.tint.rgba == b.tint.rgba && a.interactive == b.interactive &&
          a.ior == b.ior && a.thicknessPx == b.thicknessPx && a.mergeKPx == b.mergeKPx &&
          a.refDistance == b.refDistance && a.dispersion == b.dispersion && a.flatten == b.flatten;
 }
 
 // Slot-tag markers: empty leaf glass groups with explicit bounds; nothing else is reinterpreted.
-bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Glass& mat) {
+bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Lens& mat) {
   if (!c || !hasGlass(*c)) {
     return false;
   }
@@ -606,19 +606,19 @@ bool fusibleGlassMarker(const std::unique_ptr<Group>& c, const Glass& mat) {
   if (!isIdentityMatrix(p.transform)) {
     return false;
   }
-  return p.glass.has_value() && sameGlassMaterial(*p.glass, mat);
+  return p.lens.has_value() && sameLens(*p.lens, mat);
 }
 
 // Fuse adjacent marker runs into one container; in-between shapes keep their order slots.
 void fuseGlassRuns(Group& out) {
   std::size_t i = 0;
   while (i < out.children.size()) {
-    if (!out.children[i] || !out.children[i]->params.glass.has_value() ||
+    if (!out.children[i] || !out.children[i]->params.lens.has_value() ||
         !hasGlass(*out.children[i])) {
       ++i;
       continue;
     }
-    const Glass& mat = *out.children[i]->params.glass;
+    const Lens& mat = *out.children[i]->params.lens;
     std::size_t j = i;
     while (j < out.children.size() && fusibleGlassMarker(out.children[j], mat)) {
       ++j;

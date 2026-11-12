@@ -216,9 +216,9 @@ void Renderer::submitLayer(
       }
       if (targets_.glassSrc.native()) {
         const GlassUniforms gu = makeGlassUniforms(
-            iso.glass,
-            iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
-            static_cast<int>(iso.glassPills.size()),
+            iso.lens,
+            iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
+            static_cast<int>(iso.lensPills.size()),
             iso.contentW,
             iso.contentH,
             iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f,
@@ -242,9 +242,9 @@ void Renderer::submitLayer(
             targets_,
             stats_,
             nullptr,
-            iso.glass,
+            iso.lens,
             gu,
-            static_cast<int>(iso.glassPills.size()),
+            static_cast<int>(iso.lensPills.size()),
             targets_.glassSrc.native(),
             ft->native(),
             iso.contentW,
@@ -259,7 +259,7 @@ void Renderer::submitLayer(
         plateLoad = gpu::LoadOp::Load;
       }
       ++stats_.glassPassCount;
-      stats_.glassPillCount += static_cast<unsigned>(iso.glassPills.size());
+      stats_.glassPillCount += static_cast<unsigned>(iso.lensPills.size());
     } else if (iso.backdropSigma > 0.f) {
       if (!snapshotted) {
         const int hw = std::max(1, viewportW / 2);

@@ -81,8 +81,8 @@ struct Isolate {
   float contentSigma = 0.f;
   bool hasGlass = false;
   bool glassContainer = false;
-  Glass glass{};
-  std::vector<GlassPill> glassPills;
+  Lens lens{};
+  std::vector<LensPill> lensPills;
   float glassU0 = 0;
   float glassV0 = 0;
   float glassU1 = 1;

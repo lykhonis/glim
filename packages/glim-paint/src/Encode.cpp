@@ -82,11 +82,11 @@ Isolate encodeIsolate(
   if (glassWork) {
     iso.hasGlass = hasGlass(g) || isGlassContainer(g);
     iso.glassContainer = isGlassContainer(g);
-    iso.glass = glassMaterial(g);
-    GlassPill pills[kMaxGlassPills];
-    const int n = collectGlassPills(g, pills);
-    iso.glassPills.assign(pills, pills + n);
-    for (GlassPill& pill : iso.glassPills) {
+    iso.lens = lensOf(g);
+    LensPill pills[kMaxLensPills];
+    const int n = collectLensPills(g, pills);
+    iso.lensPills.assign(pills, pills + n);
+    for (LensPill& pill : iso.lensPills) {
       pill.rect.origin.x -= surface.origin.x;
       pill.rect.origin.y -= surface.origin.y;
     }
@@ -98,7 +98,7 @@ Isolate encodeIsolate(
     }
     if (stats) {
       ++stats->glassPassCount;
-      stats->glassPillCount += static_cast<unsigned>(iso.glassPills.size());
+      stats->glassPillCount += static_cast<unsigned>(iso.lensPills.size());
     }
   }
 

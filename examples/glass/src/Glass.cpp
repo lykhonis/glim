@@ -17,9 +17,9 @@ void recordGlass(
 ) {
   using glim::Radius;
   using glim::Rect;
-  using glim::paint::Glass;
-  using glim::paint::GlassVariant;
   using glim::paint::GroupParams;
+  using glim::paint::Lens;
+  using glim::paint::LensVariant;
 
   if (size.x < 1.f || size.y < 1.f) {
     return;
@@ -97,24 +97,24 @@ void recordGlass(
   };
   const Rect mergeBox{{mergeX, rowY}, {mergeInner, circleS}};
 
-  Glass clear = Glass::clear();
+  Lens clear = Lens::clear();
   clear.flatten = reduceTransparency;
   GroupParams clearP;
   clearP.bounds = clearR;
   clearP.clip = clearR;
   clearP.clipRadius = Radius{pillH * 0.5f};
-  clearP.glass = clear;
+  clearP.lens = clear;
   context.pushGroup(clearP);
   context.popGroup();
 
-  Glass frosted;
-  frosted.variant = GlassVariant::Regular;
+  Lens frosted;
+  frosted.variant = LensVariant::Regular;
   frosted.flatten = reduceTransparency;
   GroupParams frostedP;
   frostedP.bounds = frostedR;
   frostedP.clip = frostedR;
   frostedP.clipRadius = Radius{pillH * 0.5f};
-  frostedP.glass = frosted;
+  frostedP.lens = frosted;
   context.pushGroup(frostedP);
   context.popGroup();
 
@@ -124,49 +124,49 @@ void recordGlass(
   const Rect metalR{{row2X0, rowY2}, {cellW, pillH}};
   const Rect waterR{{row2X0 + cellW + gap, rowY2}, {cellW, pillH}};
 
-  Glass metal = Glass::liquidMetal();
+  Lens metal = Lens::liquidMetal();
   metal.flatten = reduceTransparency;
   metal.timeSec = t;
   GroupParams metalP;
   metalP.bounds = metalR;
   metalP.clip = metalR;
   metalP.clipRadius = Radius{pillH * 0.5f};
-  metalP.glass = metal;
+  metalP.lens = metal;
   context.pushGroup(metalP);
   context.popGroup();
 
-  Glass water = Glass::water();
+  Lens water = Lens::water();
   water.flatten = reduceTransparency;
   water.timeSec = t;
   GroupParams waterP;
   waterP.bounds = waterR;
   waterP.clip = waterR;
   waterP.clipRadius = Radius{pillH * 0.5f};
-  waterP.glass = water;
+  waterP.lens = water;
   context.pushGroup(waterP);
   context.popGroup();
 
-  Glass mergeG;
-  mergeG.variant = GlassVariant::Regular;
+  Lens mergeG;
+  mergeG.variant = LensVariant::Regular;
   mergeG.mergeKPx = 16.f;
   mergeG.flatten = reduceTransparency;
   GroupParams box;
   box.bounds = mergeBox;
   box.glassContainer = true;
-  box.glass = mergeG;
+  box.lens = mergeG;
   context.pushGroup(box);
   GroupParams circ;
   circ.bounds = circleR;
   circ.clip = circleR;
   circ.clipRadius = Radius{circleS * 0.5f};
-  circ.glass = mergeG;
+  circ.lens = mergeG;
   context.pushGroup(circ);
   context.popGroup();
   GroupParams rnd;
   rnd.bounds = rectR;
   rnd.clip = rectR;
   rnd.clipRadius = Radius{16.f};
-  rnd.glass = mergeG;
+  rnd.lens = mergeG;
   context.pushGroup(rnd);
   context.popGroup();
   context.popGroup();

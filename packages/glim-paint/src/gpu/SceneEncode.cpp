@@ -461,8 +461,8 @@ void Renderer::encodeGroup(
             dropBackdropPills(*content);
           }
           if (glassWork) {
-            GlassPill pills[kMaxGlassPills];
-            const int n = collectGlassPills(*child, pills);
+            LensPill pills[kMaxLensPills];
+            const int n = collectLensPills(*child, pills);
             stats_.glassPillCount += static_cast<unsigned>(n);
             stripGlassForIsolate(*content);
           }
@@ -486,9 +486,9 @@ void Renderer::encodeGroup(
               dv1 = (dest.origin.y + dest.size.y) / logicalSize.y;
             }
             glassTex = targets_.glassSrc.native();
-            const Glass& mat = glassMaterial(*child);
-            GlassPill gpills[kMaxGlassPills];
-            int gn = collectGlassPills(*child, gpills);
+            const Lens& mat = lensOf(*child);
+            LensPill gpills[kMaxLensPills];
+            int gn = collectLensPills(*child, gpills);
             for (int i = 0; i < gn; ++i) {
               gpills[i].rect.origin.x -= surface.origin.x;
               gpills[i].rect.origin.y -= surface.origin.y;

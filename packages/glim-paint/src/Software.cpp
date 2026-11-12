@@ -152,9 +152,9 @@ void rasterGroup(
     std::vector<Pixel> tmp(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
     const Rect xf = transformRect(world, surface);
     if (glassWork) {
-      const Glass& mat = glassMaterial(g);
-      GlassPill pills[kMaxGlassPills];
-      const int n = collectGlassPills(g, pills);
+      const Lens& mat = lensOf(g);
+      LensPill pills[kMaxLensPills];
+      const int n = collectLensPills(g, pills);
       if (n > 0) {
         const PlateSpec field = glassPillsToField(pills, n, mat.mergeKPx, pr, surface, tlsRaster);
         sampleGlassPlate(tmp, iw, ih, dest, w, h, xf, mat, field, tlsRaster);
@@ -281,20 +281,20 @@ void rasterIsolate(
 ) {
   std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
   if (iso.hasGlass) {
-    if (!iso.glassPills.empty()) {
+    if (!iso.lensPills.empty()) {
       const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
       const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
       const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
       const PlateSpec field = glassPillsToField(
-          iso.glassPills.empty() ? nullptr : iso.glassPills.data(),
-          static_cast<int>(iso.glassPills.size()),
-          iso.glass.mergeKPx,
+          iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
+          static_cast<int>(iso.lensPills.size()),
+          iso.lens.mergeKPx,
           pr,
           local,
           tlsRaster
       );
       sampleGlassPlate(
-          tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.glass, field, tlsRaster
+          tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.lens, field, tlsRaster
       );
     }
   } else if (iso.backdropSigma > 0.f) {

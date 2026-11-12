@@ -17,21 +17,21 @@ float sizeScaleFor(const Rect& aabb) {
   return 1.f + 0.6f * t;
 }
 
-void emitPill(std::span<GlassPill> out, int& n, Rect rect, float radius) {
+void emitPill(std::span<LensPill> out, int& n, Rect rect, float radius) {
   if (n < 0 || static_cast<std::size_t>(n) >= out.size()) {
     return;
   }
   const float minSide = std::min(rect.size.x, rect.size.y);
-  GlassPill p;
+  LensPill p;
   p.rect = rect;
   p.radius = radius;
   p.superellipseN = 4.f;
-  p.kind = radius >= minSide * 0.5f - 1e-3f ? GlassPillKind::Capsule : GlassPillKind::Rounded;
+  p.kind = radius >= minSide * 0.5f - 1e-3f ? LensPillKind::Capsule : LensPillKind::Rounded;
   out[static_cast<std::size_t>(n)] = p;
   ++n;
 }
 
-void collectFills(const Group& g, std::span<GlassPill> out, int& n) {
+void collectFills(const Group& g, std::span<LensPill> out, int& n) {
   for (const Shape& s : g.shapes) {
     if (const auto* r = std::get_if<FillRounded>(&s)) {
       emitPill(out, n, r->rect, plateRadius(r->radius));
@@ -40,13 +40,13 @@ void collectFills(const Group& g, std::span<GlassPill> out, int& n) {
 }
 
 // Logical backdrop blur radius implied by the variant alone.
-float glassVariantBlurRadius(const Glass& g) {
+float glassVariantBlurRadius(const Lens& g) {
   switch (g.variant) {
-    case GlassVariant::Clear:
+    case LensVariant::Clear:
       return 6.f;
-    case GlassVariant::Identity:
+    case LensVariant::Identity:
       return 0.f;
-    case GlassVariant::Regular:
+    case LensVariant::Regular:
     default:
       return 20.f;
   }
@@ -54,33 +54,33 @@ float glassVariantBlurRadius(const Glass& g) {
 
 }  // namespace
 
-bool glassOpaque(const Glass& g) {
-  return g.material == GlassMaterial::LiquidMetal && g.transmit <= 0.f;
+bool lensOpaque(const Lens& g) {
+  return g.material == LensMaterial::LiquidMetal && g.transmit <= 0.f;
 }
 
-float glassBlurRadius(const Glass& g) {
-  if (g.flatten || g.variant == GlassVariant::Identity || glassOpaque(g)) {
+float lensBlurRadius(const Lens& g) {
+  if (g.flatten || g.variant == LensVariant::Identity || lensOpaque(g)) {
     return 0.f;
   }
-  if (g.material == GlassMaterial::Water) {
+  if (g.material == LensMaterial::Water) {
     return 2.f;  // water stays sharp, ripple does the work
   }
   return glassVariantBlurRadius(g);
 }
 
-float glassThicknessFor(const Glass& mat, Rect plateBounds) {
+float lensThicknessFor(const Lens& mat, Rect plateBounds) {
   return mat.thicknessPx * sizeScaleFor(plateBounds);
 }
 
-bool glassRipples(const Glass& mat) {
-  return !mat.flatten && mat.material == GlassMaterial::Water && mat.rippleAmp > 0.f;
+bool lensRipples(const Lens& mat) {
+  return !mat.flatten && mat.material == LensMaterial::Water && mat.rippleAmp > 0.f;
 }
 
 namespace {
 
-bool swellMoves(const Glass& mat) {
-  const GlassMotion& m = mat.motion;
-  return !mat.flatten && mat.material != GlassMaterial::Glass && mat.swellAmp > 0.f &&
+bool swellMoves(const Lens& mat) {
+  const LensMotion& m = mat.motion;
+  return !mat.flatten && mat.material != LensMaterial::Glass && mat.swellAmp > 0.f &&
          m.period > 0.f && m.travel != 0.f;
 }
 
@@ -98,22 +98,21 @@ float springSettle(float u, float bounce) {
   return raw(u) + (1.f - raw(1.f)) * u;
 }
 
-float surge(GlassMotionCurve curve, float u, float bounce) {
-  return curve == GlassMotionCurve::Spring ? springSettle(u, bounce)
-                                           : lens::smoothstep(0.f, 1.f, u);
+float surge(LensMotionCurve curve, float u, float bounce) {
+  return curve == LensMotionCurve::Spring ? springSettle(u, bounce) : lens::smoothstep(0.f, 1.f, u);
 }
 
 }  // namespace
 
-bool glassAnimates(const Glass& mat) { return glassRipples(mat) || swellMoves(mat); }
+bool lensAnimates(const Lens& mat) { return lensRipples(mat) || swellMoves(mat); }
 
-float glassSwellPhase(const Glass& mat) {
+float lensSwellPhase(const Lens& mat) {
   if (!swellMoves(mat)) {
     return 0.f;
   }
-  const GlassMotion& m = mat.motion;
+  const LensMotion& m = mat.motion;
   const double period = m.period;
-  if (m.curve == GlassMotionCurve::Flow) {
+  if (m.curve == LensMotionCurve::Flow) {
     // The swell repeats every 2*pi of phase, so wrapping keeps it seamless
     // and precise for any uptime.
     constexpr double kTau = 6.283185307179586;
@@ -130,14 +129,14 @@ float glassSwellPhase(const Glass& mat) {
   return m.travel * (back ? 1.f - s : s);
 }
 
-const Glass& glassMaterial(const Group& g) {
-  static const Glass kDefault{};
-  if (g.params.glass.has_value()) {
-    return *g.params.glass;
+const Lens& lensOf(const Group& g) {
+  static const Lens kDefault{};
+  if (g.params.lens.has_value()) {
+    return *g.params.lens;
   }
   for (const auto& c : g.children) {
-    if (c && c->params.glass.has_value()) {
-      return *c->params.glass;
+    if (c && c->params.lens.has_value()) {
+      return *c->params.lens;
     }
   }
   return kDefault;
@@ -146,8 +145,8 @@ const Glass& glassMaterial(const Group& g) {
 Rect glassSurface(const Group& g) {
   const bool explicitBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
   Rect aabb = explicitBounds ? g.params.bounds : contentBounds(g);
-  const Glass& mat = glassMaterial(g);
-  const float T = glassThicknessFor(mat, aabb);
+  const Lens& mat = lensOf(g);
+  const float T = lensThicknessFor(mat, aabb);
   const float blur = glassVariantBlurRadius(mat);
   const float slack = mat.dispersion > 0.f ? 16.f : 12.f;
   const float gutter = std::ceil(T + blur + slack);
@@ -158,7 +157,7 @@ Rect glassSurface(const Group& g) {
   return aabb;
 }
 
-int collectGlassPills(const Group& g, std::span<GlassPill> out) {
+int collectLensPills(const Group& g, std::span<LensPill> out) {
   int n = 0;
   if (hasGlass(g)) {
     collectFills(g, out, n);
@@ -186,19 +185,19 @@ int collectGlassPills(const Group& g, std::span<GlassPill> out) {
   return n;
 }
 
-void dropGlassPills(Group& g) { dropBackdropPills(g); }
+void dropLensPills(Group& g) { dropBackdropPills(g); }
 
-void clearGlassParams(GroupParams& p) {
-  p.glass.reset();
+void clearLensParams(GroupParams& p) {
+  p.lens.reset();
   p.glassContainer = false;
 }
 
 void stripGlassForIsolate(Group& g) {
   // Nested glass flattens: outer plate wins, inner dropped silently.
   const bool hadGlass = hasGlass(g);
-  clearGlassParams(g.params);
+  clearLensParams(g.params);
   if (hadGlass) {
-    dropGlassPills(g);
+    dropLensPills(g);
   }
   for (auto& child : g.children) {
     if (child) {

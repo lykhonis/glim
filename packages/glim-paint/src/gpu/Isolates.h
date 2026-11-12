@@ -75,8 +75,8 @@ static_assert(sizeof(GlassUniforms) == 432, "GlassUniforms packed std430");
 void setProjection(gpu::Pass& pass, const Mat4& m);
 Mat4 presentProjection(const Mat4& ortho, int degrees);
 GlassUniforms makeGlassUniforms(
-    const Glass& g,
-    const GlassPill* pills,
+    const Lens& g,
+    const LensPill* pills,
     int n,
     int iw,
     int ih,
@@ -149,7 +149,7 @@ void encodeGlassPlate(
     Renderer::TargetPool& targets,
     Stats& stats,
     Stats* drawStats,
-    const Glass& mat,
+    const Lens& mat,
     const GlassUniforms& gu,
     int pillCount,
     void* sharp,

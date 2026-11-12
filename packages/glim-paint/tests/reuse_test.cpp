@@ -122,7 +122,7 @@ void recordFrost(glim::paint::Context& ctx, float dx = 0.f, float dy = 0.f) {
   ctx.finish();
 }
 
-void recordGlassAt(glim::paint::Context& ctx, glim::paint::Glass glass) {
+void recordGlassAt(glim::paint::Context& ctx, glim::paint::Lens glass) {
   ctx.setSize({200, 120});
   ctx.beginFrame();
   ctx.setFillColor(0x1a2228ff);
@@ -130,7 +130,7 @@ void recordGlassAt(glim::paint::Context& ctx, glim::paint::Glass glass) {
   glim::paint::GroupParams gp;
   gp.bounds = glim::Rect{{20, 20}, {160, 80}};
   gp.clip = glim::Rect{{20, 20}, {160, 80}};
-  gp.glass = glass;
+  gp.lens = glass;
   ctx.pushGroup(gp);
   ctx.setFillColor(0xffffffff);
   ctx.fill(glim::Rect{{20, 20}, {160, 80}});
@@ -418,14 +418,14 @@ int main() {
   {
     glim::paint::ReuseCache cache;
     glim::paint::Context a;
-    auto metal = glim::paint::Glass::liquidMetal(glim::Color{0xd8a84eff});
+    auto metal = glim::paint::Lens::liquidMetal(glim::Color{0xd8a84eff});
     metal.motion.period = 0.f;
     metal.timeSec = 0.f;
     recordGlassAt(a, metal);
     const glim::paint::FramePacket first = cache.encode(a.scene(), 1.f);
     expect(first.stats.reuseMisses == 1, "metal first encode misses");
     glim::paint::Context b;
-    auto metalLater = glim::paint::Glass::liquidMetal(glim::Color{0xd8a84eff});
+    auto metalLater = glim::paint::Lens::liquidMetal(glim::Color{0xd8a84eff});
     metalLater.motion.period = 0.f;
     metalLater.timeSec = 7.5f;
     recordGlassAt(b, metalLater);
@@ -436,18 +436,18 @@ int main() {
     );
     // Flowing metal (the preset) re-encodes as time advances.
     glim::paint::Context c;
-    recordGlassAt(c, glim::paint::Glass::liquidMetal());
+    recordGlassAt(c, glim::paint::Lens::liquidMetal());
     cache.encode(c.scene(), 1.f);
     glim::paint::Context d;
-    auto flowing = glim::paint::Glass::liquidMetal();
+    auto flowing = glim::paint::Lens::liquidMetal();
     flowing.timeSec = 1.f;
     recordGlassAt(d, flowing);
     expect(cache.encode(d.scene(), 1.f).stats.reuseMisses == 1, "flowing metal time misses");
     // Between surges the surface rests: those frames reuse the raster.
     glim::paint::Context e;
-    auto resting = glim::paint::Glass::liquidMetal();
+    auto resting = glim::paint::Lens::liquidMetal();
     resting.motion =
-        glim::paint::GlassMotion{4.5f, 0.6f, 0.55f, glim::paint::GlassMotionCurve::Spring, 0.2f};
+        glim::paint::LensMotion{4.5f, 0.6f, 0.55f, glim::paint::LensMotionCurve::Spring, 0.2f};
     resting.timeSec = 3.f;
     recordGlassAt(e, resting);
     cache.encode(e.scene(), 1.f);
@@ -462,13 +462,13 @@ int main() {
   {
     glim::paint::ReuseCache cache;
     glim::paint::Context a;
-    auto water = glim::paint::Glass::water();
+    auto water = glim::paint::Lens::water();
     water.rippleAmp = 1.5f;
     water.timeSec = 0.f;
     recordGlassAt(a, water);
     cache.encode(a.scene(), 1.f);
     glim::paint::Context b;
-    auto waterLater = glim::paint::Glass::water();
+    auto waterLater = glim::paint::Lens::water();
     waterLater.rippleAmp = 1.5f;
     waterLater.timeSec = 7.5f;
     recordGlassAt(b, waterLater);
@@ -482,26 +482,26 @@ int main() {
   // 14. Every material override is part of the structure: changing one
   // re-encodes the plate instead of reusing the stale look.
   {
-    using glim::paint::Glass;
-    const auto missesAfter = [](void (*tweak)(Glass&)) {
+    using glim::paint::Lens;
+    const auto missesAfter = [](void (*tweak)(Lens&)) {
       glim::paint::ReuseCache cache;
       glim::paint::Context a;
-      recordGlassAt(a, Glass::liquidMetal());
+      recordGlassAt(a, Lens::liquidMetal());
       cache.encode(a.scene(), 1.f);
       glim::paint::Context b;
-      Glass tweaked = Glass::liquidMetal();
+      Lens tweaked = Lens::liquidMetal();
       tweak(tweaked);
       recordGlassAt(b, tweaked);
       return cache.encode(b.scene(), 1.f).stats.reuseMisses == 1;
     };
-    expect(missesAfter([](Glass& g) { g.swellAmp = 0.3f; }), "swellAmp change misses");
-    expect(missesAfter([](Glass& g) { g.swellScale.x = 1.f; }), "swellScale.x change misses");
-    expect(missesAfter([](Glass& g) { g.swellScale.y = 2.f; }), "swellScale.y change misses");
-    expect(missesAfter([](Glass& g) { g.envLight = 0.5f; }), "envLight change misses");
-    const auto missesAt = [](void (*tweak)(Glass&)) {
+    expect(missesAfter([](Lens& g) { g.swellAmp = 0.3f; }), "swellAmp change misses");
+    expect(missesAfter([](Lens& g) { g.swellScale.x = 1.f; }), "swellScale.x change misses");
+    expect(missesAfter([](Lens& g) { g.swellScale.y = 2.f; }), "swellScale.y change misses");
+    expect(missesAfter([](Lens& g) { g.envLight = 0.5f; }), "envLight change misses");
+    const auto missesAt = [](void (*tweak)(Lens&)) {
       glim::paint::ReuseCache cache;
       glim::paint::Context a;
-      Glass base = Glass::liquidMetal();
+      Lens base = Lens::liquidMetal();
       base.timeSec = 1.f;
       recordGlassAt(a, base);
       cache.encode(a.scene(), 1.f);
@@ -510,14 +510,14 @@ int main() {
       recordGlassAt(b, base);
       return cache.encode(b.scene(), 1.f).stats.reuseMisses == 1;
     };
-    expect(missesAt([](Glass& g) { g.motion.travel = 0.3f; }), "motion.travel change misses");
-    expect(missesAt([](Glass& g) { g.motion.period = 6.f; }), "motion.period change misses");
+    expect(missesAt([](Lens& g) { g.motion.travel = 0.3f; }), "motion.travel change misses");
+    expect(missesAt([](Lens& g) { g.motion.period = 6.f; }), "motion.period change misses");
     expect(
-        missesAt([](Glass& g) { g.motion.curve = glim::paint::GlassMotionCurve::Smooth; }),
+        missesAt([](Lens& g) { g.motion.curve = glim::paint::LensMotionCurve::Smooth; }),
         "motion.curve change misses"
     );
-    expect(missesAfter([](Glass& g) { g.envSoft = 0.2f; }), "envSoft change misses");
-    expect(missesAfter([](Glass& g) { g.absorbK = 0.5f; }), "absorbK change misses");
+    expect(missesAfter([](Lens& g) { g.envSoft = 0.2f; }), "envSoft change misses");
+    expect(missesAfter([](Lens& g) { g.absorbK = 0.5f; }), "absorbK change misses");
   }
 
   if (failures != 0) {

@@ -97,10 +97,10 @@ GlassSdf glassFieldEval(const PlateSpec& spec, float px, float py) {
   return best;
 }
 
-void waterRipple(float px, float py, float iw, float ih, const Glass& mat, float& rx, float& ry) {
+void waterRipple(float px, float py, float iw, float ih, const Lens& mat, float& rx, float& ry) {
   rx = 0.f;
   ry = 0.f;
-  if (!glassRipples(mat)) {
+  if (!lensRipples(mat)) {
     return;
   }
   constexpr float kTau = 6.28318f;
@@ -111,9 +111,9 @@ void waterRipple(float px, float py, float iw, float ih, const Glass& mat, float
 }
 
 // The material's swell at plate pixel (px, py), in dome-radius units.
-lens::Swell plateSwell(const Glass& mat, float px, float py, float dome) {
+lens::Swell plateSwell(const Lens& mat, float px, float py, float dome) {
   return lens::swellAt(
-      px / dome * mat.swellScale.x, py / dome * mat.swellScale.y, glassSwellPhase(mat)
+      px / dome * mat.swellScale.x, py / dome * mat.swellScale.y, lensSwellPhase(mat)
   );
 }
 
@@ -123,7 +123,7 @@ struct MetalNormal {
   float nx, ny, nz, rx, ry, tilt;
 };
 
-MetalNormal metalNormal(const GlassSdf& f, const Glass& mat, float px, float py) {
+MetalNormal metalNormal(const GlassSdf& f, const Lens& mat, float px, float py) {
   const float inside = std::max(-f.d, 0.f);
   const float dome = std::max(f.dome, 1.f);
   const float tilt = lens::domeTilt(inside, dome) * 0.97f;
@@ -149,7 +149,7 @@ MetalNormal metalNormal(const GlassSdf& f, const Glass& mat, float px, float py)
 
 // Metal F0 from its tint, normalized so natural silver reads near-white and
 // gold stays saturated; untinted metal is white.
-Pixel metalF0(const Glass& mat) {
+Pixel metalF0(const Lens& mat) {
   const bool tinted = mat.tint.a() != 0;
   const float tr = tinted ? srgbToLinear(mat.tint.red()) : 1.f;
   const float tg = tinted ? srgbToLinear(mat.tint.green()) : 1.f;
@@ -163,7 +163,7 @@ Pixel metalF0(const Glass& mat) {
 // backdrop. Toward the rim the channels split (dispersion) into a chromatic
 // fringe, and the rolled rim (lens::chromeRim) lights the upper lip and
 // darkens the lower one, splitting where they meet.
-Pixel metalEnvGlass(const GlassSdf& f, const Glass& mat, float envL, float px, float py) {
+Pixel metalEnvGlass(const GlassSdf& f, const Lens& mat, float envL, float px, float py) {
   const MetalNormal m = metalNormal(f, mat, px, py);
   const float lit = 0.8f + mat.envLight * envL;
   const float t2 = m.tilt * m.tilt;
@@ -186,9 +186,9 @@ Pixel metalEnvGlass(const GlassSdf& f, const Glass& mat, float envL, float px, f
 }
 
 Pixel shadeGlass(
-    Pixel p, const GlassSdf& f, const Glass& mat, float mask, float px, float py, float iw, float ih
+    Pixel p, const GlassSdf& f, const Lens& mat, float mask, float px, float py, float iw, float ih
 ) {
-  const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
+  const bool flatten = mat.flatten || mat.variant == LensVariant::Identity;
   if (flatten) {
     p.r = 0.94f;
     p.g = 0.94f;
@@ -199,10 +199,10 @@ Pixel shadeGlass(
     p.g = p.g + (1.f - p.g) * rim;
     p.b = p.b + (1.f - p.b) * rim;
   } else {
-    const bool isGlass = mat.material == GlassMaterial::Glass;
-    const bool isMetal = mat.material == GlassMaterial::LiquidMetal;
-    const bool isWater = mat.material == GlassMaterial::Water;
-    const bool regular = mat.variant == GlassVariant::Regular;
+    const bool isGlass = mat.material == LensMaterial::Glass;
+    const bool isMetal = mat.material == LensMaterial::LiquidMetal;
+    const bool isWater = mat.material == LensMaterial::Water;
+    const bool regular = mat.variant == LensVariant::Regular;
     float rx = 0.f;
     float ry = 0.f;
     if (isWater) {
@@ -259,26 +259,26 @@ Pixel shadeGlass(
       const float inside = std::max(-f.d, 0.f);
       const float hair2 = lens::hairWeight(inside, 1.2f, 1.8f);
       float side = 0.f;
-      if (hasEdge(mat.edge, GlassEdge::Left)) {
+      if (hasEdge(mat.edge, LensEdge::Left)) {
         const float w = std::clamp(-f.nx, 0.f, 1.f);
         side += w * w;
       }
-      if (hasEdge(mat.edge, GlassEdge::Right)) {
+      if (hasEdge(mat.edge, LensEdge::Right)) {
         const float w = std::clamp(f.nx, 0.f, 1.f);
         side += w * w;
       }
       p.r *= 1.f - side * hair2 * 0.38f;
       p.g *= 1.f - side * hair2 * 0.38f;
       p.b *= 1.f - side * hair2 * 0.38f;
-      const float top = hasEdge(mat.edge, GlassEdge::Top) ? std::clamp(-f.ny, 0.f, 1.f) : 0.f;
-      const float bot = hasEdge(mat.edge, GlassEdge::Bottom) ? std::clamp(f.ny, 0.f, 1.f) : 0.f;
+      const float top = hasEdge(mat.edge, LensEdge::Top) ? std::clamp(-f.ny, 0.f, 1.f) : 0.f;
+      const float bot = hasEdge(mat.edge, LensEdge::Bottom) ? std::clamp(f.ny, 0.f, 1.f) : 0.f;
       const float hi = hair2 * (top * 0.35f + bot * 0.22f) * 0.9f;
       p.r = p.r + (1.f - p.r) * hi;
       p.g = p.g + (1.f - p.g) * hi;
       p.b = p.b + (1.f - p.b) * hi;
       // The soft all-around rim belongs to the full jeweled plate;
       // partial masks carry their look in the directional terms above.
-      if (mat.edge == GlassEdge::Full) {
+      if (mat.edge == LensEdge::Full) {
         const float rim = std::clamp(1.f - std::fabs(f.d + 0.4f) / 2.4f, 0.f, 1.f);
         const float rimA = rim * rim * 0.12f;
         p.r = p.r + (1.f - p.r) * rimA;
@@ -295,10 +295,10 @@ Pixel shadeGlass(
         const float inside = std::max(-f.d, 0.f);
         const float rimW = std::clamp(1.f - inside / 12.f, 0.f, 1.f);
         float edgeSpec = 0.f;
-        if (hasEdge(mat.edge, GlassEdge::Left)) edgeSpec += std::clamp(-f.nx, 0.f, 1.f);
-        if (hasEdge(mat.edge, GlassEdge::Right)) edgeSpec += std::clamp(f.nx, 0.f, 1.f);
-        if (hasEdge(mat.edge, GlassEdge::Top)) edgeSpec += std::clamp(-f.ny, 0.f, 1.f);
-        if (hasEdge(mat.edge, GlassEdge::Bottom)) edgeSpec += std::clamp(f.ny, 0.f, 1.f);
+        if (hasEdge(mat.edge, LensEdge::Left)) edgeSpec += std::clamp(-f.nx, 0.f, 1.f);
+        if (hasEdge(mat.edge, LensEdge::Right)) edgeSpec += std::clamp(f.nx, 0.f, 1.f);
+        if (hasEdge(mat.edge, LensEdge::Top)) edgeSpec += std::clamp(-f.ny, 0.f, 1.f);
+        if (hasEdge(mat.edge, LensEdge::Bottom)) edgeSpec += std::clamp(f.ny, 0.f, 1.f);
         edgeSpec = std::clamp(edgeSpec, 0.f, 1.f);
         const auto [hx, hy, hz] = lens::keyHalfVector();
         const float nx3 = (f.nx * 0.9f + (isWater ? rx * 0.18f : 0.f)) / nl;
@@ -385,7 +385,7 @@ void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& 
 namespace {
 
 void applyGlassChrome(
-    std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Glass& mat
+    std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Lens& mat
 ) {
   for (int y = 0; y < ih; ++y) {
     const float py = static_cast<float>(y) + 0.5f;
@@ -407,7 +407,7 @@ void applyGlassChrome(
 }  // namespace
 
 PlateSpec glassPillsToField(
-    const GlassPill* pills,
+    const LensPill* pills,
     int n,
     float mergeKPx,
     float pr,
@@ -464,15 +464,15 @@ void sampleGlassPlate(
     int dw,
     int dh,
     Rect src,
-    const Glass& mat,
+    const Lens& mat,
     const PlateSpec& field,
     const RasterOptions& options
 ) {
   if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
     return;
   }
-  const bool flatten = mat.flatten || mat.variant == GlassVariant::Identity;
-  const bool metal = !flatten && glassOpaque(mat);
+  const bool flatten = mat.flatten || mat.variant == LensVariant::Identity;
+  const bool metal = !flatten && lensOpaque(mat);
   if (metal) {
     const float plateW = static_cast<float>(iw);
     const float plateH = static_cast<float>(ih);
@@ -507,22 +507,21 @@ void sampleGlassPlate(
   }
   if (options.glassBlur && !flatten) {
     copyDestPlate(plate, iw, ih, dest, dw, dh, src);
-    const float sigma = mat.material == GlassMaterial::Water
-                            ? 1.f
-                            : (mat.variant == GlassVariant::Clear ? 0.f : 6.f);
+    const float sigma =
+        mat.material == LensMaterial::Water ? 1.f : (mat.variant == LensVariant::Clear ? 0.f : 6.f);
     blurCheap(plate, iw, ih, sigma);
     applyGlassChrome(plate, iw, ih, field, mat);
     return;
   }
   const float plateW = static_cast<float>(iw);
   const float plateH = static_cast<float>(ih);
-  const float frostR = flatten ? 0.f : (mat.variant == GlassVariant::Regular ? 3.25f : 0.f);
+  const float frostR = flatten ? 0.f : (mat.variant == LensVariant::Regular ? 3.25f : 0.f);
   const bool aligned = src.origin.x == static_cast<float>(static_cast<int>(src.origin.x)) &&
                        src.origin.y == static_cast<float>(static_cast<int>(src.origin.y)) &&
                        src.size.x == plateW && src.size.y == plateH;
   const int ox = static_cast<int>(src.origin.x);
   const int oy = static_cast<int>(src.origin.y);
-  const bool regular = mat.variant == GlassVariant::Regular;
+  const bool regular = mat.variant == LensVariant::Regular;
   const float prN = std::max(field.pr, 1.f);
   const float kx = src.size.x / plateW;
   const float ky = src.size.y / plateH;
@@ -538,7 +537,7 @@ void sampleGlassPlate(
     }
     const float ipr = 1.f / std::max(field.pr, 1e-4f);
     thickPx =
-        glassThicknessFor(mat, Rect{{x0 * ipr, y0 * ipr}, {(x1 - x0) * ipr, (y1 - y0) * ipr}}) *
+        lensThicknessFor(mat, Rect{{x0 * ipr, y0 * ipr}, {(x1 - x0) * ipr, (y1 - y0) * ipr}}) *
         field.pr;
   }
   const bool refractive = thickPx > 0.001f;
@@ -556,7 +555,7 @@ void sampleGlassPlate(
       }
       float sxr = 0.f;
       float syr = 0.f;
-      if (!flatten && mat.material == GlassMaterial::Water) {
+      if (!flatten && mat.material == LensMaterial::Water) {
         // Body lens: a shallow dome of water magnifies what lies under it.
         // Inward shift falls linearly from the rim to the dome center, so the
         // map stays monotonic (no fold/double image) and magnifies by
@@ -576,7 +575,7 @@ void sampleGlassPlate(
       // pane keeps the body lens alone.
       float ripX = 0.f;
       float ripY = 0.f;
-      if (glassRipples(mat)) {
+      if (lensRipples(mat)) {
         waterRipple(px, py, plateW, plateH, mat, ripX, ripY);
         ripX *= src.size.x / plateW * 0.6f;
         ripY *= src.size.y / plateH * 0.6f;

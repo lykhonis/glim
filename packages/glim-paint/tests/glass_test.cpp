@@ -35,9 +35,9 @@ void expect(bool ok, const char* what) {
 
 int main() {
   using glim::Rect;
-  using glim::paint::Glass;
-  using glim::paint::GlassVariant;
   using glim::paint::GroupParams;
+  using glim::paint::Lens;
+  using glim::paint::LensVariant;
 
   {
     glim::paint::Context ctx;
@@ -46,7 +46,7 @@ int main() {
     ctx.setFillColor(0xff0000ff);
     ctx.fill(Rect::fromSize({100, 100}));
     GroupParams p;
-    p.glass = Glass{};
+    p.lens = Lens{};
     p.bounds = Rect{{10, 10}, {40, 20}};
     p.clipRadius = glim::Radius{10.f};
     ctx.pushGroup(p);
@@ -81,7 +81,7 @@ int main() {
     ctx.setFillColor(0xff0000ff);
     ctx.fill(Rect::fromSize({80, 40}));
     GroupParams p;
-    p.glass = Glass{};
+    p.lens = Lens{};
     p.bounds = Rect{{8, 4}, {32, 16}};
     p.clipRadius = glim::Radius{8.f};
     ctx.pushGroup(p);
@@ -96,7 +96,7 @@ int main() {
       }
       found = true;
       expect(iso.backdropSigma == 0.f, "independence: backdropSigma 0");
-      expect(!iso.glassPills.empty(), "glass isolate carries pills");
+      expect(!iso.lensPills.empty(), "glass isolate carries pills");
       expect(iso.glassU1 > iso.glassU0 && iso.glassV1 > iso.glassV0, "glass dest UV");
       expect(iso.contentW > 32, "guttered glassSurface wider than bounds");
       expect(iso.contentH > 16, "guttered glassSurface taller than bounds");
@@ -120,7 +120,7 @@ int main() {
     ctx.setFillColor(0xff0000ff);
     ctx.fill(Rect::fromSize({80, 40}));
     GroupParams first;
-    first.glass = Glass{};
+    first.lens = Lens{};
     first.bounds = Rect{{4, 4}, {20, 12}};
     ctx.pushGroup(first);
     ctx.popGroup();
@@ -131,7 +131,7 @@ int main() {
     ctx.fill(Rect{{30, 4}, {10, 30}});
     ctx.popGroup();
     GroupParams second;
-    second.glass = Glass{};
+    second.lens = Lens{};
     second.bounds = Rect{{50, 4}, {20, 12}};
     ctx.pushGroup(second);
     ctx.popGroup();
@@ -156,7 +156,7 @@ int main() {
     ctx.pushGroup(frost);
     ctx.popGroup();
     GroupParams g;
-    g.glass = Glass{};
+    g.lens = Lens{};
     g.bounds = Rect{{40, 4}, {20, 12}};
     ctx.pushGroup(g);
     ctx.popGroup();
@@ -194,13 +194,13 @@ int main() {
     box.bounds = Rect{{4, 4}, {90, 24}};
     ctx.pushGroup(box);
     GroupParams a;
-    a.glass = Glass{};
+    a.lens = Lens{};
     a.bounds = Rect{{8, 6}, {24, 16}};
     a.clipRadius = glim::Radius{8.f};
     ctx.pushGroup(a);
     ctx.popGroup();
     GroupParams b;
-    b.glass = Glass{};
+    b.lens = Lens{};
     b.bounds = Rect{{40, 6}, {24, 16}};
     b.clipRadius = glim::Radius{8.f};
     ctx.pushGroup(b);
@@ -215,15 +215,15 @@ int main() {
         continue;
       }
       found = true;
-      expect(iso.glassPills.size() == 2, "bound-only children emit two pills");
+      expect(iso.lensPills.size() == 2, "bound-only children emit two pills");
       expect(iso.isolates.empty() || !iso.isolates[0].hasGlass, "inner glass flags cleared");
     }
     expect(found, "container produced a glass isolate");
-    glim::paint::GlassPill pills[glim::paint::kMaxGlassPills];
+    glim::paint::LensPill pills[glim::paint::kMaxLensPills];
     glim::paint::Group merged = glim::paint::merge(ctx.scene().root, nullptr);
     expect(merged.children.size() == 1, "container stays a child");
-    const int n = glim::paint::collectGlassPills(*merged.children[0], pills);
-    expect(n == 2, "collectGlassPills bound-only fallback");
+    const int n = glim::paint::collectLensPills(*merged.children[0], pills);
+    expect(n == 2, "collectLensPills bound-only fallback");
   }
 
   {
@@ -233,7 +233,7 @@ int main() {
     ctx.setFillColor(0x00ff00ff);
     ctx.fill(Rect::fromSize({80, 40}));
     GroupParams g;
-    g.glass = Glass{};
+    g.lens = Lens{};
     g.bounds = Rect{{8, 4}, {32, 16}};
     ctx.pushGroup(g);
     ctx.popGroup();
@@ -252,11 +252,11 @@ int main() {
     ctx.setFillColor(0xff0000ff);
     ctx.fill(Rect::fromSize({80, 40}));
     GroupParams outer;
-    outer.glass = Glass{};
+    outer.lens = Lens{};
     outer.bounds = Rect{{8, 4}, {48, 24}};
     ctx.pushGroup(outer);
     GroupParams inner;
-    inner.glass = Glass{};
+    inner.lens = Lens{};
     inner.bounds = Rect{{12, 8}, {16, 12}};
     ctx.pushGroup(inner);
     ctx.popGroup();
@@ -268,8 +268,8 @@ int main() {
 
   {
     GroupParams p;
-    p.glass = Glass{};
-    p.glass->variant = GlassVariant::Identity;
+    p.lens = Lens{};
+    p.lens->variant = LensVariant::Identity;
     glim::paint::Group g;
     g.params = p;
     expect(glim::paint::hasGlass(g), "Identity is glass");
@@ -278,55 +278,55 @@ int main() {
   }
 
   {
-    const glim::paint::Glass metal = glim::paint::Glass::liquidMetal(glim::Color{0xd8a84eff});
-    expect(metal.material == glim::paint::GlassMaterial::LiquidMetal, "metal preset material");
+    const glim::paint::Lens metal = glim::paint::Lens::liquidMetal(glim::Color{0xd8a84eff});
+    expect(metal.material == glim::paint::LensMaterial::LiquidMetal, "metal preset material");
     expect(metal.transmit == 0.f, "metal preset opaque");
-    expect(glim::paint::glassBlurRadius(metal) == 0.f, "metal skips the backdrop blur pass");
-    const glim::paint::Glass water = glim::paint::Glass::water();
-    expect(water.material == glim::paint::GlassMaterial::Water, "water preset material");
+    expect(glim::paint::lensBlurRadius(metal) == 0.f, "metal skips the backdrop blur pass");
+    const glim::paint::Lens water = glim::paint::Lens::water();
+    expect(water.material == glim::paint::LensMaterial::Water, "water preset material");
     expect(water.transmit == 1.f, "water preset transmissive");
     expect(
-        glim::paint::glassBlurRadius(water) > 0.f && glim::paint::glassBlurRadius(water) < 20.f,
+        glim::paint::lensBlurRadius(water) > 0.f && glim::paint::lensBlurRadius(water) < 20.f,
         "water blur small and sharp"
     );
   }
 
   {
     // Time is read by the water ripple field and moving swells.
-    using glim::paint::GlassMotion;
-    using glim::paint::GlassMotionCurve;
-    using glim::paint::glassSwellPhase;
-    const glim::paint::Glass glass{};
-    expect(!glim::paint::glassAnimates(glass), "plain glass ignores time");
-    const glim::paint::Glass metal = glim::paint::Glass::liquidMetal(glim::Color{0xd8a84eff});
-    expect(glim::paint::glassAnimates(metal), "flowing metal animates");
-    expect(!glim::paint::glassRipples(metal), "metal has no ripple time");
-    glim::paint::Glass stillMetal = metal;
+    using glim::paint::LensMotion;
+    using glim::paint::LensMotionCurve;
+    using glim::paint::lensSwellPhase;
+    const glim::paint::Lens glass{};
+    expect(!glim::paint::lensAnimates(glass), "plain glass ignores time");
+    const glim::paint::Lens metal = glim::paint::Lens::liquidMetal(glim::Color{0xd8a84eff});
+    expect(glim::paint::lensAnimates(metal), "flowing metal animates");
+    expect(!glim::paint::lensRipples(metal), "metal has no ripple time");
+    glim::paint::Lens stillMetal = metal;
     stillMetal.motion.period = 0.f;
-    expect(!glim::paint::glassAnimates(stillMetal), "still metal ignores time");
-    const glim::paint::Glass water = glim::paint::Glass::water();
-    expect(glim::paint::glassAnimates(water), "wavy water animates");
-    glim::paint::Glass chop = glim::paint::Glass::water();
+    expect(!glim::paint::lensAnimates(stillMetal), "still metal ignores time");
+    const glim::paint::Lens water = glim::paint::Lens::water();
+    expect(glim::paint::lensAnimates(water), "wavy water animates");
+    glim::paint::Lens chop = glim::paint::Lens::water();
     chop.rippleAmp = 1.5f;
-    expect(glim::paint::glassRipples(chop), "rippling water reads time");
-    glim::paint::Glass still = glim::paint::Glass::water();
+    expect(glim::paint::lensRipples(chop), "rippling water reads time");
+    glim::paint::Lens still = glim::paint::Lens::water();
     still.motion.period = 0.f;
-    expect(!glim::paint::glassAnimates(still), "still water ignores time");
-    glim::paint::Glass flatWater = glim::paint::Glass::water();
+    expect(!glim::paint::lensAnimates(still), "still water ignores time");
+    glim::paint::Lens flatWater = glim::paint::Lens::water();
     flatWater.swellAmp = 0.f;
-    expect(!glim::paint::glassAnimates(flatWater), "flat water ignores time");
-    glim::paint::Glass flat = metal;
+    expect(!glim::paint::lensAnimates(flatWater), "flat water ignores time");
+    glim::paint::Lens flat = metal;
     flat.flatten = true;
-    expect(!glim::paint::glassAnimates(flat), "flattened metal ignores time");
+    expect(!glim::paint::lensAnimates(flat), "flattened metal ignores time");
 
     // Surge, rest, surge back: phase over time for both curves.
-    const auto phaseAt = [](glim::paint::Glass g, double t) {
+    const auto phaseAt = [](glim::paint::Lens g, double t) {
       g.timeSec = static_cast<float>(t);
-      return glassSwellPhase(g);
+      return lensSwellPhase(g);
     };
-    for (const GlassMotionCurve curve : {GlassMotionCurve::Smooth, GlassMotionCurve::Spring}) {
-      glim::paint::Glass g = metal;
-      g.motion = GlassMotion{4.f, 0.6f, 0.5f, curve, 0.2f};
+    for (const LensMotionCurve curve : {LensMotionCurve::Smooth, LensMotionCurve::Spring}) {
+      glim::paint::Lens g = metal;
+      g.motion = LensMotion{4.f, 0.6f, 0.5f, curve, 0.2f};
       expect(phaseAt(g, 0.0) == 0.f, "surge starts at rest");
       expect(phaseAt(g, 0.02) < 0.01f, "surge starts gently");
       expect(
@@ -357,7 +357,7 @@ int main() {
         worstStep = std::max(worstStep, std::fabs(phaseAt(g, t + 0.01) - phaseAt(g, t)));
       }
       expect(worstStep < 0.02f, "motion has no jumps");
-      if (curve == GlassMotionCurve::Spring) {
+      if (curve == LensMotionCurve::Spring) {
         expect(std::fabs(peak - 0.6f * 1.2f) < 0.02f, "spring overshoots by bounce");
       } else {
         expect(peak <= 0.6f + 1e-5f, "smooth never overshoots");
@@ -365,8 +365,8 @@ int main() {
     }
     // Flow never rests: constant rate, wrapped into [0, 2*pi).
     {
-      glim::paint::Glass g = metal;
-      g.motion = GlassMotion{4.f, 0.6f, 1.f, GlassMotionCurve::Flow, 0.2f};
+      glim::paint::Lens g = metal;
+      g.motion = LensMotion{4.f, 0.6f, 1.f, LensMotionCurve::Flow, 0.2f};
       expect(std::fabs(phaseAt(g, 2.0) - 0.3f) < 1e-5f, "flow drifts at travel per period");
       for (double t = 0.0; t < 40.0; t += 0.25) {
         const float step = phaseAt(g, t + 0.25) - phaseAt(g, t);
@@ -380,16 +380,16 @@ int main() {
       );
     }
     stillMetal.timeSec = 3.f;
-    expect(glassSwellPhase(stillMetal) == 0.f, "still metal has no phase");
+    expect(lensSwellPhase(stillMetal) == 0.f, "still metal has no phase");
   }
 
   {
     // Thickness follows plate size like the isolate gutter.
-    const glim::paint::Glass g{};
-    const float tiny = glim::paint::glassThicknessFor(g, glim::Rect{{0, 0}, {10, 10}});
-    const float ref = glim::paint::glassThicknessFor(g, glim::Rect{{0, 0}, {200, 80}});
-    const float huge = glim::paint::glassThicknessFor(g, glim::Rect{{0, 0}, {2000, 800}});
-    const float empty = glim::paint::glassThicknessFor(g, glim::Rect{{0, 0}, {0, 0}});
+    const glim::paint::Lens g{};
+    const float tiny = glim::paint::lensThicknessFor(g, glim::Rect{{0, 0}, {10, 10}});
+    const float ref = glim::paint::lensThicknessFor(g, glim::Rect{{0, 0}, {200, 80}});
+    const float huge = glim::paint::lensThicknessFor(g, glim::Rect{{0, 0}, {2000, 800}});
+    const float empty = glim::paint::lensThicknessFor(g, glim::Rect{{0, 0}, {0, 0}});
     expect(empty == g.thicknessPx, "empty plate keeps base thickness");
     expect(tiny >= g.thicknessPx && tiny < ref, "small plate barely scales");
     expect(ref == g.thicknessPx * 1.6f, "reference area hits full scale");
@@ -407,7 +407,7 @@ int main() {
     ctx.setFillColor(0xff0000ff);
     ctx.fill(Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
     GroupParams p;
-    p.glass = Glass{};
+    p.lens = Lens{};
     p.bounds = Rect{{16.f, 12.f}, {32.f, 20.f}};
     p.clipRadius = glim::Radius{10.f};
     ctx.pushGroup(p);
@@ -424,26 +424,26 @@ int main() {
   {
     // Material overrides reach the CPU reference: presets carry the
     // defaults, and changing a knob changes the rendered plate.
-    const Glass metal = Glass::liquidMetal();
+    const Lens metal = Lens::liquidMetal();
     expect(
         metal.swellAmp == 0.8f && metal.swellScale.x == 0.55f && metal.swellScale.y == 1.1f,
         "liquidMetal swell defaults"
     );
     expect(
         metal.motion.period == 4.f && metal.motion.travel == 0.6f &&
-            metal.motion.curve == glim::paint::GlassMotionCurve::Flow && metal.envLight == 0.f,
+            metal.motion.curve == glim::paint::LensMotionCurve::Flow && metal.envLight == 0.f,
         "liquidMetal slow continuous flow, studio only"
     );
     expect(
-        Glass::water().swellAmp == 0.6f && Glass::water().motion.period == 3.5f &&
-            Glass::water().motion.curve == glim::paint::GlassMotionCurve::Smooth,
+        Lens::water().swellAmp == 0.6f && Lens::water().motion.period == 3.5f &&
+            Lens::water().motion.curve == glim::paint::LensMotionCurve::Smooth,
         "water swell defaults"
     );
     expect(
-        Glass{}.swellAmp == 0.f && Glass{}.motion.period == 0.f && Glass{}.envLight == 0.f,
+        Lens{}.swellAmp == 0.f && Lens{}.motion.period == 0.f && Lens{}.envLight == 0.f,
         "plain glass is flat, still, unlit"
     );
-    const auto render = [](const Glass& g) {
+    const auto render = [](const Lens& g) {
       const int w = 160;
       const int h = 80;
       std::vector<std::uint8_t> buf(static_cast<std::size_t>(w * h * 4), 0);
@@ -456,7 +456,7 @@ int main() {
         ctx.fill(Rect{{static_cast<float>(i * 40), 0.f}, {40.f, static_cast<float>(h)}});
       }
       GroupParams p;
-      p.glass = g;
+      p.lens = g;
       p.bounds = Rect{{10.f, 10.f}, {140.f, 60.f}};
       p.clip = p.bounds;
       p.clipRadius = glim::Radius{30.f};
@@ -475,13 +475,13 @@ int main() {
       return n > 200;
     };
     const auto base = render(metal);
-    Glass flat = metal;
+    Lens flat = metal;
     flat.swellAmp = 0.f;
     expect(differs(base, render(flat)), "metal swellAmp override renders");
-    Glass tight = metal;
+    Lens tight = metal;
     tight.swellScale = glim::Vec2{1.5f, 1.5f};
     expect(differs(base, render(tight)), "metal swellScale override renders");
-    Glass lit = metal;
+    Lens lit = metal;
     lit.envLight = 0.6f;
     expect(differs(base, render(lit)), "metal envLight override renders");
     // No glow: the backdrop just outside the plate (x=5, mid height, 5px
@@ -493,7 +493,7 @@ int main() {
         "metal casts no glow on its surroundings"
     );
     // Flow: the face keeps drifting and loops seamlessly.
-    const auto at = [](Glass g, float t) {
+    const auto at = [](Lens g, float t) {
       g.timeSec = t;
       return g;
     };
@@ -502,15 +502,15 @@ int main() {
     expect(differs(base, render(at(metal, 6.f))), "metal flows with time");
     expect(t3 != render(at(metal, 4.f)), "metal keeps flowing, never rests");
     expect(!differs(render(at(metal, metalLoop)), base), "metal flow loops seamlessly");
-    Glass halted = at(metal, 2.f);
+    Lens halted = at(metal, 2.f);
     halted.motion.period = 0.f;
     expect(render(halted) == base, "period 0 keeps metal still");
     const std::size_t face = static_cast<std::size_t>((40 * 160 + 60) * 4);
     const int spread = std::max({base[face], base[face + 1], base[face + 2]}) -
                        std::min({base[face], base[face + 1], base[face + 2]});
     expect(spread < 20, "metal face is grey, not the backdrop");
-    const Glass water = Glass::water();
-    Glass calm = water;
+    const Lens water = Lens::water();
+    Lens calm = water;
     calm.swellAmp = 0.f;
     expect(differs(render(water), render(calm)), "water swellAmp override renders");
     expect(

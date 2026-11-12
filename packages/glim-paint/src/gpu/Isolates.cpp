@@ -45,8 +45,8 @@ Mat4 presentProjection(const Mat4& ortho, int degrees) {
 }
 
 GlassUniforms makeGlassUniforms(
-    const Glass& g,
-    const GlassPill* pills,
+    const Lens& g,
+    const LensPill* pills,
     int n,
     int iw,
     int ih,
@@ -60,10 +60,10 @@ GlassUniforms makeGlassUniforms(
   u.resolution[0] = static_cast<float>(iw);
   u.resolution[1] = static_cast<float>(ih);
   u.dpr = pixelRatio > 0.f ? pixelRatio : 1.f;
-  const int count = std::max(0, std::min(kMaxGlassPills, n));
+  const int count = std::max(0, std::min(kMaxLensPills, n));
   u.shapeCount = static_cast<float>(count);
   for (int i = 0; i < count; ++i) {
-    const GlassPill& p = (pills && n > 0) ? pills[i] : GlassPill{};
+    const LensPill& p = (pills && n > 0) ? pills[i] : LensPill{};
     Rect r = p.rect;
     u.shapes[i].center[0] = r.origin.x + r.size.x * 0.5f;
     u.shapes[i].center[1] = r.origin.y + r.size.y * 0.5f;
@@ -73,16 +73,16 @@ GlassUniforms makeGlassUniforms(
     u.shapes[i].n = p.superellipseN > 0.f ? p.superellipseN : 4.f;
     u.shapes[i].mergeK = g.mergeKPx;
   }
-  const bool ident = g.variant == GlassVariant::Identity;
-  const bool isGlass = g.material == GlassMaterial::Glass;
-  const bool isMetal = g.material == GlassMaterial::LiquidMetal;
+  const bool ident = g.variant == LensVariant::Identity;
+  const bool isGlass = g.material == LensMaterial::Glass;
+  const bool isMetal = g.material == LensMaterial::LiquidMetal;
   // Same size scale as the glassSurface gutter, from the pills' bbox.
   float bx0 = 0.f;
   float by0 = 0.f;
   float bx1 = 0.f;
   float by1 = 0.f;
   for (int i = 0; i < count; ++i) {
-    const GlassPill& q = (pills && n > 0) ? pills[i] : GlassPill{};
+    const LensPill& q = (pills && n > 0) ? pills[i] : LensPill{};
     const float x0 = q.rect.origin.x;
     const float y0 = q.rect.origin.y;
     const float x1 = x0 + q.rect.size.x;
@@ -101,7 +101,7 @@ GlassUniforms makeGlassUniforms(
     }
   }
   const Rect plateBox{{bx0, by0}, {std::max(0.f, bx1 - bx0), std::max(0.f, by1 - by0)}};
-  u.thickness = ident ? 0.f : glassThicknessFor(g, plateBox);
+  u.thickness = ident ? 0.f : lensThicknessFor(g, plateBox);
   u.ior = g.ior;
   u.refDistance = g.refDistance;
   u.dispersion = (ident || g.flatten) ? 0.f : g.dispersion;
@@ -117,15 +117,15 @@ GlassUniforms makeGlassUniforms(
   u.tint[1] = srgbToLinear(g.tint.green());
   u.tint[2] = srgbToLinear(g.tint.blue());
   u.tint[3] = g.tint.alpha();
-  u.blurEdge = (!isGlass || g.variant != GlassVariant::Regular) ? 0.f : 1.f;
+  u.blurEdge = (!isGlass || g.variant != LensVariant::Regular) ? 0.f : 1.f;
   u.lumaLift = 0.55f;
   u.lumaShadow = 0.06f;
   // A set tint is the designed wash: no luma lift on top (CPU parity).
-  u.lumaOn = (!ident && !g.flatten && isGlass && g.variant == GlassVariant::Regular &&
+  u.lumaOn = (!ident && !g.flatten && isGlass && g.variant == LensVariant::Regular &&
               g.tint.alpha() == 0.f)
                  ? 1.f
                  : 0.f;
-  u.dimmer = (!ident && !g.flatten && isGlass && g.variant == GlassVariant::Clear) ? 0.35f : 0.f;
+  u.dimmer = (!ident && !g.flatten && isGlass && g.variant == LensVariant::Clear) ? 0.35f : 0.f;
   u.interactive = g.interactive ? 1.f : 0.f;
   u.flatten = g.flatten ? 1.f : 0.f;
   u.edge = static_cast<float>(static_cast<std::uint8_t>(g.edge));
@@ -136,14 +136,14 @@ GlassUniforms makeGlassUniforms(
   u.material = static_cast<float>(static_cast<int>(g.material));
   u.transmit = g.transmit;
   u.rippleAmp = g.rippleAmp;
-  u.timeSec = glassRipples(g) ? g.timeSec : 0.f;
+  u.timeSec = lensRipples(g) ? g.timeSec : 0.f;
   u.swellAmp = g.swellAmp;
   u.envSoft = g.envSoft;
   u.absorbK = g.absorbK;
   u.envLight = g.envLight;
   u.swellScale[0] = g.swellScale.x;
   u.swellScale[1] = g.swellScale.y;
-  u.swellPhase = glassSwellPhase(g);
+  u.swellPhase = lensSwellPhase(g);
   u._padS = 0.f;
   return u;
 }
@@ -426,7 +426,7 @@ void encodeGlassPlate(
     Renderer::TargetPool& targets,
     Stats& stats,
     Stats* drawStats,
-    const Glass& mat,
+    const Lens& mat,
     const GlassUniforms& gu,
     int pillCount,
     void* sharp,
@@ -444,7 +444,7 @@ void encodeGlassPlate(
     return;
   }
   void* blur = sharp;
-  const float blurR = glassBlurRadius(mat);
+  const float blurR = lensBlurRadius(mat);
   if (blurR > 0.f && pipes.blur1d.native() && !mat.flatten) {
     const float sigmaFull = blurR * pixelRatio * 0.5f;
     blur = blurGlass(

@@ -79,7 +79,7 @@ void recordTypical(glim::paint::Context& ctx) {
   ctx.popGroup();
   // Liquid Glass chrome isolate.
   glim::paint::GroupParams chrome;
-  chrome.glass = glim::paint::Glass{};
+  chrome.lens = glim::paint::Lens{};
   chrome.bounds = glim::Rect{{16, 16}, {688, 44}};
   ctx.pushGroup(chrome);
   ctx.fillRounded(glim::Rect{{16, 16}, {688, 44}}, glim::Radius{22.f});

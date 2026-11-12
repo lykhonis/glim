@@ -7,7 +7,7 @@
 
 namespace glim::paint {
 
-// CPU glass: bilinear dest, cheap 5-tap frost, 1.5px AA, analytic rim. No lens.
+// CPU lens: the LensMath reference optics per pixel over a bilinear dest.
 struct RasterOptions {
   bool glassBlur = false;   // optional Gaussian; off — Regular uses 5-tap
   bool glassMerge = false;  // smin morph; off — pills stay separate

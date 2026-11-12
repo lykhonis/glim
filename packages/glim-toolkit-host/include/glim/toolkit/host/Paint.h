@@ -140,7 +140,7 @@ struct ContextSink {
     // Glass thickness is a physical constant, never a scoped token, so read
     // the default directly instead of plumbing an engine through the sink.
     // Twin enums; the asserts pin the shared bit layout so drift fails the build.
-    using PaintEdge = ::glim::paint::GlassEdge;
+    using PaintEdge = ::glim::paint::LensEdge;
     static_assert(static_cast<int>(toolkit::GlassEdge::None) == static_cast<int>(PaintEdge::None));
     static_assert(static_cast<int>(toolkit::GlassEdge::Left) == static_cast<int>(PaintEdge::Left));
     static_assert(
@@ -151,7 +151,7 @@ struct ContextSink {
         static_cast<int>(toolkit::GlassEdge::Bottom) == static_cast<int>(PaintEdge::Bottom)
     );
     static_assert(static_cast<int>(toolkit::GlassEdge::Full) == static_cast<int>(PaintEdge::Full));
-    using PaintMaterial = ::glim::paint::GlassMaterial;
+    using PaintMaterial = ::glim::paint::LensMaterial;
     static_assert(
         static_cast<int>(toolkit::GlassMaterial::Glass) == static_cast<int>(PaintMaterial::Glass)
     );
@@ -162,16 +162,16 @@ struct ContextSink {
     static_assert(
         static_cast<int>(toolkit::GlassMaterial::Water) == static_cast<int>(PaintMaterial::Water)
     );
-    ::glim::paint::Glass g;
+    ::glim::paint::Lens g;
     if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::LiquidMetal)) {
-      g = ::glim::paint::Glass::liquidMetal(::glim::Color{tint});
+      g = ::glim::paint::Lens::liquidMetal(::glim::Color{tint});
     } else if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::Water)) {
-      g = ::glim::paint::Glass::water();
+      g = ::glim::paint::Lens::water();
       if (tint != 0) {
         g.tint = ::glim::Color{tint};
       }
     } else {
-      g = clear ? ::glim::paint::Glass::clear() : ::glim::paint::Glass{};
+      g = clear ? ::glim::paint::Lens::clear() : ::glim::paint::Lens{};
     }
     g.thicknessPx = Tokens::kGlassThickness;
     g.edge = static_cast<PaintEdge>(edge);
@@ -182,7 +182,7 @@ struct ContextSink {
       g.thicknessPx = 0.f;
     }
     g.tint = ::glim::Color{tint};
-    p.glass = g;
+    p.lens = g;
     ctx.pushGroup(p);
   }
   void pushClip(const Box& b) {
