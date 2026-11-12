@@ -55,6 +55,9 @@ foreach(_dir ${_glim_header_dirs})
     install(DIRECTORY "${_dir}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT glim)
 endforeach()
 
+install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+    DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT glim)
+
 install(EXPORT glimTargets NAMESPACE glim:: DESTINATION ${GLIM_INSTALL_CMAKEDIR} COMPONENT glim)
 configure_package_config_file(
     "${CMAKE_CURRENT_LIST_DIR}/glimConfig.cmake.in"

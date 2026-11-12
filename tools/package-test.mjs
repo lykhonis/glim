@@ -5,10 +5,11 @@
 //
 //   node tools/package-test.mjs [preset]   (default: the host debug preset)
 import { execFileSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { requireNotices } from "./notices.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { hostPreset } = createRequire(import.meta.url)("./githooks/checks.js");
@@ -27,6 +28,7 @@ function run(cmd, args) {
 
 rmSync(work, { recursive: true, force: true });
 run("cmake", ["--install", buildDir, "--component", "glim", "--prefix", prefix]);
+requireNotices(readdirSync(path.join(prefix, "share", "doc", "glim")).join("\n"), prefix);
 run("cmake", [
   "-S", path.join(root, "tests", "package"),
   "-B", sample,

@@ -4,6 +4,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { requireNotices } from "./notices.mjs";
 import { stackArchives } from "./sdk-stack.mjs";
 import { glimVersion } from "./version.mjs";
 
@@ -62,6 +63,7 @@ for (const [abi, preset] of Object.entries(abis)) {
   writeFileSync(path.join(libs, "abi.json"),
     JSON.stringify({ abi, api: minSdk, ndk: ndkMajor, stl: "c++_static", static: true }));
   if (!existsSync(path.join(module, "include"))) cpSync(path.join(prefix, "include"), path.join(module, "include"), { recursive: true });
+  cpSync(path.join(prefix, "share", "doc", "glim"), staging, { recursive: true });
 }
 
 writeFileSync(path.join(staging, "prefab", "prefab.json"),
@@ -82,4 +84,5 @@ writeFileSync(path.join(staging, "AndroidManifest.xml"),
 rmSync(output, { force: true });
 mkdirSync(path.dirname(output), { recursive: true });
 run("zip", ["-qr", output, "."], staging);
+requireNotices(execFileSync("unzip", ["-l", output], { encoding: "utf8" }), output);
 console.log(`aar written to ${output}`);

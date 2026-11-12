@@ -1,8 +1,9 @@
 // @ts-check
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { requireNotices } from "./notices.mjs";
 import { stackArchives } from "./sdk-stack.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -32,6 +33,7 @@ for (const name of names) {
 }
 
 const frameworkArgs = [];
+let docs = "";
 for (const name of names.length ? names : Object.keys(slices)) {
   const { preset, archs } = slices[name];
   const build = path.join(work, name, "build");
@@ -48,9 +50,12 @@ for (const name of names.length ? names : Object.keys(slices)) {
   const merged = path.join(work, name, "libGlim.a");
   run("libtool", ["-static", "-no_warning_for_no_symbols", "-o", merged,
     ...archives.map((a) => path.join(prefix, "lib", `lib${a}.a`))]);
+  docs = path.join(prefix, "share", "doc", "glim");
   frameworkArgs.push("-library", merged, "-headers", path.join(prefix, "include"));
 }
 
 rmSync(output, { recursive: true, force: true });
 mkdirSync(path.dirname(output), { recursive: true });
 run("xcodebuild", ["-create-xcframework", ...frameworkArgs, "-output", output]);
+cpSync(docs, output, { recursive: true });
+requireNotices(readdirSync(output).join("\n"), output);

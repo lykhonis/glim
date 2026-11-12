@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { changelogSection } from "./changelog.mjs";
+import { checkNotices } from "./notices.mjs";
 import { checkPublicHeaders } from "./public-headers.mjs";
 import { requireMatchingVersion } from "./version.mjs";
 
@@ -12,6 +13,7 @@ function check() {
   const version = requireMatchingVersion(root);
   changelogSection(readFileSync(path.join(root, "CHANGELOG.md"), "utf8"), version);
   checkPublicHeaders(root);
+  checkNotices(root);
   return version;
 }
 

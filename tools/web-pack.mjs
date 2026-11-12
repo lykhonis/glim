@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { noticesFile } from "./notices.mjs";
 import { requireMatchingVersion } from "./version.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -32,6 +33,7 @@ mkdirSync(path.join(stage, "dist"), { recursive: true });
 cpSync(path.join(root, "packages", "glim-web", "js"), path.join(stage, "js"), { recursive: true });
 cpSync(path.join(root, "packages", "glim-web", "README.md"), path.join(stage, "README.md"));
 cpSync(path.join(root, "LICENSE"), path.join(stage, "LICENSE"));
+cpSync(path.join(root, noticesFile), path.join(stage, noticesFile));
 cpSync(moduleJs, path.join(stage, "dist", "glim-app.js"));
 cpSync(moduleWasm, path.join(stage, "dist", "glim-app.wasm"));
 
@@ -43,7 +45,7 @@ writeFileSync(path.join(stage, "package.json"), `${JSON.stringify({
     ".": { types: "./js/glim.d.ts", default: "./js/glim.js" },
     "./dist/*": "./dist/*",
   },
-  files: ["js/", "dist/", "README.md", "LICENSE"],
+  files: ["js/", "dist/", "README.md", "LICENSE", noticesFile],
   repository: { type: "git", url: "git+https://github.com/lykhonis/glim.git" },
 }, null, 2)}\n`);
 
@@ -55,7 +57,7 @@ cpSync(packed, tarball);
 run("npm", ["publish", "--dry-run", "--access", "public"], stage);
 
 const listing = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" });
-for (const file of ["package.json", "README.md", "LICENSE", "js/glim.js", "js/glim.d.ts", "dist/glim-app.js", "dist/glim-app.wasm"]) {
+for (const file of ["package.json", "README.md", "LICENSE", noticesFile, "js/glim.js", "js/glim.d.ts", "dist/glim-app.js", "dist/glim-app.wasm"]) {
   if (!listing.includes(file)) throw new Error(`${tarball} missing ${file}`);
 }
 console.log(`glim web pack ok (${version})`);
