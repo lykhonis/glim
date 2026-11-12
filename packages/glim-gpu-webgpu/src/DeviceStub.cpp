@@ -127,7 +127,6 @@ std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> 
   return createShadersInOrder(*this, sources);
 }
 
-void Device::prepareShaders(std::span<const ShaderSource>) {}
 Result<Pipeline> Device::createPipeline(const PipelineDesc&) {
   return Result<Pipeline>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }

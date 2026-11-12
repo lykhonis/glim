@@ -204,7 +204,6 @@ class Device {
   Result<Texture> importSurface(void* surface, int width, int height, SampleFormat);
   Result<Shader> createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size);
   std::vector<Result<Shader>> createShaders(std::span<const ShaderSource> sources);
-  void prepareShaders(std::span<const ShaderSource> sources);
   Result<Pipeline> createPipeline(const PipelineDesc&);
   Result<Bindings> createBindings(const BindingsDesc&);
   CommandEncoder encoder();

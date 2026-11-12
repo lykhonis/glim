@@ -31,12 +31,11 @@ const flag = (name) => {
 const runs = Number(option("--runs") ?? 7);
 const budget = option("--budget");
 const base = option("--base");
-const cold = flag("--cold");
 // Hosted CI VMs never put a frame on screen: end at the first submitted frame.
 const encoded = flag("--encoded");
 const app = own[0];
 if (!app || own.length > 1 || !(runs > 0)) {
-  fail("usage: node tools/startup.mjs <app> [--runs N] [--cold] [--encoded] [--budget ms] [--base <app>] [-- app args]");
+  fail("usage: node tools/startup.mjs <app> [--runs N] [--encoded] [--budget ms] [--base <app>] [-- app args]");
 }
 for (const bin of [app, base]) if (bin && !existsSync(bin)) fail(`missing ${bin}`);
 
@@ -48,10 +47,9 @@ const awake = (bin, argv) =>
 
 /** One run's phases in order, ms each. @param {string} bin @returns {Map<string, number>} */
 function sample(bin) {
-  const env = cold ? { ...process.env, GLIM_METAL_COLD_SHADERS: "1" } : process.env;
   let out = "";
   try {
-    out = execFileSync(...awake(bin, [encoded ? "--startup-encoded" : "--startup", ...appArgs]), { env, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
+    out = execFileSync(...awake(bin, [encoded ? "--startup-encoded" : "--startup", ...appArgs]), { encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) {
     const { message, stderr } = /** @type {Error & { stderr?: string }} */ (e);
     fail(`${bin} --startup failed: ${message}\n${stderr ?? ""}`);
@@ -84,7 +82,7 @@ for (let r = 0; r < runs; ++r) {
 
 const pad = (/** @type {string} */ s, /** @type {number} */ n) => s.padStart(n);
 const ms = (/** @type {number | undefined} */ v) => (v === undefined ? "-" : v.toFixed(1));
-console.log(`startup: ${app}${cold ? " (cold shaders)" : ""}, median of ${runs}`);
+console.log(`startup: ${app}, median of ${runs}`);
 console.log(`  ${"phase".padEnd(12)}${pad("ms", 9)}${pad("min", 9)}${pad("max", 9)}${base ? pad("base", 9) + pad("delta", 9) : ""}`);
 for (const [phase, values] of samples[0]) {
   const here = median(values);

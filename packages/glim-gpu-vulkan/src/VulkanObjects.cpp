@@ -381,8 +381,6 @@ std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> 
   return createShadersInOrder(*this, sources);
 }
 
-void Device::prepareShaders(std::span<const ShaderSource>) {}
-
 Result<Pipeline> Device::createPipeline(const PipelineDesc& desc) {
   if (desc.vertexShader >= impl_->shaders.size() || desc.fragmentShader >= impl_->shaders.size() ||
       !impl_->shaders[desc.vertexShader].module || !impl_->shaders[desc.fragmentShader].module) {

@@ -12,7 +12,7 @@ namespace shaders = glim::vulkan_shaders;
 #include "glim_webgpu_shaders.h"
 namespace shaders = glim::webgpu_shaders;
 #else
-#include "glim_metal_shaders.h"
+#include "glim_metal_libs.h"
 namespace shaders = glim::metal_shaders;
 #endif
 
@@ -66,10 +66,6 @@ ShaderBatch shaderBatch() {
 }
 
 }  // namespace
-
-void Renderer::Pipelines::prepare(gpu::Device& device) {
-  device.prepareShaders(shaderBatch().sources());
-}
 
 bool Renderer::Pipelines::ensure(gpu::Device& device) {
   if (ready_) {

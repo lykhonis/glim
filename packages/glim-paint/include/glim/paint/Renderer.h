@@ -74,7 +74,6 @@ class Renderer {
     float offsets[8];
   };
   struct Pipelines {
-    void prepare(gpu::Device& device);
     bool ensure(gpu::Device& device);
     gpu::Pipeline solid{};
     gpu::Pipeline rounded{};

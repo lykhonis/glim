@@ -54,7 +54,7 @@ foreach(_name ${GLIM_SHADERS})
     endforeach()
 endforeach()
 
-set(_glim_metal_header "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_shaders.h")
+set(_glim_metal_header "${CMAKE_CURRENT_BINARY_DIR}/glim_metal_libs.h")
 add_custom_command(
     OUTPUT "${_glim_metal_header}"
     COMMAND "${CMAKE_COMMAND}"

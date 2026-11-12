@@ -7,13 +7,11 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include <unistd.h>
 
 namespace glim::gpu {
 namespace {
@@ -36,7 +34,6 @@ struct Device::Impl {
   // Shared with completion handlers, which may outlive the device.
   std::shared_ptr<std::atomic<float>> gpuMs = std::make_shared<std::atomic<float>>(0.f);
   std::function<void()> onPresented;
-  dispatch_group_t compiling = nil;
   Queue queueWrapper;
   Handle next = 1;
   std::vector<id<MTLFunction>> shaders;
@@ -511,67 +508,28 @@ Result<Shader> Device::createShader(ShaderStage stage, const char* sourceUtf8, s
 
 namespace {
 
-NSString* shaderText(const ShaderSource& source) {
-  NSString* text = [[NSString alloc] initWithBytes:source.code
-                                            length:static_cast<NSUInteger>(source.size)
-                                          encoding:NSUTF8StringEncoding];
-  static const bool cold = std::getenv("GLIM_METAL_COLD_SHADERS") != nullptr;
-  return cold ? [text stringByAppendingFormat:@"\n// cold %d\n", getpid()] : text;
-}
-
-bool isMetallib(const ShaderSource& source) {
-  return source.size >= 4 && std::memcmp(source.code, "MTLB", 4) == 0;
-}
-
+// Shaders are metallibs compiled at build time; there is no runtime MSL path.
 id<MTLLibrary> newLibrary(id<MTLDevice> device, const ShaderSource& source, NSError** error) {
-  if (isMetallib(source)) {
-    dispatch_data_t data = dispatch_data_create(
-        source.code, static_cast<size_t>(source.size), nil, DISPATCH_DATA_DESTRUCTOR_DEFAULT
-    );
-    return [device newLibraryWithData:data error:error];
-  }
-  return [device newLibraryWithSource:shaderText(source) options:nil error:error];
+  dispatch_data_t data = dispatch_data_create(
+      source.code, static_cast<size_t>(source.size), nil, DISPATCH_DATA_DESTRUCTOR_DEFAULT
+  );
+  return [device newLibraryWithData:data error:error];
 }
 
 }  // namespace
 
-void Device::prepareShaders(std::span<const ShaderSource> sources) {
-  if (!impl_->compiling) {
-    impl_->compiling = dispatch_group_create();
-  }
-  id<MTLDevice> device = impl_->device;
-  for (const ShaderSource& source : sources) {
-    if (!source.code || source.size == 0 || isMetallib(source)) {
-      continue;
-    }
-    NSString* text = shaderText(source);
-    dispatch_group_async(
-        impl_->compiling,
-        dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
-        ^{
-          NSError* error = nil;
-          (void)[device newLibraryWithSource:text options:nil error:&error];
-        }
-    );
-  }
-}
-
 std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> sources) {
-  if (impl_->compiling) {
-    dispatch_group_wait(impl_->compiling, DISPATCH_TIME_FOREVER);
-    impl_->compiling = nil;
-  }
   const std::size_t n = sources.size();
   NSMutableArray* libraries = [NSMutableArray arrayWithCapacity:n];
   NSMutableArray* errors = [NSMutableArray arrayWithCapacity:n];
   for (std::size_t i = 0; i < n; ++i) {
     [libraries addObject:NSNull.null];
-    [errors addObject:@"empty shader source"];
+    [errors addObject:@"not a metallib"];
   }
   id<MTLDevice> device = impl_->device;
   const ShaderSource* src = sources.data();
   dispatch_apply(n, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^(size_t i) {
-    if (!src[i].code || src[i].size == 0) {
+    if (!src[i].code || src[i].size < 4 || std::memcmp(src[i].code, "MTLB", 4) != 0) {
       return;
     }
     NSError* error = nil;
