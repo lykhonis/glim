@@ -423,6 +423,16 @@ int main() {
         "startup total            40.0\n"
     );
     assert(host::processUptimeMs() > 0.0);
+
+    auto startupOf = [](const char* flag) {
+      char app[] = "app";
+      std::string arg = flag;
+      char* argv[] = {app, arg.data()};
+      return host::parseE2e(2, argv).startup;
+    };
+    assert(startupOf("--startup") == host::StartupUntil::Presented);
+    assert(startupOf("--startup-encoded") == host::StartupUntil::Encoded);
+    assert(startupOf("--stats") == host::StartupUntil::Off);
   }
 
   std::cout << "host_test ok\n";
