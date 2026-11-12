@@ -13,6 +13,7 @@
 #include "fractional-scale-v1-client-protocol.h"
 #endif
 
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -254,7 +255,7 @@ Window::Window() {
   impl->toplevel = xdg_surface_get_toplevel(impl->xdgSurface);
   xdg_toplevel_add_listener(impl->toplevel, &kXdgToplevelListener, impl);
   xdg_toplevel_set_title(impl->toplevel, impl->title.c_str());
-  xdg_toplevel_set_app_id(impl->toplevel, "com.glim.hello");
+  xdg_toplevel_set_app_id(impl->toplevel, program_invocation_short_name);
   if (wl.viewporter) {
     impl->viewport = wp_viewporter_get_viewport(wl.viewporter, impl->surface);
   }
