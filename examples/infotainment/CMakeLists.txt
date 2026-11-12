@@ -1,5 +1,5 @@
-glim_add_example(infotainment TITLE "Glim Infotainment" SOFTWARE NO_RUN SOFTWARE_LIBS glim::toolkit-host-cpu)
-target_link_libraries(glim-infotainment PRIVATE glim::toolkit-host glim::image)
+glim_add_example(infotainment TITLE "Glim Infotainment" SOFTWARE)
+target_link_libraries(glim-infotainment PRIVATE glim::image)
 
 if(GLIM_HOST_TESTS)
     add_executable(glim-infotainment-golden tests/infotainment_test.cpp src/main.cpp)

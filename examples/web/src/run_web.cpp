@@ -1,10 +1,14 @@
-#include "run_web.h"
+#include "Glass.h"
+
+#include <glim/gpu/Device.h>
+#include <glim/paint/Context.h>
 
 #include <glim/paint/Renderer.h>
 #include <glim/paint/Scene.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/RunLoop.h>
 #include <glim/shell/Surface.h>
+#include <glim/shell/Window.h>
 
 #include <algorithm>
 #include <memory>
@@ -81,16 +85,9 @@ void paintOnce() {
   const glim::Vec2 size = gWindow->size();
   gContext->setSize(size);
   gContext->beginFrame();
-  ExampleFrame frame{
-      *gContext,
-      *gWindow,
-      size,
-      gWindow->safeArea(),
-      gReduceTransparency,
-      gTime,
-      *gDevice
-  };
-  recordExample(frame);
+  recordGlass(
+      *gContext, size, gTime, gWindow->safeArea(), gReduceTransparency
+  );
   gContext->finish();
   const glim::Vec2 drawable = gWindow->drawableSize();
   gDevice->setDrawableSize(

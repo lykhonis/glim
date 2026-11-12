@@ -2,15 +2,12 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
     add_executable(glim-web
         src/run_web.cpp
         src/select.cpp
-        "${CMAKE_SOURCE_DIR}/examples/glass/src/main.cpp")
+        "${CMAKE_SOURCE_DIR}/examples/glass/src/Glass.cpp")
     target_include_directories(glim-web PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_SOURCE_DIR}/examples/common")
+        "${CMAKE_SOURCE_DIR}/examples/glass/src")
     target_link_libraries(glim-web PRIVATE glim::glim)
     glim_target_defaults(glim-web)
-    set_source_files_properties(
-        "${CMAKE_SOURCE_DIR}/examples/glass/src/main.cpp"
-        PROPERTIES COMPILE_DEFINITIONS GLIM_GOLDEN=1)
     if(EMSCRIPTEN)
         target_link_options(glim-web PRIVATE
             "-sWASM=1"

@@ -1,5 +1,5 @@
-glim_add_example(smarthome TITLE "Glim Home" SOFTWARE NO_RUN SOFTWARE_LIBS glim::toolkit-host-cpu)
-target_link_libraries(glim-smarthome PRIVATE glim::toolkit-host glim::image)
+glim_add_example(smarthome TITLE "Glim Home" SOFTWARE)
+target_link_libraries(glim-smarthome PRIVATE glim::image)
 
 if(GLIM_HOST_TESTS)
     add_executable(glim-smarthome-golden tests/smarthome_test.cpp src/main.cpp)

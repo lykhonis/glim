@@ -1,6 +1,3 @@
-add_library(glim-example-run INTERFACE)
-target_include_directories(glim-example-run INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
-
 # Headless GPU-vs-CPU golden harness for the build's GPU backend (Vulkan or Metal).
 if(GLIM_HOST_TESTS AND GLIM_GPU MATCHES "^(vulkan|metal)$")
     add_library(glim-gpu-golden STATIC GpuGolden.cpp)

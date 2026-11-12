@@ -1,3 +1,4 @@
+#include "Glass.h"
 #include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
@@ -6,14 +7,6 @@
 
 #include <cstdlib>
 #include <iostream>
-
-void recordGlass(
-    glim::paint::Context&,
-    glim::Vec2,
-    float,
-    glim::Rect = {},
-    bool = false
-);
 
 int main(int argc, char** argv) {
   const char* goldenPath =
