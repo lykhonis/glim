@@ -10,3 +10,9 @@
 
 # Local-only design notes; not part of the published tree.
 /docs/
+
+# Built by pnpm xcframework.
+/apple/Glim.xcframework
+/apple/.build
+/apple/.swiftpm
+xcuserdata/

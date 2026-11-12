@@ -133,6 +133,10 @@ target_link_libraries(app PRIVATE glim::toolkit-host)
 
 Components are `core`, `image`, `gpu`, `paint`, `paint-cpu`, `paint-gpu`, `embed`, `toolkit`, `toolkit-host`, `toolkit-host-cpu`, `shell`, the installed `gpu-*` backend, and `glim` (everything). `tests/package` is a working sample; `pnpm package-test` installs and builds it.
 
+## Using Glim from Xcode
+
+`pnpm xcframework` builds `apple/Glim.xcframework` (macOS, iOS and tvOS, with simulator slices) holding the Metal toolkit stack as one static library and its headers. Add `apple/` as a local Swift package and link the `Glim` product; it brings the system frameworks with it. `apple/Sample` is a working Xcode app; `pnpm apple-sample` builds it for every slice.
+
 ## Contributions
 
 Glim is maintained as a closed-contribution project. Pull requests are not accepted and will be closed without review. Bug reports and questions are welcome as issues, though a response is not guaranteed.
