@@ -19,8 +19,8 @@ jobs:
         cmake --preset macos-metal-release
         cmake --build build/macos-metal-release --target glim-core glim-image glim-paint glim-paint-gpu glim-toolkit glim-toolkit-host glim-shell glim-gpu-metal glim-smarthome glim-infotainment
         node tools/size-budgets.mjs metal-toolkit
-        pnpm -s startup build/macos-metal-release/examples/smarthome/glim-smarthome --budget 2000
-        pnpm -s startup build/macos-metal-release/examples/infotainment/glim-infotainment --budget 2000
+        pnpm -s startup build/macos-metal-release/examples/smarthome/glim-smarthome --encoded --budget 2000
+        pnpm -s startup build/macos-metal-release/examples/infotainment/glim-infotainment --encoded --budget 2000
         pnpm exec nx run-many -t run run-software --projects=tag:example --exclude=web --parallel=1 --smoke=15
         pnpm exec nx run examples:build-web
         WEBGPU_ANGLE=metal pnpm -s web-goldens

@@ -9,6 +9,7 @@
 
 #include <glim/image/Analyze.h>
 #include <glim/image/Image.h>
+#include <glim/toolkit/host/Startup.h>
 #include <glim/toolkit/host/TestApp.h>
 
 #include <iosfwd>
@@ -74,7 +75,7 @@ inline constexpr const char* kE2eUsage =
     "[--snapshot out.png] [--dump-a11y] [--dump-ops out.bin] [--stats]\n"
     "  [--e2e \"tap:i:1;step:0.5;~TEXT\"] [--probe script|-]\n"
     "  [--trace-frames N [--trace-out out.csv] [--trace-json out.json]] [--soak N]\n"
-    "  [--drive script [--drive-trace out.json]] [--startup]";
+    "  [--drive script [--drive-trace out.json]] [--startup | --startup-encoded]";
 
 struct E2eFlags {
   bool help = false;
@@ -89,7 +90,7 @@ struct E2eFlags {
   int soak = 0;
   // Windowed, not headless: hand these to Config::drive/driveTrace.
   std::string drive, driveTrace;
-  bool startup = false;
+  StartupUntil startup = StartupUntil::Off;
   bool any() const {
     return !script.empty() || !snapshot.empty() || !probe.empty() || dumpA11y || !dumpOps.empty() ||
            stats || traceFrames > 0 || !traceOut.empty() || soak > 0;

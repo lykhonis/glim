@@ -203,9 +203,15 @@ void CommandEncoder::submit(Queue&) {
   }
   if (device && device->onPresented && impl_->drawable) {
     std::function<void()> fn = std::exchange(device->onPresented, nullptr);
+#if TARGET_OS_OSX
+    [impl_->drawable addPresentedHandler:^(id<MTLDrawable>) {
+      fn();
+    }];
+#else
     [impl_->commandBuffer addScheduledHandler:^(id<MTLCommandBuffer>) {
       fn();
     }];
+#endif
   }
   if (synced && impl_->drawable) {
     [impl_->commandBuffer commit];

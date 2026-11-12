@@ -19,6 +19,7 @@
 #include "glim/toolkit/Screen.h"
 #include "glim/toolkit/State.h"
 #include "glim/toolkit/host/SeatView.h"
+#include "glim/toolkit/host/Startup.h"
 #include "glim/toolkit/host/Telemetry.h"
 
 namespace glim {
@@ -40,7 +41,7 @@ struct Config {
   // when set, also gets a Chrome trace of events and paints.
   std::string drive;
   std::string driveTrace;
-  bool startup = false;
+  StartupUntil startup = StartupUntil::Off;
   // Per-frame context setup before the default paint (e.g. registering
   // cached images); same hook as TestApp::prepare. Ignored with a Record.
   std::function<void(paint::Context&, Store&)> prepare;

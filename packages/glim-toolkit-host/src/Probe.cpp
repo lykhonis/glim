@@ -670,7 +670,9 @@ E2eFlags parseE2e(int argc, char** argv) {
     else if (has("--drive"))
       f.drive = val("--drive");
     else if (a == "--startup")
-      f.startup = true;
+      f.startup = StartupUntil::Presented;
+    else if (a == "--startup-encoded")
+      f.startup = StartupUntil::Encoded;
   }
   return f;
 }

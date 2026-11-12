@@ -32,9 +32,11 @@ const runs = Number(option("--runs") ?? 7);
 const budget = option("--budget");
 const base = option("--base");
 const cold = flag("--cold");
+// Hosted CI VMs never put a frame on screen: end at the first submitted frame.
+const encoded = flag("--encoded");
 const app = own[0];
 if (!app || own.length > 1 || !(runs > 0)) {
-  fail("usage: node tools/startup.mjs <app> [--runs N] [--cold] [--budget ms] [--base <app>] [-- app args]");
+  fail("usage: node tools/startup.mjs <app> [--runs N] [--cold] [--encoded] [--budget ms] [--base <app>] [-- app args]");
 }
 for (const bin of [app, base]) if (bin && !existsSync(bin)) fail(`missing ${bin}`);
 
@@ -49,7 +51,7 @@ function sample(bin) {
   const env = cold ? { ...process.env, GLIM_METAL_COLD_SHADERS: "1" } : process.env;
   let out = "";
   try {
-    out = execFileSync(...awake(bin, ["--startup", ...appArgs]), { env, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
+    out = execFileSync(...awake(bin, [encoded ? "--startup-encoded" : "--startup", ...appArgs]), { env, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) {
     const { message, stderr } = /** @type {Error & { stderr?: string }} */ (e);
     fail(`${bin} --startup failed: ${message}\n${stderr ?? ""}`);

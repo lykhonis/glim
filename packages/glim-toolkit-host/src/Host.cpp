@@ -56,7 +56,7 @@ int run(
     TelemetrySink telemetrySink
 ) {
   std::unique_ptr<StartupReport> startup;
-  if (config.startup) {
+  if (config.startup != StartupUntil::Off) {
     startup = std::make_unique<StartupReport>();
     startup->mark("launch");
   }
@@ -341,6 +341,10 @@ int run(
     if (e.type() == T::Frame) {
       if (startup && *presentedAt > 0.0) {
         startup->markAt("presented", presentedAt->exchange(-1.0));
+        shell::RunLoop().stop();
+        return;
+      }
+      if (startup && firstPainted && config.startup == StartupUntil::Encoded) {
         shell::RunLoop().stop();
         return;
       }
