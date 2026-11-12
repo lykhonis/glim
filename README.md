@@ -148,6 +148,10 @@ target_link_libraries(app PRIVATE glim::glim)
 
 The app defines `extern "C" int glim_app_main()` and points `NativeActivity` at its library. `android/sample` is a working Gradle app; `pnpm android-sample` assembles it.
 
+## Using Glim on the web
+
+`pnpm web-pack` builds the release WebGPU module and packs `@glim/web`: the canvas loader (`js/glim.js`) and the glass module (`dist/glim-app.js`, `dist/glim-app.wasm`). It runs `npm publish --dry-run` and writes `build/web-pack/glim-web.tgz`. CI uploads that tarball. A page imports `GlimCanvas` and points `moduleURL` at `dist/glim-app.js`. An app that paints its own scene builds its own module and uses the same loader.
+
 ## Contributions
 
 Glim is maintained as a closed-contribution project. Pull requests are not accepted and will be closed without review. Bug reports and questions are welcome as issues, though a response is not guaranteed.
