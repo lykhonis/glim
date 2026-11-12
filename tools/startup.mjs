@@ -38,14 +38,21 @@ if (!app || own.length > 1 || !(runs > 0)) {
 }
 for (const bin of [app, base]) if (bin && !existsSync(bin)) fail(`missing ${bin}`);
 
+// A sleeping display delivers no vsync and presents nothing, so macOS
+// runs hold a user-activity assertion that keeps it awake.
+/** @param {string} bin @param {string[]} argv @returns {[string, string[]]} */
+const awake = (bin, argv) =>
+  process.platform === "darwin" ? ["caffeinate", ["-u", bin, ...argv]] : [bin, argv];
+
 /** One run's phases in order, ms each. @param {string} bin @returns {Map<string, number>} */
 function sample(bin) {
   const env = cold ? { ...process.env, GLIM_METAL_COLD_SHADERS: "1" } : process.env;
   let out = "";
   try {
-    out = execFileSync(bin, ["--startup", ...appArgs], { env, encoding: "utf8", timeout: 60000 });
+    out = execFileSync(...awake(bin, ["--startup", ...appArgs]), { env, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) {
-    fail(`${bin} --startup failed: ${/** @type {Error} */ (e).message}`);
+    const { message, stderr } = /** @type {Error & { stderr?: string }} */ (e);
+    fail(`${bin} --startup failed: ${message}\n${stderr ?? ""}`);
   }
   const phases = new Map();
   for (const m of out.matchAll(/^startup (\S+)\s+([\d.]+)$/gm)) phases.set(m[1], Number(m[2]));

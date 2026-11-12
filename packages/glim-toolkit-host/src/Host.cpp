@@ -63,7 +63,10 @@ int run(
   bool firstPainted = false;
   const auto presentedAt = std::make_shared<std::atomic<double>>(0.0);
   const auto startupMark = [&](const char* phase) {
-    if (startup && !firstPainted) startup->mark(phase);
+    if (startup && !firstPainted) {
+      startup->mark(phase);
+      std::cerr << "startup reached " << phase << std::endl;
+    }
   };
   SeatViewFactory effective = makeSeatView != nullptr ? makeSeatView : &makeDefaultSeatView;
   LayerFeed feed;
