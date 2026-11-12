@@ -312,7 +312,7 @@ void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&&
     if (auto c = b.get<Custom>()) {
       std::size_t k = 0;
       c->get().visit(box, de, [&](const Block& child, Box cb) {
-        detail::PathPush p(k++);
+        detail::PathPush p(static_cast<int>(k++));
         walk(child, cb, de, enter, exit);
       });
     } else {
@@ -322,7 +322,7 @@ void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&&
             if constexpr (has_children<T>::value) {
               std::size_t i = 0;
               eachChildOf(el, [&](const Block& child) {
-                detail::PathPush p(i);
+                detail::PathPush p(static_cast<int>(i));
                 walk(child, el.childBox(i, box, de), de, enter, exit);
                 ++i;
               });

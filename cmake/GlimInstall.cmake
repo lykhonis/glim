@@ -28,6 +28,7 @@ set(_glim_components
     glim-shell shell
     glim glim)
 
+add_custom_target(glim-package)
 set(GLIM_INSTALLED_COMPONENTS)
 set(_glim_header_dirs)
 while(_glim_components)
@@ -37,9 +38,13 @@ while(_glim_components)
     endif()
     set_target_properties(${_target} PROPERTIES EXPORT_NAME ${_name})
     install(TARGETS ${_target} EXPORT glimTargets
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT glim
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     list(APPEND GLIM_INSTALLED_COMPONENTS ${_name})
+    get_target_property(_type ${_target} TYPE)
+    if(NOT _type STREQUAL "INTERFACE_LIBRARY")
+        add_dependencies(glim-package ${_target})
+    endif()
     get_target_property(_dir ${_target} SOURCE_DIR)
     if(IS_DIRECTORY "${_dir}/include")
         list(APPEND _glim_header_dirs "${_dir}/include")
@@ -47,10 +52,10 @@ while(_glim_components)
 endwhile()
 list(REMOVE_DUPLICATES _glim_header_dirs)
 foreach(_dir ${_glim_header_dirs})
-    install(DIRECTORY "${_dir}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(DIRECTORY "${_dir}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT glim)
 endforeach()
 
-install(EXPORT glimTargets NAMESPACE glim:: DESTINATION ${GLIM_INSTALL_CMAKEDIR})
+install(EXPORT glimTargets NAMESPACE glim:: DESTINATION ${GLIM_INSTALL_CMAKEDIR} COMPONENT glim)
 configure_package_config_file(
     "${CMAKE_CURRENT_LIST_DIR}/glimConfig.cmake.in"
     "${CMAKE_BINARY_DIR}/glimConfig.cmake"
@@ -61,4 +66,4 @@ write_basic_package_version_file(
 install(FILES
     "${CMAKE_BINARY_DIR}/glimConfig.cmake"
     "${CMAKE_BINARY_DIR}/glimConfigVersion.cmake"
-    DESTINATION ${GLIM_INSTALL_CMAKEDIR})
+    DESTINATION ${GLIM_INSTALL_CMAKEDIR} COMPONENT glim)

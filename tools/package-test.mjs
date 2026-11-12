@@ -26,7 +26,7 @@ function run(cmd, args) {
 }
 
 rmSync(work, { recursive: true, force: true });
-run("cmake", ["--install", buildDir, "--prefix", prefix]);
+run("cmake", ["--install", buildDir, "--component", "glim", "--prefix", prefix]);
 run("cmake", [
   "-S", path.join(root, "tests", "package"),
   "-B", sample,
