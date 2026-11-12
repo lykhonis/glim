@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stackArchives } from "./sdk-stack.mjs";
+import { glimVersion } from "./version.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const work = path.join(root, "build", "android-aar");
@@ -40,8 +41,7 @@ const ndkMajor = Number(/Pkg\.Revision\s*=\s*(\d+)/.exec(readFileSync(path.join(
 const prebuilt = path.join(ndk, "toolchains", "llvm", "prebuilt");
 const llvmBin = path.join(prebuilt, readdirSync(prebuilt)[0], "bin");
 const llvmAr = path.join(llvmBin, "llvm-ar");
-const version = /project\(glim VERSION (\S+)/.exec(readFileSync(path.join(root, "CMakeLists.txt"), "utf8"))?.[1];
-if (!version) throw new Error("no project(glim VERSION ...) in CMakeLists.txt");
+const version = glimVersion(root);
 
 rmSync(staging, { recursive: true, force: true });
 const module = path.join(staging, "prefab", "modules", "glim");
