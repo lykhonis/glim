@@ -115,7 +115,7 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
           continue;
         }
         if (x < hi && sameCoverage(cov, runCov)) continue;
-        if (runCov > 1e-4f) addSpan(s, static_cast<float>(runX), static_cast<float>(x), runCov);
+        if (runCov > 0.f) addSpan(s, static_cast<float>(runX), static_cast<float>(x), runCov);
         runX = x;
         runCov = cov;
       }

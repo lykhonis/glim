@@ -2,6 +2,7 @@
 // brute-force per-pixel scan.
 
 #include "Strip.h"
+#include "StripRows.h"
 
 #include <algorithm>
 #include <cmath>
@@ -55,8 +56,7 @@ int main() {
             static_cast<float>(y) + 0.5f
         );
         const float got = coverageAt(strips, x, y);
-        // Runs merge coverage within 1e-3 of the run start (same rule as flattenCoverage).
-        if (std::fabs(got - want) > 2.1e-3f && ++failures < 5)
+        if (got != glim::paint::snapCoverage(want) && ++failures < 5)
           std::cerr << "case " << c << " px " << x << "," << y << " got " << got << " want " << want
                     << "\n";
       }
@@ -95,9 +95,8 @@ int main() {
         float want = glim::paint::roundedCoverage(outer, orad, px, py);
         if (inner.size.x > 1e-4f && inner.size.y > 1e-4f)
           want = std::max(0.f, want - glim::paint::roundedCoverage(inner, irad, px, py));
-        if (want <= 1e-4f) want = 0.f;
         const float got = coverageAt(strips, x, y);
-        if (std::fabs(got - want) > 2.1e-3f && ++failures < 5)
+        if (got != glim::paint::snapCoverage(want) && ++failures < 5)
           std::cerr << "stroke case " << c << " px " << x << "," << y << " got " << got << " want "
                     << want << "\n";
       }

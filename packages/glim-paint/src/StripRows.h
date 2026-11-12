@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "Strip.h"
@@ -12,16 +14,15 @@ inline bool sharp(const Radius& r) {
   return r.lt <= kEps && r.rt <= kEps && r.lb <= kEps && r.rb <= kEps;
 }
 
-inline float snapCoverage(float c) {
-  if (c >= 1.f - 1e-3f) return 1.f;
-  if (c <= 1e-4f) return 0.f;
-  return c;
-}
+// Coverage ends up as an 8-bit level, so spans merge only on equal levels:
+// merging never changes a pixel.
+inline float snapCoverage(float c) { return std::round(std::clamp(c, 0.f, 1.f) * 255.f) / 255.f; }
 
-inline bool sameCoverage(float a, float b) { return std::fabs(a - b) <= 1e-3f; }
+inline bool sameCoverage(float a, float b) { return a == b; }
 
 inline void addSpan(Strip& strip, float x0, float x1, float coverage) {
-  if (x1 <= x0 + 1e-6f || coverage <= 1e-4f) {
+  coverage = snapCoverage(coverage);
+  if (x1 <= x0 + 1e-6f || coverage <= 0.f) {
     return;
   }
   if (!strip.spans.empty()) {
@@ -93,7 +94,7 @@ void flattenCoverageRows(
       int runX = ra;
       float runCov = -1.f;
       auto flush = [&](int x) {
-        if (runCov > 1e-4f) {
+        if (runCov > 0.f) {
           addSpan(s, static_cast<float>(runX), static_cast<float>(x), runCov);
         }
         runCov = -1.f;
