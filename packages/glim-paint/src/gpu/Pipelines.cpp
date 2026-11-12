@@ -12,9 +12,6 @@ namespace shaders = glim::vulkan_shaders;
 #include "glim_webgpu_shaders.h"
 namespace shaders = glim::webgpu_shaders;
 #else
-#include <fstream>
-#include <sstream>
-
 #include "glim_metal_shaders.h"
 namespace shaders = glim::metal_shaders;
 #endif
@@ -25,19 +22,6 @@ namespace {
 
 std::string shaderCode(const char* name, gpu::ShaderStage stage) {
   const bool vertex = stage == gpu::ShaderStage::Vertex;
-#if defined(GLIM_METAL_SHADER_DIR) && !GLIM_GPU_VULKAN && !GLIM_GPU_WEBGPU
-  // Dev builds read the committed source so a regenerated shader needs no rebuild.
-  std::ifstream in(
-      std::string(GLIM_METAL_SHADER_DIR) + "/" + name + (vertex ? ".vert.metal" : ".frag.metal")
-  );
-  if (in) {
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    if (!ss.str().empty()) {
-      return ss.str();
-    }
-  }
-#endif
   for (const shaders::Source& src : shaders::kSources) {
     if (std::strcmp(src.name, name) == 0) {
       const shaders::Stage& code = vertex ? src.vert : src.frag;

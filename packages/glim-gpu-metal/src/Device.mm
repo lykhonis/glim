@@ -519,6 +519,20 @@ NSString* shaderText(const ShaderSource& source) {
   return cold ? [text stringByAppendingFormat:@"\n// cold %d\n", getpid()] : text;
 }
 
+bool isMetallib(const ShaderSource& source) {
+  return source.size >= 4 && std::memcmp(source.code, "MTLB", 4) == 0;
+}
+
+id<MTLLibrary> newLibrary(id<MTLDevice> device, const ShaderSource& source, NSError** error) {
+  if (isMetallib(source)) {
+    dispatch_data_t data = dispatch_data_create(
+        source.code, static_cast<size_t>(source.size), nil, DISPATCH_DATA_DESTRUCTOR_DEFAULT
+    );
+    return [device newLibraryWithData:data error:error];
+  }
+  return [device newLibraryWithSource:shaderText(source) options:nil error:error];
+}
+
 }  // namespace
 
 void Device::prepareShaders(std::span<const ShaderSource> sources) {
@@ -527,7 +541,7 @@ void Device::prepareShaders(std::span<const ShaderSource> sources) {
   }
   id<MTLDevice> device = impl_->device;
   for (const ShaderSource& source : sources) {
-    if (!source.code || source.size == 0) {
+    if (!source.code || source.size == 0 || isMetallib(source)) {
       continue;
     }
     NSString* text = shaderText(source);
@@ -560,9 +574,8 @@ std::vector<Result<Shader>> Device::createShaders(std::span<const ShaderSource> 
     if (!src[i].code || src[i].size == 0) {
       return;
     }
-    NSString* text = shaderText(src[i]);
     NSError* error = nil;
-    id<MTLLibrary> lib = [device newLibraryWithSource:text options:nil error:&error];
+    id<MTLLibrary> lib = newLibrary(device, src[i], &error);
     @synchronized(libraries) {
       if (lib) {
         libraries[i] = lib;
