@@ -1,6 +1,6 @@
 add_library(glim-core STATIC src/math.cpp)
 add_library(glim::core ALIAS glim-core)
-target_include_directories(glim-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 glim_target_defaults(glim-core)
 
 if(GLIM_HOST_TESTS)

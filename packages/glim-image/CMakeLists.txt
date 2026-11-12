@@ -4,7 +4,7 @@ add_library(glim-image STATIC
     src/Load.cpp
     src/Png.cpp)
 add_library(glim::image ALIAS glim-image)
-target_include_directories(glim-image PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-image PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_include_directories(glim-image PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb)
 target_link_libraries(glim-image PRIVATE z)
 # Vendored decoder: keep project warnings off third-party code.

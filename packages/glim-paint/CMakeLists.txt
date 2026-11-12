@@ -16,7 +16,7 @@ add_library(glim-paint STATIC
     src/Reuse.cpp
     src/Font.cpp)
 add_library(glim::paint ALIAS glim-paint)
-target_include_directories(glim-paint PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-paint PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_include_directories(glim-paint PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     "${CMAKE_SOURCE_DIR}/vendor/stb")
@@ -43,7 +43,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 function(glim_add_renderer name)
     cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
     add_library(${name} STATIC src/Renderer.cpp ${ARG_SOURCES})
-    target_include_directories(${name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(${name} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
     target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(${name} PUBLIC glim::paint ${ARG_LIBS})
     glim_target_defaults(${name})

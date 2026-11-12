@@ -44,7 +44,7 @@ add_library(glim-shell STATIC
     ${GLIM_WL_PROTOCOL_SOURCES}
     ${GLIM_WL_PROTOCOL_HEADERS})
 add_library(glim::shell ALIAS glim-shell)
-target_include_directories(glim-shell PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-shell PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_include_directories(glim-shell PRIVATE ${_glim_wl_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
 target_link_libraries(glim-shell PUBLIC glim::core glim::gpu glim::shell-api)
 target_link_libraries(glim-shell PUBLIC ${WAYLAND_CLIENT_LIBRARIES})

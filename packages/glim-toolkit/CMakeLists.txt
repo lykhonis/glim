@@ -11,7 +11,7 @@ add_library(glim-toolkit STATIC
     src/Screen.cpp
 )
 add_library(glim::toolkit ALIAS glim-toolkit)
-target_include_directories(glim-toolkit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-toolkit PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 glim_target_defaults(glim-toolkit)
 
 if(GLIM_HOST_TESTS)

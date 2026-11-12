@@ -7,7 +7,7 @@ else()
     add_library(glim-gpu-webgpu STATIC src/DeviceStub.cpp)
 endif()
 add_library(glim::gpu-webgpu ALIAS glim-gpu-webgpu)
-target_include_directories(glim-gpu-webgpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-gpu-webgpu PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(glim-gpu-webgpu PUBLIC glim::gpu)
 glim_target_defaults(glim-gpu-webgpu)
 

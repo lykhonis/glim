@@ -20,7 +20,7 @@ add_library(glim-shell STATIC
     src/WindowRegistry.cpp
     src/App.cpp)
 add_library(glim::shell ALIAS glim-shell)
-target_include_directories(glim-shell PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(glim-shell PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_include_directories(glim-shell PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(glim-shell PUBLIC glim::core glim::gpu glim::shell-api glim-android-glue)
 target_link_options(glim-shell PUBLIC

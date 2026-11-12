@@ -4,12 +4,8 @@ set_source_files_properties(src/Device.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 target_link_libraries(glim-gpu-metal PUBLIC glim::gpu)
 glim_target_defaults(glim-gpu-metal)
 
-find_library(GLIM_METAL Metal REQUIRED)
-find_library(GLIM_QUARTZ QuartzCore REQUIRED)
-find_library(GLIM_FOUNDATION Foundation REQUIRED)
-find_library(GLIM_IOSURFACE IOSurface REQUIRED)
-target_link_libraries(glim-gpu-metal PUBLIC ${GLIM_METAL} ${GLIM_QUARTZ} ${GLIM_FOUNDATION}
-                      ${GLIM_IOSURFACE})
+target_link_libraries(glim-gpu-metal PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation"
+                      "-framework IOSurface")
 
 string(TOLOWER "${CMAKE_OSX_SYSROOT}" _glim_sysroot)
 if(_glim_sysroot MATCHES "iphonesimulator")
