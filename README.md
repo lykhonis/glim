@@ -115,6 +115,7 @@ Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 - **Android:** Android SDK and NDK (`android-*` presets).
 - **Web:** Emscripten (`web-webgpu-debug` preset; wipe `build/` after upgrading it) and Chrome.
 - **Linux:** `ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
+- **Coverage:** gcovr; `pnpm coverage` fails below the floors in `tools/coverage-baseline.json`.
 
 ## Contributions
 
