@@ -25,6 +25,8 @@ set(_glim_components
     glim-embed embed
     glim-guest guest
     glim-guest-host guest-host
+    glim-wamr-vm wamr-vm
+    glim-runtime-wamr runtime-wamr
     glim-toolkit toolkit
     glim-toolkit-host toolkit-host
     glim-toolkit-host-cpu toolkit-host-cpu

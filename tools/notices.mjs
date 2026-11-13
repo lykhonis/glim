@@ -20,6 +20,7 @@ function components(root) {
     { name: "Inter", use: "embedded UI font", license: read("vendor/inter/OFL.txt") },
     { name: "stb_image, stb_truetype", use: "image decode and glyph rasterization", license: stbLicense(read("vendor/stb/stb_image.h")) },
     { name: "volk", use: "Vulkan loader (Android and Linux builds)", license: read("vendor/volk/LICENSE.md") },
+    { name: "WebAssembly Micro Runtime", use: "wasm guest runtime (GLIM_GUEST builds)", license: read("vendor/wamr/LICENSE") },
   ];
 }
 

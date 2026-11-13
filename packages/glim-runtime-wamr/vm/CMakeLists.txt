@@ -1,0 +1,23 @@
+# WAMR interpreter built through its own runtime_lib.cmake (K81). Its
+# directory-scoped definitions stay in this directory.
+set(WAMR_ROOT_DIR "${CMAKE_SOURCE_DIR}/vendor/wamr")
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" WAMR_BUILD_PLATFORM)
+set(WAMR_BUILD_INTERP 1)
+set(WAMR_BUILD_FAST_INTERP 1)
+set(WAMR_BUILD_AOT 0)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_FAST_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 0)
+set(WAMR_BUILD_LIBC_WASI 0)
+set(WAMR_BUILD_MULTI_MODULE 0)
+set(WAMR_BUILD_SIMD 0)
+set(WAMR_BUILD_BULK_MEMORY 1)
+set(WAMR_BUILD_REF_TYPES 1)
+
+enable_language(ASM)
+include("${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake")
+add_library(glim-wamr-vm STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+target_include_directories(glim-wamr-vm PUBLIC "$<BUILD_INTERFACE:${WAMR_ROOT_DIR}/core/iwasm/include>")
+target_compile_options(glim-wamr-vm PRIVATE -w)
+find_package(Threads REQUIRED)
+target_link_libraries(glim-wamr-vm PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)

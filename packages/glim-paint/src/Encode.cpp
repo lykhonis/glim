@@ -205,7 +205,8 @@ void encodeTree(
         const std::size_t nq = quads.size();
         const std::size_t nb = blits.size();
         const std::size_t ng = gradients.size();
-        const auto t0 = std::chrono::steady_clock::now();
+        const auto t0 =
+            stats ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
         appendShapeWorld(quads, blits, gradients, s, extra, clip);
         if (stats) {
           const std::size_t k = s.index();

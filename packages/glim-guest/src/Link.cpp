@@ -56,7 +56,7 @@ void Link::answer() {
   }
   refusal_ = std::get<t::Refusal>(answer);
   state_ = State::Refused;
-  imports_.log(2, "glim: host refused the handshake");
+  imports_.log(t::kLogWarning, "glim: host refused the handshake");
 }
 
 void Link::recv() {

@@ -1,5 +1,8 @@
 add_library(glim-guest STATIC src/FrameRecords.cpp src/Link.cpp)
 add_library(glim::guest ALIAS glim-guest)
+if(GLIM_WASM_GUEST)
+    target_sources(glim-guest PRIVATE src/Wasm.cpp)
+endif()
 target_include_directories(glim-guest PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(glim-guest PUBLIC glim::wire glim::transport glim::paint)
 glim_target_defaults(glim-guest)

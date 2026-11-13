@@ -1,0 +1,6 @@
+add_executable(glim-smoke-guest guest.cpp ../SmokeScene.cpp)
+set_target_properties(glim-smoke-guest PROPERTIES SUFFIX ".wasm")
+target_include_directories(glim-smoke-guest PRIVATE ..)
+target_link_libraries(glim-smoke-guest PRIVATE glim::guest)
+target_link_options(glim-smoke-guest PRIVATE -mexec-model=reactor -Wl,--strip-debug)
+glim_target_defaults(glim-smoke-guest)

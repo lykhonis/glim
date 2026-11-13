@@ -17,8 +17,13 @@
 //   void glim_tick(u64 now)                          frame tick, drives timeouts
 // Host imports (module "glim"):
 //   void host_send(void)                             guest wrote to its tx ring
-//   u64  host_now(void)
+//   u64  host_now(void)                              monotonic nanoseconds
 //   void host_log(u32 level, u32 ptr, u32 len)
+// wasi-libc links a few WASI calls into any C++ guest; the host answers them
+// from the same imports (module "wasi_snapshot_preview1"):
+//   fd_write        stdout and stderr to host_log
+//   clock_time_get  host_now for every clock
+//   fd_seek, fd_close  EBADF
 
 namespace glim::transport {
 
@@ -52,6 +57,11 @@ std::optional<Announce> writeAnnounce(
 // `memory`, are 8-aligned, at least kMinRingCapacity, and do not overlap
 // each other or the block.
 std::optional<Announce> readAnnounce(std::span<const std::byte> memory, std::uint32_t offset);
+
+// host_log levels.
+inline constexpr std::uint32_t kLogInfo = 1;
+inline constexpr std::uint32_t kLogWarning = 2;
+inline constexpr std::uint32_t kLogError = 3;
 
 // The host imports as the guest sees them; a wasm build forwards to the
 // real imports, tests call a host directly.
