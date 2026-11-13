@@ -123,6 +123,27 @@ int runGpuGolden(
     image::writeGot(argv[0], got);
     return EXIT_FAILURE;
   }
+  // A fresh target holds no earlier frame, so an unchanged scene must
+  // still draw once the renderer is past its warm-up.
+  image::Image again = image::Image::rgba8(width, height);
+  for (int i = 0; i < 32; ++i) {
+    auto fresh = device.createFrameTarget({width, height});
+    if (!fresh.ok()) {
+      std::cerr << "frame target failed: " << fresh.message() << '\n';
+      return EXIT_FAILURE;
+    }
+    renderer.drawToTarget(ctx.scene(), fresh.value());
+    if (!device.readPixels(
+            fresh.value(), again.rgba.data(), again.rgba.size()
+        )) {
+      std::cerr << "readPixels failed\n";
+      return EXIT_FAILURE;
+    }
+  }
+  if (again.rgba != got.rgba) {
+    std::cerr << kName << " redraw into a fresh target differs\n";
+    return EXIT_FAILURE;
+  }
   std::cout << kName << "_golden ok (over=" << diff.overDelta
             << ", maxDelta=" << maxDelta << ")\n";
   return EXIT_SUCCESS;

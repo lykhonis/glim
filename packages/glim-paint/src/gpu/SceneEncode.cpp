@@ -905,13 +905,10 @@ void Renderer::draw(const Scene& scene) {
   stats_.acquireMs = acquireMs;
 }
 
+// Never skips a repeat: the target may be fresh, so it holds no earlier frame.
 void Renderer::drawToTarget(const Scene& scene, gpu::FrameTarget& target) {
   const auto t0 = std::chrono::steady_clock::now();
   const FrameKey key = frameKey(scene, target.width(), target.height());
-  if (repeats(key)) {
-    skipRepeat(key, t0);
-    return;
-  }
   drawInto(scene, target.width(), target.height(), target.native(), nullptr, key, t0);
 }
 
