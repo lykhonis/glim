@@ -41,8 +41,7 @@ struct AreaChart : WithSemantic {
     rec.push(kKind, box, callout);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     const std::uint32_t top =
         themeColor(e, kShowAccentTop, Show::kAccentTop);
     const std::uint32_t bottom =

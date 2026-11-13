@@ -121,4 +121,27 @@ void test_pump() {
       assert(fresh.live() && rs.valuesLive());
     }
   }
+  {
+    Store st;
+    Engine se;
+    se.store = st;
+    Scope root = rootScope(se);
+    Anim<float> slow(root, "slow", 0.0f, AnimSpec{.dur = 1.0f});
+    Anim<float> spring(root, "spring", 0.0f, AnimSpec{.spring = true});
+    const std::uint64_t rev = st.revision();
+    st.setPrefs({A11yPref::ReduceMotion});
+    assert(st.revision() == rev + 1);
+    st.setPrefs({A11yPref::ReduceMotion});
+    assert(st.revision() == rev + 1);
+    slow = 10.0f;
+    spring = 4.0f;
+    st.stepValues(0.0f);
+    assert(*slow == 10.0f && *spring == 4.0f && !slow.live() && !spring.live());
+    assert(!st.valuesLive());
+    st.setPrefs({});
+    slow = 0.0f;
+    st.stepValues(1.0f);
+    st.stepValues(1.5f);
+    assert(*slow > 0.0f && *slow < 10.0f && slow.live());
+  }
 }

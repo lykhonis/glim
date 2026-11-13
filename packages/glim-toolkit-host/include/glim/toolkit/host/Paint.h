@@ -384,7 +384,7 @@ inline void paintScreen(
       bgEngine.env = bgNode;
     }
   }
-  ctx.setFillColor(themeColor(bgEngine, kThemeWindowBg, Tokens::kWindowBg));
+  ctx.setFillColor(themeColor(bgEngine, kThemeWindowBg));
   ctx.fill(glim::Rect{{0, 0}, ctx.size()});
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);

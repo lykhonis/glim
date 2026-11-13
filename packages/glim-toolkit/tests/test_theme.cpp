@@ -62,4 +62,18 @@ void test_theme() {
       assert(foundText);
     }
   }
+  {
+    Store st;
+    Engine e;
+    e.store = st;
+    assert(themeColor(e, kThemeFocusRing) == Tokens::kFocusRing);
+    assert(themeColor(e, kThemeWindowBg) == Tokens::kWindowBg);
+    st.setPrefs({A11yPref::HighContrast});
+    assert(prefsOf(e).has(A11yPref::HighContrast));
+    assert(themeColor(e, kThemeFocusRing) == Tokens::kFocusRingHighContrast);
+    assert(themeColor(e, kThemeWindowBg) == Tokens::kWindowBgHighContrast);
+    assert(themeColor(e, kThemeInkOnLight) == Tokens::kInkOnLight);
+    assert(themeColor(e, kThemeFocusRing, 0x123456ffu) == 0x123456ffu);
+    assert(themeColor(Engine{}, kThemeFocusRing) == Tokens::kFocusRing);
+  }
 }

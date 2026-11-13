@@ -48,6 +48,7 @@ packages/glim-shell-web/include/glim/shell/RunLoop.h
 packages/glim-shell-web/include/glim/shell/Surface.h
 packages/glim-shell-web/include/glim/shell/Window.h
 packages/glim-toolkit/include/glim/toolkit/A11y.h
+packages/glim-toolkit/include/glim/toolkit/A11ySet.h
 packages/glim-toolkit/include/glim/toolkit/A11yTraits.h
 packages/glim-toolkit/include/glim/toolkit/Action.h
 packages/glim-toolkit/include/glim/toolkit/Anim.h

@@ -108,7 +108,7 @@ void paintFocusRing(
   if (!visible) return;
   Box rb = focusRingBox(root, box, index, 2.0f, e);
   if (rb.w <= 0 || rb.h <= 0) return;
-  sink.stroke(rb, 4, 2.0f, themeColor(e, kThemeFocusRing, Tokens::kFocusRing));
+  sink.stroke(rb, 4, 2.0f, themeColor(e, kThemeFocusRing));
 }
 
 }  // namespace toolkit

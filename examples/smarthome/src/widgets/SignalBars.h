@@ -21,8 +21,7 @@ struct SignalBars : WithSemantic {
     rec.push(kKind, box, {}, {}, bars);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     const std::uint32_t lit = themeColor(e, kShowOk, Show::kOk);
     for (int i = 0; i < 4; ++i) {
       const float h = 5.0f + 5.0f * static_cast<float>(i);

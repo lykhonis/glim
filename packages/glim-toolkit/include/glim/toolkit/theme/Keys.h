@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "glim/toolkit/Place.h"
+#include "glim/toolkit/Tokens.h"
 
 namespace glim {
 namespace toolkit {
@@ -71,6 +72,21 @@ inline std::uint32_t themeColor(const Engine& e, ThemeKey key, std::uint32_t fal
     }
   }
   return fallback;
+}
+
+inline A11yPrefs prefsOf(const Engine& e) { return e.store ? e.store->get().prefs() : A11yPrefs{}; }
+
+// Toolkit default for a builtin color key under the OS preferences.
+inline std::uint32_t toolkitColor(ThemeKey key, A11yPrefs prefs) {
+  const bool high = prefs.has(A11yPref::HighContrast);
+  if (key == kThemeWindowBg) return high ? Tokens::kWindowBgHighContrast : Tokens::kWindowBg;
+  if (key == kThemeFocusRing) return high ? Tokens::kFocusRingHighContrast : Tokens::kFocusRing;
+  if (key == kThemeInkOnLight) return Tokens::kInkOnLight;
+  return 0;
+}
+
+inline std::uint32_t themeColor(const Engine& e, ThemeKey key) {
+  return themeColor(e, key, toolkitColor(key, prefsOf(e)));
 }
 
 inline float themeFloat(const Engine& e, ThemeKey key, float fallback) {

@@ -25,8 +25,7 @@ struct Meter : WithSemantic {
     rec.push(kKind, box, {}, {}, 12);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     sink.fillRounded(box, 12, withAlpha(ink, 0.06f));
     const float fillW = box.w * value;
     for (float x = box.x + fillW + 6.0f; x < box.x + box.w - 6.0f;

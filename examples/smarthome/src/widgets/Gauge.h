@@ -61,8 +61,7 @@ struct Gauge : WithSemantic, WithA11y {
   }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     const std::uint32_t lit = withAlpha(
         themeColor(e, kShowAccentTop, Show::kAccentTop),
         on ? 1.0f : 0.35f

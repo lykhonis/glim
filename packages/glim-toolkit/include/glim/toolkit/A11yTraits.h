@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdint>
-#include <initializer_list>
 #include <optional>
 #include <string>
+
+#include "glim/toolkit/A11ySet.h"
 
 namespace glim {
 namespace toolkit {
@@ -13,29 +14,6 @@ enum class A11yRole : std::uint8_t { None, Text, Heading, Button, Switch, Slider
 enum class A11yState : std::uint8_t { Checkable, Checked, Selected, Disabled };
 enum class A11yAction : std::uint8_t { Activate, Increment, Decrement };
 enum class A11yLive : std::uint8_t { Off, Polite, Assertive };
-
-template <class E>
-struct A11ySet {
-  std::uint32_t bits = 0;
-  constexpr A11ySet() = default;
-  constexpr A11ySet(std::initializer_list<E> es) {
-    for (E e : es) bits |= bit(e);
-  }
-  static constexpr std::uint32_t bit(E e) { return 1u << static_cast<std::uint32_t>(e); }
-  constexpr bool has(E e) const { return (bits & bit(e)) != 0; }
-  constexpr bool empty() const { return bits == 0; }
-  constexpr A11ySet with(E e, bool on = true) const {
-    A11ySet s = *this;
-    s.bits = on ? (bits | bit(e)) : (bits & ~bit(e));
-    return s;
-  }
-  constexpr A11ySet operator|(A11ySet o) const {
-    A11ySet s;
-    s.bits = bits | o.bits;
-    return s;
-  }
-  constexpr bool operator==(A11ySet o) const { return bits == o.bits; }
-};
 
 using A11yStates = A11ySet<A11yState>;
 using A11yActions = A11ySet<A11yAction>;

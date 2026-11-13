@@ -22,7 +22,7 @@ struct Anim {
       : store_(scope.store) {
     assert(store_ && "Anim needs a Scope built from an Engine carrying a Store");
     assert(spec.ease && "AnimSpec needs an ease function");
-    core_ = std::make_shared<Core>(Core{scope.state(key, init), init, init, spec});
+    core_ = std::make_shared<Core>(Core{scope.state(key, init), init, init, spec, store_});
   }
   Anim(std::string key, T init, AnimSpec spec = {})
       : key_(std::move(key)), init_(std::move(init)), spec_(spec) {}
@@ -138,6 +138,7 @@ struct Anim {
     T from;
     T target;
     AnimSpec spec;
+    StoreRef store;
     // Spring state: velocity persists across re-targets; prev bounds
     // the step.
     float vel = 0.0f;
@@ -183,8 +184,14 @@ struct Anim {
         }
       }
       bool keep;
+      const bool instant = store && store->get().prefs().has(A11yPref::ReduceMotion);
       const float dt = now - start - spec.delay;
-      if (dt < 0.0f) {
+      if (instant) {
+        if (target != cell.get()) cell = target;
+        vel = 0.0f;
+        live = false;
+        keep = false;
+      } else if (dt < 0.0f) {
         prev = now;
         keep = true;
       } else if (spec.spring) {
@@ -242,7 +249,7 @@ struct Anim {
     k += key_;
     State<T> cell = detail::AutoCtx::store()->state(k, init_);
     store_ = std::ref(*detail::AutoCtx::store());
-    core_ = std::make_shared<Core>(Core{cell, cell.get(), cell.get(), spec_});
+    core_ = std::make_shared<Core>(Core{cell, cell.get(), cell.get(), spec_, store_});
     return true;
   }
   mutable std::shared_ptr<Core> core_;

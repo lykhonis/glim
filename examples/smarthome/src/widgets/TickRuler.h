@@ -97,8 +97,7 @@ struct TickRuler : WithSemantic, WithA11y {
   }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     const float size = themeFloat(e, kThemeTypeLine, Tokens::kTypeLine);
     const float unit = unitPx(box);
     const float mid = box.x + box.w * 0.5f;

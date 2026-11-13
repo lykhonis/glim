@@ -14,6 +14,8 @@ struct Tokens {
   static constexpr std::uint32_t kInkOnLight = 0xffffffff;
   // Keyboard-only focus ring (focus-visible), never painted for pointer.
   static constexpr std::uint32_t kFocusRing = 0xff6a2bff;
+  static constexpr std::uint32_t kWindowBgHighContrast = 0x000000ff;
+  static constexpr std::uint32_t kFocusRingHighContrast = 0xffff00ff;
   static constexpr float kGlassThickness = 16.0f;
   static constexpr int kGlassRadius = 12;
 };

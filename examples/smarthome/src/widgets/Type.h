@@ -31,8 +31,7 @@ struct ScaledLines : WithAlign, WithSemantic, WithA11y {
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const float size = themeFloat(e, sizeKey, fallback);
     const float k = size / Tokens::kTypeLine;
-    const std::uint32_t ink =
-        themeColor(e, kThemeInkOnLight, Tokens::kInkOnLight);
+    const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     float lw =
         static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
     float x = box.x;

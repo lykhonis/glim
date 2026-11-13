@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "glim/toolkit/A11ySet.h"
+
 namespace glim {
 namespace toolkit {
 
@@ -170,6 +172,12 @@ class Store {
     return slot<T>(key, std::move(init));
   }
   std::uint64_t revision() const { return revision_->load(); }
+  A11yPrefs prefs() const { return prefs_; }
+  void setPrefs(A11yPrefs p) {
+    if (p == prefs_) return;
+    prefs_ = p;
+    revision_->fetch_add(1);
+  }
 
   // Frame-pump seam: a value-step recomputes one cell at `now`.
   // Ownership: Watch tokens are RAII; destroying the token unregisters the step.
@@ -298,6 +306,7 @@ class Store {
     const std::type_info* type = nullptr;
   };
   std::shared_ptr<std::atomic<std::uint64_t>> revision_;
+  A11yPrefs prefs_;
   std::unordered_map<std::string, Slot> slots_;
   std::shared_ptr<WatchState> watchState_;
 };
