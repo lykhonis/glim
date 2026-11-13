@@ -31,6 +31,9 @@ constexpr std::uint32_t padded(std::size_t length) {
 }
 
 void copyIn(std::span<std::byte> data, std::uint32_t at, std::span<const std::byte> src) {
+  if (src.empty()) {
+    return;
+  }
   const auto pos = at & (data.size() - 1);
   const auto first = std::min(src.size(), data.size() - pos);
   std::memcpy(data.data() + pos, src.data(), first);
@@ -38,6 +41,9 @@ void copyIn(std::span<std::byte> data, std::uint32_t at, std::span<const std::by
 }
 
 void copyOut(std::span<const std::byte> data, std::uint32_t at, std::span<std::byte> dst) {
+  if (dst.empty()) {
+    return;
+  }
   const auto pos = at & (data.size() - 1);
   const auto first = std::min(dst.size(), data.size() - pos);
   std::memcpy(dst.data(), data.data() + pos, first);
