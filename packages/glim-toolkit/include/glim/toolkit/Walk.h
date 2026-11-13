@@ -25,7 +25,14 @@ inline std::optional<std::reference_wrapper<const std::string>> semanticOf(const
 
 inline A11yTraits a11yOf(const Block& b) {
   if (auto c = b.get<Custom>()) return c->get().a11y();
-  return std::visit([](const auto& x) { return elementA11y(x); }, b.v);
+  return std::visit(
+      [](const auto& x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (provides_a11y<T>::value) return elementA11y(x);
+        return A11yTraits{};
+      },
+      b.v
+  );
 }
 
 // Unmarked entries borrow the node's id; explicit marks are preserved.

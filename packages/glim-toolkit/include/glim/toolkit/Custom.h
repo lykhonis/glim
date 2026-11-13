@@ -387,7 +387,15 @@ template <class T>
 struct has_a11y_traits<T, std::void_t<decltype(std::declval<const T&>().a11yTraits())>>
     : std::is_same<decltype(std::declval<const T&>().a11yTraits()), A11yTraits> {};
 
-// Element-reported traits, then the a11y() tag on top.
+template <class T, class = void>
+struct provides_a11y : std::integral_constant<
+                           bool,
+                           has_a11y_traits<T>::value || std::is_base_of<WithA11y, T>::value> {};
+template <class T>
+struct provides_a11y<T, std::enable_if_t<is_tagged<T>::value>>
+    : provides_a11y<typename T::inner_type> {};
+
+// Element-reported traits, then the a11y() tag on top. Only for provides_a11y types.
 template <class T>
 A11yTraits elementA11y(const T& x) {
   if constexpr (is_tagged<T>::value) {
@@ -755,9 +763,13 @@ struct Custom {
 
   template <class U>
   static A11yTraits (*a11yFor())(const void*, bool) {
-    return [](const void* s, bool heap) {
-      return elementA11y(*static_cast<const U*>(addr<U>(s, heap)));
-    };
+    if constexpr (provides_a11y<U>::value) {
+      return [](const void* s, bool heap) {
+        return elementA11y(*static_cast<const U*>(addr<U>(s, heap)));
+      };
+    } else {
+      return nullptr;
+    }
   }
 
   template <class U>
