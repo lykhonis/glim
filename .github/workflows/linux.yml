@@ -42,9 +42,10 @@ jobs:
         fi
         cmake -S . -B build/guest -G Ninja -DGLIM_SHELL=none -DGLIM_GUEST=ON -DGLIM_FUZZ=ON \
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-        cmake --build build/guest --target glim-wire-test glim-wire-fuzz glim-transport-test glim-transport-fuzz glim-guest-frame-test glim-guest-frame-fuzz
+        cmake --build build/guest --target glim-wire-test glim-wire-fuzz glim-transport-test glim-transport-fuzz glim-guest-frame-test glim-guest-frame-fuzz glim-guest-host-test glim-guest-host-handshake-fuzz
         ctest --test-dir build/guest -R 'glim-(wire|transport|guest)' --output-on-failure --no-tests=error
-        mkdir -p build/wire-corpus build/transport-corpus build/frame-corpus
+        mkdir -p build/wire-corpus build/transport-corpus build/frame-corpus build/handshake-corpus
         build/guest/packages/glim-wire/glim-wire-fuzz -max_total_time=90 -artifact_prefix=build/ build/wire-corpus
         build/guest/packages/glim-transport/glim-transport-fuzz -max_total_time=90 -artifact_prefix=build/ build/transport-corpus
         build/guest/packages/glim-guest/glim-guest-frame-fuzz -max_total_time=90 -artifact_prefix=build/ build/frame-corpus
+        build/guest/packages/glim-guest-host/glim-guest-host-handshake-fuzz -max_total_time=90 -artifact_prefix=build/ build/handshake-corpus

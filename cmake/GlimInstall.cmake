@@ -24,6 +24,7 @@ set(_glim_components
     glim-paint-embed-gpu paint-embed-gpu
     glim-embed embed
     glim-guest guest
+    glim-guest-host guest-host
     glim-toolkit toolkit
     glim-toolkit-host toolkit-host
     glim-toolkit-host-cpu toolkit-host-cpu

@@ -78,6 +78,7 @@ class Endpoint {
   // The peer restarted: fail all pending requests and start clean.
   void reset();
   bool broken() const { return broken_; }
+  bool idle() const { return outbox_.idle(); }
 
  private:
   friend class Owner;

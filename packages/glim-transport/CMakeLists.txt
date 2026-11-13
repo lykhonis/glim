@@ -2,6 +2,8 @@ add_library(glim-transport STATIC
     src/Chunk.cpp
     src/DirectTransport.cpp
     src/Endpoint.cpp
+    src/GuestAbi.cpp
+    src/Handshake.cpp
     src/Inbox.cpp
     src/Outbox.cpp
     src/Requests.cpp

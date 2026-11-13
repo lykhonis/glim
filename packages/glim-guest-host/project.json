@@ -1,0 +1,22 @@
+{
+  "name": "guest-host",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/glim-guest-host",
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-guest-host"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-guest-host-test",
+        "ctestRegex": "glim-guest-host-test"
+      }
+    }
+  }
+}

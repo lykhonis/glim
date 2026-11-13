@@ -1,0 +1,17 @@
+add_library(glim-guest-host STATIC src/Session.cpp)
+add_library(glim::guest-host ALIAS glim-guest-host)
+target_include_directories(glim-guest-host PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_link_libraries(glim-guest-host PUBLIC glim::transport)
+glim_target_defaults(glim-guest-host)
+
+if(GLIM_HOST_TESTS)
+    add_executable(glim-guest-host-test tests/session_test.cpp)
+    target_link_libraries(glim-guest-host-test PRIVATE glim::guest-host glim::guest)
+    glim_test_defaults(glim-guest-host-test)
+    add_test(NAME glim-guest-host-test COMMAND glim-guest-host-test)
+endif()
+
+if(GLIM_FUZZ)
+    glim_fuzz_target(glim-guest-host-handshake-fuzz tests/handshake_fuzz.cpp)
+    target_link_libraries(glim-guest-host-handshake-fuzz PRIVATE glim::guest-host)
+endif()
