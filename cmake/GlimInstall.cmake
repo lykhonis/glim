@@ -10,6 +10,7 @@ set(_glim_components
     glim-core core
     glim-image image
     glim-wire wire
+    glim-transport transport
     glim-gpu gpu
     glim-shell-api shell-api
     glim-gpu-metal gpu-metal

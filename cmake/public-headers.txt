@@ -112,6 +112,17 @@ packages/glim-toolkit-host/include/glim/toolkit/host/Seats.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Startup.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Telemetry.h
 packages/glim-toolkit-host/include/glim/toolkit/host/TestApp.h
+packages/glim-transport/include/glim/transport/Chunk.h
+packages/glim-transport/include/glim/transport/Config.h
+packages/glim-transport/include/glim/transport/DirectTransport.h
+packages/glim-transport/include/glim/transport/Endpoint.h
+packages/glim-transport/include/glim/transport/Inbox.h
+packages/glim-transport/include/glim/transport/Outbox.h
+packages/glim-transport/include/glim/transport/Requests.h
+packages/glim-transport/include/glim/transport/Ring.h
+packages/glim-transport/include/glim/transport/RingTransport.h
+packages/glim-transport/include/glim/transport/Task.h
+packages/glim-transport/include/glim/transport/Transport.h
 packages/glim-wire/include/glim/wire/Endian.h
 packages/glim-wire/include/glim/wire/Record.h
 packages/glim-wire/include/glim/wire/Validate.h
