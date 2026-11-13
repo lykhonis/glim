@@ -117,58 +117,14 @@ Prerequisites: Node 24, pnpm 9.15 (`pnpm install`), CMake 3.22+ and Ninja.
 - **Linux:** `ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools`.
 - **Coverage:** gcovr; `pnpm coverage` fails below the floors in `tools/coverage-baseline.json`.
 
-## Using Glim from CMake
+## Using Glim
 
-Install a configured preset, then find it from your project. The GPU and shell backends are fixed by the preset you installed.
+- **CMake:** install a configured preset and `find_package(glim)`. See [tests/package](tests/package/README.md).
+- **Xcode:** `pnpm xcframework` builds a Swift package. See [apple](apple/README.md).
+- **Gradle:** `pnpm aar` builds a prefab AAR. See [android](android/README.md).
+- **Web:** `pnpm web-pack` packs `@glim/web` into `build/web-pack/glim-web.tgz` (publishing is a dry run). See [packages/glim-web](packages/glim-web/README.md).
 
-```sh
-cmake --build build/macos-metal-release
-cmake --install build/macos-metal-release --prefix ~/glim
-```
-
-```cmake
-find_package(glim 0.1 REQUIRED COMPONENTS toolkit-host)
-target_link_libraries(app PRIVATE glim::toolkit-host)
-```
-
-Components are `core`, `image`, `gpu`, `paint`, `paint-cpu`, `paint-gpu`, `embed`, `toolkit`, `toolkit-host`, `toolkit-host-cpu`, `shell`, the installed `gpu-*` backend, and `glim` (everything). `tests/package` is a working sample; `pnpm package-test` installs and builds it.
-
-## Using Glim from Xcode
-
-`pnpm xcframework` builds `apple/Glim.xcframework` (macOS, iOS and tvOS, with simulator slices) holding the Metal toolkit stack as one static library and its headers. Add `apple/` as a local Swift package and link the `Glim` product; it brings the system frameworks with it. `apple/Sample` is a working Xcode app; `pnpm apple-sample` builds it for every slice.
-
-## Using Glim from Gradle
-
-`pnpm aar` builds `android/glim.aar`, a prefab package with the Vulkan toolkit stack as one static library per ABI (`arm64-v8a`, `x86_64`) and its headers. Depend on the AAR, enable `buildFeatures.prefab`, build with `ANDROID_STL=c++_static`, and in CMake:
-
-```cmake
-find_package(glim REQUIRED CONFIG)
-target_link_libraries(app PRIVATE glim::glim)
-```
-
-The app defines `extern "C" int glim_app_main()` and points `NativeActivity` at its library. `android/sample` is a working Gradle app; `pnpm android-sample` assembles it.
-
-## Using Glim on the web
-
-`pnpm web-pack` builds the release WebGPU module and packs `@glim/web`: the canvas loader (`js/glim.js`) and the glass module (`dist/glim-app.js`, `dist/glim-app.wasm`). It runs `npm publish --dry-run` and writes `build/web-pack/glim-web.tgz`. CI uploads that tarball. A page imports `GlimCanvas` and points `moduleURL` at `dist/glim-app.js`. An app that paints its own scene builds its own module and uses the same loader.
-
-## Power and diagnostics
-
-`host::Config::power` limits the frame rate. `maxFps` caps it, and `lowPower` is polled every vsync; while it returns true, the host runs at `lowPowerFps` (30 by default). Bridge it to the OS battery saver or thermal state. Input still lands on the next admitted frame.
-
-`host::Config::crashReport` names a file. A fatal signal (`SIGSEGV`, `SIGBUS`, `SIGILL`, `SIGFPE`, `SIGABRT`, `SIGTRAP`) writes the signal and the stack to that file, one frame per line as `#n 0x<pc> <module> +0x<offset>`. Handlers installed earlier, such as a crash SDK, still run afterwards. On the next launch the host passes the report to `crashSink` and deletes the file; send it wherever your app sends field data. Per-frame telemetry goes the same way, through `TelemetrySink`. There are no signals on the web, so capture is off there.
-
-Glim links statically, so its code is symbolized from the app's own symbols: upload the app's dSYM or unstripped `.so` with the app's usual pipeline. The SDK bundles keep function names and drop only debug info. To symbolize a report by hand, use `llvm-symbolizer --obj=<module> <offset>` on Linux and Android, or `atos -o <module> -l 0x100000000 <0x100000000 + offset>` on Apple platforms.
-
-## Stability
-
-Glim uses semantic versioning. The version is `project(glim VERSION x.y.z)` in `CMakeLists.txt`, and `packages/glim-web/package.json` matches it. `CHANGELOG.md` has a section for that version. `pnpm release-check` fails if the section is missing, or if a header is added or removed under `packages/*/include` without updating `cmake/public-headers.txt`.
-
-Before 1.0, a new minor version may change the API. A patch version does not.
-
-The public C++ API is those headers. A configured package installs the headers of the targets it built, including one shell. Anything else — sources, examples, tools — is not public. `@glim/web` exports `GlimCanvas`.
-
-Pushing the tag `vX.Y.Z` publishes the changelog section as a GitHub release. The tag does not publish to npm. `pnpm web-pack` is a dry run; the tarball is a CI artifact.
+Frame-rate limits, crash reports and symbolization are in [packages/glim-toolkit-host](packages/glim-toolkit-host/README.md). Versioning and what counts as public API are in the [changelog](CHANGELOG.md).
 
 ## Contributions
 

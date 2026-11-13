@@ -1,6 +1,12 @@
 # Changelog
 
-The version is `project(glim VERSION ...)` in `CMakeLists.txt`. This file has one section per version. Pushing the tag `vX.Y.Z` publishes that section as a GitHub release.
+Glim uses semantic versioning. The version is `project(glim VERSION x.y.z)` in `CMakeLists.txt`, and `packages/glim-web/package.json` matches it. `CHANGELOG.md` has a section for that version. `pnpm release-check` fails if the section is missing, or if a header is added or removed under `packages/*/include` without updating `cmake/public-headers.txt`.
+
+Before 1.0, a new minor version may change the API. A patch version does not.
+
+The public C++ API is those headers. A configured package installs the headers of the targets it built, including one shell. Anything else — sources, examples, tools — is not public. `@glim/web` exports `GlimCanvas`.
+
+Pushing the tag `vX.Y.Z` publishes the changelog section as a GitHub release. The tag does not publish to npm. `pnpm web-pack` is a dry run; the tarball is a CI artifact.
 
 ## [0.1.0] - 2026-11-12
 
