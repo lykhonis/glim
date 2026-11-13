@@ -1,0 +1,17 @@
+add_library(glim-guest STATIC src/FrameRecords.cpp)
+add_library(glim::guest ALIAS glim-guest)
+target_include_directories(glim-guest PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_link_libraries(glim-guest PUBLIC glim::wire glim::paint)
+glim_target_defaults(glim-guest)
+
+if(GLIM_HOST_TESTS)
+    add_executable(glim-guest-frame-test tests/frame_records_test.cpp)
+    target_link_libraries(glim-guest-frame-test PRIVATE glim::guest glim::paint-cpu)
+    glim_test_defaults(glim-guest-frame-test)
+    add_test(NAME glim-guest-frame-test COMMAND glim-guest-frame-test)
+endif()
+
+if(GLIM_FUZZ)
+    glim_fuzz_target(glim-guest-frame-fuzz tests/frame_fuzz.cpp)
+    target_link_libraries(glim-guest-frame-fuzz PRIVATE glim::guest)
+endif()

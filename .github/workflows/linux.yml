@@ -26,3 +26,24 @@ jobs:
       nx: |
         pipx install gcovr
         node tools/coverage.mjs
+
+  guest:
+    uses: ./.github/workflows/native.yml
+    with:
+      name: linux-guest
+      runs-on: ubuntu-24.04
+      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev zlib1g-dev glslang-tools clang libclang-rt-18-dev
+      nx: |
+        # K76: the default build carries no guest targets.
+        cmake -S . -B build/guest-off -G Ninja -DGLIM_SHELL=none
+        if ninja -C build/guest-off -t targets all | grep -qE 'glim-(wire|guest)'; then
+          echo "default build contains guest targets" >&2
+          exit 1
+        fi
+        cmake -S . -B build/guest -G Ninja -DGLIM_SHELL=none -DGLIM_GUEST=ON -DGLIM_FUZZ=ON \
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+        cmake --build build/guest --target glim-wire-test glim-wire-fuzz glim-guest-frame-test glim-guest-frame-fuzz
+        ctest --test-dir build/guest -R 'glim-(wire|guest)' --output-on-failure --no-tests=error
+        mkdir -p build/wire-corpus build/frame-corpus
+        build/guest/packages/glim-wire/glim-wire-fuzz -max_total_time=90 -artifact_prefix=build/ build/wire-corpus
+        build/guest/packages/glim-guest/glim-guest-frame-fuzz -max_total_time=90 -artifact_prefix=build/ build/frame-corpus

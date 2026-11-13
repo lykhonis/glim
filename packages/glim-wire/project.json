@@ -1,0 +1,22 @@
+{
+  "name": "wire",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/glim-wire",
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-wire"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-wire-test",
+        "ctestRegex": "glim-wire-test"
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ packages/glim-embed/include/glim/embed/Host.h
 packages/glim-gpu/include/glim/gpu/Device.h
 packages/glim-gpu/include/glim/gpu/Result.h
 packages/glim-gpu/include/glim/gpu/Types.h
+packages/glim-guest/include/glim/guest/FrameRecords.h
 packages/glim-image/include/glim/image/Analyze.h
 packages/glim-image/include/glim/image/Golden.h
 packages/glim-image/include/glim/image/Image.h
@@ -111,3 +112,7 @@ packages/glim-toolkit-host/include/glim/toolkit/host/Seats.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Startup.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Telemetry.h
 packages/glim-toolkit-host/include/glim/toolkit/host/TestApp.h
+packages/glim-wire/include/glim/wire/Endian.h
+packages/glim-wire/include/glim/wire/Record.h
+packages/glim-wire/include/glim/wire/Validate.h
+packages/glim-wire/include/glim/wire/Writer.h

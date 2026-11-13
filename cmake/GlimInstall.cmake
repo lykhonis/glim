@@ -9,6 +9,7 @@ set(GLIM_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/glim")
 set(_glim_components
     glim-core core
     glim-image image
+    glim-wire wire
     glim-gpu gpu
     glim-shell-api shell-api
     glim-gpu-metal gpu-metal
@@ -21,6 +22,7 @@ set(_glim_components
     glim-paint-gpu paint-gpu
     glim-paint-embed-gpu paint-embed-gpu
     glim-embed embed
+    glim-guest guest
     glim-toolkit toolkit
     glim-toolkit-host toolkit-host
     glim-toolkit-host-cpu toolkit-host-cpu

@@ -26,6 +26,9 @@ include(GlimCommon)
 
 add_subdirectory(packages/glim-core)
 add_subdirectory(packages/glim-image)
+if(GLIM_GUEST)
+    add_subdirectory(packages/glim-wire)
+endif()
 add_subdirectory(packages/glim-gpu)
 add_subdirectory(packages/glim-shell)
 
@@ -41,6 +44,9 @@ if(NOT TARGET glim-vulkan-shaders)
 endif()
 
 add_subdirectory(packages/glim-paint)
+if(GLIM_GUEST)
+    add_subdirectory(packages/glim-guest)
+endif()
 add_subdirectory(packages/glim-embed)
 add_subdirectory(packages/glim-toolkit)
 
