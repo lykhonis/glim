@@ -600,7 +600,7 @@ int main() {
       const pid_t pid = fork();
       if (pid == 0) {
         if (chained) {
-          ::signal(signal, [](int) { _exit(42); });
+          ::signal(signal, [](int) { std::exit(42); });
         }
         if (!host::installCrashHandler(path)) _exit(3);
         raise(signal);

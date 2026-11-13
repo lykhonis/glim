@@ -5,6 +5,9 @@
 #include <sstream>
 
 #if !defined(__EMSCRIPTEN__)
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -28,7 +31,9 @@ constexpr int kSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP};
 constexpr int kMaxFrames = 64;
 int reportFd = -1;
 struct sigaction previous[NSIG];
+#if !(defined(TARGET_OS_TV) && TARGET_OS_TV)
 alignas(16) char altStack[64 * 1024];
+#endif
 
 void put(const char* text) {
   const ssize_t written = write(reportFd, text, std::strlen(text));
@@ -85,6 +90,7 @@ bool installCrashHandler(const std::string& path) {
   if (fd < 0) return false;
   if (reportFd >= 0) close(reportFd);
   reportFd = fd;
+#if !(defined(TARGET_OS_TV) && TARGET_OS_TV)
   stack_t current{};
   if (sigaltstack(nullptr, &current) == 0 && (current.ss_flags & SS_DISABLE) != 0) {
     stack_t stack{};
@@ -92,6 +98,7 @@ bool installCrashHandler(const std::string& path) {
     stack.ss_size = sizeof(altStack);
     sigaltstack(&stack, nullptr);
   }
+#endif
   struct sigaction action {};
   action.sa_handler = onFatalSignal;
   action.sa_flags = SA_ONSTACK;
