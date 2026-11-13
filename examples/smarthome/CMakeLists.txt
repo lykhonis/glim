@@ -3,7 +3,7 @@ target_link_libraries(glim-smarthome PRIVATE glim::image)
 
 if(GLIM_HOST_TESTS)
     add_executable(glim-smarthome-golden tests/smarthome_test.cpp src/main.cpp)
-    target_include_directories(glim-smarthome-golden PRIVATE src)
+    target_include_directories(glim-smarthome-golden PRIVATE src ../common)
     target_link_libraries(glim-smarthome-golden PRIVATE glim::toolkit-host glim::image)
     glim_test_defaults(glim-smarthome-golden)
     target_compile_definitions(glim-smarthome-golden PRIVATE GLIM_GOLDEN=1)

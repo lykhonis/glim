@@ -1,6 +1,8 @@
 #include "Scene.h"
 #include "SmartHome.h"
 
+#include "RecordBudget.h"
+
 #include <glim/image/Golden.h>
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
@@ -10,7 +12,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -373,22 +374,15 @@ int main(int argc, char** argv) {
   // host loop reuses its Store, LayerFeed and Context, so the gate
   // does too; min-of-N after warmup filters scheduling noise.
   {
-    using clk = std::chrono::steady_clock;
     glim::paint::Context ctx;
     ctx.setSize({1024, 640});
     host::LayerFeed feed;
     Store store;
-    auto recordOnce = [&]() {
-      auto t0 = clk::now();
+    const double best = glim::examples::bestRecordMs([&] {
       ctx.beginFrame();
       paintSmartHomeScene(ctx, feed, store, -1, false);
       ctx.finish();
-      auto t1 = clk::now();
-      return std::chrono::duration<double, std::milli>(t1 - t0).count();
-    };
-    for (int i = 0; i < 3; ++i) recordOnce();
-    double best = recordOnce();
-    for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
+    });
     std::cout << "record " << best << " ms" << std::endl;
 #ifndef GLIM_COVERAGE
     assert(best < 4.0);

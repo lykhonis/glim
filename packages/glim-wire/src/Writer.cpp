@@ -1,7 +1,6 @@
 #include <glim/wire/Writer.h>
 
 #include <algorithm>
-#include <cstring>
 #include <stdexcept>
 
 namespace glim::wire {
@@ -28,25 +27,30 @@ std::byte* Writer::Builder::at(std::uint32_t offset, std::uint32_t width) {
   return out_.data() + start_ + offset;
 }
 
-std::span<std::byte> Writer::Builder::allocTail(std::uint32_t refOffset, std::uint32_t length) {
+std::uint32_t Writer::Builder::reserveTail(std::uint32_t refOffset, std::size_t length) {
   const auto offset = static_cast<std::uint32_t>(out_.size() - start_);
   if (length > UINT32_MAX - kAlign - offset) {
     throw std::length_error("glim::wire: record exceeds u32 size");
   }
-  set(refOffset, length == 0 ? 0u : offset).set(refOffset + 4, length);
-  out_.resize(start_ + alignUp(offset + length));
+  set(refOffset, length == 0 ? 0u : offset).set(refOffset + 4, static_cast<std::uint32_t>(length));
+  return offset;
+}
+
+void Writer::Builder::sealTail(std::uint32_t end) {
+  out_.resize(start_ + alignUp(end));
   storeLe(out_.data() + start_ + kSizeOffset, static_cast<std::uint32_t>(out_.size() - start_));
+}
+
+std::span<std::byte> Writer::Builder::allocTail(std::uint32_t refOffset, std::uint32_t length) {
+  const auto offset = reserveTail(refOffset, length);
+  sealTail(offset + length);
   return {out_.data() + start_ + offset, length};
 }
 
 Writer::Builder& Writer::Builder::tail(std::uint32_t refOffset, std::span<const std::byte> data) {
-  if (data.size() > UINT32_MAX) {
-    throw std::length_error("glim::wire: record exceeds u32 size");
-  }
-  const auto dest = allocTail(refOffset, static_cast<std::uint32_t>(data.size()));
-  if (!data.empty()) {
-    std::memcpy(dest.data(), data.data(), data.size());
-  }
+  const auto offset = reserveTail(refOffset, data.size());
+  out_.insert(out_.end(), data.begin(), data.end());
+  sealTail(offset + static_cast<std::uint32_t>(data.size()));
   return *this;
 }
 

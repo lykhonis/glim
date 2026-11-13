@@ -41,6 +41,8 @@ class Writer {
         : out_(out), start_(start), fixedSize_(fixedSize) {}
 
     std::byte* at(std::uint32_t offset, std::uint32_t width);
+    std::uint32_t reserveTail(std::uint32_t refOffset, std::size_t length);
+    void sealTail(std::uint32_t end);
 
     std::vector<std::byte>& out_;
     std::size_t start_;

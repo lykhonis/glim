@@ -1,5 +1,7 @@
 #include "Infotainment.h"
 
+#include "RecordBudget.h"
+
 #include <glim/image/Image.h>
 #include <glim/image/Png.h>
 #include <glim/paint/Context.h>
@@ -8,7 +10,6 @@
 #include <glim/paint/Software.h>
 
 #include <cassert>
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -124,22 +125,15 @@ int main(int argc, char** argv) {
 
   // Record gate: build+place+record under 4ms.
   {
-    using clk = std::chrono::steady_clock;
     glim::paint::Context ctx;
     ctx.setSize({1168, 784});
     host::LayerFeed feed;
     Store store;
-    auto recordOnce = [&]() {
-      auto t0 = clk::now();
+    const double best = glim::examples::bestRecordMs([&] {
       ctx.beginFrame();
       paintInfotainmentScene(ctx, feed, store, -1, false);
       ctx.finish();
-      auto t1 = clk::now();
-      return std::chrono::duration<double, std::milli>(t1 - t0).count();
-    };
-    for (int i = 0; i < 3; ++i) recordOnce();
-    double best = recordOnce();
-    for (int i = 1; i < 11; ++i) best = std::min(best, recordOnce());
+    });
     std::cout << "record " << best << " ms\n";
 #ifndef GLIM_COVERAGE
     assert(best < 4.0);
