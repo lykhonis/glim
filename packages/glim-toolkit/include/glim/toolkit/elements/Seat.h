@@ -13,13 +13,14 @@ namespace toolkit {
 
 // Toolkit-side reservation for a host native; Slot is the Graphics/Host mechanism.
 // Laid-out place box doubles as the IME anchor; candidate window stays app-owned.
-struct Seat : WithSemantic {
+struct Seat : WithSemantic, WithA11y {
   static constexpr const char* kKind = "Seat";
   const char* kind() const { return kKind; }
   std::uint32_t id = 0;
   float width = 0;
   float height = 0;
   Box place(Constraints c, const Engine&) const { return detail::resolveSize(width, height, c); }
+  A11yTraits a11yTraits() const { return {.role = A11yRole::TextField}; }
   // Focusable anchor; key handling lives in the native view.
   bool handle(const Event& ev) const { return ev.is<PointerDown>() || ev.is<Activate>(); }
 };

@@ -16,9 +16,10 @@
 namespace glim {
 namespace toolkit {
 
-struct Lines : WithAlign, WithSemantic, WithWrap {
+struct Lines : WithAlign, WithSemantic, WithWrap, WithA11y {
   static constexpr const char* kKind = "Lines";
   const char* kind() const { return kKind; }
+  A11yTraits a11yTraits() const { return {.role = A11yRole::Text}; }
   std::string text;
   Box place(Constraints c, const Engine& e) const {
     if (!wrap) return text::measureText(text, c, e);

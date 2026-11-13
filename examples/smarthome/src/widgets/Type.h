@@ -12,7 +12,7 @@
 namespace glim {
 namespace toolkit {
 
-struct ScaledLines : WithAlign, WithSemantic {
+struct ScaledLines : WithAlign, WithSemantic, WithA11y {
   static constexpr const char* kKind = "Lines.scale";
   std::string text;
   ThemeKey sizeKey{kThemeTypeLine};
@@ -24,6 +24,7 @@ struct ScaledLines : WithAlign, WithSemantic {
         static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
     return detail::resolveSize(w, size, c);
   }
+  A11yTraits a11yTraits() const { return {.role = A11yRole::Text}; }
   void record(const Box& box, Rec& rec) const {
     rec.push(kKind, box, text);
   }
@@ -52,6 +53,7 @@ inline Block titleLines(std::string text) {
   l.text = std::move(text);
   l.sizeKey = kShowTitleSize;
   l.fallback = Show::kTitleSize;
+  l.a11y.role = A11yRole::Heading;
   return scaledLines(std::move(l));
 }
 

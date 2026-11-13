@@ -13,7 +13,7 @@ namespace glim {
 namespace toolkit {
 
 // Focusable tap; touch target grows by pad.
-struct Tap : WithPrimary, WithPad, WithSemantic {
+struct Tap : WithPrimary, WithPad, WithSemantic, WithA11y {
   static constexpr const char* kKind = "Tap";
   static constexpr const char* kKindPrimary = "Tap.primary";
   const char* kind() const { return isPrimary ? kKindPrimary : kKind; }
@@ -33,6 +33,7 @@ struct Tap : WithPrimary, WithPad, WithSemantic {
     if (ev.is<PointerDown>() || ev.is<Activate>()) return detail::invokeAction(onTap);
     return false;
   }
+  A11yTraits a11yTraits() const { return {.role = A11yRole::Button}; }
   Box innerBox(const Box& box) const;
   Box childBox(std::size_t, const Box& box, const Engine&) const { return innerBox(box); }
 };

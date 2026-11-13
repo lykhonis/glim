@@ -19,7 +19,7 @@
 namespace glim {
 namespace toolkit {
 
-struct Gauge : WithSemantic {
+struct Gauge : WithSemantic, WithA11y {
   static constexpr const char* kKind = "Gauge";
   static constexpr float kH = 112.0f;
   static constexpr int kTicks = 25;
@@ -91,6 +91,13 @@ struct Gauge : WithSemantic {
     sink.arc(kx, ky, 2.5f, 5.0f, 0.0f, 360.0f, lit);
   }
 
+  A11yTraits a11yTraits() const {
+    return {
+        .role = A11yRole::Slider,
+        .range = A11yRange{*value, 0.0f, 1.0f},
+        .actions = {A11yAction::Increment, A11yAction::Decrement}
+    };
+  }
   bool handleAt(const Box& box, const Event& ev) const {
     float x = 0.0f, y = 0.0f;
     if (auto p = ev.as<PointerDown>()) {

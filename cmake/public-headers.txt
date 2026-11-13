@@ -48,6 +48,7 @@ packages/glim-shell-web/include/glim/shell/RunLoop.h
 packages/glim-shell-web/include/glim/shell/Surface.h
 packages/glim-shell-web/include/glim/shell/Window.h
 packages/glim-toolkit/include/glim/toolkit/A11y.h
+packages/glim-toolkit/include/glim/toolkit/A11yTraits.h
 packages/glim-toolkit/include/glim/toolkit/Action.h
 packages/glim-toolkit/include/glim/toolkit/Anim.h
 packages/glim-toolkit/include/glim/toolkit/Block.h
@@ -83,6 +84,7 @@ packages/glim-toolkit/include/glim/toolkit/elements/Row.h
 packages/glim-toolkit/include/glim/toolkit/elements/Seat.h
 packages/glim-toolkit/include/glim/toolkit/elements/Stack.h
 packages/glim-toolkit/include/glim/toolkit/elements/Tap.h
+packages/glim-toolkit/include/glim/toolkit/tags/A11y.h
 packages/glim-toolkit/include/glim/toolkit/tags/Align.h
 packages/glim-toolkit/include/glim/toolkit/tags/Center.h
 packages/glim-toolkit/include/glim/toolkit/tags/Effect.h

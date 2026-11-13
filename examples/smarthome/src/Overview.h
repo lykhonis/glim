@@ -110,7 +110,8 @@ inline Block climateCard(const OverviewData& d) {
       )),
       wide(lines(
           home::climateText(d.readings.indoorC, d.thermostat),
-          alignCenter()
+          alignCenter(),
+          a11y({.live = A11yLive::Polite})
       )),
       wide(tickRuler(
           {.value = d.thermostatCells.level,
@@ -118,7 +119,12 @@ inline Block climateCard(const OverviewData& d) {
            .lo = home::kThermoMinC,
            .hi = home::kThermoMaxC,
            .step = home::kThermoStepC},
-          semantic("Target temperature")
+          semantic("Target temperature"),
+          a11y(
+              {.value = home::temperatureText(
+                   home::celsius(d.thermostat.level)
+               )}
+          )
       ))
   );
 }
@@ -143,7 +149,8 @@ inline Block lightCard(const OverviewData& d) {
           {.value = d.lightCells.level,
            .shown = d.shown.light,
            .on = d.light.on},
-          semantic("Brightness")
+          semantic("Brightness"),
+          a11y({.value = home::percentText(d.light.level)})
       ))
   );
 }

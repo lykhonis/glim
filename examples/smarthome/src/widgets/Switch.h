@@ -9,7 +9,7 @@
 namespace glim {
 namespace toolkit {
 
-struct Switch : WithSemantic {
+struct Switch : WithSemantic, WithA11y {
   static constexpr const char* kKind = "Switch";
   static constexpr const char* kKindOn = "Switch.on";
   static constexpr const char* kKindThumb = "Switch.thumb";
@@ -67,6 +67,15 @@ struct Switch : WithSemantic {
     sink.stroke(
         thumb, 10, 1.0f, themeColor(e, kShowThumbRim, Show::kThumbRim)
     );
+  }
+  A11yTraits a11yTraits() const {
+    return {
+        .role = A11yRole::Switch,
+        .states = A11yStates{A11yState::Checkable}.with(
+            A11yState::Checked, *value
+        ),
+        .actions = {A11yAction::Activate}
+    };
   }
   bool handle(const Event& ev) const {
     if (ev.is<PointerDown>() || ev.is<Activate>()) {

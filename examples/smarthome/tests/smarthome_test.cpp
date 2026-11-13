@@ -353,6 +353,14 @@ int main(int argc, char** argv) {
           "Live updates",
           "Light mode"})
       assert(has(a11y, name));
+    assert(
+        has(a11y, "Wi-Fi * states=checkable,checked actions=activate")
+    );
+    assert(has(a11y, "switch Switch"));
+    assert(has(a11y, "slider TickRuler") && has(a11y, "slider Gauge"));
+    assert(
+        has(a11y, "heading Lines.scale [") && has(a11y, "] Wi-Fi\n")
+    );
   }
   // Determinism: the scene renders identically twice.
   {

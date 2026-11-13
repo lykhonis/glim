@@ -381,6 +381,25 @@ std::optional<std::reference_wrapper<const std::string>> elementSemanticPtr(cons
   }
 }
 
+template <class T, class = void>
+struct has_a11y_traits : std::false_type {};
+template <class T>
+struct has_a11y_traits<T, std::void_t<decltype(std::declval<const T&>().a11yTraits())>>
+    : std::is_same<decltype(std::declval<const T&>().a11yTraits()), A11yTraits> {};
+
+// Element-reported traits, then the a11y() tag on top.
+template <class T>
+A11yTraits elementA11y(const T& x) {
+  if constexpr (is_tagged<T>::value) {
+    return elementA11y(x.inner_);
+  } else {
+    A11yTraits t;
+    if constexpr (has_a11y_traits<T>::value) t = x.a11yTraits();
+    if constexpr (std::is_base_of<WithA11y, T>::value) t = overlay(std::move(t), x.a11y);
+    return t;
+  }
+}
+
 // Child transparency: child refs valid only during the visit.
 template <class T, class = void>
 struct has_eachChild : std::false_type {};
@@ -448,6 +467,7 @@ struct Custom {
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     bool (*clips)(const void* s, bool heap);
     std::optional<std::reference_wrapper<const std::string>> (*semantic)(const void* s, bool heap);
+    A11yTraits (*a11y)(const void* s, bool heap);
     ThemeScope (*themeScope)(const void* s, bool heap);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
@@ -590,6 +610,7 @@ struct Custom {
     if (vt && vt->semantic) return vt->semantic(buf, onHeap);
     return std::nullopt;
   }
+  A11yTraits a11y() const { return vt && vt->a11y ? vt->a11y(buf, onHeap) : A11yTraits{}; }
   // Borrowed view; tree must outlive it.
   ThemeScope themeScope() const {
     if (vt && vt->themeScope) return vt->themeScope(buf, onHeap);
@@ -733,6 +754,13 @@ struct Custom {
   }
 
   template <class U>
+  static A11yTraits (*a11yFor())(const void*, bool) {
+    return [](const void* s, bool heap) {
+      return elementA11y(*static_cast<const U*>(addr<U>(s, heap)));
+    };
+  }
+
+  template <class U>
   static ThemeScope (*themeScopeFor())(const void*, bool) {
     return [](const void* s, bool heap) -> ThemeScope {
       if constexpr (has_theme_entries<U>::value) {
@@ -765,6 +793,7 @@ struct Custom {
         paintFor<U>(),
         clipsFor<U>(),
         semanticFor<U>(),
+        a11yFor<U>(),
         themeScopeFor<U>(),
         childCountFn<U>(),
         childAtFn<U>(),

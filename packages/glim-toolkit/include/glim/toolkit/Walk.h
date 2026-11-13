@@ -23,6 +23,11 @@ inline std::optional<std::reference_wrapper<const std::string>> semanticOf(const
   return std::visit([](const auto& x) { return elementSemanticPtr(x); }, b.v);
 }
 
+inline A11yTraits a11yOf(const Block& b) {
+  if (auto c = b.get<Custom>()) return c->get().a11y();
+  return std::visit([](const auto& x) { return elementA11y(x); }, b.v);
+}
+
 // Unmarked entries borrow the node's id; explicit marks are preserved.
 inline void describeSelf(const Block& b, const Box& box, Rec& r) {
   std::size_t base = r.entries.size();

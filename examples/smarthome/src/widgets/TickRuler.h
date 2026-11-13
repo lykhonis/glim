@@ -22,7 +22,7 @@
 namespace glim {
 namespace toolkit {
 
-struct TickRuler : WithSemantic {
+struct TickRuler : WithSemantic, WithA11y {
   static constexpr const char* kKind = "TickRuler";
   static constexpr float kH = 92.0f;
   static constexpr int kSpan = 3;           // whole numbers each side
@@ -88,6 +88,13 @@ struct TickRuler : WithSemantic {
     return -*speed / unitPx(box) * kFlickTau;
   }
 
+  A11yTraits a11yTraits() const {
+    return {
+        .role = A11yRole::Slider,
+        .range = A11yRange{units(*value), lo, hi},
+        .actions = {A11yAction::Increment, A11yAction::Decrement}
+    };
+  }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const std::uint32_t ink =

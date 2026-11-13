@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "glim/toolkit/A11yTraits.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
 
@@ -18,10 +19,11 @@ struct Engine;
 // Toolkit-side semantics for Host OS bridges; strings owned.
 struct A11yNode {
   std::string id;
-  std::string role;
+  std::string kind;
   std::string label;
   Box box;
   bool focusable = false;
+  A11yTraits traits;
 };
 
 // Pre-order map; layout-only wrappers stay out.
