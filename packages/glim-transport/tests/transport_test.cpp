@@ -425,7 +425,8 @@ void ownerDrop() {
       "peer gets the cancel"
   );
   link.b.endpoint.reply(
-      {.kind = t::Kind::Request, .lane = t::Lane::Input, .request = got[0].request}, {}
+      {.kind = t::Kind::Request, .lane = t::Lane::Input, .request = got[0].request, .payload = {}},
+      {}
   );
   link.pump();
   expect(!reply, "late reply is ignored");

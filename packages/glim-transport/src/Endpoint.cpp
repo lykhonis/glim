@@ -124,7 +124,7 @@ void Endpoint::cancel(const std::vector<Requests::Ended>& ended) {
   }
   for (const auto [id, lane] : ended) {
     if (!outbox_.withdraw(lane, id)) {
-      outbox_.push({.lane = lane, .kind = Kind::Cancel, .request = id});
+      outbox_.push({.lane = lane, .kind = Kind::Cancel, .request = id, .payload = {}});
     }
   }
 }
