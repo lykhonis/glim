@@ -38,6 +38,8 @@ namespace {
 constexpr float kHeaderH = 52.0f;
 // Left inset clears the macOS traffic lights under the custom titlebar.
 constexpr int kHeaderInsetL = 84;
+// Day and night cross over like dusk: slow, eased at both ends.
+constexpr AnimSpec kDaySpec{.dur = 2.4f, .ease = easeInOut};
 
 std::string cellKey(
     const home::Room& room, const home::Device& d, const char* field
@@ -106,6 +108,8 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
   auto vscroll = app.state("vscroll", 0.0f);
   const std::uint32_t tint =
       *light ? ShowLight::kGlassTint : Show::kGlassTint;
+  const float daylight =
+      glide(app, "glide/daylight", *light ? 1.0f : 0.0f, kDaySpec);
 
   // The overview drives the living room's thermostat and ceiling light.
   const home::Room& living = home::rooms().front();
@@ -136,6 +140,7 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
       deviceCells(app, living, ceiling),
       app.state("wifi", true),
       tint,
+      *light,
   };
 
   // The roll fills the window and the header floats over its top; the
@@ -144,7 +149,10 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
       {.light = *light,
        .child = stack(
            expand(),
-           backdrop(),
+           backdrop(
+               {.daylight = daylight,
+                .lit = home::windowGlow(daylight, shown.brightness)}
+           ),
            roll(
                vertical(),
                scrollOffset(vscroll),

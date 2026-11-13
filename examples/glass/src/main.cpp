@@ -15,13 +15,22 @@ extern "C" int glim_app_main() {
 int main(int argc, char** argv) {
 #endif
   const host::E2eFlags flags = host::parseE2e(argc, argv);
-  // Glass paints the context directly; there is no toolkit tree to
-  // probe.
-  if (flags.help || flags.any()) {
+  if (flags.help) {
     std::cout << "usage: glim-glass [--drive script [--drive-trace "
                  "out.json]] [--startup | "
-                 "--startup-encoded]\n";
-    return flags.help ? 0 : 2;
+                 "--startup-encoded] [--probe script]\n";
+    return 0;
+  }
+  if (flags.any()) {
+    host::TestApp t;
+    t.w = 1024;
+    t.h = 640;
+    t.build = [](const glim::toolkit::Engine&) {
+      return glim::toolkit::Block{};
+    };
+    t.paint = [](glim::paint::Context& ctx, glim::Vec2 size, float now
+              ) { recordGlass(ctx, size, now); };
+    return host::runE2e(t, flags);
   }
   // The stripes and lenses animate forever: a frame watch that never
   // settles.

@@ -1,8 +1,8 @@
 #pragma once
 
-// The villa photograph registered with the paint context. The backdrop
-// cover-blits it; 0 means the wash stands in (headless, or not yet
-// loaded).
+// The villa photographs registered with the paint context: one camera,
+// three lightings. The backdrop cover-blits and blends them; an id of 0
+// means that photo is missing (headless, or not yet loaded).
 
 #include <cstdint>
 
@@ -15,6 +15,12 @@ struct VillaPlate {
   std::uint32_t id = 0;
   int w = 0;
   int h = 0;
+};
+
+struct VillaPlates {
+  VillaPlate day;
+  VillaPlate night;
+  VillaPlate lit;               // night, every house light on
   const void* owner = nullptr;  // ids belong to one Context
 };
 

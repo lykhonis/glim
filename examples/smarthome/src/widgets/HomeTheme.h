@@ -67,7 +67,7 @@ struct Show {
   static constexpr std::uint32_t kGlowCool = 0x3d8bff40u;
   // Cool night milk: dark enough for light type, thin enough that the
   // villa still reads through the frost.
-  static constexpr std::uint32_t kGlassTint = 0x0c1018b0u;
+  static constexpr std::uint32_t kGlassTint = 0x0c101860u;
   static constexpr std::uint32_t kScrimTop = 0x07090c55u;
   static constexpr std::uint32_t kScrimBottom = 0x07090c44u;
   static constexpr std::uint32_t kOk = 0x34c759ff;
@@ -89,9 +89,10 @@ struct ShowLight {
   static constexpr std::uint32_t kGlowWarm = 0xff9a5c59u;
   static constexpr std::uint32_t kGlowCool = 0x7aa7ff59u;
   // Warm white milk, light enough to stay slightly frosted.
-  static constexpr std::uint32_t kGlassTint = 0xfff8f050u;
-  static constexpr std::uint32_t kScrimTop = 0xf7f4ee38u;
-  static constexpr std::uint32_t kScrimBottom = 0x1c140c18u;
+  static constexpr std::uint32_t kGlassTint = 0xfff8f020u;
+  // Daylight carries the type on its own: no veil over the photo.
+  static constexpr std::uint32_t kScrimTop = 0x00000000u;
+  static constexpr std::uint32_t kScrimBottom = 0x00000000u;
 };
 
 struct ShowDark {

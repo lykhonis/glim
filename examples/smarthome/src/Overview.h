@@ -49,6 +49,7 @@ struct OverviewData {
   DeviceCells lightCells;
   State<bool> wifi;
   std::uint32_t glassTint = 0;
+  bool day = true;
 };
 
 namespace overview {
@@ -68,7 +69,7 @@ inline Block stat(std::string label, std::string value) {
 inline Block hero(const OverviewData& d) {
   return column(
       gap(10),
-      heroLines("Good evening."),
+      heroLines(home::greeting(d.day)),
       heroLines("Welcome home."),
       lines(home::homeSummary(d.readings, home::brightness({d.light})))
   );

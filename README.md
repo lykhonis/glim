@@ -37,9 +37,9 @@ Humans get the same loop: these flags are the profiler, the test runner and the 
 
 | | |
 | --- | --- |
-| <img src="assets/screenshots/infotainment.png" width="420" alt="Infotainment"> | **[Infotainment](examples/infotainment)**: a flying-EV cockpit. Glass gauges, glow and a live 3D city map under frosted cards. `pnpm exec nx run infotainment:run` |
-| <img src="assets/screenshots/smarthome.png" width="420" alt="Smart home"> | **[Smart home](examples/smarthome)**: a glass dashboard over a photo backdrop, with animated switches, charts, gauges and light/dark themes. `pnpm exec nx run smarthome:run` |
-| <img src="assets/screenshots/glass.png" width="420" alt="Glass materials"> | **[Glass](examples/glass)**: the lens materials side by side. Clear and frosted glass, merging pills, liquid metal and water. `pnpm exec nx run glass:run` |
+| <img src="assets/screenshots/infotainment.webp" width="420" alt="Infotainment: the cockpit gauges and the 3D city map in flight"> | **[Infotainment](examples/infotainment)**: a flying-EV cockpit. Glass gauges, glow and a live 3D city map under frosted cards. `pnpm exec nx run infotainment:run` |
+| <img src="assets/screenshots/smarthome.webp" width="420" alt="Smart home: the villa backdrop moves from day to night and the house lights turn on and off"> | **[Smart home](examples/smarthome)**: a glass dashboard over a villa photo. The theme switch turns day into dusk, and the house lights follow the dimmer. `pnpm exec nx run smarthome:run` |
+| <img src="assets/screenshots/glass.webp" width="420" alt="Glass: lenses over scrolling stripes, with the pills merging and parting"> | **[Glass](examples/glass)**: the lens materials side by side. Clear and frosted glass, merging pills, liquid metal and water. `pnpm exec nx run glass:run` |
 
 ## A taste of the toolkit
 

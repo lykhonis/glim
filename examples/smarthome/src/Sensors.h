@@ -246,6 +246,14 @@ inline float brightness(const std::vector<Device>& devices) {
   return n == 0 ? 0.0f : sum / static_cast<float>(n);
 }
 
+// How strongly lit windows show at `daylight` (0 night .. 1 day): they
+// read only once dusk falls, so lights come on as the sky darkens.
+inline float windowGlow(float daylight, float lightLevel) {
+  constexpr float kDusk = 0.5f;
+  return lightLevel *
+         std::clamp((kDusk - daylight) / kDusk, 0.0f, 1.0f);
+}
+
 // How the thermostat is doing against the indoor temperature.
 inline std::string climateText(
     float indoorC, const Device& thermostat
@@ -266,6 +274,10 @@ inline std::string energyText(float energy) {
 
 inline std::string lightText(const Device& light) {
   return light.on ? "Brightness" : "Lights off";
+}
+
+inline std::string greeting(bool day) {
+  return day ? "Good afternoon." : "Good evening.";
 }
 
 // One line on how the home is doing, for the greeting.

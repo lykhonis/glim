@@ -29,6 +29,7 @@
 #include "glim/toolkit/host/Host.h"
 #include "glim/toolkit/host/Paint.h"
 #include "glim/toolkit/host/Telemetry.h"
+#include "widgets/Backdrop.h"
 #include "widgets/Glide.h"
 #include "widgets/HomeTheme.h"
 #include "widgets/Switch.h"
@@ -629,6 +630,45 @@ int main(int argc, char** argv) {
     assert(*light && backdropTop() == ShowLight::kBgTop);
     assert(tap(6));
     assert(!*light && backdropTop() == Show::kBgTop);
+    assert(glim::home::greeting(true) == "Good afternoon.");
+    assert(glim::home::greeting(false) == "Good evening.");
+    assert(glim::home::windowGlow(1.0f, 0.8f) == 0.0f);
+    assert(glim::home::windowGlow(0.5f, 0.8f) == 0.0f);
+    assert(glim::home::windowGlow(0.25f, 0.8f) == 0.4f);
+    assert(glim::home::windowGlow(0.0f, 0.8f) == 0.8f);
+  }
+
+  // Backdrop: night under the lit photo at the lights' level, day over
+  // both at the daylight level; full day skips the night pair.
+  {
+    Store bs;
+    bs.state(kVillaKey, VillaPlates{}) =
+        VillaPlates{{1, 16, 9}, {2, 16, 9}, {3, 16, 9}, nullptr};
+    Engine be = engineFor(bs);
+    auto images = [&](BackdropProps p) {
+      OpsRecorder rec;
+      host::LayerFeed stubFeed;
+      paintTree(backdrop(p), {0, 0, 160, 90}, be, rec, stubFeed);
+      std::vector<std::pair<std::uint32_t, float>> out;
+      float opacity = 1.0f;
+      for (const auto& o : rec.ops) {
+        if (o.kind == Op::Kind::PushOpacity) opacity = o.opacity;
+        if (o.kind == Op::Kind::Image)
+          out.push_back({o.image, opacity});
+      }
+      return out;
+    };
+    using Plates = std::vector<std::pair<std::uint32_t, float>>;
+    assert(
+        (images({.daylight = 0.5f, .lit = 0.3f}) ==
+         Plates{{2, 1.0f}, {3, 0.3f}, {1, 0.5f}})
+    );
+    assert(
+        (images({.daylight = 0.0f, .lit = 0.0f}) == Plates{{2, 1.0f}})
+    );
+    assert(
+        (images({.daylight = 1.0f, .lit = 1.0f}) == Plates{{1, 1.0f}})
+    );
   }
 
   // Paint: one glass plate per card plus the header, the focus ring as
