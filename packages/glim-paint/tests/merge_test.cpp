@@ -82,8 +82,52 @@ int main() {
   fade.finish();
   stats = {};
   merged = glim::paint::merge(std::move(fade.scene().root), &stats);
-  expect(merged.children.size() == 1, "translucent group stays isolated");
+  expect(merged.children.empty(), "lone faded fill folds into its parent");
+  auto* faded = std::get_if<glim::paint::FillRect>(&merged.shapes.back());
+  expect(faded && faded->matter.color.rgba == 0xffffff80, "fold halves the fill alpha");
+
+  glim::paint::Context overlap;
+  overlap.setSize({100, 100});
+  overlap.beginFrame();
+  overlap.pushGroup(g);
+  overlap.setFillColor(0xffffffff);
+  overlap.fill(glim::Rect::fromSize({100, 20}));
+  overlap.fill(glim::Rect::fromSize({50, 20}));
+  overlap.popGroup();
+  overlap.finish();
+  merged = glim::paint::merge(std::move(overlap.scene().root), &stats);
+  expect(merged.children.size() == 1, "overlapping shapes stay isolated");
   expect(glim::paint::needsIsolate(*merged.children[0]), "opacity isolates");
+
+  glim::paint::Context cropped;
+  cropped.setSize({100, 100});
+  cropped.beginFrame();
+  cropped.pushGroup(g);
+  cropped.setFillColor(0xffffffff);
+  cropped.fill(glim::Rect::fromSize({100, 40}));
+  cropped.popGroup();
+  cropped.finish();
+  merged = glim::paint::merge(std::move(cropped.scene().root), &stats);
+  expect(merged.children.size() == 1, "a shape past the isolate bounds keeps the crop");
+
+  {
+    glim::paint::Context photo;
+    photo.setSize({100, 100});
+    photo.beginFrame();
+    const std::uint8_t px[4] = {255, 255, 255, 255};
+    const std::uint32_t id = photo.addImage(1, 1, px);
+    glim::paint::GroupParams quarter;
+    quarter.opacity = 0.25f;
+    photo.pushGroup(quarter);
+    photo.blit(glim::Rect::fromSize({100, 100}), glim::paint::Matter::sampled(id));
+    photo.popGroup();
+    photo.finish();
+    merged = glim::paint::merge(std::move(photo.scene().root), &stats);
+    auto* blit =
+        merged.shapes.empty() ? nullptr : std::get_if<glim::paint::Blit>(&merged.shapes.back());
+    expect(merged.children.empty() && blit, "faded blit folds into its parent");
+    expect(blit && blit->matter.color.a() == 64, "fold carries the fade in the blit tint");
+  }
 
   glim::paint::Context frost;
   frost.setSize({100, 100});

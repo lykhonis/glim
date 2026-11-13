@@ -96,7 +96,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 5);  // version 5: PushShadow caster opacity
+  detail::putU16(out, 6);  // version 6: PushOpacity
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -121,6 +121,8 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       detail::putU8(out, o.plus ? 1 : 0);
+    } else if (o.kind == K::PushOpacity) {
+      detail::putF32(out, o.opacity);
     } else if (o.kind == K::PushTransform) {
       detail::putF32(out, o.dx);
       detail::putF32(out, o.dy);
@@ -197,7 +199,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
   const std::uint16_t ver = r.u16();
-  if (ver < 1 || ver > 5) return false;
+  if (ver < 1 || ver > 6) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -233,6 +235,9 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       o.plus = r.u8() != 0;
+    } else if (o.kind == K::PushOpacity) {
+      if (ver < 6) return false;
+      o.opacity = r.f32();
     } else if (o.kind == K::PushTransform) {
       o.dx = r.f32();
       o.dy = r.f32();

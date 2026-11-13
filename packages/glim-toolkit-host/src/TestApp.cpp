@@ -66,7 +66,10 @@ void TestApp::recordScene(::glim::paint::Context& ctx) {
   ctx.setSize({w, h});
   ctx.beginFrame();
   if (prepare) prepare(ctx, store);
-  paintScreen(ctx, tree, box, engine(), feed, screen.focus, screen.focusVisible);
+  if (paint)
+    paint(ctx, {w, h}, now);
+  else
+    paintScreen(ctx, tree, box, engine(), feed, screen.focus, screen.focusVisible);
   ctx.finish();
 }
 TestApp::Snap TestApp::snapshotTimed(bool withRaster) {

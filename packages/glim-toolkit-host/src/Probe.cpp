@@ -552,7 +552,7 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     auto isPush = [](Op::Kind k) {
       return k == Op::Kind::PushGlass || k == Op::Kind::PushEffect || k == Op::Kind::PushBlend ||
              k == Op::Kind::PushClip || k == Op::Kind::PushShadow || k == Op::Kind::PushTransform ||
-             k == Op::Kind::PushRotate || k == Op::Kind::PushGlass;
+             k == Op::Kind::PushRotate || k == Op::Kind::PushOpacity;
     };
     int depth = 0;
     for (const Op& op : rec.ops) {

@@ -174,6 +174,7 @@ struct MarkFrame {
   }
   void pushClip(const Box& b) { inner->pushClip(b); }
   void pushBlend(BlendMode m) { inner->pushBlend(m); }
+  void pushOpacity(float opacity) { inner->pushOpacity(opacity); }
   void pushTransform(float dx, float dy) { inner->pushTransform(dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { inner->pushRotate(angleDeg, cx, cy); }
   void pushShadow(

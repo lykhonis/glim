@@ -30,6 +30,7 @@ int main() {
   fade.beginFrame();
   glim::paint::GroupParams g;
   g.opacity = 0.5f;
+  g.isolate = true;
   g.bounds = glim::Rect::fromSize({100, 20});
   fade.pushGroup(g);
   fade.setFillColor(0xffffffff);

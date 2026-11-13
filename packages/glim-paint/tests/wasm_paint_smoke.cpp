@@ -48,6 +48,7 @@ int main() {
   guest.fill(glim::Rect::fromSize({static_cast<float>(w), static_cast<float>(h)}));
   glim::paint::GroupParams g;
   g.opacity = 0.5f;
+  g.isolate = true;
   g.bounds = glim::Rect{{8.f, 8.f}, {16.f, 16.f}};
   guest.pushGroup(g);
   guest.setFillColor(0x00ff00ff);

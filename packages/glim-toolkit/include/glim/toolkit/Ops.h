@@ -36,6 +36,7 @@ struct Op {
     Polyline,
     PushShadow,
     PushEffect,
+    PushOpacity,
   };
   Kind kind = Kind::Pop;
   Rec::Entry entry;  // valid when kind == Entry
@@ -73,6 +74,7 @@ struct Op {
   float casterOpacity = 1.f;      // PushShadow caster fade; the shadow stays
   std::uint32_t effect = 0;       // PushEffect kind (EffectKind bits)
   float e0 = 0.f;                 // PushEffect intensity (Glow alpha mul)
+  float opacity = 1.f;            // PushOpacity group fade
   std::vector<float> pts;         // Polyline flat points
   std::string text;               // Text variant
   std::string mark;               // semantic mark for every op
@@ -90,7 +92,8 @@ struct Op {
            thickness == o.thickness && startDeg == o.startDeg && sweepDeg == o.sweepDeg &&
            dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox && soy == o.soy &&
            expand == o.expand && shadowColor == o.shadowColor && casterOpacity == o.casterOpacity &&
-           effect == o.effect && e0 == o.e0 && pts == o.pts && text == o.text && mark == o.mark;
+           effect == o.effect && e0 == o.e0 && opacity == o.opacity && pts == o.pts &&
+           text == o.text && mark == o.mark;
   }
   bool operator!=(const Op& o) const { return !(*this == o); }
 };
@@ -100,9 +103,9 @@ inline const char* opKindName(Op::Kind k) {
       "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
       "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
       "Slot",     "PushRotate", "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
-      "Polyline", "PushShadow", "PushEffect",
+      "Polyline", "PushShadow", "PushEffect",  "PushOpacity",
   };
-  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushEffect) + 1);
+  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushOpacity) + 1);
   return kNames[static_cast<int>(k)];
 }
 
@@ -236,6 +239,12 @@ struct OpsRecorder {
     Op o;
     o.kind = Op::Kind::PushBlend;
     o.plus = m == BlendMode::Plus;
+    ops.push_back(o);
+  }
+  void pushOpacity(float opacity) {
+    Op o;
+    o.kind = Op::Kind::PushOpacity;
+    o.opacity = opacity;
     ops.push_back(o);
   }
   void pushTransform(float dx, float dy) {

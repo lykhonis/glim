@@ -17,6 +17,9 @@ struct TestApp {
   Build build;
   // Per-frame context setup before paint (e.g. registering cached images).
   std::function<void(::glim::paint::Context&, Store&)> prepare;
+  // Paints the frame instead of the tree, for apps that draw the context
+  // directly (the headless form of a host Record).
+  std::function<void(::glim::paint::Context&, Vec2 size, float now)> paint;
   Store store;
   Screen screen;
   LayerFeed feed;

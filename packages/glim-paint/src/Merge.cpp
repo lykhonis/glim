@@ -659,6 +659,49 @@ void fuseGlassRuns(Group& out) {
   }
 }
 
+struct Fadable {
+  Rect rect;
+  Matter* matter = nullptr;
+};
+
+Fadable fadable(Shape& s) {
+  if (auto* f = std::get_if<FillRect>(&s)) return {f->rect, &f->matter};
+  if (auto* f = std::get_if<FillRounded>(&s)) return {f->rect, &f->matter};
+  if (auto* b = std::get_if<Blit>(&s)) return {b->rect, &b->matter};
+  return {};
+}
+
+bool containsRect(Rect outer, Rect inner) {
+  return inner.origin.x >= outer.origin.x && inner.origin.y >= outer.origin.y &&
+         inner.origin.x + inner.size.x <= outer.origin.x + outer.size.x &&
+         inner.origin.y + inner.size.y <= outer.origin.y + outer.size.y;
+}
+
+Color fadeColor(Color c, float opacity) {
+  const float a = static_cast<float>(c.a()) * opacity + 0.5f;
+  return Color{c.r(), c.g(), c.b(), static_cast<unsigned char>(a)};
+}
+
+// One shape that cannot overlap itself fades exactly like its group:
+// fold the opacity into its matter and skip the isolate.
+void foldOpacity(Group& g) {
+  const GroupParams& p = g.params;
+  if (p.opacity >= 1.0f - 1e-5f || g.shapes.size() != 1 || !g.children.empty()) return;
+  if (p.isolate || hasClip(p) || p.transform.is3D() || p.blend != Blend::SrcOver ||
+      p.semantic != 0 || hasBackdrop(g) || hasShadow(g) || hasContentBlur(g) || hasGlass(g) ||
+      p.glassContainer) {
+    return;
+  }
+  const Fadable f = fadable(g.shapes.front());
+  const bool unbounded = p.bounds.size.x <= 0.f || p.bounds.size.y <= 0.f;
+  if (!f.matter || !(unbounded || containsRect(p.bounds, f.rect))) return;
+  f.matter->color = fadeColor(f.matter->color, p.opacity);
+  for (int i = 0; i < f.matter->gradientStopCount; ++i) {
+    f.matter->gradientStops[i].color = fadeColor(f.matter->gradientStops[i].color, p.opacity);
+  }
+  g.params.opacity = 1.0f;
+}
+
 }  // namespace
 
 Group merge(Group g, Stats* stats) {
@@ -666,6 +709,7 @@ Group merge(Group g, Stats* stats) {
   out.params = g.params;
   bool lock = false;
   auto takeChild = [&](Group child) {
+    foldOpacity(child);
     if (canMerge(child) && blendCompatible(out.params.blend, child.params.blend) && !lock) {
       if (stats) {
         ++stats->mergedGroupCount;

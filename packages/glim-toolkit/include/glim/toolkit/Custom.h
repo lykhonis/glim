@@ -86,6 +86,7 @@ struct AnySink {
       nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
+  void (*pushOpacityFn)(void*, float) = nullptr;
   void (*pushTransformFn)(void*, float, float) = nullptr;
   void (*pushRotateFn)(void*, float, float, float) = nullptr;
   void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
@@ -210,6 +211,7 @@ struct AnySink {
   }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
+  void pushOpacity(float opacity) { pushOpacityFn(sink, opacity); }
   void pushTransform(float dx, float dy) { pushTransformFn(sink, dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { pushRotateFn(sink, angleDeg, cx, cy); }
   void pop() { popFn(sink); }
@@ -270,6 +272,7 @@ void bindOps(AnySink& a) {
   };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
+  a.pushOpacityFn = [](void* s, float opacity) { static_cast<S*>(s)->pushOpacity(opacity); };
   a.pushTransformFn = [](void* s, float dx, float dy) {
     static_cast<S*>(s)->pushTransform(dx, dy);
   };

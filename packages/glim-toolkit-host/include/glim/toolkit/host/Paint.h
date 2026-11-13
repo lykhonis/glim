@@ -4,6 +4,7 @@
 // atlas measuring, one-screen paint.
 #include <glim/paint/Context.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <typeinfo>
@@ -195,6 +196,13 @@ struct ContextSink {
   void pushBlend(BlendMode m) {
     ::glim::paint::GroupParams p;
     p.blend = m == BlendMode::Plus ? ::glim::paint::Blend::Plus : ::glim::paint::Blend::SrcOver;
+    ctx.pushGroup(p);
+  }
+  // Merge folds a lone shape's fade into its tint; anything more
+  // composites once through an isolate.
+  void pushOpacity(float opacity) {
+    ::glim::paint::GroupParams p;
+    p.opacity = std::clamp(opacity, 0.f, 1.f);
     ctx.pushGroup(p);
   }
   void pushTransform(float dx, float dy) {

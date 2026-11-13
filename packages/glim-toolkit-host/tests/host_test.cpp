@@ -137,7 +137,8 @@ int main() {
     rec.polyline(pts, 3, 2.0f, 6.0f, 0x123456ff, "p");
     rec.pushShadow(12.0f, 1.0f, 4.0f, 0x000000a6, 2.0f, 0.25f);
     rec.pushEffect({0, 0, 10, 10}, 5, 0, 0xff6a00ff, 0.3f);
-    for (int i = 0; i < 4; ++i) rec.pop();
+    rec.pushOpacity(0.4f);
+    for (int i = 0; i < 5; ++i) rec.pop();
     std::vector<std::uint8_t> bytes;
     glim::toolkit::host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;
@@ -446,6 +447,27 @@ int main() {
     assert(host::runE2e(app, flagsOf({"--probe", (dir / "ok.probe").string()})) == 0);
     assert(host::runE2e(app, flagsOf({"--trace-frames=1", "--trace-out=/no/such/dir/x.csv"})) == 1);
     fs::remove_all(dir);
+  }
+
+  // A paint hook replaces the tree and sees the stepped clock.
+  {
+    namespace host = glim::toolkit::host;
+    host::TestApp t;
+    t.w = 8;
+    t.h = 8;
+    t.build = [](const glim::toolkit::Engine&) { return glim::toolkit::Block{}; };
+    float seen = -1.f;
+    t.paint = [&](glim::paint::Context& ctx, glim::Vec2 size, float now) {
+      seen = now;
+      ctx.setFillColor(0xff0000ffu);
+      ctx.fill(glim::Rect::fromSize(size));
+    };
+    t.step(0.5f);
+    glim::paint::Context ctx;
+    t.recordScene(ctx);
+    std::vector<std::uint8_t> px(8 * 8 * 4);
+    glim::paint::rasterScene(ctx.scene(), 8, 8, px.data());
+    assert(seen == 0.5f && px[0] == 255 && px[1] == 0);
   }
 
   // Drive scripts: a timeline of shell events; any bad line rejects
