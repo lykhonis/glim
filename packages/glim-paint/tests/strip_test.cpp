@@ -108,7 +108,9 @@ int main() {
   // Polyline memo: a cache hit returns exactly what flattening produced.
   {
     using namespace glim::paint;
-    const Polyline line{.points = {{2, 3}, {40, 17}, {9, 30}}, .width = 3.f};
+    Polyline line;
+    line.points = {{2, 3}, {40, 17}, {9, 30}};
+    line.width = 3.f;
     std::vector<Strip> direct, first, second;
     flattenSolidPolyline(line.points.data(), line.points.size(), line.width, direct);
     flattenPolyline(line, first);

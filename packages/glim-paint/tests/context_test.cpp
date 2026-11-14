@@ -27,6 +27,13 @@ bool same(const glim::Rect& a, const glim::Rect& b) {
 int main() {
   using glim::Rect;
   glim::paint::Context ctx;
+  glim::paint::Arc arc;
+  arc.center = {4, 4};
+  arc.radius = 4.f;
+  arc.sweepDeg = 180.f;
+  glim::paint::Polyline line;
+  line.points = {{0, 0}, {8, 8}};
+  line.width = 2.f;
 
   // Outside a frame nothing records.
   ctx.fill(Rect{{0, 0}, {4, 4}});
@@ -34,8 +41,8 @@ int main() {
   ctx.fillChamfer(Rect{{0, 0}, {4, 4}}, 1.f);
   ctx.strokeRect(Rect{{0, 0}, {4, 4}}, 1.f);
   ctx.strokeChamfer(Rect{{0, 0}, {4, 4}}, 1.f, 1.f);
-  ctx.arc({.center = {2, 2}, .radius = 2.f, .sweepDeg = 90.f});
-  ctx.polyline({.points = {{0, 0}, {4, 4}}});
+  ctx.arc(arc);
+  ctx.polyline(line);
   ctx.clipRect(Rect{{0, 0}, {4, 4}});
   expect(ctx.scene().root.shapes.empty(), "no recording outside a frame");
 
@@ -45,8 +52,8 @@ int main() {
   ctx.strokeChamfer(Rect{{0, 0}, {8, 8}}, 2.f, 1.f);
   ctx.strokeRect(Rect{{0, 0}, {8, 8}}, 0.f);
   ctx.strokeChamfer(Rect{{0, 0}, {8, 8}}, 2.f, 0.f);
-  ctx.arc({.center = {4, 4}, .radius = 4.f, .sweepDeg = 180.f});
-  ctx.polyline({.points = {{0, 0}, {8, 8}}, .width = 2.f});
+  ctx.arc(arc);
+  ctx.polyline(line);
 
   ctx.clipRect(Rect{{0, 0}, {32, 32}}, glim::Radius{4, 4, 4, 4});
   ctx.clipRect(Rect{{16, 16}, {32, 32}});
