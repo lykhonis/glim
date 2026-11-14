@@ -161,7 +161,7 @@ void stopFile() {
   f.out.close();
 }
 
-Token begin(const char* name) {
+Token begin([[maybe_unused]] const char* name) {
   Token t{0, nowUs()};
 #if defined(__APPLE__)
   if (os_signpost_enabled(appleLog()) || forced.load(std::memory_order_relaxed)) {
