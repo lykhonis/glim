@@ -15,10 +15,10 @@ namespace host {
 
 // Attaches a view per new slot id, repositions on move only, detaches removed.
 inline void syncSeats(
-    glim::shell::Window& window,
-    const glim::paint::Scene& scene,
-    std::unordered_map<std::uint32_t, glim::Rect>& attached,
-    SeatViewFactory makeView = &makeDefaultSeatView
+  glim::shell::Window& window,
+  const glim::paint::Scene& scene,
+  std::unordered_map<std::uint32_t, glim::Rect>& attached,
+  SeatViewFactory makeView = &makeDefaultSeatView
 ) {
   std::vector<glim::paint::SlotPlacement> placed;
   glim::paint::collectSlots(scene, &placed);

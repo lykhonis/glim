@@ -57,20 +57,19 @@ int main() {
     expect(merged.children.size() == 1, "glass group stays isolated");
     expect(merged.children.size() == 1 && glim::paint::hasGlass(*merged.children[0]), "hasGlass");
     expect(
-        merged.children.size() == 1 && glim::paint::hasGlassWork(*merged.children[0]),
-        "hasGlassWork"
+      merged.children.size() == 1 && glim::paint::hasGlassWork(*merged.children[0]), "hasGlassWork"
     );
     expect(
-        merged.children.size() == 1 && !glim::paint::hasBackdrop(*merged.children[0]),
-        "glass is not backdrop"
+      merged.children.size() == 1 && !glim::paint::hasBackdrop(*merged.children[0]),
+      "glass is not backdrop"
     );
     expect(
-        merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
-        "glass isolates"
+      merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
+      "glass isolates"
     );
     expect(
-        merged.children.size() == 1 && !glim::paint::canMerge(*merged.children[0]),
-        "canMerge refuses glass"
+      merged.children.size() == 1 && !glim::paint::canMerge(*merged.children[0]),
+      "canMerge refuses glass"
     );
   }
 
@@ -286,8 +285,8 @@ int main() {
     expect(water.material == glim::paint::LensMaterial::Water, "water preset material");
     expect(water.transmit == 1.f, "water preset transmissive");
     expect(
-        glim::paint::lensBlurRadius(water) > 0.f && glim::paint::lensBlurRadius(water) < 20.f,
-        "water blur small and sharp"
+      glim::paint::lensBlurRadius(water) > 0.f && glim::paint::lensBlurRadius(water) < 20.f,
+      "water blur small and sharp"
     );
   }
 
@@ -330,24 +329,24 @@ int main() {
       expect(phaseAt(g, 0.0) == 0.f, "surge starts at rest");
       expect(phaseAt(g, 0.02) < 0.01f, "surge starts gently");
       expect(
-          phaseAt(g, 2.0) == phaseAt(g, 2.7) && phaseAt(g, 2.7) == phaseAt(g, 3.99),
-          "surface rests between surges"
+        phaseAt(g, 2.0) == phaseAt(g, 2.7) && phaseAt(g, 2.7) == phaseAt(g, 3.99),
+        "surface rests between surges"
       );
       expect(std::fabs(phaseAt(g, 3.0) - 0.6f) < 1e-5f, "a surge travels its distance");
       expect(
-          phaseAt(g, 6.5) == phaseAt(g, 7.9) && std::fabs(phaseAt(g, 7.f)) < 1e-5f,
-          "the next surge slides back and rests"
+        phaseAt(g, 6.5) == phaseAt(g, 7.9) && std::fabs(phaseAt(g, 7.f)) < 1e-5f,
+        "the next surge slides back and rests"
       );
       for (double t = 0.0; t < 8.0; t += 0.37) {
         expect(
-            std::fabs(phaseAt(g, t) - phaseAt(g, t + 8.0)) < 1e-5f, "motion loops every 2 periods"
+          std::fabs(phaseAt(g, t) - phaseAt(g, t + 8.0)) < 1e-5f, "motion loops every 2 periods"
         );
       }
       // timeSec is a float: at ~4e5 s it resolves 1/32 s, so sample there.
       for (double t = 0.0; t < 8.0; t += 0.25) {
         expect(
-            std::fabs(phaseAt(g, t) - phaseAt(g, t + 8.0 * 50000.0)) < 1e-4f,
-            "motion loops after long uptime"
+          std::fabs(phaseAt(g, t) - phaseAt(g, t + 8.0 * 50000.0)) < 1e-4f,
+          "motion loops after long uptime"
         );
       }
       float peak = 0.f;
@@ -375,8 +374,8 @@ int main() {
       }
       const double loop = 2.0 * 3.141592653589793 * 4.0 / 0.6;
       expect(
-          std::fabs(std::sin(phaseAt(g, 5.0)) - std::sin(phaseAt(g, 5.0 + loop))) < 1e-4f,
-          "flow loops every 2*pi*period/travel"
+        std::fabs(std::sin(phaseAt(g, 5.0)) - std::sin(phaseAt(g, 5.0 + loop))) < 1e-4f,
+        "flow loops every 2*pi*period/travel"
       );
     }
     stillMetal.timeSec = 3.f;
@@ -417,7 +416,7 @@ int main() {
     const std::size_t center = static_cast<std::size_t>((22 * w + 32) * 4);
     expect(buf[center] > 80, "cpu glass plate samples dest");
     expect(
-        buf[center + 1] < 80 && buf[center + 2] < 80, "cpu glass plate is dest red, not warp black"
+      buf[center + 1] < 80 && buf[center + 2] < 80, "cpu glass plate is dest red, not warp black"
     );
   }
 
@@ -426,22 +425,22 @@ int main() {
     // defaults, and changing a knob changes the rendered plate.
     const Lens metal = Lens::liquidMetal();
     expect(
-        metal.swellAmp == 0.8f && metal.swellScale.x == 0.55f && metal.swellScale.y == 1.1f,
-        "liquidMetal swell defaults"
+      metal.swellAmp == 0.8f && metal.swellScale.x == 0.55f && metal.swellScale.y == 1.1f,
+      "liquidMetal swell defaults"
     );
     expect(
-        metal.motion.period == 4.f && metal.motion.travel == 0.6f &&
-            metal.motion.curve == glim::paint::LensMotionCurve::Flow && metal.envLight == 0.f,
-        "liquidMetal slow continuous flow, studio only"
+      metal.motion.period == 4.f && metal.motion.travel == 0.6f &&
+        metal.motion.curve == glim::paint::LensMotionCurve::Flow && metal.envLight == 0.f,
+      "liquidMetal slow continuous flow, studio only"
     );
     expect(
-        Lens::water().swellAmp == 0.6f && Lens::water().motion.period == 3.5f &&
-            Lens::water().motion.curve == glim::paint::LensMotionCurve::Smooth,
-        "water swell defaults"
+      Lens::water().swellAmp == 0.6f && Lens::water().motion.period == 3.5f &&
+        Lens::water().motion.curve == glim::paint::LensMotionCurve::Smooth,
+      "water swell defaults"
     );
     expect(
-        Lens{}.swellAmp == 0.f && Lens{}.motion.period == 0.f && Lens{}.envLight == 0.f,
-        "plain glass is flat, still, unlit"
+      Lens{}.swellAmp == 0.f && Lens{}.motion.period == 0.f && Lens{}.envLight == 0.f,
+      "plain glass is flat, still, unlit"
     );
     const auto render = [](const Lens& g) {
       const int w = 160;
@@ -466,14 +465,14 @@ int main() {
       renderer.draw(ctx.scene());
       return buf;
     };
-    const auto differs = [](const std::vector<std::uint8_t>& a,
-                            const std::vector<std::uint8_t>& b) {
-      std::size_t n = 0;
-      for (std::size_t i = 0; i < a.size(); ++i) {
-        n += (a[i] > b[i] ? a[i] - b[i] : b[i] - a[i]) > 8 ? 1 : 0;
-      }
-      return n > 200;
-    };
+    const auto differs =
+      [](const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b) {
+        std::size_t n = 0;
+        for (std::size_t i = 0; i < a.size(); ++i) {
+          n += (a[i] > b[i] ? a[i] - b[i] : b[i] - a[i]) > 8 ? 1 : 0;
+        }
+        return n > 200;
+      };
     const auto base = render(metal);
     Lens flat = metal;
     flat.swellAmp = 0.f;
@@ -489,8 +488,8 @@ int main() {
     // the face pixel is grey (silver), not the yellow/teal stripe under it.
     const std::size_t outside = static_cast<std::size_t>((40 * 160 + 5) * 4);
     expect(
-        base[outside] == 0xe9 && base[outside + 1] == 0xc4 && base[outside + 2] == 0x6a,
-        "metal casts no glow on its surroundings"
+      base[outside] == 0xe9 && base[outside + 1] == 0xc4 && base[outside + 2] == 0x6a,
+      "metal casts no glow on its surroundings"
     );
     // Flow: the face keeps drifting and loops seamlessly.
     const auto at = [](Lens g, float t) {
@@ -514,12 +513,12 @@ int main() {
     calm.swellAmp = 0.f;
     expect(differs(render(water), render(calm)), "water swellAmp override renders");
     expect(
-        differs(render(water), render(at(water, water.motion.period - 0.5f))),
-        "water waves move with time"
+      differs(render(water), render(at(water, water.motion.period - 0.5f))),
+      "water waves move with time"
     );
     expect(
-        render(at(water, 2.f * water.motion.period)) == render(water),
-        "water waves loop after 2 periods"
+      render(at(water, 2.f * water.motion.period)) == render(water),
+      "water waves loop after 2 periods"
     );
   }
 
@@ -549,12 +548,12 @@ int main() {
     const char* shaders[] = {"packages/glim-gpu/shaders/glass.frag"};
     // Previously-dead fields first, then the semantic switches.
     const char* fields[] = {
-        "fresnelRange",  "fresnelHardness",  "fresnelIntensity", "glareAngle", "glareRange",
-        "glareHardness", "glareConvergence", "glareIntensity",   "edge",       "tint",
-        "blurEdge",      "dimmer",           "lumaOn",           "dispersion", "ior",
-        "thickness",     "refDistance",      "material",         "transmit",   "rippleAmp",
-        "timeSec",       "envSoft",          "absorbK",          "swellAmp",   "swellScale",
-        "envLight",      "swellPhase",
+      "fresnelRange",  "fresnelHardness",  "fresnelIntensity", "glareAngle", "glareRange",
+      "glareHardness", "glareConvergence", "glareIntensity",   "edge",       "tint",
+      "blurEdge",      "dimmer",           "lumaOn",           "dispersion", "ior",
+      "thickness",     "refDistance",      "material",         "transmit",   "rippleAmp",
+      "timeSec",       "envSoft",          "absorbK",          "swellAmp",   "swellScale",
+      "envLight",      "swellPhase",
     };
     for (const char* rel : shaders) {
       const std::string path = root + rel;

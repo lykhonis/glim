@@ -64,8 +64,8 @@ int main() {
   expect(childFill && glim::nearlyEqual(childFill->rect.origin.x, 5.f), "merged child origin x");
   expect(childFill && glim::nearlyEqual(childFill->rect.origin.y, 6.f), "merged child origin y");
   expect(
-      childFill && childFill->matter.kind == glim::paint::MatterKind::Solid,
-      "merged fill is solid matter"
+    childFill && childFill->matter.kind == glim::paint::MatterKind::Solid,
+    "merged fill is solid matter"
   );
   expect(childFill && childFill->matter.color.rgba == 0x00ff00ff, "merged fill keeps color");
 
@@ -124,7 +124,7 @@ int main() {
     photo.finish();
     merged = glim::paint::merge(std::move(photo.scene().root), &stats);
     auto* blit =
-        merged.shapes.empty() ? nullptr : std::get_if<glim::paint::Blit>(&merged.shapes.back());
+      merged.shapes.empty() ? nullptr : std::get_if<glim::paint::Blit>(&merged.shapes.back());
     expect(merged.children.empty() && blit, "faded blit folds into its parent");
     expect(blit && blit->matter.color.a() == 64, "fold carries the fade in the blit tint");
   }
@@ -146,12 +146,12 @@ int main() {
   merged = glim::paint::merge(std::move(frost.scene().root), &stats);
   expect(merged.children.size() == 1, "backdrop group stays isolated");
   expect(
-      merged.children.size() == 1 && glim::paint::hasBackdrop(*merged.children[0]),
-      "backdropBlur marks backdrop"
+    merged.children.size() == 1 && glim::paint::hasBackdrop(*merged.children[0]),
+    "backdropBlur marks backdrop"
   );
   expect(
-      merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
-      "backdrop isolates"
+    merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
+    "backdrop isolates"
   );
   expect(!glim::paint::canMerge(*merged.children[0]), "canMerge refuses backdrop");
   expect(glim::nearlyEqual(glim::paint::snapBackdropSigma(7.f), 8.f), "sigma snaps to 8");
@@ -172,15 +172,14 @@ int main() {
   merged = glim::paint::merge(std::move(lens.scene().root), &stats);
   expect(merged.children.size() == 1, "glass group stays isolated");
   expect(
-      merged.children.size() == 1 && glim::paint::hasGlass(*merged.children[0]), "Glass marks glass"
+    merged.children.size() == 1 && glim::paint::hasGlass(*merged.children[0]), "Glass marks glass"
   );
   expect(
-      merged.children.size() == 1 && !glim::paint::hasBackdrop(*merged.children[0]),
-      "glass is independent of backdrop"
+    merged.children.size() == 1 && !glim::paint::hasBackdrop(*merged.children[0]),
+    "glass is independent of backdrop"
   );
   expect(
-      merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
-      "glass isolates"
+    merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]), "glass isolates"
   );
   expect(!glim::paint::canMerge(*merged.children[0]), "canMerge refuses glass");
 
@@ -230,7 +229,7 @@ int main() {
   roundCtx.finish();
   merged = glim::paint::merge(std::move(roundCtx.scene().root), nullptr);
   expect(
-      std::get_if<glim::paint::FillRounded>(&merged.shapes[0]) != nullptr, "fillRounded records"
+    std::get_if<glim::paint::FillRounded>(&merged.shapes[0]) != nullptr, "fillRounded records"
   );
   expect(std::get_if<glim::paint::Stroke>(&merged.shapes[1]) != nullptr, "stroke records");
 
@@ -248,25 +247,25 @@ int main() {
   merged = glim::paint::merge(std::move(slotCtx.scene().root), &stats);
   expect(merged.children.size() == 1, "SlotHole child is not merged");
   expect(
-      merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
-      "merged tree keeps SlotHole"
+    merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
+    "merged tree keeps SlotHole"
   );
 
   expect(
-      glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::SrcOver),
-      "SrcOver merges into SrcOver"
+    glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::SrcOver),
+    "SrcOver merges into SrcOver"
   );
   expect(
-      glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::Plus),
-      "Plus merges into Plus"
+    glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::Plus),
+    "Plus merges into Plus"
   );
   expect(
-      !glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::Plus),
-      "mixed blends never share a pass"
+    !glim::paint::blendCompatible(glim::paint::Blend::SrcOver, glim::paint::Blend::Plus),
+    "mixed blends never share a pass"
   );
   expect(
-      !glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::SrcOver),
-      "mixed blends never share a pass (reversed)"
+    !glim::paint::blendCompatible(glim::paint::Blend::Plus, glim::paint::Blend::SrcOver),
+    "mixed blends never share a pass (reversed)"
   );
 
   glim::paint::Context plusCtx;
@@ -289,8 +288,8 @@ int main() {
   merged = glim::paint::merge(std::move(plusCtx.scene().root), &stats);
   expect(merged.children.size() == 1, "Plus parent stays isolated from SrcOver root");
   expect(
-      merged.children.size() == 1 && merged.children[0]->children.empty(),
-      "both-Plus child folds into Plus parent"
+    merged.children.size() == 1 && merged.children[0]->children.empty(),
+    "both-Plus child folds into Plus parent"
   );
 
   glim::paint::Context mixedCtx;
@@ -331,24 +330,24 @@ int main() {
     merged = glim::paint::merge(std::move(fuseCtx.scene().root), &stats);
     expect(merged.children.size() == 1, "adjacent glass markers fuse into one node");
     expect(
-        merged.children.size() == 1 && merged.children[0]->params.glassContainer,
-        "fused node is a glassContainer"
+      merged.children.size() == 1 && merged.children[0]->params.glassContainer,
+      "fused node is a glassContainer"
     );
     expect(
-        merged.children.size() == 1 && merged.children[0]->children.size() == 2,
-        "container keeps both markers as pill sources"
+      merged.children.size() == 1 && merged.children[0]->children.size() == 2,
+      "container keeps both markers as pill sources"
     );
     expect(
-        merged.children.size() == 1 && !glim::paint::hasGlass(*merged.children[0]),
-        "container itself carries no glass params"
+      merged.children.size() == 1 && !glim::paint::hasGlass(*merged.children[0]),
+      "container itself carries no glass params"
     );
     expect(
-        merged.children.size() == 1 && merged.children[0]->params.bounds.size.x >= 89.f,
-        "container bounds span both markers"
+      merged.children.size() == 1 && merged.children[0]->params.bounds.size.x >= 89.f,
+      "container bounds span both markers"
     );
     expect(
-        merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
-        "fused container isolates"
+      merged.children.size() == 1 && glim::paint::needsIsolate(*merged.children[0]),
+      "fused container isolates"
     );
   }
   // Different materials never fuse.
@@ -405,9 +404,9 @@ int main() {
     merged = glim::paint::merge(std::move(manualCtx.scene().root), &stats);
     expect(merged.children.size() == 2, "shapeful glass group does not fuse");
     expect(
-        merged.children.size() == 2 && !merged.children[0]->params.glassContainer &&
-            !merged.children[1]->params.glassContainer,
-        "no container synthesized around manual glass"
+      merged.children.size() == 2 && !merged.children[0]->params.glassContainer &&
+        !merged.children[1]->params.glassContainer,
+      "no container synthesized around manual glass"
     );
   }
 

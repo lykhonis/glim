@@ -15,12 +15,12 @@ namespace toolkit {
 
 // Point `d` units along the route (looping) and its travel direction.
 inline city::V3 routeAt(
-    const std::vector<city::V3>& route, float d, city::V2* dir
+  const std::vector<city::V3>& route, float d, city::V2* dir
 ) {
   float total = 0.f;
   for (std::size_t i = 0; i + 1 < route.size(); ++i)
     total += std::hypot(
-        route[i + 1].x - route[i].x, route[i + 1].y - route[i].y
+      route[i + 1].x - route[i].x, route[i + 1].y - route[i].y
     );
   d = std::fmod(d, total);
   for (std::size_t i = 0; i + 1 < route.size(); ++i) {
@@ -30,9 +30,7 @@ inline city::V3 routeAt(
     if (d <= len || i + 2 == route.size()) {
       *dir = {dx / len, dy / len};
       return {
-          route[i].x + dx * d / len,
-          route[i].y + dy * d / len,
-          route[i].z
+        route[i].x + dx * d / len, route[i].y + dy * d / len, route[i].z
       };
     }
     d -= len;
@@ -43,10 +41,10 @@ inline city::V3 routeAt(
 // The flying car: a hot beacon hovering over the route with its shadow
 // dart on the ground beneath.
 inline void paintCraft(
-    AnySink& sink,
-    const city::Camera& cam,
-    const std::vector<city::V3>& route,
-    float travel
+  AnySink& sink,
+  const city::Camera& cam,
+  const std::vector<city::V3>& route,
+  float travel
 ) {
   using namespace city;
   V2 dir;
@@ -60,7 +58,7 @@ inline void paintCraft(
   sink.polyline(tether.data(), 2, 1.f, 3.f, 0xfa780890u);
   sink.pushBlend(BlendMode::Plus);
   sink.fillRounded(
-      {p.x - 16.f, p.y - 16.f, 32.f, 32.f}, 16, 0xfa780828u
+    {p.x - 16.f, p.y - 16.f, 32.f, 32.f}, 16, 0xfa780828u
   );
   sink.fillRounded({p.x - 8.f, p.y - 8.f, 16.f, 16.f}, 8, 0xfa780860u);
   sink.pop();
@@ -69,7 +67,7 @@ inline void paintCraft(
 
 // Live layer: the route HUD (glow, dotted core, ground darts).
 inline void paintCityRoute(
-    AnySink& sink, const city::Camera& cam, float travel
+  AnySink& sink, const city::Camera& cam, float travel
 ) {
   using namespace city;
   static const Layout layout;
@@ -80,11 +78,11 @@ inline void paintCityRoute(
       const float t = static_cast<float>(s) / 24.f;
       V2 p;
       if (project(
-              cam,
-              {route[i].x + (route[i + 1].x - route[i].x) * t,
-               route[i].y + (route[i + 1].y - route[i].y) * t,
-               route[i].z},
-              &p
+            cam,
+            {route[i].x + (route[i + 1].x - route[i].x) * t,
+             route[i].y + (route[i + 1].y - route[i].y) * t,
+             route[i].z},
+            &p
           )) {
         pts.push_back(p.x);
         pts.push_back(p.y);
@@ -96,7 +94,7 @@ inline void paintCityRoute(
   sink.polyline(pts.data(), pts.size() / 2, 4.f, 0.f, 0xfa780848u);
   sink.pop();
   sink.polyline(
-      pts.data(), pts.size() / 2, 2.f, 5.f, fui::Ref::kOrange
+    pts.data(), pts.size() / 2, 2.f, 5.f, fui::Ref::kOrange
   );
   // Darts advance with the craft: their phase is the distance flown.
   constexpr float kPitch = 150.f;
@@ -107,11 +105,11 @@ inline void paintCityRoute(
     const float len = std::hypot(dx, dy);
     for (float d = carry; d < len; d += kPitch) {
       paintGroundChevron(
-          sink,
-          cam,
-          {route[i].x + dx * d / len, route[i].y + dy * d / len, 0.6f},
-          {dx / len, dy / len},
-          13.f
+        sink,
+        cam,
+        {route[i].x + dx * d / len, route[i].y + dy * d / len, 0.6f},
+        {dx / len, dy / len},
+        13.f
       );
       carry = d + kPitch - len;
     }
@@ -121,7 +119,7 @@ inline void paintCityRoute(
 
 // Unbaked fallback: the whole city as vectors.
 inline void paintCityMap(
-    const Box& box, AnySink& sink, const Engine& e, float travel
+  const Box& box, AnySink& sink, const Engine& e, float travel
 ) {
   const CityView v = cityView(box);
   const city::Camera cam = cityCamera(v);

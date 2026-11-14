@@ -19,14 +19,14 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
   bool frosted = false;
   Box place(Constraints c, const Engine& e) const {
     Constraints ic = detail::inset(
-        c, static_cast<float>(2 * padH), static_cast<float>(2 * padV)
+      c, static_cast<float>(2 * padH), static_cast<float>(2 * padV)
     );
     detail::Flow f = detail::flowColumn(children, gap, ic, e);
     f.size.w = detail::clampF(
-        f.size.w + static_cast<float>(2 * padH), c.minW, c.maxW
+      f.size.w + static_cast<float>(2 * padH), c.minW, c.maxW
     );
     f.size.h = detail::clampF(
-        f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH
+      f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH
     );
     return f.size;
   }
@@ -36,16 +36,16 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
     if (w < 0) w = 0;
     if (h < 0) h = 0;
     return {
-        box.x + static_cast<float>(padH),
-        box.y + static_cast<float>(padV),
-        w,
-        h
+      box.x + static_cast<float>(padH),
+      box.y + static_cast<float>(padV),
+      w,
+      h
     };
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     Box inner = innerBox(box);
     detail::Flow f =
-        detail::flowColumn(children, gap, {0, inner.w, 0, inner.h}, e);
+      detail::flowColumn(children, gap, {0, inner.w, 0, inner.h}, e);
     Box b = f.children[i];
     b.x += inner.x;
     b.y += inner.y;
@@ -57,16 +57,16 @@ struct Card : WithGap, WithRadius, WithThrough, WithPad, WithSemantic {
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     if (frosted) return;
     sink.fillGradient(
-        box,
-        radius,
-        themeColor(e, kShowCardTop, Show::kCardTop),
-        themeColor(e, kShowCardBottom, Show::kCardBottom)
+      box,
+      radius,
+      themeColor(e, kShowCardTop, Show::kCardTop),
+      themeColor(e, kShowCardBottom, Show::kCardBottom)
     );
     sink.stroke(
-        box,
-        radius,
-        1.0f,
-        themeColor(e, kShowCardStroke, Show::kCardStroke)
+      box,
+      radius,
+      1.0f,
+      themeColor(e, kShowCardStroke, Show::kCardStroke)
     );
   }
 };
@@ -100,7 +100,7 @@ struct Pane {
     // row end on one line.
     const float h = box.h - 2 * kBleed;
     Box b = e.place(
-        children[0], {box.w - 2 * kBleed, box.w - 2 * kBleed, h, h}
+      children[0], {box.w - 2 * kBleed, box.w - 2 * kBleed, h, h}
     );
     b.x = box.x + kBleed;
     b.y = box.y + kBleed;
@@ -127,7 +127,7 @@ Block glassCard(std::uint32_t tint, As&&... as) {
   plate.tint = tint;
   Pane pane;
   pane.children.push_back(
-      finish(std::move(c), std::forward<As>(as)..., plate)
+    finish(std::move(c), std::forward<As>(as)..., plate)
   );
   return finish(std::move(pane));
 }

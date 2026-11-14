@@ -23,12 +23,12 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
     }
     GpuImage& img = impl_->targets[handle];
     if (impl_->makeImage(
-            w,
-            h,
-            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            img,
-            true
+          w,
+          h,
+          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+          img,
+          true
         ) != VK_SUCCESS) {
       return Result<FrameTarget>::fail("Vulkan FrameTarget image failed");
     }
@@ -48,11 +48,11 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
 Result<Buffer> Device::createBuffer(const BufferDesc& desc) {
   GpuBuffer buf{};
   if (impl_->makeBuffer(
-          desc.size,
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-          buf
+        desc.size,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+          VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        buf
       ) != VK_SUCCESS) {
     return Result<Buffer>::fail("vkCreateBuffer failed");
   }
@@ -83,12 +83,12 @@ Result<Texture> Device::createTexture(const TextureDesc& desc) {
   const int h = std::max(desc.height, 1);
   GpuImage img{};
   if (impl_->makeImage(
-          w,
-          h,
-          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-          img,
-          true,
-          VK_FORMAT_R8G8B8A8_UNORM
+        w,
+        h,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        img,
+        true,
+        VK_FORMAT_R8G8B8A8_UNORM
       ) != VK_SUCCESS) {
     return Result<Texture>::fail("Vulkan sampled image failed");
   }
@@ -119,10 +119,10 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
   }
   GpuBuffer staging{};
   if (impl_->makeBuffer(
-          need,
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-          staging
+        need,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        staging
       ) != VK_SUCCESS ||
       !staging.mapped) {
     impl_->destroyBuffer(staging);
@@ -145,33 +145,33 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
   bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(cmd, &bi);
   imageBarrier(
-      cmd,
-      img.image,
-      img.layout,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      0,
-      VK_ACCESS_TRANSFER_WRITE_BIT,
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      VK_PIPELINE_STAGE_TRANSFER_BIT
+    cmd,
+    img.image,
+    img.layout,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    0,
+    VK_ACCESS_TRANSFER_WRITE_BIT,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT
   );
   VkBufferImageCopy copy{};
   copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   copy.imageSubresource.layerCount = 1;
   copy.imageExtent = {
-      static_cast<uint32_t>(texture.width()), static_cast<uint32_t>(texture.height()), 1
+    static_cast<uint32_t>(texture.width()), static_cast<uint32_t>(texture.height()), 1
   };
   vkCmdCopyBufferToImage(
-      cmd, staging.buffer, img.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy
+    cmd, staging.buffer, img.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy
   );
   imageBarrier(
-      cmd,
-      img.image,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_TRANSFER_WRITE_BIT,
-      VK_ACCESS_SHADER_READ_BIT,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+    cmd,
+    img.image,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    VK_ACCESS_TRANSFER_WRITE_BIT,
+    VK_ACCESS_SHADER_READ_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
   );
   vkEndCommandBuffer(cmd);
   VkSubmitInfo si{};
@@ -317,14 +317,14 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
       bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
       vkBeginCommandBuffer(cmd, &bi);
       imageBarrier(
-          cmd,
-          img.image,
-          VK_IMAGE_LAYOUT_UNDEFINED,
-          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-          0,
-          VK_ACCESS_SHADER_READ_BIT,
-          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+        cmd,
+        img.image,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        0,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
       );
       vkEndCommandBuffer(cmd);
       VkSubmitInfo si{};

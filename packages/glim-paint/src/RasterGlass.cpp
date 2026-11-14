@@ -113,7 +113,7 @@ void waterRipple(float px, float py, float iw, float ih, const Lens& mat, float&
 // The material's swell at plate pixel (px, py), in dome-radius units.
 lens::Swell plateSwell(const Lens& mat, float px, float py, float dome) {
   return lens::swellAt(
-      px / dome * mat.swellScale.x, py / dome * mat.swellScale.y, lensSwellPhase(mat)
+    px / dome * mat.swellScale.x, py / dome * mat.swellScale.y, lensSwellPhase(mat)
   );
 }
 
@@ -186,7 +186,7 @@ Pixel metalEnvGlass(const GlassSdf& f, const Lens& mat, float envL, float px, fl
 }
 
 Pixel shadeGlass(
-    Pixel p, const GlassSdf& f, const Lens& mat, float mask, float px, float py, float iw, float ih
+  Pixel p, const GlassSdf& f, const Lens& mat, float mask, float px, float py, float iw, float ih
 ) {
   const bool flatten = mat.flatten || mat.variant == LensVariant::Identity;
   if (flatten) {
@@ -305,10 +305,10 @@ Pixel shadeGlass(
         const float ny3 = (f.ny * 0.9f + (isWater ? ry * 0.18f : 0.f)) / nl;
         const float nz3 = nz;
         const float ndh = std::clamp(
-            (nx3 * hx + ny3 * hy + nz3 * hz) /
-                std::max(1e-4f, std::sqrt(nx3 * nx3 + ny3 * ny3 + nz3 * nz3) * 1.f),
-            0.f,
-            1.f
+          (nx3 * hx + ny3 * hy + nz3 * hz) /
+            std::max(1e-4f, std::sqrt(nx3 * nx3 + ny3 * ny3 + nz3 * nz3) * 1.f),
+          0.f,
+          1.f
         );
         float spec = std::pow(ndh, 56.f) * 0.9f;
         spec *= 1.f - 0.3f * (1.f - rimW);
@@ -323,7 +323,7 @@ Pixel shadeGlass(
         if (isWater) {
           // Crest lobe only for rippling water; still water has no crests.
           const float crest =
-              mat.rippleAmp > 0.f ? std::clamp((rx + ry) * 0.25f + 0.5f, 0.f, 1.f) : 0.f;
+            mat.rippleAmp > 0.f ? std::clamp((rx + ry) * 0.25f + 0.5f, 0.f, 1.f) : 0.f;
           const float ca = std::pow(rimW * (1.f - rimW) * 4.f, 2.f);
           const float cw = ca * 0.14f * crest;
           p.r += 0.85f * cw;
@@ -385,7 +385,7 @@ void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& 
 namespace {
 
 void applyGlassChrome(
-    std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Lens& mat
+  std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& field, const Lens& mat
 ) {
   for (int y = 0; y < ih; ++y) {
     const float py = static_cast<float>(y) + 0.5f;
@@ -407,12 +407,12 @@ void applyGlassChrome(
 }  // namespace
 
 PlateSpec glassPillsToField(
-    const LensPill* pills,
-    int n,
-    float mergeKPx,
-    float pr,
-    const Rect& surface,
-    const RasterOptions& options
+  const LensPill* pills,
+  int n,
+  float mergeKPx,
+  float pr,
+  const Rect& surface,
+  const RasterOptions& options
 ) {
   PlateSpec spec;
   spec.mergeK = options.glassMerge ? mergeKPx * pr : 0.f;
@@ -433,7 +433,7 @@ PlateSpec glassPillsToField(
 namespace {
 
 Pixel sampleCheapFrost(
-    const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float radius
+  const std::vector<Pixel>& dest, int dw, int dh, float sx, float sy, float radius
 ) {
   if (radius < 0.45f) {
     return sampleDestBilinear(dest, dw, dh, sx, sy);
@@ -442,7 +442,7 @@ Pixel sampleCheapFrost(
   for (int dy = -1; dy <= 1; ++dy) {
     for (int dx = -1; dx <= 1; ++dx) {
       const Pixel s = sampleDest(
-          dest, dw, dh, sx + static_cast<float>(dx) * radius, sy + static_cast<float>(dy) * radius
+        dest, dw, dh, sx + static_cast<float>(dx) * radius, sy + static_cast<float>(dy) * radius
       );
       acc.r += s.r;
       acc.g += s.g;
@@ -457,16 +457,16 @@ Pixel sampleCheapFrost(
 }  // namespace
 
 void sampleGlassPlate(
-    std::vector<Pixel>& plate,
-    int iw,
-    int ih,
-    const std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    Rect src,
-    const Lens& mat,
-    const PlateSpec& field,
-    const RasterOptions& options
+  std::vector<Pixel>& plate,
+  int iw,
+  int ih,
+  const std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  Rect src,
+  const Lens& mat,
+  const PlateSpec& field,
+  const RasterOptions& options
 ) {
   if (iw <= 0 || ih <= 0 || dw <= 0 || dh <= 0 || src.size.x <= 0.f || src.size.y <= 0.f) {
     return;
@@ -508,7 +508,7 @@ void sampleGlassPlate(
   if (options.glassBlur && !flatten) {
     copyDestPlate(plate, iw, ih, dest, dw, dh, src);
     const float sigma =
-        mat.material == LensMaterial::Water ? 1.f : (mat.variant == LensVariant::Clear ? 0.f : 6.f);
+      mat.material == LensMaterial::Water ? 1.f : (mat.variant == LensVariant::Clear ? 0.f : 6.f);
     blurCheap(plate, iw, ih, sigma);
     applyGlassChrome(plate, iw, ih, field, mat);
     return;
@@ -537,8 +537,8 @@ void sampleGlassPlate(
     }
     const float ipr = 1.f / std::max(field.pr, 1e-4f);
     thickPx =
-        lensThicknessFor(mat, Rect{{x0 * ipr, y0 * ipr}, {(x1 - x0) * ipr, (y1 - y0) * ipr}}) *
-        field.pr;
+      lensThicknessFor(mat, Rect{{x0 * ipr, y0 * ipr}, {(x1 - x0) * ipr, (y1 - y0) * ipr}}) *
+      field.pr;
   }
   const bool refractive = thickPx > 0.001f;
   for (int y = 0; y < ih; ++y) {
@@ -562,7 +562,7 @@ void sampleGlassPlate(
         // R / (R - bend). Snell sets bend from ior; capped below the radius.
         const float tilt = lens::domeTilt(std::max(-f.d, 0.f), f.dome);
         const float bend =
-            std::min((1.f - 1.f / std::max(mat.ior, 1.01f)) * thickPx * 1.6f, f.dome * 0.45f);
+          std::min((1.f - 1.f / std::max(mat.ior, 1.01f)) * thickPx * 1.6f, f.dome * 0.45f);
         sxr -= f.nx * tilt * bend * kx;
         syr -= f.ny * tilt * bend * ky;
         // The surface swell bends what lies beneath into soft waves.
@@ -594,10 +594,10 @@ void sampleGlassPlate(
       if (refractive) {
         const float delta = std::max(-f.d, 0.f);
         const float wrapT =
-            12.f * prN + (std::max(thickPx, f.corner * 0.6f) - 12.f * prN) * f.fillet;
+          12.f * prN + (std::max(thickPx, f.corner * 0.6f) - 12.f * prN) * f.fillet;
         const float diag = lens::saturate(std::fabs(f.nx * f.ny) * 2.f);
         const lens::RimRefract rr =
-            lens::rimRefract(delta, wrapT, mat.ior, mat.refDistance, prN, f.fillet, diag);
+          lens::rimRefract(delta, wrapT, mat.ior, mat.refDistance, prN, f.fillet, diag);
         if (rr.wrapX > 0.f) {
           const float bx = (aligned ? static_cast<float>(ox + x) + 0.5f
                                     : src.origin.x + px / plateW * src.size.x) +
@@ -609,11 +609,11 @@ void sampleGlassPlate(
           const float gamma = mat.dispersion;
           if (gamma > 0.f && rr.wrapX > 0.08f) {
             w.r =
-                sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f - gamma), by + oy0 * (1.f - gamma))
-                    .r;
+              sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f - gamma), by + oy0 * (1.f - gamma))
+                .r;
             w.b =
-                sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f + gamma), by + oy0 * (1.f + gamma))
-                    .b;
+              sampleDestBilinear(dest, dw, dh, bx + ox0 * (1.f + gamma), by + oy0 * (1.f + gamma))
+                .b;
           }
           if (frostR > 0.f) {
             const Pixel fz = sampleCheapFrost(dest, dw, dh, bx + ox0, by + oy0, frostR);

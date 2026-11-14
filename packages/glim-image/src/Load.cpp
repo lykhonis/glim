@@ -30,7 +30,7 @@ bool load(const char* path, Image* out) {
     return true;
   int w = 0, h = 0, comp = 0;
   unsigned char* px =
-      stbi_load_from_memory(bytes.data(), static_cast<int>(bytes.size()), &w, &h, &comp, 4);
+    stbi_load_from_memory(bytes.data(), static_cast<int>(bytes.size()), &w, &h, &comp, 4);
   if (!px) return false;
   *out = Image::rgba8(w, h);
   std::copy(px, px + out->byteCount(), out->rgba.begin());

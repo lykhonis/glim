@@ -355,31 +355,31 @@ struct SlotHole {
 };
 
 using Shape = std::variant<
-    FillRect,
-    FillRounded,
-    FillChamfer,
-    Stroke,
-    StrokeChamfer,
-    Arc,
-    Polyline,
-    Blit,
-    GlyphRun,
-    SlotHole>;
+  FillRect,
+  FillRounded,
+  FillChamfer,
+  Stroke,
+  StrokeChamfer,
+  Arc,
+  Polyline,
+  Blit,
+  GlyphRun,
+  SlotHole>;
 
 inline constexpr std::size_t kShapeKinds = std::variant_size_v<Shape>;
 
 inline const char* shapeKindName(std::size_t index) {
   static constexpr const char* kNames[] = {
-      "FillRect",
-      "FillRounded",
-      "FillChamfer",
-      "Stroke",
-      "StrokeChamfer",
-      "Arc",
-      "Polyline",
-      "Blit",
-      "GlyphRun",
-      "SlotHole",
+    "FillRect",
+    "FillRounded",
+    "FillChamfer",
+    "Stroke",
+    "StrokeChamfer",
+    "Arc",
+    "Polyline",
+    "Blit",
+    "GlyphRun",
+    "SlotHole",
   };
   static_assert(sizeof(kNames) / sizeof(kNames[0]) == kShapeKinds);
   return index < kShapeKinds ? kNames[index] : "?";

@@ -23,7 +23,7 @@ RunLoop::LocalRunLoop::LocalRunLoop() noexcept : runLoop(CFRunLoopGetCurrent()) 
   ctx.version = 0;
   ctx.info = runLoop;
   timer = CFRunLoopTimerCreate(
-      kCFAllocatorDefault, kDistantFuture, kDistantFuture, 0, 0, glimRunLoopTimerCallback, &ctx
+    kCFAllocatorDefault, kDistantFuture, kDistantFuture, 0, 0, glimRunLoopTimerCallback, &ctx
   );
   CFRunLoopAddTimer(runLoop, timer, kCFRunLoopCommonModes);
 }

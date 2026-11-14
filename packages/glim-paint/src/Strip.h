@@ -40,16 +40,16 @@ void clipStrips(std::vector<Strip>&, const ClipState&);
 void stripsToQuads(const std::vector<Strip>&, const Vec4& premul, std::vector<Quad>&);
 void stripsToGradientQuads(const std::vector<Strip>&, const Matter&, std::vector<GradientQuad>&);
 void appendGradientQuad(
-    std::vector<GradientQuad>& out,
-    float x,
-    float y,
-    float w,
-    float h,
-    float coverage,
-    const Matter& m
+  std::vector<GradientQuad>& out,
+  float x,
+  float y,
+  float w,
+  float h,
+  float coverage,
+  const Matter& m
 );
 void flattenDottedPolyline(
-    const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
+  const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
 );
 
 void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::vector<GradientQuad>& gradients, const Shape& shape, const ClipState&);
@@ -58,12 +58,12 @@ void appendShape(std::vector<Quad>& quads, std::vector<BlitQuad>& blits, std::ve
 // rotated worlds rasterize via inverse-mapped coverage (true rotated
 // quads as 1px strips — no new shape kinds, works on CPU + GPU).
 void appendShapeWorld(
-    std::vector<Quad>& quads,
-    std::vector<BlitQuad>& blits,
-    std::vector<GradientQuad>& gradients,
-    const Shape& shape,
-    const Mat4& world,
-    const ClipState& clip
+  std::vector<Quad>& quads,
+  std::vector<BlitQuad>& blits,
+  std::vector<GradientQuad>& gradients,
+  const Shape& shape,
+  const Mat4& world,
+  const ClipState& clip
 );
 
 float roundedCoverage(const Rect&, Radius, float px, float py);

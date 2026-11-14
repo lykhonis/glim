@@ -27,16 +27,16 @@ std::vector<GlyphSdf> renderSdfs(const stbtt_fontinfo& info, float scale) {
   parallelFor(sdfs.size(), [&](std::size_t i) {
     GlyphSdf& g = sdfs[i];
     g.pixels = stbtt_GetCodepointSDF(
-        &info,
-        scale,
-        kFirstGlyph + static_cast<int>(i),
-        kSdfPad,
-        kSdfOnEdge,
-        pixelDistScale,
-        &g.w,
-        &g.h,
-        &g.xoff,
-        &g.yoff
+      &info,
+      scale,
+      kFirstGlyph + static_cast<int>(i),
+      kSdfPad,
+      kSdfOnEdge,
+      pixelDistScale,
+      &g.w,
+      &g.h,
+      &g.xoff,
+      &g.yoff
     );
   });
   return sdfs;
@@ -110,10 +110,10 @@ FontAtlas bakeLatin() {
     g.w = static_cast<float>(gw);
     g.h = static_cast<float>(gh);
     g.uv = {
-        {static_cast<float>(x) / static_cast<float>(kAtlas),
-         static_cast<float>(y) / static_cast<float>(kAtlas)},
-        {static_cast<float>(gw) / static_cast<float>(kAtlas),
-         static_cast<float>(gh) / static_cast<float>(kAtlas)}
+      {static_cast<float>(x) / static_cast<float>(kAtlas),
+       static_cast<float>(y) / static_cast<float>(kAtlas)},
+      {static_cast<float>(gw) / static_cast<float>(kAtlas),
+       static_cast<float>(gh) / static_cast<float>(kAtlas)}
     };
     x += gw + 1;
     rowH = std::max(rowH, gh);

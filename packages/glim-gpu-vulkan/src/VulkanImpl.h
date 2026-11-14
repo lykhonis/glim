@@ -32,7 +32,7 @@ inline VkBlendFactor dstFactor(Blend blend) {
 }
 
 inline uint32_t findMemoryType(
-    VkPhysicalDevice phys, uint32_t filter, VkMemoryPropertyFlags flags
+  VkPhysicalDevice phys, uint32_t filter, VkMemoryPropertyFlags flags
 ) {
   VkPhysicalDeviceMemoryProperties props{};
   vkGetPhysicalDeviceMemoryProperties(phys, &props);
@@ -54,14 +54,14 @@ inline bool hasExtension(const std::vector<VkExtensionProperties>& ext, const ch
 }
 
 inline void imageBarrier(
-    VkCommandBuffer cmd,
-    VkImage image,
-    VkImageLayout oldLayout,
-    VkImageLayout newLayout,
-    VkAccessFlags srcAccess,
-    VkAccessFlags dstAccess,
-    VkPipelineStageFlags srcStage,
-    VkPipelineStageFlags dstStage
+  VkCommandBuffer cmd,
+  VkImage image,
+  VkImageLayout oldLayout,
+  VkImageLayout newLayout,
+  VkAccessFlags srcAccess,
+  VkAccessFlags dstAccess,
+  VkPipelineStageFlags srcStage,
+  VkPipelineStageFlags dstStage
 ) {
   VkImageMemoryBarrier b{};
   b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -191,23 +191,23 @@ struct Device::Impl {
   void destroy();
 
   VkResult makeBuffer(
-      VkDeviceSize size,
-      VkBufferUsageFlags usage,
-      VkMemoryPropertyFlags memFlags,
-      vulkan::GpuBuffer& out
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags memFlags,
+    vulkan::GpuBuffer& out
   );
 
   VkResult makeImage(
-      int w,
-      int h,
-      VkImageUsageFlags usage,
-      vulkan::GpuImage& out,
-      bool sampled,
-      VkFormat imgFormat = VK_FORMAT_UNDEFINED
+    int w,
+    int h,
+    VkImageUsageFlags usage,
+    vulkan::GpuImage& out,
+    bool sampled,
+    VkFormat imgFormat = VK_FORMAT_UNDEFINED
   );
 
   VkRenderPass makeRenderPass(
-      VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkImageLayout initial
+    VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkImageLayout initial
   );
 
   bool pickFormat();

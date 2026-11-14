@@ -28,19 +28,19 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
     std::string kind = "Custom";
     if (!tmp.entries.empty()) kind = tmp.entries.front().kind;
     out.push_back(
-        {mark ? mark->get() : std::string{},
-         std::move(kind),
-         std::move(label),
-         bx,
-         focusable,
-         std::move(traits)}
+      {mark ? mark->get() : std::string{},
+       std::move(kind),
+       std::move(label),
+       bx,
+       focusable,
+       std::move(traits)}
     );
   });
   return out;
 }
 
 std::optional<std::reference_wrapper<const A11yNode>> a11yFind(
-    const std::vector<A11yNode>& nodes, const std::string& id
+  const std::vector<A11yNode>& nodes, const std::string& id
 ) {
   for (const auto& n : nodes) {
     if (n.id == id) return std::cref(n);

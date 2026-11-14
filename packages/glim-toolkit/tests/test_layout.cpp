@@ -6,7 +6,7 @@ void test_layout() {
   Store store;
   // share = (720 - 3*8) / 4 = 174.
   Block fr = row(
-      gap(8), lines("a", expand()), lines("b", expand()), lines("c", expand()), lines("d", expand())
+    gap(8), lines("a", expand()), lines("b", expand()), lines("c", expand()), lines("d", expand())
   );
   Box fb = place(fr, {0, 720, 0, 480});
   assert(fb.w == 720);
@@ -58,7 +58,7 @@ void test_layout() {
   }
   State<float> off2 = store.make<float>(160.0f);
   Block scrolled = roll(
-      horizontal(), scrollOffset(off2), lines("12345678901234567890"), lines("12345678901234567890")
+    horizontal(), scrollOffset(off2), lines("12345678901234567890"), lines("12345678901234567890")
   );
   Box scrolledBox = place(scrolled, {0, 100, 0, 480});
   {
@@ -67,8 +67,8 @@ void test_layout() {
     assert(recr.entries[1].box.x == -160);
     BlockRef top = hit(scrolled, scrolledBox, 2, 2);
     assert(
-        top && top->get().get<Lines>() &&
-        top->get().get<Lines>()->get().text == "12345678901234567890"
+      top && top->get().get<Lines>() &&
+      top->get().get<Lines>()->get().text == "12345678901234567890"
     );
   }
 
@@ -77,11 +77,11 @@ void test_layout() {
     auto filler = [](int i) { return lines("filler" + std::to_string(i) + "-filler-filler"); };
     State<float> zero = store.make<float>(0.0f);
     Block tall = roll(
-        vertical(),
-        scrollOffset(zero),
-        tap(lines("top"), [] {}),
-        list(10, filler),
-        tap(lines("buried"), [] {})
+      vertical(),
+      scrollOffset(zero),
+      tap(lines("top"), [] {}),
+      list(10, filler),
+      tap(lines("buried"), [] {})
     );
     // top [0,14), fillers [14,154), buried [154,168); viewport 100.
     Box tallBox = place(tall, {0, 720, 0, 100});

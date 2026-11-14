@@ -33,15 +33,15 @@ struct Grid : WithGap {
     std::size_t cols = n;
     if (!isUnbounded(width))
       cols = static_cast<std::size_t>(
-          std::max(1.0f, (width + g) / (minCell + g))
+        std::max(1.0f, (width + g) / (minCell + g))
       );
     cols = std::max<std::size_t>(1, std::min(cols, n));
     if (maxCols > 0)
       cols = std::min(cols, static_cast<std::size_t>(maxCols));
     const float cell = isUnbounded(width)
-                           ? minCell
-                           : (width - g * static_cast<float>(cols - 1)
-                             ) / static_cast<float>(cols);
+                         ? minCell
+                         : (width - g * static_cast<float>(cols - 1)) /
+                             static_cast<float>(cols);
     Cells out;
     out.boxes.resize(n);
     float y = 0.0f;

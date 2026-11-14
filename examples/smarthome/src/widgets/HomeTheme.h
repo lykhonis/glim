@@ -12,15 +12,15 @@ namespace toolkit {
 
 inline constexpr ThemeKey kShowCardTop{themeKey("smarthome.cardTop")};
 inline constexpr ThemeKey kShowCardBottom{
-    themeKey("smarthome.cardBottom")
+  themeKey("smarthome.cardBottom")
 };
 inline constexpr ThemeKey kShowCardStroke{
-    themeKey("smarthome.cardStroke")
+  themeKey("smarthome.cardStroke")
 };
 inline constexpr ThemeKey kShowAccentTop{themeKey("smarthome.accentTop")
 };
 inline constexpr ThemeKey kShowAccentBottom{
-    themeKey("smarthome.accentBottom")
+  themeKey("smarthome.accentBottom")
 };
 inline constexpr ThemeKey kShowTrackTop{themeKey("smarthome.trackTop")};
 inline constexpr ThemeKey kShowThumbTop{themeKey("smarthome.thumbTop")};
@@ -40,7 +40,7 @@ inline constexpr ThemeKey kShowGlowWarm{themeKey("smarthome.glowWarm")};
 inline constexpr ThemeKey kShowGlowCool{themeKey("smarthome.glowCool")};
 inline constexpr ThemeKey kShowScrimTop{themeKey("smarthome.scrimTop")};
 inline constexpr ThemeKey kShowScrimBottom{
-    themeKey("smarthome.scrimBottom")
+  themeKey("smarthome.scrimBottom")
 };
 // Status dots: ok / warn / bad.
 inline constexpr ThemeKey kShowOk{themeKey("smarthome.ok")};
@@ -111,57 +111,56 @@ struct SmartHomeTheme {
 inline Block smartHomeThemed(SmartHomeTheme t) {
   const bool light = t.light;
   return themed(
-      themeColor(
-          kThemeWindowBg,
-          light ? ShowLight::kWindowBg : ShowDark::kWindowBg
-      ),
-      themeColor(
-          kThemeInkOnLight, light ? ShowLight::kInk : ShowDark::kInk
-      ),
-      themeColor(
-          kShowCardTop, light ? ShowLight::kCardTop : Show::kCardTop
-      ),
-      themeColor(
-          kShowCardBottom,
-          light ? ShowLight::kCardBottom : Show::kCardBottom
-      ),
-      themeColor(
-          kShowCardStroke,
-          light ? ShowLight::kCardStroke : Show::kCardStroke
-      ),
-      themeColor(kShowAccentTop, Show::kAccentTop),
-      themeColor(kShowAccentBottom, Show::kAccentBottom),
-      themeColor(
-          kShowTrackTop, light ? ShowLight::kTrackTop : Show::kTrackTop
-      ),
-      themeColor(
-          kShowThumbTop, light ? ShowLight::kThumbTop : Show::kThumbTop
-      ),
-      themeColor(
-          kShowThumbRim, light ? ShowLight::kThumbRim : Show::kThumbRim
-      ),
-      themeFloat(kShowTitleSize, Show::kTitleSize),
-      themeFloat(kShowValueSize, Show::kValueSize),
-      themeFloat(kShowHeroSize, Show::kHeroSize),
-      themeColor(kShowBgTop, light ? ShowLight::kBgTop : Show::kBgTop),
-      themeColor(
-          kShowBgBottom, light ? ShowLight::kBgBottom : Show::kBgBottom
-      ),
-      themeColor(
-          kShowGlowWarm, light ? ShowLight::kGlowWarm : Show::kGlowWarm
-      ),
-      themeColor(
-          kShowGlowCool, light ? ShowLight::kGlowCool : Show::kGlowCool
-      ),
-      themeColor(
-          kShowScrimTop, light ? ShowLight::kScrimTop : Show::kScrimTop
-      ),
-      themeColor(
-          kShowScrimBottom,
-          light ? ShowLight::kScrimBottom : Show::kScrimBottom
-      ),
-      themeColor(kShowOk, Show::kOk),
-      std::move(t.child)
+    themeColor(
+      kThemeWindowBg, light ? ShowLight::kWindowBg : ShowDark::kWindowBg
+    ),
+    themeColor(
+      kThemeInkOnLight, light ? ShowLight::kInk : ShowDark::kInk
+    ),
+    themeColor(
+      kShowCardTop, light ? ShowLight::kCardTop : Show::kCardTop
+    ),
+    themeColor(
+      kShowCardBottom,
+      light ? ShowLight::kCardBottom : Show::kCardBottom
+    ),
+    themeColor(
+      kShowCardStroke,
+      light ? ShowLight::kCardStroke : Show::kCardStroke
+    ),
+    themeColor(kShowAccentTop, Show::kAccentTop),
+    themeColor(kShowAccentBottom, Show::kAccentBottom),
+    themeColor(
+      kShowTrackTop, light ? ShowLight::kTrackTop : Show::kTrackTop
+    ),
+    themeColor(
+      kShowThumbTop, light ? ShowLight::kThumbTop : Show::kThumbTop
+    ),
+    themeColor(
+      kShowThumbRim, light ? ShowLight::kThumbRim : Show::kThumbRim
+    ),
+    themeFloat(kShowTitleSize, Show::kTitleSize),
+    themeFloat(kShowValueSize, Show::kValueSize),
+    themeFloat(kShowHeroSize, Show::kHeroSize),
+    themeColor(kShowBgTop, light ? ShowLight::kBgTop : Show::kBgTop),
+    themeColor(
+      kShowBgBottom, light ? ShowLight::kBgBottom : Show::kBgBottom
+    ),
+    themeColor(
+      kShowGlowWarm, light ? ShowLight::kGlowWarm : Show::kGlowWarm
+    ),
+    themeColor(
+      kShowGlowCool, light ? ShowLight::kGlowCool : Show::kGlowCool
+    ),
+    themeColor(
+      kShowScrimTop, light ? ShowLight::kScrimTop : Show::kScrimTop
+    ),
+    themeColor(
+      kShowScrimBottom,
+      light ? ShowLight::kScrimBottom : Show::kScrimBottom
+    ),
+    themeColor(kShowOk, Show::kOk),
+    std::move(t.child)
   );
 }
 

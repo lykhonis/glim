@@ -20,16 +20,16 @@ constexpr unsigned kWarmupSubmitFrames = 30;
 }  // namespace
 
 void Renderer::encodeGroup(
-    gpu::CommandEncoder& encoder,
-    const Group& group,
-    const Mat4& projection,
-    int viewportW,
-    int viewportH,
-    void* nativeColor,
-    gpu::LoadOp load,
-    float pixelRatio,
-    Vec2 logicalSize,
-    const Mat4& extraRoot
+  gpu::CommandEncoder& encoder,
+  const Group& group,
+  const Mat4& projection,
+  int viewportW,
+  int viewportH,
+  void* nativeColor,
+  gpu::LoadOp load,
+  float pixelRatio,
+  Vec2 logicalSize,
+  const Mat4& extraRoot
 ) {
   gpu::PassDesc passDesc;
   passDesc.nativeColor = nativeColor;
@@ -82,10 +82,10 @@ void Renderer::encodeGroup(
     w = std::max(0, std::min(w, vw - x));
     h = std::max(0, std::min(h, vh - y));
     pass.setScissor(
-        static_cast<std::uint32_t>(x),
-        static_cast<std::uint32_t>(y),
-        static_cast<std::uint32_t>(w),
-        static_cast<std::uint32_t>(h)
+      static_cast<std::uint32_t>(x),
+      static_cast<std::uint32_t>(y),
+      static_cast<std::uint32_t>(w),
+      static_cast<std::uint32_t>(h)
     );
   };
 
@@ -213,97 +213,97 @@ void Renderer::encodeGroup(
       return nullptr;
     }
     blitTexture(
-        encoder,
-        pipes_,
-        device_.nativeSampler(),
-        stats_,
-        targets_.glassSrc.native(),
-        hw,
-        hh,
-        src,
-        0.f,
-        0.f,
-        static_cast<float>(hw),
-        static_cast<float>(hh),
-        0.f,
-        0.f,
-        1.f,
-        1.f,
-        1.f,
-        1.f,
-        1.f,
-        1.f
+      encoder,
+      pipes_,
+      device_.nativeSampler(),
+      stats_,
+      targets_.glassSrc.native(),
+      hw,
+      hh,
+      src,
+      0.f,
+      0.f,
+      static_cast<float>(hw),
+      static_cast<float>(hh),
+      0.f,
+      0.f,
+      1.f,
+      1.f,
+      1.f,
+      1.f,
+      1.f,
+      1.f
     );
     return targets_.glassSrc.native();
   };
 
   const auto emitTree =
-      [&](auto& self, const Group& g, const Mat4& extra, const ClipState& parentClip) -> void {
+    [&](auto& self, const Group& g, const Mat4& extra, const ClipState& parentClip) -> void {
     const ClipState clip = intersectClip(parentClip, clipOf(g.params, extra));
     ensureBlend(g.params.blend);
     flushActive(activeBlend);
     scissorFor(clip);
     const auto addRounded =
-        [this, &pass, &clip, &addQuad, &addGradient, &activeBlend](const Shape& xf) {
-          batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, activeBlend);
-          batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, activeBlend);
-          batch_.flushGradient(pass, pipes_, stats_, activeBlend);
-          if (pipes_.rounded.native()) {
-            RoundedInstance inst{};
-            const Rect* rect = nullptr;
-            const Radius* radius = nullptr;
-            const Matter* matter = nullptr;
-            float strokeWidth = 0.f;
-            if (const auto* r = std::get_if<FillRounded>(&xf)) {
-              rect = &r->rect;
-              radius = &r->radius;
-              matter = &r->matter;
-            } else if (const auto* st = std::get_if<Stroke>(&xf)) {
-              rect = &st->rect;
-              radius = &st->radius;
-              matter = &st->matter;
-              strokeWidth = st->width;
-            }
-            if (!rect || !radius || !matter) {
-              return;
-            }
-            if (matter->isGradient()) {
-              std::vector<Quad> unused;
-              std::vector<BlitQuad> unusedBlits;
-              std::vector<GradientQuad> grads;
-              appendShape(unused, unusedBlits, grads, xf, clip);
-              for (const GradientQuad& g : grads) {
-                addGradient(g);
-              }
-              return;
-            }
-            inst.rect[0] = rect->origin.x;
-            inst.rect[1] = rect->origin.y;
-            inst.rect[2] = rect->size.x;
-            inst.rect[3] = rect->size.y;
-            inst.radii[0] = radius->lt;
-            inst.radii[1] = radius->rt;
-            inst.radii[2] = radius->lb;
-            inst.radii[3] = radius->rb;
-            const Vec4 premul = premulLinear(matter->color);
-            inst.color[0] = premul.x;
-            inst.color[1] = premul.y;
-            inst.color[2] = premul.z;
-            inst.color[3] = premul.w;
-            inst.extra[0] = strokeWidth;
-            batch_.rounded.push_back(inst);
+      [this, &pass, &clip, &addQuad, &addGradient, &activeBlend](const Shape& xf) {
+        batch_.flushBlit(pass, pipes_, device_.nativeSampler(), stats_, activeBlend);
+        batch_.flushGlyph(pass, pipes_, device_.nativeSampler(), stats_, activeBlend);
+        batch_.flushGradient(pass, pipes_, stats_, activeBlend);
+        if (pipes_.rounded.native()) {
+          RoundedInstance inst{};
+          const Rect* rect = nullptr;
+          const Radius* radius = nullptr;
+          const Matter* matter = nullptr;
+          float strokeWidth = 0.f;
+          if (const auto* r = std::get_if<FillRounded>(&xf)) {
+            rect = &r->rect;
+            radius = &r->radius;
+            matter = &r->matter;
+          } else if (const auto* st = std::get_if<Stroke>(&xf)) {
+            rect = &st->rect;
+            radius = &st->radius;
+            matter = &st->matter;
+            strokeWidth = st->width;
+          }
+          if (!rect || !radius || !matter) {
             return;
           }
-          std::vector<Quad> quads;
-          std::vector<BlitQuad> unused;
-          std::vector<GradientQuad> unusedGrads;
-          appendShape(quads, unused, unusedGrads, xf, clip);
-          batch_.flushRounded(pass, pipes_, stats_, activeBlend);
-          batch_.flushGradient(pass, pipes_, stats_, activeBlend);
-          for (const Quad& q : quads) {
-            addQuad(q);
+          if (matter->isGradient()) {
+            std::vector<Quad> unused;
+            std::vector<BlitQuad> unusedBlits;
+            std::vector<GradientQuad> grads;
+            appendShape(unused, unusedBlits, grads, xf, clip);
+            for (const GradientQuad& g : grads) {
+              addGradient(g);
+            }
+            return;
           }
-        };
+          inst.rect[0] = rect->origin.x;
+          inst.rect[1] = rect->origin.y;
+          inst.rect[2] = rect->size.x;
+          inst.rect[3] = rect->size.y;
+          inst.radii[0] = radius->lt;
+          inst.radii[1] = radius->rt;
+          inst.radii[2] = radius->lb;
+          inst.radii[3] = radius->rb;
+          const Vec4 premul = premulLinear(matter->color);
+          inst.color[0] = premul.x;
+          inst.color[1] = premul.y;
+          inst.color[2] = premul.z;
+          inst.color[3] = premul.w;
+          inst.extra[0] = strokeWidth;
+          batch_.rounded.push_back(inst);
+          return;
+        }
+        std::vector<Quad> quads;
+        std::vector<BlitQuad> unused;
+        std::vector<GradientQuad> unusedGrads;
+        appendShape(quads, unused, unusedGrads, xf, clip);
+        batch_.flushRounded(pass, pipes_, stats_, activeBlend);
+        batch_.flushGradient(pass, pipes_, stats_, activeBlend);
+        for (const Quad& q : quads) {
+          addQuad(q);
+        }
+      };
     const auto emitShape = [&](const Shape& s) {
       // Rotated worlds can't use the instanced rounded/fast paths
       // (they're axis-aligned). Tessellate to small quads instead.
@@ -407,15 +407,15 @@ void Renderer::encodeGroup(
         if (backdrop) {
           if (!snapshotted) {
             backdropTex = snapshotBackdrop(
-                encoder,
-                pipes_,
-                device_.nativeSampler(),
-                device_,
-                targets_,
-                viewportW,
-                viewportH,
-                nativeColor,
-                stats_
+              encoder,
+              pipes_,
+              device_.nativeSampler(),
+              device_,
+              targets_,
+              viewportW,
+              viewportH,
+              nativeColor,
+              stats_
             );
             snapshotted = true;
             stats_.backdropCount = 1;
@@ -435,22 +435,22 @@ void Renderer::encodeGroup(
         GLIM_ASSERT(!(backdrop && glassWork), "a Group cannot be both backdrop and glass");
         const bool childShadow = hasShadow(*child);
         const bool childContent = hasContentBlur(*child);
-        const Rect surface = glassWork
-                                 ? glassSurface(*child)
-                                 : (backdrop ? backdropSurface(*child)
-                                             : ((childShadow || childContent)
-                                                    ? shadowContentSurface(*child)
-                                                    : (child->params.bounds.size.x > 0.f &&
-                                                               child->params.bounds.size.y > 0.f
-                                                           ? child->params.bounds
-                                                           : contentBounds(*child))));
+        const Rect surface =
+          glassWork
+            ? glassSurface(*child)
+            : (backdrop ? backdropSurface(*child)
+                        : ((childShadow || childContent) ? shadowContentSurface(*child)
+                                                         : (child->params.bounds.size.x > 0.f &&
+                                                                child->params.bounds.size.y > 0.f
+                                                              ? child->params.bounds
+                                                              : contentBounds(*child))));
         const int iw = isolatePixelSizeFor(*child, surface.size.x, pixelRatio);
         const int ih = isolatePixelSizeFor(*child, surface.size.y, pixelRatio);
         gpu::FrameTarget* ft = targets_.acquire(device_, iw, ih);
         if (ft && ft->native()) {
           const float isoU1 = static_cast<float>(iw) / static_cast<float>(std::max(1, ft->width()));
           const float isoV1 =
-              static_cast<float>(ih) / static_cast<float>(std::max(1, ft->height()));
+            static_cast<float>(ih) / static_cast<float>(std::max(1, ft->height()));
           auto content = cloneGroup(*child);
           content->params.opacity = 1.0f;
           content->params.isolate = false;
@@ -472,7 +472,7 @@ void Renderer::encodeGroup(
           const Mat4 localProj = Mat4::orthoYDown(0, 0, surface.size.x, surface.size.y);
           // Content uniformly scaled by pr, so pr == iw/w up to rounding.
           const float localPr =
-              surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
+            surface.size.x > 0.f ? static_cast<float>(iw) / surface.size.x : 1.f;
           if (glassWork) {
             const Rect dest = transformRect(extra * child->params.transform, surface);
             float du0 = 0.f;
@@ -494,43 +494,43 @@ void Renderer::encodeGroup(
               gpills[i].rect.origin.y -= surface.origin.y;
             }
             const GlassUniforms gu =
-                makeGlassUniforms(mat, gpills, gn, iw, ih, localPr, du0, dv0, du1, dv1);
+              makeGlassUniforms(mat, gpills, gn, iw, ih, localPr, du0, dv0, du1, dv1);
             encodeGlassPlate(
-                encoder,
-                pipes_,
-                device_.nativeSampler(),
-                device_,
-                targets_,
-                stats_,
-                &stats_,
-                mat,
-                gu,
-                gn,
-                glassTex,
-                ft->native(),
-                iw,
-                ih,
-                localPr,
-                localProj,
-                du0,
-                dv0,
-                du1,
-                dv1
+              encoder,
+              pipes_,
+              device_.nativeSampler(),
+              device_,
+              targets_,
+              stats_,
+              &stats_,
+              mat,
+              gu,
+              gn,
+              glassTex,
+              ft->native(),
+              iw,
+              ih,
+              localPr,
+              localProj,
+              du0,
+              dv0,
+              du1,
+              dv1
             );
             if (glassTex) {
               glassTex = ft->native();
             }
             encodeGroup(
-                encoder,
-                *content,
-                localProj,
-                iw,
-                ih,
-                ft->native(),
-                glassTex ? gpu::LoadOp::Load : gpu::LoadOp::Clear,
-                localPr,
-                surface.size,
-                Mat4::translate(-surface.origin.x, -surface.origin.y)
+              encoder,
+              *content,
+              localProj,
+              iw,
+              ih,
+              ft->native(),
+              glassTex ? gpu::LoadOp::Load : gpu::LoadOp::Clear,
+              localPr,
+              surface.size,
+              Mat4::translate(-surface.origin.x, -surface.origin.y)
             );
           } else if (backdrop && backdropTex) {
             gpu::PassDesc plate;
@@ -560,18 +560,18 @@ void Renderer::encodeGroup(
             }
             const float sigma = snapBackdropSigma(child->params.backdropBlur);
             const PlateInstance back = makePlate(
-                0.f,
-                0.f,
-                surface.size.x,
-                surface.size.y,
-                u0,
-                v0,
-                u1,
-                v1,
-                sigma,
-                child->params.backdropFlat,
-                pills,
-                n
+              0.f,
+              0.f,
+              surface.size.x,
+              surface.size.y,
+              u0,
+              v0,
+              u1,
+              v1,
+              sigma,
+              child->params.backdropFlat,
+              pills,
+              n
             );
             gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blitLinear);
             gp.setBytes(0, &back, sizeof(back));
@@ -582,71 +582,71 @@ void Renderer::encodeGroup(
             stats_.draws += 1;
             gp.end();
             encodeGroup(
-                encoder,
-                *content,
-                localProj,
-                iw,
-                ih,
-                ft->native(),
-                gpu::LoadOp::Load,
-                localPr,
-                surface.size,
-                Mat4::translate(-surface.origin.x, -surface.origin.y)
+              encoder,
+              *content,
+              localProj,
+              iw,
+              ih,
+              ft->native(),
+              gpu::LoadOp::Load,
+              localPr,
+              surface.size,
+              Mat4::translate(-surface.origin.x, -surface.origin.y)
             );
           } else {
             encodeGroup(
-                encoder,
-                *content,
-                localProj,
-                iw,
-                ih,
-                ft->native(),
-                gpu::LoadOp::Clear,
-                localPr,
-                surface.size,
-                Mat4::translate(-surface.origin.x, -surface.origin.y)
+              encoder,
+              *content,
+              localProj,
+              iw,
+              ih,
+              ft->native(),
+              gpu::LoadOp::Clear,
+              localPr,
+              surface.size,
+              Mat4::translate(-surface.origin.x, -surface.origin.y)
             );
             if (childContent) {
               const float csigma = snapContentSigma(child->params.contentBlur) * localPr * 0.5f;
               if (csigma > 0.01f && pipes_.blur1d.native()) {
                 void* blurred = blurGlass(
-                    encoder,
-                    pipes_,
-                    device_.nativeSampler(),
-                    device_,
-                    targets_,
-                    ft->native(),
-                    iw,
-                    ih,
-                    0.f,
-                    0.f,
-                    1.f,
-                    1.f,
-                    csigma,
-                    &stats_
+                  encoder,
+                  pipes_,
+                  device_.nativeSampler(),
+                  device_,
+                  targets_,
+                  ft->native(),
+                  iw,
+                  ih,
+                  0.f,
+                  0.f,
+                  1.f,
+                  1.f,
+                  csigma,
+                  &stats_
                 );
                 if (blurred) {
                   blitTexture(
-                      encoder,
-                      pipes_,
-                      device_.nativeSampler(),
-                      stats_,
-                      ft->native(),
-                      iw,
-                      ih,
-                      blurred,
-                      0.f,
-                      0.f,
-                      static_cast<float>(iw),
-                      static_cast<float>(ih),
-                      0.f,
-                      0.f,
-                      1.f,
-                      1.f,
-                      1.f,
-                      1.f,
-                      1.f,
-                      1.f
+                    encoder,
+                    pipes_,
+                    device_.nativeSampler(),
+                    stats_,
+                    ft->native(),
+                    iw,
+                    ih,
+                    blurred,
+                    0.f,
+                    0.f,
+                    static_cast<float>(iw),
+                    static_cast<float>(ih),
+                    0.f,
+                    0.f,
+                    1.f,
+                    1.f,
+                    1.f,
+                    1.f,
+                    1.f,
+                    1.f
                   );
                 }
               }
@@ -665,20 +665,20 @@ void Renderer::encodeGroup(
             shadowTex = ft->native();
             if (ssigma > 0.01f && pipes_.blur1d.native()) {
               void* blurred = blurGlass(
-                  encoder,
-                  pipes_,
-                  device_.nativeSampler(),
-                  device_,
-                  targets_,
-                  ft->native(),
-                  iw,
-                  ih,
-                  0.f,
-                  0.f,
-                  1.f,
-                  1.f,
-                  ssigma,
-                  &stats_
+                encoder,
+                pipes_,
+                device_.nativeSampler(),
+                device_,
+                targets_,
+                ft->native(),
+                iw,
+                ih,
+                0.f,
+                0.f,
+                1.f,
+                1.f,
+                ssigma,
+                &stats_
               );
               if (blurred) {
                 shadowTex = blurred;
@@ -797,19 +797,19 @@ void Renderer::skipRepeat(const FrameKey& k, std::chrono::steady_clock::time_poi
   stats_.tileCount = k.tiles;
   stats_.dirtyTiles = 0;
   stats_.encodeMs =
-      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
 
 // Encodes and submits unconditionally: a caller holding a drawable must
 // present it, so the repeat check happens before acquiring one.
 void Renderer::drawInto(
-    const Scene& scene,
-    int targetW,
-    int targetH,
-    void* nativeColor,
-    const gpu::Drawable* drawable,
-    const FrameKey& key,
-    std::chrono::steady_clock::time_point t0
+  const Scene& scene,
+  int targetW,
+  int targetH,
+  void* nativeColor,
+  const gpu::Drawable* drawable,
+  const FrameKey& key,
+  std::chrono::steady_clock::time_point t0
 ) {
   stats_ = Stats{};
   if (!pipes_.ensure(device_)) {
@@ -853,17 +853,17 @@ void Renderer::drawInto(
   gpu::CommandEncoder encoder = device_.encoder();
   const int rotation = device_.presentRotationDegrees();
   const Mat4 proj =
-      presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y), rotation);
+    presentProjection(Mat4::orthoYDown(0, 0, scene.logicalSize.x, scene.logicalSize.y), rotation);
   encodeGroup(
-      encoder,
-      root,
-      proj,
-      targetW,
-      targetH,
-      nativeColor,
-      gpu::LoadOp::Clear,
-      key.pixelRatio,
-      scene.logicalSize
+    encoder,
+    root,
+    proj,
+    targetW,
+    targetH,
+    nativeColor,
+    gpu::LoadOp::Clear,
+    key.pixelRatio,
+    scene.logicalSize
   );
   if (drawable) {
     encoder.present(*drawable);
@@ -871,7 +871,7 @@ void Renderer::drawInto(
   encoder.submit(device_.queue());
   stats_.gpuMs = device_.lastGpuMs();
   stats_.encodeMs =
-      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
 
 void Renderer::draw(const Scene& scene) {
@@ -891,7 +891,7 @@ void Renderer::draw(const Scene& scene) {
   const auto a0 = std::chrono::steady_clock::now();
   auto drawable = device_.nextDrawable();
   const float acquireMs =
-      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - a0).count();
+    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - a0).count();
   if (!drawable.ok()) {
     stats_ = Stats{};
     stats_.acquireMs = acquireMs;
@@ -900,7 +900,7 @@ void Renderer::draw(const Scene& scene) {
   const int w = drawable->width();
   const int h = drawable->height();
   const FrameKey key =
-      predicted && size.width == w && size.height == h ? *predicted : frameKey(scene, w, h);
+    predicted && size.width == w && size.height == h ? *predicted : frameKey(scene, w, h);
   drawInto(scene, w, h, nullptr, &drawable.value(), key, t0);
   stats_.acquireMs = acquireMs;
 }

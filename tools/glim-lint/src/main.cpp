@@ -12,20 +12,20 @@ namespace {
 
 // Factory scope: element factories, example widget dirs, themed().
 constexpr const char* kScopeDirs[] = {
-    "packages/glim-toolkit/include/glim/toolkit/elements",
-    "examples/smarthome/src/widgets",
-    "examples/infotainment/src/widgets",
-    "packages/glim-toolkit/include/glim/toolkit/tags",
+  "packages/glim-toolkit/include/glim/toolkit/elements",
+  "examples/smarthome/src/widgets",
+  "examples/infotainment/src/widgets",
+  "packages/glim-toolkit/include/glim/toolkit/tags",
 };
 // Composition scope: everywhere UI trees are written.
 constexpr const char* kTreeDirs[] = {
-    "packages/glim-toolkit/include/glim/toolkit/elements",
-    "examples/smarthome/src",
-    "examples/infotainment/src",
-    "examples/glass/src",
+  "packages/glim-toolkit/include/glim/toolkit/elements",
+  "examples/smarthome/src",
+  "examples/infotainment/src",
+  "examples/glass/src",
 };
 constexpr const char* kScopeFiles[] = {
-    "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h",
+  "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h",
 };
 
 std::string slurp(const fs::path& p) {
@@ -89,11 +89,14 @@ int main(int argc, char** argv) {
         ++bad;
       }
     }
-    for (const fs::path& f : trees)
-      for (const glimlint::Finding& x : glimlint::checkTagLiterals(f.string(), slurp(f))) {
-        std::cout << x.file << ":" << x.line << ": " << x.message << "\n";
-        ++bad;
-      }
+    for (const fs::path& f : trees) {
+      const std::string src = slurp(f);
+      for (auto check : {glimlint::checkTagLiterals, glimlint::checkTrailingCommas})
+        for (const glimlint::Finding& x : check(f.string(), src)) {
+          std::cout << x.file << ":" << x.line << ": " << x.message << "\n";
+          ++bad;
+        }
+    }
     if (bad) return 1;
     std::cout << "factories OK: " << factories << " checked\n";
     return 0;

@@ -42,52 +42,52 @@ constexpr int kHeaderInsetL = 84;
 constexpr AnimSpec kDaySpec{.dur = 2.4f, .ease = easeInOut};
 
 std::string cellKey(
-    const home::Room& room, const home::Device& d, const char* field
+  const home::Room& room, const home::Device& d, const char* field
 ) {
   return "home/" + room.id + "/" + d.id + "/" + field;
 }
 
 Block header(State<bool> live, State<bool> light, std::uint32_t tint) {
-  return wide(
-      row(gap(12),
-          center(),
-          pad(24, 12),
-          glass({.radius = 0, .edge = GlassEdge::None, .tint = tint}),
-          strut({.width = static_cast<float>(kHeaderInsetL - 24)}),
-          titleLines("Glim Home"),
-          lines(home::feedStatus(*live)),
-          column(expand(), gap(0)),
-          lines("Live updates"),
-          toggle({.value = live}, semantic("Live updates")),
-          strut({.width = 8.0f}),
-          lines("Light mode"),
-          toggle({.value = light}, semantic("Light mode")))
-  );
+  return wide(row(
+    gap(12),
+    center(),
+    pad(24, 12),
+    glass({.radius = 0, .edge = GlassEdge::None, .tint = tint}),
+    strut({.width = static_cast<float>(kHeaderInsetL - 24)}),
+    titleLines("Glim Home"),
+    lines(home::feedStatus(*live)),
+    column(expand(), gap(0)),
+    lines("Live updates"),
+    toggle({.value = live}, semantic("Live updates")),
+    strut({.width = 8.0f}),
+    lines("Light mode"),
+    toggle({.value = light}, semantic("Light mode"))
+  ));
 }
 
 const home::Device& byId(
-    const std::vector<home::Device>& devices, const char* id
+  const std::vector<home::Device>& devices, const char* id
 ) {
   return *std::find_if(
-      devices.begin(),
-      devices.end(),
-      [&](const home::Device& d) { return d.id == id; }
+    devices.begin(),
+    devices.end(),
+    [&](const home::Device& d) { return d.id == id; }
   );
 }
 
 }  // namespace
 
 DeviceCells deviceCells(
-    Scope app, const home::Room& room, const home::Device& seed
+  Scope app, const home::Room& room, const home::Device& seed
 ) {
   return {
-      app.state(cellKey(room, seed, "on"), seed.on),
-      app.state(cellKey(room, seed, "level"), seed.level)
+    app.state(cellKey(room, seed, "on"), seed.on),
+    app.state(cellKey(room, seed, "level"), seed.level)
   };
 }
 
 std::vector<home::Device> liveDevices(
-    Scope app, const home::Room& room
+  Scope app, const home::Room& room
 ) {
   std::vector<home::Device> out = room.devices;
   for (home::Device& d : out) {
@@ -107,9 +107,9 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
   auto live = app.state("live", true);
   auto vscroll = app.state("vscroll", 0.0f);
   const std::uint32_t tint =
-      *light ? ShowLight::kGlassTint : Show::kGlassTint;
+    *light ? ShowLight::kGlassTint : Show::kGlassTint;
   const float daylight =
-      glide(app, "glide/daylight", *light ? 1.0f : 0.0f, kDaySpec);
+    glide(app, "glide/daylight", *light ? 1.0f : 0.0f, kDaySpec);
 
   // The overview drives the living room's thermostat and ceiling light.
   const home::Room& living = home::rooms().front();
@@ -118,54 +118,54 @@ Block smartHomeTree(Scope app, const home::SensorLog& log) {
   const home::Device& ceiling = byId(devices, "ceiling");
   const home::Readings readings = home::readings(log);
   const Shown shown{
-      glide(app, "glide/energy", readings.energy),
-      glide(app, "glide/indoor", readings.indoorC),
-      coast(app, "glide/thermostat", thermostat.level),
-      glide(app, "glide/light", ceiling.level),
-      glide(app, "glide/brightness", home::brightness({ceiling})),
-      slide(
-          app,
-          "glide/solar",
-          readings.curveHead,
-          home::kBucketSec,
-          AreaChart::kLead
-      ),
+    glide(app, "glide/energy", readings.energy),
+    glide(app, "glide/indoor", readings.indoorC),
+    coast(app, "glide/thermostat", thermostat.level),
+    glide(app, "glide/light", ceiling.level),
+    glide(app, "glide/brightness", home::brightness({ceiling})),
+    slide(
+      app,
+      "glide/solar",
+      readings.curveHead,
+      home::kBucketSec,
+      AreaChart::kLead
+    ),
   };
   OverviewData data{
-      readings,
-      shown,
-      thermostat,
-      deviceCells(app, living, thermostat),
-      ceiling,
-      deviceCells(app, living, ceiling),
-      app.state("wifi", true),
-      tint,
-      *light,
+    readings,
+    shown,
+    thermostat,
+    deviceCells(app, living, thermostat),
+    ceiling,
+    deviceCells(app, living, ceiling),
+    app.state("wifi", true),
+    tint,
+    *light,
   };
 
   // The roll fills the window and the header floats over its top; the
   // strut keeps the first row clear of the header at rest.
-  return smartHomeThemed(
-      {.light = *light,
-       .child = stack(
-           expand(),
-           backdrop(
-               {.daylight = daylight,
-                .lit = home::windowGlow(daylight, shown.brightness)}
-           ),
-           roll(
-               vertical(),
-               scrollOffset(vscroll),
-               column(
-                   gap(0),
-                   pad(36),
-                   strut({.height = kHeaderH}),
-                   overviewPage(data)
-               )
-           ),
-           header(live, light, tint)
-       )}
-  );
+  return smartHomeThemed({
+    .light = *light,
+    .child = stack(
+      expand(),
+      backdrop({
+        .daylight = daylight,
+        .lit = home::windowGlow(daylight, shown.brightness),
+      }),
+      roll(
+        vertical(),
+        scrollOffset(vscroll),
+        column(
+          gap(0),
+          pad(36),
+          strut({.height = kHeaderH}),
+          overviewPage(data)
+        )
+      ),
+      header(live, light, tint)
+    ),
+  });
 }
 
 }  // namespace toolkit
@@ -192,7 +192,7 @@ std::string dumpTree(Block tree, Constraints c) {
 
 std::string smartHomeDump(Store& store) {
   return dumpTree(
-      smartHomeTree(rootScope(engineFor(store))), {0, 1024, 0, 640}
+    smartHomeTree(rootScope(engineFor(store))), {0, 1024, 0, 640}
   );
 }
 
@@ -219,18 +219,18 @@ std::string smartHomeA11yDump(Store& store) {
 }
 
 void paintSmartHomeScene(
-    glim::paint::Context& ctx,
-    host::LayerFeed& feed,
-    Store& store,
-    int focus,
-    bool focusVisible
+  glim::paint::Context& ctx,
+  host::LayerFeed& feed,
+  Store& store,
+  int focus,
+  bool focusVisible
 ) {
   Engine engine = engineFor(store);
   ensureVilla(ctx, store);
   Block screen = smartHomeTree(rootScope(engine));
   Box box = engine.place(screen, {0, ctx.size().x, 0, ctx.size().y});
   host::paintScreen(
-      ctx, screen, box, engine, feed, focus, focusVisible
+    ctx, screen, box, engine, feed, focus, focusVisible
   );
 }
 
@@ -269,39 +269,41 @@ int main(int argc, char** argv) {
   Screen screen;
   Engine engine = host::measureEngine();
   return host::run(
-      {.title = "Glim Home",
-       .width = 1240,
-       .height = 760,
-       .customTitlebar = true,
-       .drive = flags.drive,
-       .driveTrace = flags.driveTrace,
-       .startup = flags.startup,
-       .prepare = ensureVilla},
-      screen,
-      store,
-      engine,
-      [](const Engine& e) {
-        Scope app = rootScope(e);
-        if (!*app.state("live", true)) {
-          watch.reset();
-        } else if (!watch.live()) {
-          State<float> tick = app.state("live-tick", 0.0f);
-          watch = e.store->get().watchFrame([tick](float now) mutable {
-            tick = now;
-            return true;
-          });
-        }
-        return smartHomeTree(
-            app, log.closed.empty() ? glim::home::demoLog() : log
-        );
-      },
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      [](const host::FrameTelemetry& t) {
-        log = glim::home::logSample(std::move(log), frameSample(t));
+    {
+      .title = "Glim Home",
+      .width = 1240,
+      .height = 760,
+      .customTitlebar = true,
+      .drive = flags.drive,
+      .driveTrace = flags.driveTrace,
+      .startup = flags.startup,
+      .prepare = ensureVilla,
+    },
+    screen,
+    store,
+    engine,
+    [](const Engine& e) {
+      Scope app = rootScope(e);
+      if (!*app.state("live", true)) {
+        watch.reset();
+      } else if (!watch.live()) {
+        State<float> tick = app.state("live-tick", 0.0f);
+        watch = e.store->get().watchFrame([tick](float now) mutable {
+          tick = now;
+          return true;
+        });
       }
+      return smartHomeTree(
+        app, log.closed.empty() ? glim::home::demoLog() : log
+      );
+    },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](const host::FrameTelemetry& t) {
+      log = glim::home::logSample(std::move(log), frameSample(t));
+    }
   );
 }
 #endif

@@ -30,18 +30,18 @@ inline std::uint32_t withAlpha(std::uint32_t rgba, float a) {
   if (a >= 1.0f) return rgba;
   if (a <= 0.0f) return rgba & 0xffffff00u;
   const unsigned alpha =
-      static_cast<unsigned>((rgba & 0xffu) * a + 0.5f);
+    static_cast<unsigned>((rgba & 0xffu) * a + 0.5f);
   return (rgba & 0xffffff00u) | (alpha & 0xffu);
 }
 
 inline Block infoThemed(Block child) {
   return themed(
-      themeColor(kThemeWindowBg, Info::kWindowBg),
-      themeColor(kThemeInkOnLight, Info::kInk),
-      themeColor(kInfoCardTop, Info::kCardTop),
-      themeColor(kInfoCardBottom, Info::kCardBottom),
-      themeColor(kInfoAccent, Info::kAccent),
-      std::move(child)
+    themeColor(kThemeWindowBg, Info::kWindowBg),
+    themeColor(kThemeInkOnLight, Info::kInk),
+    themeColor(kInfoCardTop, Info::kCardTop),
+    themeColor(kInfoCardBottom, Info::kCardBottom),
+    themeColor(kInfoAccent, Info::kAccent),
+    std::move(child)
   );
 }
 

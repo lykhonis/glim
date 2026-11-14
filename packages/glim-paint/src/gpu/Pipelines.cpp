@@ -32,15 +32,15 @@ std::string shaderCode(const char* name, gpu::ShaderStage stage) {
 }
 
 constexpr const char* kShaderNames[] = {
-    "solid",
-    "blit",
-    "blit_linear",
-    "rounded",
-    "glyph",
-    "blur",
-    "blur1d",
-    "glass",
-    "gradient",
+  "solid",
+  "blit",
+  "blit_linear",
+  "rounded",
+  "glyph",
+  "blur",
+  "blur1d",
+  "glass",
+  "gradient",
 };
 constexpr std::size_t kShaderCount = sizeof(kShaderNames) / sizeof(kShaderNames[0]);
 
@@ -78,15 +78,15 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
     bool required;
     gpu::Pipeline* out;
   } entries[kShaderCount] = {
-      {"solid", true, &solid},
-      {"blit", true, &blit},
-      {"blit_linear", true, &blitLinear},
-      {"rounded", false, &rounded},
-      {"glyph", true, &glyph},
-      {"blur", true, &blur},
-      {"blur1d", true, &blur1d},
-      {"glass", true, &glass},
-      {"gradient", false, &gradient},
+    {"solid", true, &solid},
+    {"blit", true, &blit},
+    {"blit_linear", true, &blitLinear},
+    {"rounded", false, &rounded},
+    {"glyph", true, &glyph},
+    {"blur", true, &blur},
+    {"blur1d", true, &blur1d},
+    {"glass", true, &glass},
+    {"gradient", false, &gradient},
   };
   struct Cached {
     const char* name;
@@ -127,11 +127,11 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
   }
   pd.blend = gpu::Blend::Plus;
   const struct Entry plusEntries[] = {
-      {"solid", true, &solidPlus},
-      {"blit", true, &blitPlus},
-      {"rounded", false, &roundedPlus},
-      {"glyph", true, &glyphPlus},
-      {"gradient", false, &gradientPlus},
+    {"solid", true, &solidPlus},
+    {"blit", true, &blitPlus},
+    {"rounded", false, &roundedPlus},
+    {"glyph", true, &glyphPlus},
+    {"gradient", false, &gradientPlus},
   };
   for (const Entry& e : plusEntries) {
     gpu::Handle vsH = 0;

@@ -30,16 +30,16 @@ using namespace glim::toolkit;
 std::string infotainmentDump(Store& store);
 std::string infotainmentA11yDump(Store& store);
 void paintInfotainmentScene(
-    glim::paint::Context& ctx,
-    glim::toolkit::host::LayerFeed& feed,
-    Store& store,
-    int focus = -1,
-    bool focusVisible = true
+  glim::paint::Context& ctx,
+  glim::toolkit::host::LayerFeed& feed,
+  Store& store,
+  int focus = -1,
+  bool focusVisible = true
 );
 void paintClusterOnlyScene(
-    glim::paint::Context& ctx,
-    glim::toolkit::host::LayerFeed& feed,
-    Store& store
+  glim::paint::Context& ctx,
+  glim::toolkit::host::LayerFeed& feed,
+  Store& store
 );
 
 namespace {
@@ -171,9 +171,8 @@ int main(int argc, char** argv) {
       }
       return std::make_tuple(std::move(screen), dbox, std::move(rec));
     };
-    auto findOp = [&](const std::vector<Op>& ops,
-                      Op::Kind k,
-                      int nth = 0) -> int {
+    auto findOp =
+      [&](const std::vector<Op>& ops, Op::Kind k, int nth = 0) -> int {
       int seen = 0;
       for (std::size_t i = 0; i < ops.size(); ++i)
         if (ops[i].kind == k && seen++ == nth)
@@ -197,8 +196,8 @@ int main(int argc, char** argv) {
     for (const Op& o : crec.ops)
       if (o.kind == Op::Kind::PushShadow) {
         assert(
-            o.sigma == 24.f && o.soy == 8.f &&
-            o.shadowColor == 0x000000e6u
+          o.sigma == 24.f && o.soy == 8.f &&
+          o.shadowColor == 0x000000e6u
         );
         ++shadows;
       }
@@ -229,23 +228,23 @@ int main(int argc, char** argv) {
     ctx.finish();
     int glassGroups = 0, glyphRuns = 0, shadowGroups = 0;
     std::function<void(const glim::paint::Group&)> walkG =
-        [&](const glim::paint::Group& g) {
-          glim::paint::visitGroup(
-              g,
-              [&](const glim::paint::Shape& s) {
-                if (std::holds_alternative<glim::paint::GlyphRun>(s))
-                  ++glyphRuns;
-              },
-              [&](const glim::paint::Group& c) {
-                if (glim::paint::hasGlass(c)) ++glassGroups;
-                if (glim::paint::hasShadow(c)) {
-                  assert(c.params.opacity == 0.f);
-                  ++shadowGroups;
-                }
-                walkG(c);
-              }
-          );
-        };
+      [&](const glim::paint::Group& g) {
+        glim::paint::visitGroup(
+          g,
+          [&](const glim::paint::Shape& s) {
+            if (std::holds_alternative<glim::paint::GlyphRun>(s))
+              ++glyphRuns;
+          },
+          [&](const glim::paint::Group& c) {
+            if (glim::paint::hasGlass(c)) ++glassGroups;
+            if (glim::paint::hasShadow(c)) {
+              assert(c.params.opacity == 0.f);
+              ++shadowGroups;
+            }
+            walkG(c);
+          }
+        );
+      };
     walkG(ctx.scene().root);
     // Six cards, the mode bar and the dial lens. Shadows are the six
     // cards plus the mode bar; the caster does not cover the map.
@@ -261,9 +260,9 @@ int main(int argc, char** argv) {
   // rotated quads is still AABB-baked (Merge::transformRect), so
   // widgets keep dot-tessellated needles until encoders catch up.
   {
-    Block tree =
-        row(rotate({.angleDeg = 30.f, .cx = 10.f, .cy = 20.f}),
-            lines("Rotor"));
+    Block tree = row(
+      rotate({.angleDeg = 30.f, .cx = 10.f, .cy = 20.f}), lines("Rotor")
+    );
     Engine e;
     Box b = place(tree, {0, 720, 0, 480});
     OpsRecorder rec;
@@ -291,11 +290,11 @@ int main(int argc, char** argv) {
     ctx.setSize({200, 100});
     ctx.beginFrame();
     glim::paint::GradientStop stops[2] = {
-        {0.f, glim::Color{255, 106, 0, 255}},
-        {1.f, glim::Color{224, 78, 0, 255}},
+      {0.f, glim::Color{255, 106, 0, 255}},
+      {1.f, glim::Color{224, 78, 0, 255}},
     };
     ctx.setFill(
-        glim::paint::Matter::linearGradient({0, 0}, {200, 0}, stops, 2)
+      glim::paint::Matter::linearGradient({0, 0}, {200, 0}, stops, 2)
     );
     ctx.fillChamfer({{10, 10}, {180, 80}}, 14.f);
     ctx.finish();

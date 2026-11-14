@@ -8,14 +8,14 @@
 // measured); the rest of the frame matches.
 int main(int argc, char** argv) {
   return glim::examples::runGpuGolden(
-      argc,
-      argv,
-      "examples/smarthome/golden/smarthome.png",
-      {.maxOverDelta = 440000, .maxChannelDelta = 180},
-      [](glim::paint::Context& ctx, glim::Vec2) {
-        glim::toolkit::Store store;
-        glim::toolkit::host::LayerFeed feed;
-        paintSmartHomeScene(ctx, feed, store);
-      }
+    argc,
+    argv,
+    "examples/smarthome/golden/smarthome.png",
+    {.maxOverDelta = 440000, .maxChannelDelta = 180},
+    [](glim::paint::Context& ctx, glim::Vec2) {
+      glim::toolkit::Store store;
+      glim::toolkit::host::LayerFeed feed;
+      paintSmartHomeScene(ctx, feed, store);
+    }
   );
 }

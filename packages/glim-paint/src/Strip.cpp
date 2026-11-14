@@ -86,11 +86,11 @@ struct ChamferRing {
 
 // Clip, then emit as solid or gradient quads by the matter.
 void emitStrips(
-    std::vector<Strip>& strips,
-    const ClipState& clip,
-    const Matter& matter,
-    std::vector<Quad>& quads,
-    std::vector<GradientQuad>& gradients
+  std::vector<Strip>& strips,
+  const ClipState& clip,
+  const Matter& matter,
+  std::vector<Quad>& quads,
+  std::vector<GradientQuad>& gradients
 ) {
   clipStrips(strips, clip);
   if (matter.isGradient()) {
@@ -103,23 +103,23 @@ void emitStrips(
 }  // namespace
 
 void appendShape(
-    std::vector<Quad>& quads,
-    std::vector<BlitQuad>& blits,
-    std::vector<GradientQuad>& gradients,
-    const Shape& shape,
-    const ClipState& clip
+  std::vector<Quad>& quads,
+  std::vector<BlitQuad>& blits,
+  std::vector<GradientQuad>& gradients,
+  const Shape& shape,
+  const ClipState& clip
 ) {
   if (const auto* f = std::get_if<FillRect>(&shape)) {
     if (f->matter.isGradient()) {
       if (!clip.active) {
         appendGradientQuad(
-            gradients,
-            f->rect.origin.x,
-            f->rect.origin.y,
-            f->rect.size.x,
-            f->rect.size.y,
-            1.f,
-            f->matter
+          gradients,
+          f->rect.origin.x,
+          f->rect.origin.y,
+          f->rect.size.x,
+          f->rect.size.y,
+          1.f,
+          f->matter
         );
         return;
       }
@@ -173,7 +173,7 @@ void appendShape(
     stripsToQuads(strips, premulLinear(s->matter.color), quads);
   } else if (const auto* ch = std::get_if<FillChamfer>(&shape)) {
     const float cut =
-        std::min(std::max(0.f, ch->cut), std::min(ch->rect.size.x, ch->rect.size.y) * 0.5f);
+      std::min(std::max(0.f, ch->cut), std::min(ch->rect.size.x, ch->rect.size.y) * 0.5f);
     // Fast path: 3 solid interior rects (O(1) strips) + per-pixel
     // only in the 4 cut corner squares. Works with/without clip.
     if (cut > 1e-4f && ch->rect.size.x > 2.f * cut && ch->rect.size.y > 2.f * cut) {
@@ -184,17 +184,17 @@ void appendShape(
       solidRect(strips, x0 + cut, y0, w - 2.f * cut, cut);
       solidRect(strips, x0 + cut, y0 + h - cut, w - 2.f * cut, cut);
       const float corners[4][2] = {
-          {x0, y0}, {x0 + w - cut, y0}, {x0, y0 + h - cut}, {x0 + w - cut, y0 + h - cut}
+        {x0, y0}, {x0 + w - cut, y0}, {x0, y0 + h - cut}, {x0 + w - cut, y0 + h - cut}
       };
       for (int ci = 0; ci < 4; ++ci) {
         const float cx0 = corners[ci][0], cy0 = corners[ci][1];
         flattenCoverage(
-            static_cast<int>(std::floor(cx0)) - 1,
-            static_cast<int>(std::floor(cy0)) - 1,
-            static_cast<int>(std::ceil(cx0 + cut)) + 1,
-            static_cast<int>(std::ceil(cy0 + cut)) + 1,
-            strips,
-            [&](float px, float py) { return chamferCoverage(ch->rect, ch->cut, px, py); }
+          static_cast<int>(std::floor(cx0)) - 1,
+          static_cast<int>(std::floor(cy0)) - 1,
+          static_cast<int>(std::ceil(cx0 + cut)) + 1,
+          static_cast<int>(std::ceil(cy0 + cut)) + 1,
+          strips,
+          [&](float px, float py) { return chamferCoverage(ch->rect, ch->cut, px, py); }
         );
       }
       emitStrips(strips, clip, ch->matter, quads, gradients);
@@ -206,12 +206,12 @@ void appendShape(
       const float x1 = std::ceil(ch->rect.origin.x + ch->rect.size.x) + 1.f;
       const float y1 = std::ceil(ch->rect.origin.y + ch->rect.size.y) + 1.f;
       flattenCoverage(
-          static_cast<int>(x0),
-          static_cast<int>(y0),
-          static_cast<int>(x1),
-          static_cast<int>(y1),
-          strips,
-          [&](float px, float py) { return chamferCoverage(ch->rect, cut, px, py); }
+        static_cast<int>(x0),
+        static_cast<int>(y0),
+        static_cast<int>(x1),
+        static_cast<int>(y1),
+        strips,
+        [&](float px, float py) { return chamferCoverage(ch->rect, cut, px, py); }
       );
     };
     std::vector<Strip> strips;
@@ -236,12 +236,12 @@ void appendShape(
       for (int ci = 0; ci < 4; ++ci) {
         const float ccx = corners[ci][0], ccy = corners[ci][1];
         flattenCoverage(
-            static_cast<int>(std::floor(ccx - cs)),
-            static_cast<int>(std::floor(ccy - cs)),
-            static_cast<int>(std::ceil(ccx + cs)),
-            static_cast<int>(std::ceil(ccy + cs)),
-            strips,
-            [&](float px, float py) { return ring.coverage(px, py); }
+          static_cast<int>(std::floor(ccx - cs)),
+          static_cast<int>(std::floor(ccy - cs)),
+          static_cast<int>(std::ceil(ccx + cs)),
+          static_cast<int>(std::ceil(ccy + cs)),
+          strips,
+          [&](float px, float py) { return ring.coverage(px, py); }
         );
       }
       emitStrips(strips, clip, sc->matter, quads, gradients);
@@ -273,30 +273,30 @@ void appendShape(
       const float half = a->thickness * 0.5f;
       const float rout = a->radius + half + 1.f, rin = std::max(0.f, a->radius - half - 1.f);
       flattenCoverageRows(
-          x0,
-          y0,
-          x1,
-          y1,
-          strips,
-          [&](int y, ColumnRange* r) {
-            const float dy = std::fabs(static_cast<float>(y) + 0.5f - a->center.y);
-            if (dy > rout) return 0;
-            const float xo = std::sqrt(rout * rout - dy * dy);
-            const float xi = dy < rin ? std::sqrt(rin * rin - dy * dy) : 0.f;
-            const float cx = a->center.x - 0.5f;
-            const int la = static_cast<int>(std::floor(cx - xo)) - 1;
-            const int lb = static_cast<int>(std::ceil(cx - xi)) + 2;
-            const int ra = static_cast<int>(std::floor(cx + xi)) - 1;
-            const int rb = static_cast<int>(std::ceil(cx + xo)) + 2;
-            if (lb >= ra) {
-              r[0] = {la, rb};
-              return 1;
-            }
-            r[0] = {la, lb};
-            r[1] = {ra, rb};
-            return 2;
-          },
-          [&](float px, float py) { return arcCoverage(*a, px, py); }
+        x0,
+        y0,
+        x1,
+        y1,
+        strips,
+        [&](int y, ColumnRange* r) {
+          const float dy = std::fabs(static_cast<float>(y) + 0.5f - a->center.y);
+          if (dy > rout) return 0;
+          const float xo = std::sqrt(rout * rout - dy * dy);
+          const float xi = dy < rin ? std::sqrt(rin * rin - dy * dy) : 0.f;
+          const float cx = a->center.x - 0.5f;
+          const int la = static_cast<int>(std::floor(cx - xo)) - 1;
+          const int lb = static_cast<int>(std::ceil(cx - xi)) + 2;
+          const int ra = static_cast<int>(std::floor(cx + xi)) - 1;
+          const int rb = static_cast<int>(std::ceil(cx + xo)) + 2;
+          if (lb >= ra) {
+            r[0] = {la, rb};
+            return 1;
+          }
+          r[0] = {la, lb};
+          r[1] = {ra, rb};
+          return 2;
+        },
+        [&](float px, float py) { return arcCoverage(*a, px, py); }
       );
     };
     std::vector<Strip> strips;
@@ -308,7 +308,7 @@ void appendShape(
       if (pl->dotPitch > 0.f) {
         // Dotted: stamp discs (O(dots × dot area), not O(bbox × dots)).
         flattenDottedPolyline(
-            pl->points.data(), pl->points.size(), pl->width, pl->dotPitch, strips
+          pl->points.data(), pl->points.size(), pl->width, pl->dotPitch, strips
         );
         return;
       }
@@ -332,12 +332,12 @@ void appendShape(
 }
 
 void appendShapeWorld(
-    std::vector<Quad>& quads,
-    std::vector<BlitQuad>& blits,
-    std::vector<GradientQuad>& gradients,
-    const Shape& shape,
-    const Mat4& world,
-    const ClipState& clip
+  std::vector<Quad>& quads,
+  std::vector<BlitQuad>& blits,
+  std::vector<GradientQuad>& gradients,
+  const Shape& shape,
+  const Mat4& world,
+  const ClipState& clip
 ) {
   if (isAxisAligned(world)) {
     appendShape(quads, blits, gradients, transformShape(world, shape), clip);
@@ -374,9 +374,9 @@ void appendShapeWorld(
     matter = st->matter;
     const float o = std::max(0.f, st->width) * 0.5f;
     aabb = transformRect(
-        world,
-        {{st->rect.origin.x - o, st->rect.origin.y - o},
-         {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}}
+      world,
+      {{st->rect.origin.x - o, st->rect.origin.y - o},
+       {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}}
     );
   } else if (fc) {
     matter = fc->matter;
@@ -385,19 +385,19 @@ void appendShapeWorld(
     matter = sc->matter;
     const float o = std::max(0.f, sc->width) * 0.5f;
     aabb = transformRect(
-        world,
-        {{sc->rect.origin.x - o, sc->rect.origin.y - o},
-         {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}}
+      world,
+      {{sc->rect.origin.x - o, sc->rect.origin.y - o},
+       {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}}
     );
   } else if (ar) {
     matter = ar->matter;
     // Conservative AABB of full ring in world space.
     const float s =
-        std::max(std::hypot(world.m[0], world.m[1]), std::hypot(world.m[4], world.m[5]));
+      std::max(std::hypot(world.m[0], world.m[1]), std::hypot(world.m[4], world.m[5]));
     const float o = ar->radius * s + ar->thickness * s * 0.5f + 1.f;
     const Vec2 c = {
-        world.m[0] * ar->center.x + world.m[4] * ar->center.y + world.m[12],
-        world.m[1] * ar->center.x + world.m[5] * ar->center.y + world.m[13]
+      world.m[0] * ar->center.x + world.m[4] * ar->center.y + world.m[12],
+      world.m[1] * ar->center.x + world.m[5] * ar->center.y + world.m[13]
     };
     aabb = {{c.x - o, c.y - o}, {o * 2.f, o * 2.f}};
   } else if (pl) {
@@ -441,8 +441,8 @@ void appendShapeWorld(
   } else if (st) {
     const float half = st->width * 0.5f;
     const Rect outer{
-        {st->rect.origin.x - half, st->rect.origin.y - half},
-        {st->rect.size.x + st->width, st->rect.size.y + st->width}
+      {st->rect.origin.x - half, st->rect.origin.y - half},
+      {st->rect.size.x + st->width, st->rect.size.y + st->width}
     };
     Radius orad = st->radius;
     orad.lt += half;
@@ -450,8 +450,8 @@ void appendShapeWorld(
     orad.lb += half;
     orad.rb += half;
     const Rect inner{
-        {st->rect.origin.x + half, st->rect.origin.y + half},
-        {st->rect.size.x - st->width, st->rect.size.y - st->width}
+      {st->rect.origin.x + half, st->rect.origin.y + half},
+      {st->rect.size.x - st->width, st->rect.size.y - st->width}
     };
     const bool hole = inner.size.x > 1e-4f && inner.size.y > 1e-4f;
     Radius irad{};
@@ -487,7 +487,7 @@ void appendShapeWorld(
     flattenCoverage(xi0, yi0, xi1, yi1, strips, [&](float px, float py) {
       const Vec2 l = localPt(px, py);
       return polylineCoverage(
-          pl->points.data(), pl->points.size(), pl->width, pl->dotPitch, l.x, l.y
+        pl->points.data(), pl->points.size(), pl->width, pl->dotPitch, l.x, l.y
       );
     });
   }

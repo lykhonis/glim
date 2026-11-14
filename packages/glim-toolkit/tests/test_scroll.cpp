@@ -28,15 +28,15 @@ void test_scroll() {
     State<float> hout = store.make<float>(0.0f);
     State<float> vout = store.make<float>(0.0f);
     Block nested = roll(
-        vertical(),
-        scrollOffset(vout),
-        roll(
-            horizontal(),
-            scrollOffset(hout),
-            lines("12345678901234567890"),
-            lines("12345678901234567890")
-        ),
-        list(12, filler)
+      vertical(),
+      scrollOffset(vout),
+      roll(
+        horizontal(),
+        scrollOffset(hout),
+        lines("12345678901234567890"),
+        lines("12345678901234567890")
+      ),
+      list(12, filler)
     );
     Box nb = place(nested, {0, 120, 0, 60});
     assert(scr.wheel(nested, nb, 10, 10, 25.0f, 0.0f, e));

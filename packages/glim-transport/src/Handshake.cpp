@@ -31,9 +31,9 @@ bool checkReject(wire::RecordView record) {
 }
 
 constexpr std::array kRules{
-    wire::TypeRule{.type = kHelloRecord, .tails = kChannelTail},
-    wire::TypeRule{.type = kWelcomeRecord, .tails = kChannelTail},
-    wire::TypeRule{.type = kRejectRecord, .tails = {}, .check = checkReject},
+  wire::TypeRule{.type = kHelloRecord, .tails = kChannelTail},
+  wire::TypeRule{.type = kWelcomeRecord, .tails = kChannelTail},
+  wire::TypeRule{.type = kRejectRecord, .tails = {}, .check = checkReject},
 };
 
 void writeTerms(std::uint16_t type, const Terms& terms, std::vector<std::byte>& out) {
@@ -43,9 +43,8 @@ void writeTerms(std::uint16_t type, const Terms& terms, std::vector<std::byte>& 
     record.set(static_cast<std::uint32_t>(kWindowAt + lane * 4), terms.config.window[lane]);
   }
   record.set(kOpenAt, terms.config.maxOpenStreams).set(kShareAt, terms.config.bulkShare);
-  auto tail = record.allocTail(
-      kChannelsAt, static_cast<std::uint32_t>(terms.channels.size() * kChannelSize)
-  );
+  auto tail =
+    record.allocTail(kChannelsAt, static_cast<std::uint32_t>(terms.channels.size() * kChannelSize));
   for (std::size_t i = 0; i < terms.channels.size(); ++i) {
     const auto& offer = terms.channels[i];
     auto* at = tail.data() + i * kChannelSize;
@@ -61,16 +60,16 @@ Terms readTerms(wire::RecordView record) {
   terms.config.chunk = record.field<std::uint32_t>(kChunkAt);
   for (std::size_t lane = 0; lane < kLanes; ++lane) {
     terms.config.window[lane] =
-        record.field<std::uint32_t>(static_cast<std::uint32_t>(kWindowAt + lane * 4));
+      record.field<std::uint32_t>(static_cast<std::uint32_t>(kWindowAt + lane * 4));
   }
   terms.config.maxOpenStreams = record.field<std::uint32_t>(kOpenAt);
   terms.config.bulkShare = record.field<std::uint32_t>(kShareAt);
   const auto tail = *record.tail(kChannelsAt);
   for (std::size_t at = 0; at < tail.size(); at += kChannelSize) {
     terms.channels.push_back(
-        {.channel = wire::loadLe<std::uint16_t>(&tail[at]),
-         .version = wire::loadLe<std::uint16_t>(&tail[at + 2]),
-         .required = (wire::loadLe<std::uint8_t>(&tail[at + 4]) & kRequired) != 0}
+      {.channel = wire::loadLe<std::uint16_t>(&tail[at]),
+       .version = wire::loadLe<std::uint16_t>(&tail[at + 2]),
+       .required = (wire::loadLe<std::uint8_t>(&tail[at + 4]) & kRequired) != 0}
     );
   }
   return terms;
@@ -96,10 +95,10 @@ bool usable(const Config& config) {
 
 Config narrower(const Config& a, const Config& b) {
   Config out{
-      .chunk = std::min(a.chunk, b.chunk),
-      .window = {},
-      .maxOpenStreams = std::min(a.maxOpenStreams, b.maxOpenStreams),
-      .bulkShare = std::min(a.bulkShare, b.bulkShare),
+    .chunk = std::min(a.chunk, b.chunk),
+    .window = {},
+    .maxOpenStreams = std::min(a.maxOpenStreams, b.maxOpenStreams),
+    .bulkShare = std::min(a.bulkShare, b.bulkShare),
   };
   for (std::size_t lane = 0; lane < kLanes; ++lane) {
     out.window[lane] = std::min(a.window[lane], b.window[lane]);
@@ -114,9 +113,9 @@ Answer negotiate(const Terms& hello, const Support& support) {
     return Refusal::Protocol;
   }
   Terms agreed{
-      .protocol = std::min(hello.protocol, support.protocol),
-      .config = narrower(hello.config, support.limits),
-      .channels = {},
+    .protocol = std::min(hello.protocol, support.protocol),
+    .config = narrower(hello.config, support.limits),
+    .channels = {},
   };
   if (!usable(agreed.config)) {
     return Refusal::Config;
@@ -125,7 +124,7 @@ Answer negotiate(const Terms& hello, const Support& support) {
     const auto known = std::ranges::find(support.channels, offer.channel, &ChannelSupport::channel);
     if (known != support.channels.end() && offer.version >= known->oldest) {
       agreed.channels.push_back(
-          {.channel = offer.channel, .version = std::min(offer.version, known->newest)}
+        {.channel = offer.channel, .version = std::min(offer.version, known->newest)}
       );
     } else if (offer.required) {
       return Refusal::Channel;
@@ -144,8 +143,8 @@ void writeAnswer(const Answer& answer, std::vector<std::byte>& out) {
     return;
   }
   wire::Writer(out)
-      .begin(kRejectRecord, kRejectSize)
-      .set(kReasonAt, static_cast<std::uint32_t>(std::get<Refusal>(answer)));
+    .begin(kRejectRecord, kRejectSize)
+    .set(kReasonAt, static_cast<std::uint32_t>(std::get<Refusal>(answer)));
 }
 
 std::optional<Terms> readHello(std::span<const std::byte> message) {

@@ -83,7 +83,7 @@ struct Readings {
   float fps = 0.0f;
   float solarKwh = 0.0f;
   std::vector<float>
-      solarCurve;       // 0..1 per closed bucket, oldest first
+    solarCurve;         // 0..1 per closed bucket, oldest first
   long curveHead = -1;  // bucket index of the newest point
   int wifiBars = 0;     // 1..4
   std::string wifiQuality;
@@ -94,8 +94,8 @@ struct Readings {
 namespace detail {
 
 inline Bucket merged(
-    std::vector<Bucket>::const_iterator a,
-    std::vector<Bucket>::const_iterator b
+  std::vector<Bucket>::const_iterator a,
+  std::vector<Bucket>::const_iterator b
 ) {
   Bucket m;
   for (auto it = a; it != b; ++it) {
@@ -124,7 +124,7 @@ inline float jitterOf(const Bucket& b) {
   if (b.frames == 0) return 0.0f;
   const float mean = meanFrameMs(b);
   return std::sqrt(std::max(
-      0.0f, b.frameMsSq / static_cast<float>(b.frames) - mean * mean
+    0.0f, b.frameMsSq / static_cast<float>(b.frames) - mean * mean
   ));
 }
 
@@ -135,17 +135,16 @@ inline Readings readings(const SensorLog& log) {
   if (log.closed.empty()) return r;
   const auto end = log.closed.end();
   const Bucket recent = detail::merged(
-      end - static_cast<std::ptrdiff_t>(
-                std::min(kRecentBuckets, log.closed.size())
-            ),
-      end
+    end - static_cast<std::ptrdiff_t>(
+            std::min(kRecentBuckets, log.closed.size())
+          ),
+    end
   );
   const Bucket all = detail::merged(log.closed.begin(), end);
-  r.energy = std::clamp(
-      detail::meanWorkMs(recent) / kEnergyFullMs, 0.0f, 1.0f
-  );
+  r.energy =
+    std::clamp(detail::meanWorkMs(recent) / kEnergyFullMs, 0.0f, 1.0f);
   r.indoorC =
-      std::clamp(18.0f + 1.5f * detail::meanWorkMs(all), 16.0f, 30.0f);
+    std::clamp(18.0f + 1.5f * detail::meanWorkMs(all), 16.0f, 30.0f);
   r.fps = detail::fpsOf(recent);
   // One kWh per 5 fps: a steady 60 Hz day collects 12 kWh.
   r.solarKwh = r.fps / 5.0f;
@@ -159,7 +158,7 @@ inline Readings readings(const SensorLog& log) {
     peak = std::max(peak, detail::fpsOf(b));
   for (const Bucket& b : log.closed) {
     const float t =
-        peak > 0.0f ? (detail::fpsOf(b) / peak - 0.5f) / 0.5f : 0.0f;
+      peak > 0.0f ? (detail::fpsOf(b) / peak - 0.5f) / 0.5f : 0.0f;
     r.solarCurve.push_back(0.2f + 0.7f * std::clamp(t, 0.0f, 1.0f));
   }
   r.curveHead = log.closed.back().index;
@@ -189,7 +188,7 @@ inline const SensorLog& demoLog() {
                        1.6f * std::sin(t * 1.7f) +
                        (i % 2 ? 0.8f : -0.8f);
       log = logSample(
-          std::move(log), {t, ms, 2.4f + 0.9f * std::sin(t * 0.3f)}
+        std::move(log), {t, ms, 2.4f + 0.9f * std::sin(t * 0.3f)}
       );
       t += ms / 1000.0f;
     }
@@ -256,7 +255,7 @@ inline float windowGlow(float daylight, float lightLevel) {
 
 // How the thermostat is doing against the indoor temperature.
 inline std::string climateText(
-    float indoorC, const Device& thermostat
+  float indoorC, const Device& thermostat
 ) {
   if (!thermostat.on) return "Thermostat off";
   const float target = celsius(thermostat.level);

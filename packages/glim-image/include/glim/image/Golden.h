@@ -36,7 +36,7 @@ inline void writeGot(const char* testName, const Image& img) {
 
 // CPU-golden check with per-channel tolerance 2; writes GOT artifact on mismatch.
 inline bool checkCpuGolden(
-    const Image& got, const Image& want, const char* testName, const char* what
+  const Image& got, const Image& want, const char* testName, const char* what
 ) {
   const Diff diff = compare(got, want);
   if (diff.match()) return true;
@@ -52,7 +52,7 @@ inline bool checkCpuGolden(
 // Compares `got` against the PNG at goldenPath. A missing golden fails in
 // strict mode and is written (passing) otherwise; update mode rewrites it.
 inline bool matchCpuGolden(
-    const Image& got, const char* goldenPath, const char* testName, const char* what
+  const Image& got, const char* goldenPath, const char* testName, const char* what
 ) {
   std::FILE* f = goldenUpdate() ? nullptr : std::fopen(goldenPath, "rb");
   if (f) {

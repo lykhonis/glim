@@ -28,7 +28,7 @@ void draw() {
 }  // namespace
 
 extern "C" __attribute__((export_name("glim_init"))) std::uint32_t glim_init(
-    std::uint32_t protocol, std::uint32_t capacity
+  std::uint32_t protocol, std::uint32_t capacity
 ) {
   if (link) {
     return 0;
@@ -39,12 +39,12 @@ extern "C" __attribute__((export_name("glim_init"))) std::uint32_t glim_init(
   t::Terms hello;
   hello.channels = {{.channel = glim::smoke::kFrameChannel, .version = 1, .required = true}};
   link.emplace(
-      glim::guest::hostImports(),
-      glim::guest::linearMemory,
-      std::span(at, bytes),
-      static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(at)),
-      std::move(hello),
-      [](const t::Message&) {}
+    glim::guest::hostImports(),
+    glim::guest::linearMemory,
+    std::span(at, bytes),
+    static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(at)),
+    std::move(hello),
+    [](const t::Message&) {}
   );
   return link->init(protocol, capacity);
 }

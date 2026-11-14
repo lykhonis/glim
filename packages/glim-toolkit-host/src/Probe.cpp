@@ -156,7 +156,7 @@ std::map<std::string, Scores> lastHistory(const std::string& path, Scores* overa
     const auto eq = cell.find('='), sl = cell.find('/');
     if (eq == std::string::npos || sl == std::string::npos) continue;
     out[cell.substr(0, eq)] = {
-        std::atof(cell.substr(eq + 1, sl - eq - 1).c_str()), std::atof(cell.substr(sl + 1).c_str())
+      std::atof(cell.substr(eq + 1, sl - eq - 1).c_str()), std::atof(cell.substr(sl + 1).c_str())
     };
   }
   return out;
@@ -217,7 +217,7 @@ bool Probe::render(bool gpu) {
     }
     gpu_->renderer->drawToTarget(ctx.scene(), target.value());
     if (!gpu_->device.readPixels(
-            target.value(), frame_.pixels.rgba.data(), frame_.pixels.rgba.size()
+          target.value(), frame_.pixels.rgba.data(), frame_.pixels.rgba.size()
         )) {
       out_ << "gpu readPixels unsupported on this backend\n";
       return false;
@@ -280,11 +280,11 @@ bool Probe::compare(const std::string& label) {
     row << '\t' << name << '=' << s.mad << '/' << s.edge;
     const int scale = std::clamp(180 / std::max(1, r.h), 1, 4);
     sheetRows.push_back(gi::stack(
-        {gi::scaleNearest(a, scale),
-         gi::scaleNearest(b, scale),
-         gi::scaleNearest(gi::heat(a, b), scale)},
-        false,
-        4
+      {gi::scaleNearest(a, scale),
+       gi::scaleNearest(b, scale),
+       gi::scaleNearest(gi::heat(a, b), scale)},
+      false,
+      4
     ));
   }
   out_ << "overall mad=" << all.mad << delta(all.mad, lastAll.mad, haveLast) << " edge=" << all.edge
@@ -402,7 +402,7 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     gi::Image pa = gi::crop(ref_, r), pb = gi::crop(current().pixels, r);
     const double m = gi::mad(pa, pb);
     std::vector<gi::Image> parts{
-        gi::scaleNearest(pa, s), gi::scaleNearest(pb, s), gi::scaleNearest(gi::heat(pa, pb), s)
+      gi::scaleNearest(pa, s), gi::scaleNearest(pb, s), gi::scaleNearest(gi::heat(pa, pb), s)
     };
     if (grid > 0)
       for (gi::Image& p : parts) gi::drawRuler(p, r, s, grid);
@@ -452,13 +452,13 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     if (!im) return out_ << "no " << a[1] << "\n", false;
     out_ << "ray";
     for (const gi::Peak& p : gi::rayPeaks(
-             *im,
-             toFloat(a, 2, 0),
-             toFloat(a, 3, 0),
-             toFloat(a, 4, 0),
-             toInt(a, 5, 0),
-             toInt(a, 6, 0),
-             toInt(a, 7, 40)
+           *im,
+           toFloat(a, 2, 0),
+           toFloat(a, 3, 0),
+           toFloat(a, 4, 0),
+           toInt(a, 5, 0),
+           toInt(a, 6, 0),
+           toInt(a, 7, 40)
          ))
       out_ << " r" << p.at << ":" << p.luma;
     return out_ << "\n", true;
@@ -469,13 +469,13 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     if (!im || !gi::parseMask(a[5], &m)) return out_ << "bad image or mask\n", false;
     out_ << std::fixed << std::setprecision(2) << "ring";
     for (const gi::ArcRun& r : gi::ringRuns(
-             *im,
-             toFloat(a, 2, 0),
-             toFloat(a, 3, 0),
-             toFloat(a, 4, 0),
-             m,
-             toFloat(a, 6, 0),
-             toFloat(a, 7, 360)
+           *im,
+           toFloat(a, 2, 0),
+           toFloat(a, 3, 0),
+           toFloat(a, 4, 0),
+           m,
+           toFloat(a, 6, 0),
+           toFloat(a, 7, 360)
          ))
       out_ << " " << r.fromDeg << ".." << r.toDeg;
     return out_ << "\n", true;
@@ -494,7 +494,7 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     const gi::Image* im = pick(a[1]);
     if (!im) return out_ << "no " << a[1] << "\n", false;
     const gi::InkStats s =
-        gi::inkStats(*im, regionAt(a, 2), a.size() > 6 ? std::atof(a[6].c_str()) : 0.08);
+      gi::inkStats(*im, regionAt(a, 2), a.size() > 6 ? std::atof(a[6].c_str()) : 0.08);
     return out_ << "color ink=" << hex(s.ink) << " bg=" << hex(s.background) << "\n", true;
   }
   if (cmd == "pick" && a.size() >= 4) {
@@ -694,7 +694,7 @@ int runE2e(TestApp& app, const E2eFlags& f) {
     while (pos <= f.script.size()) {
       const auto semi = f.script.find(';', pos);
       const std::string tok =
-          f.script.substr(pos, semi == std::string::npos ? std::string::npos : semi - pos);
+        f.script.substr(pos, semi == std::string::npos ? std::string::npos : semi - pos);
       pos = semi == std::string::npos ? f.script.size() + 1 : semi + 1;
       const auto b = tok.find_first_not_of(" \t\r\n");
       if (b == std::string::npos) continue;

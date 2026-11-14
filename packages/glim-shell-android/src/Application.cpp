@@ -58,8 +58,8 @@ void dispatchResize() {
   const float r = detail::pixelRatio();
   Event e(EventType::WindowResized);
   e.setSize(
-      std::max(1, static_cast<int>(std::lround(static_cast<float>(detail::drawableWidth()) / r))),
-      std::max(1, static_cast<int>(std::lround(static_cast<float>(detail::drawableHeight()) / r)))
+    std::max(1, static_cast<int>(std::lround(static_cast<float>(detail::drawableWidth()) / r))),
+    std::max(1, static_cast<int>(std::lround(static_cast<float>(detail::drawableHeight()) / r)))
   );
   dispatchAll(e);
 }
@@ -141,8 +141,8 @@ void emitPointer(EventType type, AInputEvent* event, int32_t index) {
   const float r = detail::pixelRatio();
   Event e(type);
   e.setPoint(
-      AMotionEvent_getX(event, static_cast<size_t>(index)) / r,
-      AMotionEvent_getY(event, static_cast<size_t>(index)) / r
+    AMotionEvent_getX(event, static_cast<size_t>(index)) / r,
+    AMotionEvent_getY(event, static_cast<size_t>(index)) / r
   );
   e.setButton(PointerButton::Left);
   e.setPointerId(static_cast<int>(AMotionEvent_getPointerId(event, static_cast<size_t>(index))));
@@ -167,8 +167,8 @@ int32_t onInputEvent(android_app*, AInputEvent* event) {
   }
   const int32_t action = AMotionEvent_getAction(event);
   const int32_t masked = action & AMOTION_EVENT_ACTION_MASK;
-  const int32_t index = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >>
-                        AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+  const int32_t index =
+    (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
   switch (masked) {
     case AMOTION_EVENT_ACTION_DOWN:
     case AMOTION_EVENT_ACTION_POINTER_DOWN:

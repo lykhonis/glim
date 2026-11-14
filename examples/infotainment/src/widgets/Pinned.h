@@ -36,10 +36,10 @@ struct Pin {
 // Fill the proposal when it is bounded, else keep the design size.
 inline Box fillProposal(float designW, float designH, Constraints c) {
   return {
-      0.f,
-      0.f,
-      isUnbounded(c.maxW) ? designW : c.maxW,
-      isUnbounded(c.maxH) ? designH : c.maxH
+    0.f,
+    0.f,
+    isUnbounded(c.maxW) ? designW : c.maxW,
+    isUnbounded(c.maxH) ? designH : c.maxH
   };
 }
 
@@ -63,10 +63,7 @@ struct Pinned {
                      : a == Anchor::End ? slack
                                         : slack * 0.5f;
     return {
-        box.x + r.x + dx,
-        box.y + r.y + (box.h - height) * 0.5f,
-        r.w,
-        r.h
+      box.x + r.x + dx, box.y + r.y + (box.h - height) * 0.5f, r.w, r.h
     };
   }
   Box childBox(std::size_t i, const Box& box, const Engine&) const {
@@ -82,10 +79,10 @@ struct Pinned {
       const GlassTag& g = *backings[i];
       const ShadowTag& s = *shadows[i];
       const Box& r =
-          backingRects[i].w > 0.f ? backingRects[i] : rects[i];
+        backingRects[i].w > 0.f ? backingRects[i] : rects[i];
       const Box plate = adapt(r, anchors[i], box);
       sink.pushShadow(
-          s.sigma, s.offsetX, s.offsetY, s.color, s.expandPx, 0.f
+        s.sigma, s.offsetX, s.offsetY, s.color, s.expandPx, 0.f
       );
       sink.fillRounded(plate, g.radius, 0xffffffffu);
       sink.pop();
@@ -94,14 +91,14 @@ struct Pinned {
       if (!backings[i]) continue;
       const GlassTag& g = *backings[i];
       const Box& r =
-          backingRects[i].w > 0.f ? backingRects[i] : rects[i];
+        backingRects[i].w > 0.f ? backingRects[i] : rects[i];
       sink.pushGlass(
-          adapt(r, anchors[i], box),
-          g.radius,
-          g.clear,
-          static_cast<std::uint8_t>(g.edge),
-          g.tint,
-          static_cast<std::uint8_t>(g.material)
+        adapt(r, anchors[i], box),
+        g.radius,
+        g.clear,
+        static_cast<std::uint8_t>(g.edge),
+        g.tint,
+        static_cast<std::uint8_t>(g.material)
       );
       sink.pop();
     }

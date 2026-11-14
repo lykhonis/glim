@@ -133,17 +133,17 @@ class Pass {
   void setViewport(float x, float y, float w, float h, float z0, float z1);
   void setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t w, std::uint32_t h);
   void draw(
-      std::uint32_t vertexCount,
-      std::uint32_t instanceCount,
-      std::uint32_t firstVertex,
-      std::uint32_t firstInstance
+    std::uint32_t vertexCount,
+    std::uint32_t instanceCount,
+    std::uint32_t firstVertex,
+    std::uint32_t firstInstance
   );
   void drawIndexed(
-      std::uint32_t indexCount,
-      std::uint32_t instanceCount,
-      std::uint32_t firstIndex,
-      std::int32_t baseVertex,
-      std::uint32_t firstInstance
+    std::uint32_t indexCount,
+    std::uint32_t instanceCount,
+    std::uint32_t firstIndex,
+    std::int32_t baseVertex,
+    std::uint32_t firstInstance
   );
   void end();
 
@@ -218,7 +218,7 @@ class Device {
 };
 
 inline std::vector<Result<Shader>> createShadersInOrder(
-    Device& device, std::span<const ShaderSource> sources
+  Device& device, std::span<const ShaderSource> sources
 ) {
   std::vector<Result<Shader>> out;
   out.reserve(sources.size());

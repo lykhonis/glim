@@ -31,10 +31,10 @@ void test_tags() {
     assert(*seen3 == -1);
   }
   Block grid = column(
-      gap(0),
-      row(gap(0), tap(lines("1"), [] {}), tap(lines("2"), [] {}), tap(lines("3"), [] {})),
-      row(gap(0), tap(lines("4"), [] {}), tap(lines("5"), [] {}), tap(lines("6"), [] {})),
-      row(gap(0), tap(lines("7"), [] {}), tap(lines("8"), [] {}), tap(lines("9"), [] {}))
+    gap(0),
+    row(gap(0), tap(lines("1"), [] {}), tap(lines("2"), [] {}), tap(lines("3"), [] {})),
+    row(gap(0), tap(lines("4"), [] {}), tap(lines("5"), [] {}), tap(lines("6"), [] {})),
+    row(gap(0), tap(lines("7"), [] {}), tap(lines("8"), [] {}), tap(lines("9"), [] {}))
   );
   Box gridBox = place(grid, {0, 720, 0, 480});
   auto focusablesList = focusables(grid, gridBox);
@@ -121,11 +121,11 @@ void test_tags() {
       bool foreign = false;
     } feed;
     Block t = column(
-        shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
-        effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
-        translate(3.f, -4.f),
-        rotate({.angleDeg = 30.f, .cx = 5.f, .cy = 6.f}),
-        lines("x")
+      shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
+      effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
+      translate(3.f, -4.f),
+      rotate({.angleDeg = 30.f, .cx = 5.f, .cy = 6.f}),
+      lines("x")
     );
     Box tb = place(t, {0, 720, 0, 480});
     paintTree(t, tb, Engine{}, rec, feed);
@@ -149,13 +149,10 @@ void test_tags() {
         pushes.push_back(o.kind);
     }
     assert(
-        (pushes ==
-         std::vector<Op::Kind>{
-             Op::Kind::PushShadow,
-             Op::Kind::PushEffect,
-             Op::Kind::PushTransform,
-             Op::Kind::PushRotate
-         })
+      (pushes ==
+       std::vector<Op::Kind>{
+         Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushTransform, Op::Kind::PushRotate
+       })
     );
     assert(pops == 4);
   }

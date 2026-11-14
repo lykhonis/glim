@@ -141,11 +141,11 @@ struct WindowImpl {
     if (viewport) {
       wp_viewport_set_destination(viewport, logicalW, logicalH);
       wp_viewport_set_source(
-          viewport,
-          wl_fixed_from_int(0),
-          wl_fixed_from_int(0),
-          wl_fixed_from_int(dw),
-          wl_fixed_from_int(dh)
+        viewport,
+        wl_fixed_from_int(0),
+        wl_fixed_from_int(0),
+        wl_fixed_from_int(dw),
+        wl_fixed_from_int(dh)
       );
     } else {
       const int iscale = std::max(1, static_cast<int>(std::lround(scale)));
@@ -262,7 +262,7 @@ Window::Window() {
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
   if (wl.fractional) {
     impl->fractional =
-        wp_fractional_scale_manager_v1_get_fractional_scale(wl.fractional, impl->surface);
+      wp_fractional_scale_manager_v1_get_fractional_scale(wl.fractional, impl->surface);
     wp_fractional_scale_v1_add_listener(impl->fractional, &kFractionalListener, impl);
   } else
 #endif
@@ -406,7 +406,7 @@ void Window::presentSoftware() {
     }
     impl->sw.poolSize = bytes;
     impl->sw.pixels = static_cast<std::uint8_t*>(
-        mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, impl->sw.fd, 0)
+      mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, impl->sw.fd, 0)
     );
     if (impl->sw.pixels == MAP_FAILED) {
       impl->sw.pixels = nullptr;
@@ -415,7 +415,7 @@ void Window::presentSoftware() {
     }
     impl->sw.pool = wl_shm_create_pool(wl.shm, impl->sw.fd, static_cast<int32_t>(bytes));
     impl->sw.buffer = wl_shm_pool_create_buffer(
-        impl->sw.pool, 0, w, h, static_cast<int32_t>(stride), WL_SHM_FORMAT_ARGB8888
+      impl->sw.pool, 0, w, h, static_cast<int32_t>(stride), WL_SHM_FORMAT_ARGB8888
     );
     impl->sw.bufW = w;
     impl->sw.bufH = h;

@@ -45,16 +45,16 @@ Mat4 presentProjection(const Mat4& ortho, int degrees) {
 }
 
 GlassUniforms makeGlassUniforms(
-    const Lens& g,
-    const LensPill* pills,
-    int n,
-    int iw,
-    int ih,
-    float pixelRatio,
-    float u0,
-    float v0,
-    float u1,
-    float v1
+  const Lens& g,
+  const LensPill* pills,
+  int n,
+  int iw,
+  int ih,
+  float pixelRatio,
+  float u0,
+  float v0,
+  float u1,
+  float v1
 ) {
   GlassUniforms u{};
   u.resolution[0] = static_cast<float>(iw);
@@ -121,10 +121,10 @@ GlassUniforms makeGlassUniforms(
   u.lumaLift = 0.55f;
   u.lumaShadow = 0.06f;
   // A set tint is the designed wash: no luma lift on top (CPU parity).
-  u.lumaOn = (!ident && !g.flatten && isGlass && g.variant == LensVariant::Regular &&
-              g.tint.alpha() == 0.f)
-                 ? 1.f
-                 : 0.f;
+  u.lumaOn =
+    (!ident && !g.flatten && isGlass && g.variant == LensVariant::Regular && g.tint.alpha() == 0.f)
+      ? 1.f
+      : 0.f;
   u.dimmer = (!ident && !g.flatten && isGlass && g.variant == LensVariant::Clear) ? 0.35f : 0.f;
   u.interactive = g.interactive ? 1.f : 0.f;
   u.flatten = g.flatten ? 1.f : 0.f;
@@ -174,21 +174,21 @@ void ensureRt(gpu::Device& device, gpu::FrameTarget& ft, int w, int h) {
 }
 
 void blur1dPass(
-    gpu::CommandEncoder& encoder,
-    const Renderer::Pipelines& pipes,
-    void* sampler,
-    void* dst,
-    int dw,
-    int dh,
-    void* src,
-    float sigma,
-    float dx,
-    float dy,
-    float su0,
-    float sv0,
-    float su1,
-    float sv1,
-    Stats* stats
+  gpu::CommandEncoder& encoder,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  void* dst,
+  int dw,
+  int dh,
+  void* src,
+  float sigma,
+  float dx,
+  float dy,
+  float su0,
+  float sv0,
+  float su1,
+  float sv1,
+  Stats* stats
 ) {
   gpu::PassDesc d;
   d.nativeColor = dst;
@@ -223,18 +223,18 @@ void blur1dPass(
 }  // namespace
 
 PlateInstance makePlate(
-    float x,
-    float y,
-    float w,
-    float h,
-    float u0,
-    float v0,
-    float u1,
-    float v1,
-    float sigma,
-    bool flat,
-    const BackdropPill* pills,
-    int n
+  float x,
+  float y,
+  float w,
+  float h,
+  float u0,
+  float v0,
+  float u1,
+  float v1,
+  float sigma,
+  bool flat,
+  const BackdropPill* pills,
+  int n
 ) {
   PlateInstance p{};
   p.rect[0] = x;
@@ -297,26 +297,26 @@ gpu::FrameTarget* Renderer::TargetPool::acquire(gpu::Device& device, int w, int 
 }
 
 void blitTexture(
-    gpu::CommandEncoder& encoder,
-    const Renderer::Pipelines& pipes,
-    void* sampler,
-    Stats& stats,
-    void* dst,
-    int dw,
-    int dh,
-    void* src,
-    float x,
-    float y,
-    float w,
-    float h,
-    float u0,
-    float v0,
-    float u1,
-    float v1,
-    float r,
-    float g,
-    float b,
-    float a
+  gpu::CommandEncoder& encoder,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  Stats& stats,
+  void* dst,
+  int dw,
+  int dh,
+  void* src,
+  float x,
+  float y,
+  float w,
+  float h,
+  float u0,
+  float v0,
+  float u1,
+  float v1,
+  float r,
+  float g,
+  float b,
+  float a
 ) {
   if (!dst || !src || dw <= 0 || dh <= 0) {
     return;
@@ -352,20 +352,20 @@ void blitTexture(
 }
 
 void* blurGlass(
-    gpu::CommandEncoder& encoder,
-    const Renderer::Pipelines& pipes,
-    void* sampler,
-    gpu::Device& device,
-    Renderer::TargetPool& targets,
-    void* sharp,
-    int contentW,
-    int contentH,
-    float su0,
-    float sv0,
-    float su1,
-    float sv1,
-    float sigmaFull,
-    Stats* stats
+  gpu::CommandEncoder& encoder,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  gpu::Device& device,
+  Renderer::TargetPool& targets,
+  void* sharp,
+  int contentW,
+  int contentH,
+  float su0,
+  float sv0,
+  float su1,
+  float sv1,
+  float sigmaFull,
+  Stats* stats
 ) {
   // Large sigmas blur at reduced res (never below 1/8); iterated H+V pairs sum variances.
   int div = 2;
@@ -386,31 +386,31 @@ void* blurGlass(
   }
   // 2n directional passes of sigmaK == one wide Gaussian.
   blur1dPass(
-      encoder,
-      pipes,
-      sampler,
-      targets.glassBlurTmp.native(),
-      bw,
-      bh,
-      sharp,
-      sigma,
-      0.f,
-      1.f,
-      su0,
-      sv0,
-      su1,
-      sv1,
-      stats
+    encoder,
+    pipes,
+    sampler,
+    targets.glassBlurTmp.native(),
+    bw,
+    bh,
+    sharp,
+    sigma,
+    0.f,
+    1.f,
+    su0,
+    sv0,
+    su1,
+    sv1,
+    stats
   );
   void* src = targets.glassBlurTmp.native();
   void* dst = targets.glassBlur.native();
   for (int i = 1; i < n; ++i) {
     blur1dPass(
-        encoder, pipes, sampler, dst, bw, bh, src, sigma, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, stats
+      encoder, pipes, sampler, dst, bw, bh, src, sigma, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, stats
     );
     std::swap(src, dst);
     blur1dPass(
-        encoder, pipes, sampler, dst, bw, bh, src, sigma, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, stats
+      encoder, pipes, sampler, dst, bw, bh, src, sigma, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, stats
     );
     std::swap(src, dst);
   }
@@ -419,26 +419,26 @@ void* blurGlass(
 }
 
 void encodeGlassPlate(
-    gpu::CommandEncoder& encoder,
-    const Renderer::Pipelines& pipes,
-    void* sampler,
-    gpu::Device& device,
-    Renderer::TargetPool& targets,
-    Stats& stats,
-    Stats* drawStats,
-    const Lens& mat,
-    const GlassUniforms& gu,
-    int pillCount,
-    void* sharp,
-    void* dst,
-    int iw,
-    int ih,
-    float pixelRatio,
-    const Mat4& proj,
-    float u0,
-    float v0,
-    float u1,
-    float v1
+  gpu::CommandEncoder& encoder,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  gpu::Device& device,
+  Renderer::TargetPool& targets,
+  Stats& stats,
+  Stats* drawStats,
+  const Lens& mat,
+  const GlassUniforms& gu,
+  int pillCount,
+  void* sharp,
+  void* dst,
+  int iw,
+  int ih,
+  float pixelRatio,
+  const Mat4& proj,
+  float u0,
+  float v0,
+  float u1,
+  float v1
 ) {
   if (!sharp) {
     return;
@@ -448,20 +448,7 @@ void encodeGlassPlate(
   if (blurR > 0.f && pipes.blur1d.native() && !mat.flatten) {
     const float sigmaFull = blurR * pixelRatio * 0.5f;
     blur = blurGlass(
-        encoder,
-        pipes,
-        sampler,
-        device,
-        targets,
-        sharp,
-        iw,
-        ih,
-        u0,
-        v0,
-        u1,
-        v1,
-        sigmaFull,
-        drawStats
+      encoder, pipes, sampler, device, targets, sharp, iw, ih, u0, v0, u1, v1, sigmaFull, drawStats
     );
   }
   if (pipes.glass.native() && pillCount > 0) {
@@ -487,40 +474,40 @@ void encodeGlassPlate(
     gp.end();
   } else {
     blitTexture(
-        encoder,
-        pipes,
-        sampler,
-        stats,
-        dst,
-        iw,
-        ih,
-        sharp,
-        0.f,
-        0.f,
-        static_cast<float>(iw),
-        static_cast<float>(ih),
-        u0,
-        v0,
-        u1,
-        v1,
-        1.f,
-        1.f,
-        1.f,
-        1.f
+      encoder,
+      pipes,
+      sampler,
+      stats,
+      dst,
+      iw,
+      ih,
+      sharp,
+      0.f,
+      0.f,
+      static_cast<float>(iw),
+      static_cast<float>(ih),
+      u0,
+      v0,
+      u1,
+      v1,
+      1.f,
+      1.f,
+      1.f,
+      1.f
     );
   }
 }
 
 void* snapshotBackdrop(
-    gpu::CommandEncoder& encoder,
-    const Renderer::Pipelines& pipes,
-    void* sampler,
-    gpu::Device& device,
-    Renderer::TargetPool& targets,
-    int viewportW,
-    int viewportH,
-    void* nativeColor,
-    Stats& stats
+  gpu::CommandEncoder& encoder,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  gpu::Device& device,
+  Renderer::TargetPool& targets,
+  int viewportW,
+  int viewportH,
+  void* nativeColor,
+  Stats& stats
 ) {
   const int hw = std::max(1, viewportW / 2);
   const int hh = std::max(1, viewportH / 2);

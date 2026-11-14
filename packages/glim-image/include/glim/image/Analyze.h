@@ -74,7 +74,7 @@ std::vector<int> lumaLine(const Image&, Line);
 // Luma peaks along a ray from (cx, cy) at `deg` (clockwise from +x, y down);
 // Peak::at is the radius.
 std::vector<Peak> rayPeaks(
-    const Image&, float cx, float cy, float deg, int r0, int r1, int minLuma
+  const Image&, float cx, float cy, float deg, int r0, int r1, int minLuma
 );
 
 struct ArcRun {
@@ -82,14 +82,14 @@ struct ArcRun {
 };
 // Mask runs along a circle, sampled every `stepDeg` from deg0 to deg1.
 std::vector<ArcRun> ringRuns(
-    const Image&,
-    float cx,
-    float cy,
-    float r,
-    const Mask&,
-    float deg0 = 0,
-    float deg1 = 360,
-    float stepDeg = 0.25f
+  const Image&,
+  float cx,
+  float cy,
+  float r,
+  const Mask&,
+  float deg0 = 0,
+  float deg1 = 360,
+  float stepDeg = 0.25f
 );
 
 struct InkStats {

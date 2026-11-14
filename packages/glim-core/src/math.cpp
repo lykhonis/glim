@@ -9,7 +9,7 @@ Mat4 Mat4::identity() noexcept {
 }
 
 Mat4 Mat4::orthoYDown(
-    float left, float top, float right, float bottom, float zNear, float zFar
+  float left, float top, float right, float bottom, float zNear, float zFar
 ) noexcept {
   // Y-down paint to Y-up NDC; equiv. glm::ortho(l, r, b, t, zn, zf).
   const float rl = right - left;
@@ -70,10 +70,10 @@ Mat4 Mat4::operator*(const Mat4& rhs) const noexcept {
 
 Vec4 Mat4::operator*(const Vec4& v) const noexcept {
   return {
-      m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12] * v.w,
-      m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13] * v.w,
-      m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14] * v.w,
-      m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15] * v.w,
+    m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12] * v.w,
+    m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13] * v.w,
+    m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14] * v.w,
+    m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15] * v.w,
   };
 }
 

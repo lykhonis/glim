@@ -113,7 +113,7 @@ std::vector<std::string> truncateLines(std::vector<std::string> lines, float max
 }
 
 std::vector<std::string> layoutLines(
-    const std::string& text, float maxW, float maxH, bool wrap, const Engine& e
+  const std::string& text, float maxW, float maxH, bool wrap, const Engine& e
 ) {
   std::vector<std::string> lines = wrap ? wrapText(text, maxW, e) : std::vector<std::string>{text};
   if (isUnbounded(maxH)) return lines;
@@ -121,7 +121,7 @@ std::vector<std::string> layoutLines(
 }
 
 std::vector<PlacedLine> layoutPlacedLines(
-    const std::string& text, const Box& box, bool wrap, int align, const Engine& e
+  const std::string& text, const Box& box, bool wrap, int align, const Engine& e
 ) {
   std::vector<std::string> lines = layoutLines(text, box.w, box.h, wrap, e);
   std::vector<PlacedLine> out;
@@ -131,7 +131,7 @@ std::vector<PlacedLine> layoutPlacedLines(
     if (align == kAlignCenter) x += (box.w - lw) * 0.5f;
     if (align == kAlignRight) x += box.w - lw;
     out.push_back(
-        {{x, box.y + static_cast<float>(i) * Tokens::kTypeLine, lw, Tokens::kTypeLine}, lines[i]}
+      {{x, box.y + static_cast<float>(i) * Tokens::kTypeLine, lw, Tokens::kTypeLine}, lines[i]}
     );
   }
   return out;

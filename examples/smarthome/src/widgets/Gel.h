@@ -15,7 +15,7 @@ inline std::uint32_t withAlpha(std::uint32_t rgba, float a) {
   if (a >= 1.0f) return rgba;
   if (a <= 0.0f) return rgba & 0xffffff00u;
   const unsigned alpha =
-      static_cast<unsigned>((rgba & 0xffu) * a + 0.5f);
+    static_cast<unsigned>((rgba & 0xffu) * a + 0.5f);
   return (rgba & 0xffffff00u) | (alpha & 0xffu);
 }
 
@@ -23,7 +23,7 @@ inline std::uint32_t withAlpha(std::uint32_t rgba, float a) {
 // instead of washing the base toward gray like SrcOver white does.
 // Faces ≤6px stay flat.
 inline void gelCoat(
-    AnySink& sink, const Box& box, int radius, float alpha = 1.0f
+  AnySink& sink, const Box& box, int radius, float alpha = 1.0f
 ) {
   if (box.h <= 6.0f || box.w <= 6.0f) {
     return;

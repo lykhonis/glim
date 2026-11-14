@@ -52,7 +52,7 @@ struct Type {
 inline float sizeFor(float cap) { return cap / kCapPerSize; }
 
 inline float measure(
-    const Engine& e, const std::string& s, const Type& t
+  const Engine& e, const std::string& s, const Type& t
 ) {
   auto m = e.get<Measurer>();
   const float size = sizeFor(t.cap);
@@ -67,13 +67,13 @@ inline float measure(
 // Draws `s` with its cap box at (x, capTop); x is the left, center or
 // right edge.
 inline float text(
-    AnySink& sink,
-    const Engine& e,
-    const std::string& s,
-    float x,
-    float capTop,
-    const Type& t,
-    Align align = Align::Left
+  AnySink& sink,
+  const Engine& e,
+  const std::string& s,
+  float x,
+  float capTop,
+  const Type& t,
+  Align align = Align::Left
 ) {
   const float w = measure(e, s, t);
   if (align == Align::Center) x -= w * 0.5f;
@@ -90,7 +90,7 @@ inline float text(
     const std::string one(1, ch);
     sink.textStyled(pen, y, one, t.color, size, t.condense, t.weight);
     pen += (m ? m->get().measure(one.c_str(), size) : size * 0.55f) *
-               t.condense +
+             t.condense +
            t.track;
   }
   return w;
@@ -137,19 +137,19 @@ struct Fitted {
 };
 
 inline Fitted fitLayout(
-    const Engine& e,
-    const At& at,
-    const std::string& s,
-    Ink ink,
-    std::uint32_t color,
-    float trackPerCap = 0.12f,
-    float weight = 0.f
+  const Engine& e,
+  const At& at,
+  const std::string& s,
+  Ink ink,
+  std::uint32_t color,
+  float trackPerCap = 0.12f,
+  float weight = 0.f
 ) {
   const float cap = ink.y1 - ink.y0 + 1.f;
   const float bearing = kBearingPerSize * sizeFor(cap);
   const float inkW = ink.x1 - ink.x0 + 1.f;
   const float gaps =
-      static_cast<float>(s.size() > 1 ? s.size() - 1 : 0);
+    static_cast<float>(s.size() > 1 ? s.size() - 1 : 0);
   Type t{cap, 0.f, 1.f, weight, color};
   const float natural = measure(e, s, t);
   float track = trackPerCap * cap;
@@ -164,48 +164,48 @@ inline Fitted fitLayout(
 }
 
 inline void fit(
-    AnySink& sink,
-    const Engine& e,
-    const At& at,
-    const std::string& s,
-    Ink ink,
-    std::uint32_t color,
-    float trackPerCap = 0.12f,
-    float weight = 0.f
+  AnySink& sink,
+  const Engine& e,
+  const At& at,
+  const std::string& s,
+  Ink ink,
+  std::uint32_t color,
+  float trackPerCap = 0.12f,
+  float weight = 0.f
 ) {
   const Fitted f = fitLayout(e, at, s, ink, color, trackPerCap, weight);
   text(sink, e, s, f.x, f.capTop, f.type);
 }
 
 inline void path(
-    AnySink& sink,
-    std::initializer_list<float> xy,
-    float width,
-    std::uint32_t rgba,
-    float dot = 0.f
+  AnySink& sink,
+  std::initializer_list<float> xy,
+  float width,
+  std::uint32_t rgba,
+  float dot = 0.f
 ) {
   const std::vector<float> pts(xy);
   sink.polyline(pts.data(), pts.size() / 2, width, dot, rgba);
 }
 
 inline void path(
-    AnySink& sink,
-    const std::vector<float>& pts,
-    float width,
-    std::uint32_t rgba,
-    float dot = 0.f
+  AnySink& sink,
+  const std::vector<float>& pts,
+  float width,
+  std::uint32_t rgba,
+  float dot = 0.f
 ) {
   sink.polyline(pts.data(), pts.size() / 2, width, dot, rgba);
 }
 
 // Horizontal hairline [x0, x1) at row y.
 inline void hline(
-    AnySink& sink,
-    float x0,
-    float x1,
-    float y,
-    std::uint32_t rgba,
-    float h = 1.f
+  AnySink& sink,
+  float x0,
+  float x1,
+  float y,
+  std::uint32_t rgba,
+  float h = 1.f
 ) {
   sink.fill({x0, y, x1 - x0, h}, rgba);
 }

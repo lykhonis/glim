@@ -54,8 +54,8 @@ bool shapeBounds(const Shape& s, const Mat4& world, Rect* out, bool* slot) {
   if (const auto* st = std::get_if<Stroke>(&s)) {
     const float o = std::max(0.f, st->width) * 0.5f;
     const Rect expanded = {
-        {st->rect.origin.x - o, st->rect.origin.y - o},
-        {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}
+      {st->rect.origin.x - o, st->rect.origin.y - o},
+      {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}
     };
     *out = transformRect(world, expanded);
     *slot = false;
@@ -64,8 +64,8 @@ bool shapeBounds(const Shape& s, const Mat4& world, Rect* out, bool* slot) {
   if (const auto* sc = std::get_if<StrokeChamfer>(&s)) {
     const float o = std::max(0.f, sc->width) * 0.5f;
     const Rect expanded = {
-        {sc->rect.origin.x - o, sc->rect.origin.y - o},
-        {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}
+      {sc->rect.origin.x - o, sc->rect.origin.y - o},
+      {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}
     };
     *out = transformRect(world, expanded);
     *slot = false;
@@ -126,13 +126,13 @@ bool shapeBounds(const Shape& s, const Mat4& world, Rect* out, bool* slot) {
 }
 
 bool hitGroup(
-    const Group& g,
-    const Mat4& world,
-    Rect clip,
-    bool clipActive,
-    std::uint32_t inherited,
-    Vec2 point,
-    Hit* out
+  const Group& g,
+  const Mat4& world,
+  Rect clip,
+  bool clipActive,
+  std::uint32_t inherited,
+  Vec2 point,
+  Hit* out
 ) {
   Rect nextClip = clip;
   bool nextActive = clipActive;
@@ -177,13 +177,13 @@ bool hitGroup(
         }
       } else if (it->index < g.children.size() && g.children[it->index] &&
                  hitGroup(
-                     *g.children[it->index],
-                     world * g.children[it->index]->params.transform,
-                     nextClip,
-                     nextActive,
-                     effective,
-                     point,
-                     out
+                   *g.children[it->index],
+                   world * g.children[it->index]->params.transform,
+                   nextClip,
+                   nextActive,
+                   effective,
+                   point,
+                   out
                  )) {
         return true;
       }
@@ -196,10 +196,9 @@ bool hitGroup(
     }
   }
   for (auto it = g.children.rbegin(); it != g.children.rend(); ++it) {
-    if (*it &&
-        hitGroup(
-            **it, world * (*it)->params.transform, nextClip, nextActive, effective, point, out
-        )) {
+    if (*it && hitGroup(
+                 **it, world * (*it)->params.transform, nextClip, nextActive, effective, point, out
+               )) {
       return true;
     }
   }

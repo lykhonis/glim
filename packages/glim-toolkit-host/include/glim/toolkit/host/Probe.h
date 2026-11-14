@@ -72,10 +72,10 @@ std::string probeLineFromE2e(std::string_view token);
 // Headless command-line driver shared by every app binary.
 // Flags every app accepts; apps append their own after it.
 inline constexpr const char* kE2eUsage =
-    "[--snapshot out.png] [--dump-a11y] [--dump-ops out.bin] [--stats]\n"
-    "  [--e2e \"tap:i:1;step:0.5;~TEXT\"] [--probe script|-]\n"
-    "  [--trace-frames N [--trace-out out.csv] [--trace-json out.json]] [--soak N]\n"
-    "  [--drive script [--drive-trace out.json]] [--startup | --startup-encoded]";
+  "[--snapshot out.png] [--dump-a11y] [--dump-ops out.bin] [--stats]\n"
+  "  [--e2e \"tap:i:1;step:0.5;~TEXT\"] [--probe script|-]\n"
+  "  [--trace-frames N [--trace-out out.csv] [--trace-json out.json]] [--soak N]\n"
+  "  [--drive script [--drive-trace out.json]] [--startup | --startup-encoded]";
 
 struct E2eFlags {
   bool help = false;

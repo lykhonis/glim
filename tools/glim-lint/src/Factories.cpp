@@ -52,7 +52,7 @@ bool hasPack(const Tokens& p) {
 
 bool hasForwardAll(const Tokens& t, std::size_t b, std::size_t e) {
   constexpr std::array<std::string_view, 12> seq{
-      "std", "::", "forward", "<", "As", ">", "(", "as", ")", ".", ".", "."
+    "std", "::", "forward", "<", "As", ">", "(", "as", ")", ".", ".", "."
   };
   for (std::size_t i = b; i + seq.size() <= e; ++i) {
     bool hit = true;
@@ -123,14 +123,14 @@ FactoryReport checkFactories(std::string_view file, std::string_view src) {
     }
 
     const bool allowed =
-        std::find(kMultiFixedAllowed.begin(), kMultiFixedAllowed.end(), name.text) !=
-        kMultiFixedAllowed.end();
+      std::find(kMultiFixedAllowed.begin(), kMultiFixedAllowed.end(), name.text) !=
+      kMultiFixedAllowed.end();
     if (fixed >= 2 && !allowed)
       report.findings.push_back(
-          {path,
-           name.line,
-           name.text + " takes " + std::to_string(fixed) +
-               " fixed params - pass the props struct instead"}
+        {path,
+         name.line,
+         name.text + " takes " + std::to_string(fixed) +
+           " fixed params - pass the props struct instead"}
       );
 
     if (!forwards) continue;
@@ -155,8 +155,23 @@ std::vector<Finding> checkTagLiterals(std::string_view file, std::string_view sr
     const bool bare = i + 2 < t.size() && t[i + 1].kind == Kind::Ident && is(t[i + 2], ";");
     if (literal || bare)
       findings.push_back(
-          {std::string(file), t[i].line, t[i].text + " built by hand - call its factory"}
+        {std::string(file), t[i].line, t[i].text + " built by hand - call its factory"}
       );
+  }
+  return findings;
+}
+
+std::vector<Finding> checkTrailingCommas(std::string_view file, std::string_view src) {
+  std::vector<Finding> findings;
+  const Tokens t = tokenize(src);
+  for (std::size_t i = 0; i + 3 < t.size(); ++i) {
+    if (!is(t[i], "{") || !is(t[i + 1], ".") || t[i + 2].kind != Kind::Ident || !is(t[i + 3], "="))
+      continue;
+    const std::size_t close = closeOf(t, i, "{", "}");
+    if (close >= t.size() || t[close].line == t[i].line || is(t[close - 1], ",")) continue;
+    findings.push_back(
+      {std::string(file), t[i].line, "multi-line designated initializer needs a trailing comma"}
+    );
   }
   return findings;
 }

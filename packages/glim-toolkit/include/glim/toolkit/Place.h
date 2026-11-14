@@ -51,17 +51,17 @@ void record(const Block& b, const Box& box, Rec& r, const Engine& e = Engine{});
 BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
 // Hit plus laid-out box in one walk. Null block + zero box on miss.
 std::pair<BlockRef, Box> hitWithBox(
-    const Block& b, const Box& box, float x, float y, const Engine& e = Engine{}
+  const Block& b, const Box& box, float x, float y, const Engine& e = Engine{}
 );
 
 bool dispatchPointer(
-    const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e = Engine{}
+  const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e = Engine{}
 );
 
 bool broadcastEvent(const Block& b, const Box& box, const Event& ev, const Engine& e = Engine{});
 
 void dump(
-    std::ostream& os, const Block& b, const Box& box, const Engine& e = Engine{}, int indent = 0
+  std::ostream& os, const Block& b, const Box& box, const Engine& e = Engine{}, int indent = 0
 );
 
 namespace detail {

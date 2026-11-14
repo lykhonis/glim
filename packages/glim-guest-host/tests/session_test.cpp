@@ -38,12 +38,12 @@ class FakeRuntime final : public h::Runtime, public t::Imports {
   FakeRuntime(t::Terms hello, t::Endpoint::Handler handler)
       : arena_(t::linkBytes(kCapacity) / 8 + kRegionAt / 8),
         link_(
-            *this,
-            [this] { return memory(); },
-            memory().subspan(kRegionAt, t::linkBytes(kCapacity)),
-            kRegionAt,
-            std::move(hello),
-            std::move(handler)
+          *this,
+          [this] { return memory(); },
+          memory().subspan(kRegionAt, t::linkBytes(kCapacity)),
+          kRegionAt,
+          std::move(hello),
+          std::move(handler)
         ) {}
 
   void attach(t::Imports& host) { host_ = &host; }
@@ -69,9 +69,9 @@ class FakeRuntime final : public h::Runtime, public t::Imports {
 t::Terms guestHello() {
   t::Terms hello;
   hello.channels = {
-      {.channel = kFrameChannel, .version = 3, .required = true},
-      {.channel = kInputChannel, .version = 1, .required = false},
-      {.channel = 99, .version = 1, .required = false},
+    {.channel = kFrameChannel, .version = 3, .required = true},
+    {.channel = kInputChannel, .version = 1, .required = false},
+    {.channel = 99, .version = 1, .required = false},
   };
   return hello;
 }
@@ -80,8 +80,8 @@ t::Support hostSupport() {
   t::Support support;
   support.limits.chunk = 16 * 1024;
   support.channels = {
-      {.channel = kFrameChannel, .oldest = 1, .newest = 2},
-      {.channel = kInputChannel, .oldest = 1, .newest = 1},
+    {.channel = kFrameChannel, .oldest = 1, .newest = 2},
+    {.channel = kInputChannel, .oldest = 1, .newest = 1},
   };
   return support;
 }
@@ -94,17 +94,15 @@ struct Pair {
 
   Pair(t::Terms hello, t::Support support, t::Endpoint::Handler guestHandler = {})
       : runtime(
-            std::move(hello), guestHandler ? std::move(guestHandler) : [](const t::Message&) {}
+          std::move(hello), guestHandler ? std::move(guestHandler) : [](const t::Message&) {}
         ),
         session(
-            runtime,
-            {.support = std::move(support),
-             .ringCapacity = kCapacity,
-             .clock = [] { return std::uint64_t{42}; },
-             .logger = [this](std::uint32_t, std::string_view text) { logs.emplace_back(text); }},
-            [this](const t::Message& m) {
-              hostGot.emplace_back(m.payload.begin(), m.payload.end());
-            }
+          runtime,
+          {.support = std::move(support),
+           .ringCapacity = kCapacity,
+           .clock = [] { return std::uint64_t{42}; },
+           .logger = [this](std::uint32_t, std::string_view text) { logs.emplace_back(text); }},
+          [this](const t::Message& m) { hostGot.emplace_back(m.payload.begin(), m.payload.end()); }
         ) {
     runtime.attach(session);
   }
@@ -118,9 +116,9 @@ void handshakeAgrees() {
   const auto& agreed = pair.runtime.link().agreed();
   expect(agreed.config.chunk == 16 * 1024, "chunk narrowed to the host limit");
   expect(
-      agreed.channels.size() == 2 && agreed.channels[0].version == 2 &&
-          agreed.channels[1].channel == kInputChannel,
-      "frame channel downgraded, unknown optional channel dropped"
+    agreed.channels.size() == 2 && agreed.channels[0].version == 2 &&
+      agreed.channels[1].channel == kInputChannel,
+    "frame channel downgraded, unknown optional channel dropped"
   );
   expect(pair.session.agreed().channels.size() == 2, "both sides agree");
   expect(pair.runtime.now() == 42, "host_now reaches the host clock");
@@ -144,7 +142,7 @@ void framesFlow() {
   pair.session.service();
   expect(pair.hostGot.size() == 1, "host receives the frame");
   const auto decoded =
-      pair.hostGot.empty() ? std::nullopt : g::readFrame(pair.hostGot[0], p::ImageStore{});
+    pair.hostGot.empty() ? std::nullopt : g::readFrame(pair.hostGot[0], p::ImageStore{});
   std::vector<std::byte> again;
   if (decoded) {
     g::writeFrame(*decoded, again);
@@ -170,8 +168,8 @@ void requestsCross() {
   ask(*pair.session.endpoint(), owner, reply);
   pair.session.service();
   expect(
-      reply && reply->outcome == t::Outcome::Ok && reply->payload == std::vector{std::byte{7}},
-      "host request answered by the guest"
+    reply && reply->outcome == t::Outcome::Ok && reply->payload == std::vector{std::byte{7}},
+    "host request answered by the guest"
   );
 }
 
@@ -182,9 +180,9 @@ void versionSkew() {
   Pair skew(guestHello(), newer);
   skew.session.start();
   expect(
-      skew.session.state() == h::Session::State::Ready &&
-          skew.session.agreed().protocol == t::kProtocolVersion,
-      "newer host speaks the older guest protocol"
+    skew.session.state() == h::Session::State::Ready &&
+      skew.session.agreed().protocol == t::kProtocolVersion,
+    "newer host speaks the older guest protocol"
   );
 
   auto strict = hostSupport();
@@ -194,9 +192,9 @@ void versionSkew() {
   expect(!old.session.start() || old.session.state() == h::Session::State::Refused, "too old");
   expect(old.session.refusal() == t::Refusal::Protocol, "host refuses an old guest");
   expect(
-      old.runtime.link().state() == g::Link::State::Refused &&
-          old.runtime.link().refusal() == t::Refusal::Protocol && !old.logs.empty(),
-      "guest learns why and logs it"
+    old.runtime.link().state() == g::Link::State::Refused &&
+      old.runtime.link().refusal() == t::Refusal::Protocol && !old.logs.empty(),
+    "guest learns why and logs it"
   );
 }
 
@@ -233,7 +231,7 @@ void unknownRecords() {
   t::writeHello(guestHello(), message);
   expect(!t::readHello(message), "two hellos rejected");
   expect(
-      std::get<t::Refusal>(t::readAnswer({})) == t::Refusal::Malformed, "empty answer malformed"
+    std::get<t::Refusal>(t::readAnswer({})) == t::Refusal::Malformed, "empty answer malformed"
   );
 }
 

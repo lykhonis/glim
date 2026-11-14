@@ -58,7 +58,7 @@ Result<Drawable> Device::nextDrawable() {
     if (!logged) {
       logged = true;
       printf(
-          "[glim-web] nextDrawable: not ready ready=%d device=%p\n", (int)w.ready, (void*)w.device
+        "[glim-web] nextDrawable: not ready ready=%d device=%p\n", (int)w.ready, (void*)w.device
       );
     }
     return Result<Drawable>::fail("webgpu device not ready");
@@ -133,12 +133,12 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
   }
   WGPUTextureDescriptor td{};
   td.usage = static_cast<WGPUTextureUsage>(
-      WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding
+    WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding
   );
   td.dimension = WGPUTextureDimension_2D;
   td.size = {static_cast<std::uint32_t>(w), static_cast<std::uint32_t>(h), 1};
   const WGPUTextureFormat rtFormat =
-      impl_->format != WGPUTextureFormat_Undefined ? impl_->format : WGPUTextureFormat_RGBA8Unorm;
+    impl_->format != WGPUTextureFormat_Undefined ? impl_->format : WGPUTextureFormat_RGBA8Unorm;
   td.format = rtFormat;
   td.mipLevelCount = levels;
   td.sampleCount = 1;
@@ -169,7 +169,7 @@ bool Device::readPixels(const FrameTarget&, void*, std::uint64_t) { return false
 
 Result<Buffer> Device::createBuffer(const BufferDesc& desc) {
   WGPUBufferUsage usage =
-      static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst);
+    static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst);
   if (desc.vertex) {
     usage = static_cast<WGPUBufferUsage>(usage | WGPUBufferUsage_Vertex);
   }
@@ -196,11 +196,11 @@ void Device::writeBuffer(Buffer& buffer, const void* data, std::uint64_t size) {
     return;
   }
   wgpuQueueWriteBuffer(
-      impl_->queue,
-      static_cast<WGPUBuffer>(buffer.native()),
-      0,
-      data,
-      static_cast<size_t>(std::min<std::uint64_t>(size, buffer.size()))
+    impl_->queue,
+    static_cast<WGPUBuffer>(buffer.native()),
+    0,
+    data,
+    static_cast<size_t>(std::min<std::uint64_t>(size, buffer.size()))
   );
 }
 
@@ -209,7 +209,7 @@ Result<Texture> Device::createTexture(const TextureDesc& desc) {
   const int h = std::max(desc.height, 1);
   WGPUTextureDescriptor td{};
   td.usage =
-      static_cast<WGPUTextureUsage>(WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst);
+    static_cast<WGPUTextureUsage>(WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst);
   td.dimension = WGPUTextureDimension_2D;
   td.size = {static_cast<std::uint32_t>(w), static_cast<std::uint32_t>(h), 1};
   td.format = WGPUTextureFormat_RGBA8Unorm;
@@ -240,8 +240,8 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
   if (!impl_ || !texture.native() || !rgba8 || texture.width() <= 0 || texture.height() <= 0) {
     return;
   }
-  const std::uint64_t need = static_cast<std::uint64_t>(texture.width()) * 4 *
-                             static_cast<std::uint64_t>(texture.height());
+  const std::uint64_t need =
+    static_cast<std::uint64_t>(texture.width()) * 4 * static_cast<std::uint64_t>(texture.height());
   if (bytes < need) {
     return;
   }
@@ -268,9 +268,9 @@ void Device::writeTexture(Texture& texture, const void* rgba8, std::uint64_t byt
   const auto* src = static_cast<const std::uint8_t*>(rgba8);
   for (std::uint32_t y = 0; y < hh; ++y) {
     std::memcpy(
-        padded.data() + static_cast<std::size_t>(y) * dstRow,
-        src + static_cast<std::size_t>(y) * srcRow,
-        srcRow
+      padded.data() + static_cast<std::size_t>(y) * dstRow,
+      src + static_cast<std::size_t>(y) * srcRow,
+      srcRow
     );
   }
   wgpuQueueWriteTexture(impl_->queue, &dst, padded.data(), padded.size(), &layout, &extent);
@@ -331,7 +331,7 @@ Result<Pipeline> Device::createPipeline(const PipelineDesc& desc) {
   comp.operation = WGPUBlendOperation_Add;
   comp.srcFactor = WGPUBlendFactor_One;
   comp.dstFactor =
-      desc.blend == Blend::Plus ? WGPUBlendFactor_One : WGPUBlendFactor_OneMinusSrcAlpha;
+    desc.blend == Blend::Plus ? WGPUBlendFactor_One : WGPUBlendFactor_OneMinusSrcAlpha;
   WGPUBlendState blend{};
   blend.color = comp;
   blend.alpha = comp;

@@ -3,3 +3,4 @@ ColumnLimit: 72
 BinPackArguments: false
 BinPackParameters: false
 AlignAfterOpenBracket: BlockIndent
+ContinuationIndentWidth: 2

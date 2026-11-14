@@ -327,11 +327,10 @@ constexpr auto kIsolate = [](auto& io, auto& v) { isolateFields(io, v); };
 static_assert(sizeOf<p::Quad>(kQuad) == sizeof(p::Quad) && sizeof(p::Quad) == 36);
 static_assert(sizeOf<p::BlitQuad>(kBlit) == sizeof(p::BlitQuad) && sizeof(p::BlitQuad) == 56);
 static_assert(
-    sizeOf<p::GradientQuad>(kGradient) == sizeof(p::GradientQuad) && sizeof(p::GradientQuad) == 208
+  sizeOf<p::GradientQuad>(kGradient) == sizeof(p::GradientQuad) && sizeof(p::GradientQuad) == 208
 );
 static_assert(
-    sizeOf<p::BackdropPill>(kBackdropPill) == sizeof(p::BackdropPill) &&
-    sizeof(p::BackdropPill) == 20
+  sizeOf<p::BackdropPill>(kBackdropPill) == sizeof(p::BackdropPill) && sizeof(p::BackdropPill) == 20
 );
 static_assert(sizeOf<p::LensPill>(kLensPill) == sizeof(p::LensPill) && sizeof(p::LensPill) == 28);
 static_assert(offsetof(p::GradientQuad, p0x) == 24 && offsetof(p::GradientQuad, stopCount) == 45);
@@ -340,7 +339,7 @@ static_assert(offsetof(p::LensPill, kind) == 24 && offsetof(p::Quad, plus) == 32
 
 template <class T>
 constexpr bool kMemcpy =
-    std::endian::native == std::endian::little && std::is_trivially_copyable_v<T>;
+  std::endian::native == std::endian::little && std::is_trivially_copyable_v<T>;
 
 template <class T, class Fields>
 void writeArray(w::Writer& writer, std::uint16_t type, const std::vector<T>& items, Fields fields) {
@@ -351,7 +350,7 @@ void writeArray(w::Writer& writer, std::uint16_t type, const std::vector<T>& ite
   auto builder = writer.begin(type, kArrayFixed, w::kMustUnderstand);
   builder.set(kStrideOffset, stride);
   const auto tail =
-      builder.allocTail(kArrayTail, static_cast<std::uint32_t>(stride * items.size()));
+    builder.allocTail(kArrayTail, static_cast<std::uint32_t>(stride * items.size()));
   if constexpr (kMemcpy<T>) {
     std::memcpy(tail.data(), items.data(), tail.size());
   }
@@ -421,14 +420,14 @@ constexpr w::TailRule kArrayTails[] = {{kArrayTail, 1}};
 
 // Framing only; values are checked while decoding, in the same pass.
 constexpr w::TypeRule kRules[] = {
-    {kFrameRecord, {}},
-    {kQuadsRecord, kArrayTails},
-    {kBlitsRecord, kArrayTails},
-    {kGradientsRecord, kArrayTails},
-    {kIsolateBeginRecord, {}},
-    {kIsolateEndRecord, {}},
-    {kBackdropPillsRecord, kArrayTails},
-    {kLensPillsRecord, kArrayTails},
+  {kFrameRecord, {}},
+  {kQuadsRecord, kArrayTails},
+  {kBlitsRecord, kArrayTails},
+  {kGradientsRecord, kArrayTails},
+  {kIsolateBeginRecord, {}},
+  {kIsolateEndRecord, {}},
+  {kBackdropPillsRecord, kArrayTails},
+  {kLensPillsRecord, kArrayTails},
 };
 
 template <class Draws>
@@ -513,7 +512,7 @@ bool readFrame(std::span<const std::byte> message, p::ImageStore images, p::Fram
         case kIsolateBeginRecord: {
           auto iso = readFixed<p::Isolate>(record, kIsolate);
           ok =
-              iso && validContent(*iso) && open.size() < static_cast<std::size_t>(kMaxIsolateDepth);
+            iso && validContent(*iso) && open.size() < static_cast<std::size_t>(kMaxIsolateDepth);
           if (ok) {
             at.isolates.push_back(std::move(*iso));
             open.push_back(&at.isolates.back());

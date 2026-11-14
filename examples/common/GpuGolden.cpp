@@ -28,7 +28,7 @@ int diagnose(const image::Image& got, const image::Image& want) {
   const std::size_t n = got.rgba.size();
   for (std::size_t i = 0; i < n; ++i) {
     const int d = std::abs(
-        static_cast<int>(got.rgba[i]) - static_cast<int>(want.rgba[i])
+      static_cast<int>(got.rgba[i]) - static_cast<int>(want.rgba[i])
     );
     if (d <= 2) {
       continue;
@@ -38,9 +38,9 @@ int diagnose(const image::Image& got, const image::Image& want) {
     if (d > 8 && shown < 8) {
       const std::size_t px = i / 4;
       const int x =
-          static_cast<int>(px % static_cast<std::size_t>(got.width));
+        static_cast<int>(px % static_cast<std::size_t>(got.width));
       const int y =
-          static_cast<int>(px / static_cast<std::size_t>(got.width));
+        static_cast<int>(px / static_cast<std::size_t>(got.width));
       std::cerr << "  diff@" << x << "," << y << " ch" << (i % 4)
                 << " got=" << static_cast<int>(got.rgba[i])
                 << " want=" << static_cast<int>(want.rgba[i]) << '\n';
@@ -56,11 +56,11 @@ int diagnose(const image::Image& got, const image::Image& want) {
 }  // namespace
 
 int runGpuGolden(
-    int argc,
-    char** argv,
-    const char* defaultGolden,
-    GpuBand band,
-    const RecordScene& record
+  int argc,
+  char** argv,
+  const char* defaultGolden,
+  GpuBand band,
+  const RecordScene& record
 ) {
   const char* goldenPath = argc > 1 ? argv[1] : defaultGolden;
   image::Image want;
@@ -90,7 +90,7 @@ int runGpuGolden(
     return EXIT_FAILURE;
   }
   const Vec2 size{
-      static_cast<float>(width), static_cast<float>(height)
+    static_cast<float>(width), static_cast<float>(height)
   };
   paint::Context ctx;
   ctx.setSize(size);
@@ -103,7 +103,7 @@ int runGpuGolden(
 
   image::Image got = image::Image::rgba8(width, height);
   if (!device.readPixels(
-          target.value(), got.rgba.data(), got.rgba.size()
+        target.value(), got.rgba.data(), got.rgba.size()
       )) {
     std::cerr << "readPixels failed\n";
     return EXIT_FAILURE;
@@ -134,7 +134,7 @@ int runGpuGolden(
     }
     renderer.drawToTarget(ctx.scene(), fresh.value());
     if (!device.readPixels(
-            fresh.value(), again.rgba.data(), again.rgba.size()
+          fresh.value(), again.rgba.data(), again.rgba.size()
         )) {
       std::cerr << "readPixels failed\n";
       return EXIT_FAILURE;

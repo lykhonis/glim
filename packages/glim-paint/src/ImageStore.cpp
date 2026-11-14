@@ -15,7 +15,7 @@ std::uint32_t ImageStore::add(int width, int height, const std::uint8_t* rgba) {
     return 0;
   }
   const std::uint64_t bytes =
-      static_cast<std::uint64_t>(width) * static_cast<std::uint64_t>(height) * 4ull;
+    static_cast<std::uint64_t>(width) * static_cast<std::uint64_t>(height) * 4ull;
   if (bytes > kMaxImageBytes) {
     return 0;
   }

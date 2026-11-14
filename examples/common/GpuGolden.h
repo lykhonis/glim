@@ -22,11 +22,11 @@ using RecordScene = std::function<void(paint::Context&, Vec2)>;
 // readPixels, compared to the CPU golden (argv[1], else defaultGolden).
 // Returns exit code.
 int runGpuGolden(
-    int argc,
-    char** argv,
-    const char* defaultGolden,
-    GpuBand band,
-    const RecordScene& record
+  int argc,
+  char** argv,
+  const char* defaultGolden,
+  GpuBand band,
+  const RecordScene& record
 );
 
 }  // namespace glim::examples

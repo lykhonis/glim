@@ -6,7 +6,7 @@ extern "C" {
 __attribute__((import_module("glim"), import_name("host_send"))) void host_send();
 __attribute__((import_module("glim"), import_name("host_now"))) std::uint64_t host_now();
 __attribute__((import_module("glim"), import_name("host_log"))) void host_log(
-    std::uint32_t level, const char* text, std::uint32_t length
+  std::uint32_t level, const char* text, std::uint32_t length
 );
 }
 
@@ -34,7 +34,7 @@ transport::Imports& hostImports() {
 
 std::span<std::byte> linearMemory() {
   return {
-      reinterpret_cast<std::byte*>(std::uintptr_t{0}), __builtin_wasm_memory_size(0) * kPageSize
+    reinterpret_cast<std::byte*>(std::uintptr_t{0}), __builtin_wasm_memory_size(0) * kPageSize
   };
 }
 

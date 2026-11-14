@@ -40,7 +40,7 @@ int main() {
     std::vector<Vec2> pts;
     for (std::size_t i = 0; i < n; ++i)
       pts.push_back(
-          {static_cast<float>(lcg(seed) % 2000) / 10.f, static_cast<float>(lcg(seed) % 1200) / 10.f}
+        {static_cast<float>(lcg(seed) % 2000) / 10.f, static_cast<float>(lcg(seed) % 1200) / 10.f}
       );
     const float width = 0.6f + static_cast<float>(lcg(seed) % 40) / 10.f;
     std::vector<Strip> strips;
@@ -48,12 +48,12 @@ int main() {
     for (int y = -8; y < 132; ++y)
       for (int x = -8; x < 212; ++x) {
         float want = glim::paint::polylineCoverage(
-            pts.data(),
-            pts.size(),
-            width,
-            0.f,
-            static_cast<float>(x) + 0.5f,
-            static_cast<float>(y) + 0.5f
+          pts.data(),
+          pts.size(),
+          width,
+          0.f,
+          static_cast<float>(x) + 0.5f,
+          static_cast<float>(y) + 0.5f
         );
         const float got = coverageAt(strips, x, y);
         if (got != glim::paint::snapCoverage(want) && ++failures < 5)
@@ -67,8 +67,8 @@ int main() {
     using glim::Radius;
     using glim::Rect;
     const Rect rect{
-        {static_cast<float>(lcg(seed) % 400) / 10.f, static_cast<float>(lcg(seed) % 400) / 10.f},
-        {static_cast<float>(lcg(seed) % 1600) / 10.f, static_cast<float>(lcg(seed) % 900) / 10.f}
+      {static_cast<float>(lcg(seed) % 400) / 10.f, static_cast<float>(lcg(seed) % 400) / 10.f},
+      {static_cast<float>(lcg(seed) % 1600) / 10.f, static_cast<float>(lcg(seed) % 900) / 10.f}
     };
     auto pick = [&] { return static_cast<float>(lcg(seed) % 300) / 10.f; };
     const Radius radius = c % 2 ? Radius{pick()} : Radius{pick(), pick(), pick(), pick()};
@@ -77,17 +77,17 @@ int main() {
     glim::paint::flattenStroke(rect, radius, width, strips);
     const float h = width * 0.5f;
     const Rect outer{
-        {rect.origin.x - h, rect.origin.y - h}, {rect.size.x + width, rect.size.y + width}
+      {rect.origin.x - h, rect.origin.y - h}, {rect.size.x + width, rect.size.y + width}
     };
     const Rect inner{
-        {rect.origin.x + h, rect.origin.y + h}, {rect.size.x - width, rect.size.y - width}
+      {rect.origin.x + h, rect.origin.y + h}, {rect.size.x - width, rect.size.y - width}
     };
     const Radius orad{radius.lt + h, radius.rt + h, radius.lb + h, radius.rb + h};
     const Radius irad{
-        std::max(0.f, radius.lt - h),
-        std::max(0.f, radius.rt - h),
-        std::max(0.f, radius.lb - h),
-        std::max(0.f, radius.rb - h)
+      std::max(0.f, radius.lt - h),
+      std::max(0.f, radius.rt - h),
+      std::max(0.f, radius.lb - h),
+      std::max(0.f, radius.rb - h)
     };
     for (int y = -8; y < 152; ++y)
       for (int x = -8; x < 212; ++x) {

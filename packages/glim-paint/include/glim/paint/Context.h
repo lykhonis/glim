@@ -38,7 +38,7 @@ class Context {
   void clipRect(const Rect&, Radius);
   std::uint32_t addImage(int width, int height, const std::uint8_t* rgba);
   std::uint32_t wrapNativeTexture(
-      void* native, int width, int height, SampleFormat format = SampleFormat::Rgba8Unorm
+    void* native, int width, int height, SampleFormat format = SampleFormat::Rgba8Unorm
   );
   void releaseImage(std::uint32_t id);
   const ImageStore& images() const { return images_; }

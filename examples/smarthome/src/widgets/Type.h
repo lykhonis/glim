@@ -21,7 +21,7 @@ struct ScaledLines : WithAlign, WithSemantic, WithA11y {
     const float size = themeFloat(e, sizeKey, fallback);
     const float k = size / Tokens::kTypeLine;
     float w =
-        static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
+      static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
     return detail::resolveSize(w, size, c);
   }
   A11yTraits a11yTraits() const { return {.role = A11yRole::Text}; }
@@ -33,7 +33,7 @@ struct ScaledLines : WithAlign, WithSemantic, WithA11y {
     const float k = size / Tokens::kTypeLine;
     const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     float lw =
-        static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
+      static_cast<float>(text.size()) * Tokens::kTypeAdvance * k;
     float x = box.x;
     if (align == kAlignCenter) x += (box.w - lw) * 0.5f;
     if (align == kAlignRight) x += box.w - lw;

@@ -18,14 +18,14 @@ struct FocusedBox {
 
 void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<FocusedBox>& out) {
   walk(
-      b,
-      box,
-      e,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        if (canHandle(n)) out.push_back({&n, bx, detail::AutoCtx::path()});
-        return walkHasChildren(n);
-      },
-      [](const Block&, const Box&, const Engine&) {}
+    b,
+    box,
+    e,
+    [&](const Block& n, const Box& bx, const Engine&) -> bool {
+      if (canHandle(n)) out.push_back({&n, bx, detail::AutoCtx::path()});
+      return walkHasChildren(n);
+    },
+    [](const Block&, const Box&, const Engine&) {}
   );
 }
 
@@ -57,7 +57,7 @@ int focusAt(const Block& root, const Box& box, float x, float y, const Engine& e
 }
 
 bool dispatchCaptured(
-    const Block& root, const Box& box, int index, const Event& ev, const Engine& e
+  const Block& root, const Box& box, int index, const Event& ev, const Engine& e
 ) {
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
@@ -83,7 +83,7 @@ int deliverKey(const Block& root, const Box& box, int current, Key key, const En
   }
   int i = current < 0 ? 0 : (current >= n ? n - 1 : current);
   detail::AutoHandle h(
-      e.store ? &e.store->get() : nullptr, found[static_cast<std::size_t>(i)].path
+    e.store ? &e.store->get() : nullptr, found[static_cast<std::size_t>(i)].path
   );
   if (key == Key::Activate) {
     handle(*found[static_cast<std::size_t>(i)].block, Event::borrow(Activate{}));

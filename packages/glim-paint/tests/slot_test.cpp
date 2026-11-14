@@ -45,12 +45,12 @@ int main() {
   expect(placed.size() == 1, "one slot placement");
   expect(placed.size() == 1 && placed[0].id == 7, "collectSlots id");
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 10.f),
-      "collectSlots x"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 10.f),
+    "collectSlots x"
   );
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.y, 20.f),
-      "collectSlots y"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.y, 20.f),
+    "collectSlots y"
   );
 
   glim::paint::Context grouped;
@@ -70,28 +70,28 @@ int main() {
   glim::paint::Group merged = glim::paint::merge(std::move(rootCopy), &stats);
   expect(merged.children.size() == 1, "SlotHole group does not merge");
   expect(
-      merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
-      "kept child has SlotHole"
+    merged.children.size() == 1 && glim::paint::hasSlotHole(*merged.children[0]),
+    "kept child has SlotHole"
   );
   expect(
-      merged.children.size() == 1 && !glim::paint::needsIsolate(*merged.children[0]),
-      "SlotHole is not isolate"
+    merged.children.size() == 1 && !glim::paint::needsIsolate(*merged.children[0]),
+    "SlotHole is not isolate"
   );
   expect(
-      merged.children.size() == 1 && !glim::paint::canMerge(*merged.children[0]),
-      "canMerge refuses SlotHole"
+    merged.children.size() == 1 && !glim::paint::canMerge(*merged.children[0]),
+    "canMerge refuses SlotHole"
   );
 
   placed.clear();
   glim::paint::collectSlots(grouped.scene(), &placed);
   expect(placed.size() == 1 && placed[0].id == 3, "grouped slot id");
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 9.f),
-      "grouped slot x = 8+1"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 9.f),
+    "grouped slot x = 8+1"
   );
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.y, 11.f),
-      "grouped slot y = 9+2"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.y, 11.f),
+    "grouped slot y = 9+2"
   );
 
   glim::paint::Context clipped;
@@ -107,12 +107,12 @@ int main() {
   glim::paint::collectSlots(clipped.scene(), &placed);
   expect(placed.size() == 1, "clipped slot still collected");
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 10.f),
-      "clip intersects origin x"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.origin.x, 10.f),
+    "clip intersects origin x"
   );
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.size.x, 20.f),
-      "clip intersects width"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.size.x, 20.f),
+    "clip intersects width"
   );
 
   glim::paint::Scene isolated;
@@ -143,8 +143,8 @@ int main() {
   glim::paint::collectSlots(below.scene(), &placed);
   expect(placed.size() == 1 && placed[0].id == 6, "off-viewport seat is not collected");
   expect(
-      placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.size.y, 10.f),
-      "partially visible seat clipped to viewport"
+    placed.size() == 1 && glim::nearlyEqual(placed[0].windowLogical.size.y, 10.f),
+    "partially visible seat clipped to viewport"
   );
   expect(packet.blits.empty(), "SlotHole is not a blit");
 

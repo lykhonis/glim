@@ -81,7 +81,7 @@ struct RimRefract {
 };
 
 inline RimRefract rimRefract(
-    float delta, float wrapT, float ior, float refDistance, float dprN, float fillet, float diag
+  float delta, float wrapT, float ior, float refDistance, float dprN, float fillet, float diag
 ) {
   RimRefract o;
   if (delta >= wrapT) {

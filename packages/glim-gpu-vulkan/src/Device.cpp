@@ -70,7 +70,7 @@ Result<Drawable> Device::nextDrawable() {
     VkSurfaceCapabilitiesKHR caps{};
     if (impl_->surface &&
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl_->physical, impl_->surface, &caps) ==
-            VK_SUCCESS) {
+          VK_SUCCESS) {
       const VkExtent2D want = impl_->chooseSwapchainExtent(caps);
       if (!impl_->haveSwapchain || want.width != impl_->extent.width ||
           want.height != impl_->extent.height || caps.currentTransform != impl_->preTransform) {
@@ -95,14 +95,14 @@ Result<Drawable> Device::nextDrawable() {
 
   uint32_t index = 0;
   VkResult r = vkAcquireNextImageKHR(
-      impl_->device, impl_->swapchain, UINT64_MAX, frame.imageAvailable, VK_NULL_HANDLE, &index
+    impl_->device, impl_->swapchain, UINT64_MAX, frame.imageAvailable, VK_NULL_HANDLE, &index
   );
   if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR) {
     if (impl_->recreateSwapchain() != VK_SUCCESS) {
       return Result<Drawable>::fail("swapchain recreate failed");
     }
     r = vkAcquireNextImageKHR(
-        impl_->device, impl_->swapchain, UINT64_MAX, frame.imageAvailable, VK_NULL_HANDLE, &index
+      impl_->device, impl_->swapchain, UINT64_MAX, frame.imageAvailable, VK_NULL_HANDLE, &index
     );
   }
   if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
@@ -178,7 +178,7 @@ bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t by
     return false;
   }
   const std::uint64_t need =
-      static_cast<std::uint64_t>(target.width()) * static_cast<std::uint64_t>(target.height()) * 4;
+    static_cast<std::uint64_t>(target.width()) * static_cast<std::uint64_t>(target.height()) * 4;
   if (bytes < need) {
     return false;
   }
@@ -196,10 +196,10 @@ bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t by
   const VkDeviceSize total = rowBytes * static_cast<VkDeviceSize>(h);
   if (!d.readStaging.buffer || d.readStaging.size < total) {
     if (d.makeBuffer(
-            total,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            d.readStaging
+          total,
+          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+          d.readStaging
         ) != VK_SUCCESS ||
         !d.readStaging.mapped) {
       return false;
@@ -234,31 +234,31 @@ bool Device::readPixels(const FrameTarget& target, void* rgba8, std::uint64_t by
     srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
   }
   imageBarrier(
-      cmd,
-      img->image,
-      img->layout,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      srcAccess,
-      VK_ACCESS_TRANSFER_READ_BIT,
-      srcStage,
-      VK_PIPELINE_STAGE_TRANSFER_BIT
+    cmd,
+    img->image,
+    img->layout,
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    srcAccess,
+    VK_ACCESS_TRANSFER_READ_BIT,
+    srcStage,
+    VK_PIPELINE_STAGE_TRANSFER_BIT
   );
   VkBufferImageCopy region{};
   region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   region.imageSubresource.layerCount = 1;
   region.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1};
   vkCmdCopyImageToBuffer(
-      cmd, img->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d.readStaging.buffer, 1, &region
+    cmd, img->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d.readStaging.buffer, 1, &region
   );
   imageBarrier(
-      cmd,
-      img->image,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_TRANSFER_READ_BIT,
-      VK_ACCESS_SHADER_READ_BIT,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+    cmd,
+    img->image,
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    VK_ACCESS_TRANSFER_READ_BIT,
+    VK_ACCESS_SHADER_READ_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
   );
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     vkFreeCommandBuffers(d.device, d.uploadPool, 1, &cmd);

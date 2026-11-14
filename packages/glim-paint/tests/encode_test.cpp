@@ -181,7 +181,7 @@ int main() {
   pills.pushGroup(plate);
   for (int i = 0; i < 6; ++i) {
     pills.fillRounded(
-        glim::Rect{{8.f + static_cast<float>(i) * 18.f, 8.f}, {16, 16}}, glim::Radius{8.f}
+      glim::Rect{{8.f + static_cast<float>(i) * 18.f, 8.f}, {16, 16}}, glim::Radius{8.f}
     );
   }
   pills.popGroup();

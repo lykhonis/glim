@@ -74,65 +74,60 @@ struct ContextSink {
     ctx.fillRounded(toRect(b), Radius{static_cast<float>(radius)});
   }
   void fillGradient(
-      const Box& b, int radius, std::uint32_t top, std::uint32_t bottom, const std::string& = {}
+    const Box& b, int radius, std::uint32_t top, std::uint32_t bottom, const std::string& = {}
   ) {
     ::glim::paint::GradientStop stops[2] = {
-        {0.0f, ::glim::Color{top}},
-        {1.0f, ::glim::Color{bottom}},
+      {0.0f, ::glim::Color{top}},
+      {1.0f, ::glim::Color{bottom}},
     };
     ctx.setFill(::glim::paint::Matter::linearGradient({b.x, b.y}, {b.x, b.y + b.h}, stops, 2));
     ctx.fillRounded(toRect(b), Radius{static_cast<float>(radius)});
   }
   void text(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      const std::string& = {}
+    float x, float y, const std::string& s, std::uint32_t rgba, float size, const std::string& = {}
   ) {
     // y is the TOP of the line box; snapped to half-logical (one device
     // pixel at 2x) so glyph edges never straddle rows.
     ::glim::paint::TextSize m = ctx.measureText(s.c_str(), size);
     ctx.setFillColor(rgba);
     ctx.text(
-        {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)}, s.c_str(), size
+      {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)}, s.c_str(), size
     );
   }
   void textStyled(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      float condense,
-      float weight,
-      const std::string& = {}
+    float x,
+    float y,
+    const std::string& s,
+    std::uint32_t rgba,
+    float size,
+    float condense,
+    float weight,
+    const std::string& = {}
   ) {
     ::glim::paint::TextSize m = ctx.measureTextStyled(s.c_str(), size, condense);
     ctx.setFillColor(rgba);
     ctx.textStyled(
-        {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)},
-        s.c_str(),
-        size,
-        condense,
-        weight
+      {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(y + m.ascent)},
+      s.c_str(),
+      size,
+      condense,
+      weight
     );
   }
   void image(const Box& b, std::uint32_t imageId, bool foreign, const std::string& = {}) {
     if (imageId == 0) return;
     ctx.blit(
-        toRect(b),
-        foreign ? ::glim::paint::Matter::foreign(imageId) : ::glim::paint::Matter::sampled(imageId)
+      toRect(b),
+      foreign ? ::glim::paint::Matter::foreign(imageId) : ::glim::paint::Matter::sampled(imageId)
     );
   }
   void pushGlass(
-      const Box& b,
-      int radius,
-      bool clear,
-      std::uint8_t edge,
-      std::uint32_t tint,
-      std::uint8_t material = 0
+    const Box& b,
+    int radius,
+    bool clear,
+    std::uint8_t edge,
+    std::uint32_t tint,
+    std::uint8_t material = 0
   ) {
     ::glim::paint::GroupParams p;
     p.bounds = toRect(b);
@@ -145,23 +140,23 @@ struct ContextSink {
     static_assert(static_cast<int>(toolkit::GlassEdge::None) == static_cast<int>(PaintEdge::None));
     static_assert(static_cast<int>(toolkit::GlassEdge::Left) == static_cast<int>(PaintEdge::Left));
     static_assert(
-        static_cast<int>(toolkit::GlassEdge::Right) == static_cast<int>(PaintEdge::Right)
+      static_cast<int>(toolkit::GlassEdge::Right) == static_cast<int>(PaintEdge::Right)
     );
     static_assert(static_cast<int>(toolkit::GlassEdge::Top) == static_cast<int>(PaintEdge::Top));
     static_assert(
-        static_cast<int>(toolkit::GlassEdge::Bottom) == static_cast<int>(PaintEdge::Bottom)
+      static_cast<int>(toolkit::GlassEdge::Bottom) == static_cast<int>(PaintEdge::Bottom)
     );
     static_assert(static_cast<int>(toolkit::GlassEdge::Full) == static_cast<int>(PaintEdge::Full));
     using PaintMaterial = ::glim::paint::LensMaterial;
     static_assert(
-        static_cast<int>(toolkit::GlassMaterial::Glass) == static_cast<int>(PaintMaterial::Glass)
+      static_cast<int>(toolkit::GlassMaterial::Glass) == static_cast<int>(PaintMaterial::Glass)
     );
     static_assert(
-        static_cast<int>(toolkit::GlassMaterial::LiquidMetal) ==
-        static_cast<int>(PaintMaterial::LiquidMetal)
+      static_cast<int>(toolkit::GlassMaterial::LiquidMetal) ==
+      static_cast<int>(PaintMaterial::LiquidMetal)
     );
     static_assert(
-        static_cast<int>(toolkit::GlassMaterial::Water) == static_cast<int>(PaintMaterial::Water)
+      static_cast<int>(toolkit::GlassMaterial::Water) == static_cast<int>(PaintMaterial::Water)
     );
     ::glim::paint::Lens g;
     if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::LiquidMetal)) {
@@ -219,15 +214,15 @@ struct ContextSink {
     ctx.pushGroup(p);
   }
   void fillRadial(
-      const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& = {}
+    const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& = {}
   ) {
     const float cx = b.x + b.w * 0.5f, cy = b.y + b.h * 0.5f;
     ::glim::paint::GradientStop stops[2] = {
-        {0.0f, ::glim::Color{center}},
-        {1.0f, ::glim::Color{edge}},
+      {0.0f, ::glim::Color{center}},
+      {1.0f, ::glim::Color{edge}},
     };
     ctx.setFill(
-        ::glim::paint::Matter::radialGradient({cx, cy}, 0.5f * std::hypot(b.w, b.h), stops, 2)
+      ::glim::paint::Matter::radialGradient({cx, cy}, 0.5f * std::hypot(b.w, b.h), stops, 2)
     );
     ctx.fillRounded(toRect(b), Radius{static_cast<float>(radius)});
   }
@@ -236,20 +231,20 @@ struct ContextSink {
     ctx.fillChamfer(toRect(b), cut);
   }
   void strokeChamfer(
-      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& = {}
+    const Box& b, float cut, float width, std::uint32_t rgba, const std::string& = {}
   ) {
     ctx.setFillColor(rgba);
     ctx.strokeChamfer(toRect(b), cut, width);
   }
   void arc(
-      float cx,
-      float cy,
-      float radius,
-      float thickness,
-      float startDeg,
-      float sweepDeg,
-      std::uint32_t rgba,
-      const std::string& = {}
+    float cx,
+    float cy,
+    float radius,
+    float thickness,
+    float startDeg,
+    float sweepDeg,
+    std::uint32_t rgba,
+    const std::string& = {}
   ) {
     ctx.setFillColor(rgba);
     ::glim::paint::Arc a;
@@ -261,12 +256,12 @@ struct ContextSink {
     ctx.arc(a);
   }
   void polyline(
-      const float* xy,
-      std::size_t n,
-      float width,
-      float dotPitch,
-      std::uint32_t rgba,
-      const std::string& = {}
+    const float* xy,
+    std::size_t n,
+    float width,
+    float dotPitch,
+    std::uint32_t rgba,
+    const std::string& = {}
   ) {
     ctx.setFillColor(rgba);
     ::glim::paint::Polyline pl;
@@ -281,7 +276,7 @@ struct ContextSink {
   // Opacity fades the caster only. The shadow blit stays full strength, so
   // a plate can cast without covering the backdrop the glass samples.
   void pushShadow(
-      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+    float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
   ) {
     ::glim::paint::GroupParams p;
     ::glim::paint::ShadowBlur sb;
@@ -297,7 +292,7 @@ struct ContextSink {
   // `intensity` alpha in the center, transparent at the edge. No isolate,
   // no blur.
   void pushEffect(
-      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
   ) {
     ::glim::paint::GroupParams p;
     p.blend = ::glim::paint::Blend::Plus;
@@ -325,7 +320,7 @@ inline Engine measureEngine() {
 }
 
 inline void paintScrollbars(
-    glim::paint::Context& ctx, const Block& tree, const Box& box, const Engine& engine
+  glim::paint::Context& ctx, const Block& tree, const Box& box, const Engine& engine
 ) {
   // Thin overlay thumbs for scrollable rolls, drawn last. Shares
   // rollMetrics with Screen::wheel so thumb-feel and hit-feel agree.
@@ -340,31 +335,31 @@ inline void paintScrollbars(
       w = w < 24.0f ? 24.0f : (w > m.viewport ? m.viewport : w);
       const float x = bx.x + (m.offset / m.maxOff) * (m.viewport - w);
       sink.fillRounded(
-          {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(bx.y + bx.h - 6.0f), w, 4.0f},
-          2,
-          0xffffff40
+        {toolkit::detail::snapHalf(x), toolkit::detail::snapHalf(bx.y + bx.h - 6.0f), w, 4.0f},
+        2,
+        0xffffff40
       );
     } else {
       float h = m.viewport * m.viewport / m.content;
       h = h < 24.0f ? 24.0f : (h > m.viewport ? m.viewport : h);
       const float y = bx.y + (m.offset / m.maxOff) * (m.viewport - h);
       sink.fillRounded(
-          {toolkit::detail::snapHalf(bx.x + bx.w - 6.0f), toolkit::detail::snapHalf(y), 4.0f, h},
-          2,
-          0xffffff40
+        {toolkit::detail::snapHalf(bx.x + bx.w - 6.0f), toolkit::detail::snapHalf(y), 4.0f, h},
+        2,
+        0xffffff40
       );
     }
   });
 }
 
 inline void paintScreen(
-    glim::paint::Context& ctx,
-    const Block& tree,
-    const Box& box,
-    const Engine& engine,
-    LayerFeed& feed,
-    int focus = -1,
-    bool focusVisible = true
+  glim::paint::Context& ctx,
+  const Block& tree,
+  const Box& box,
+  const Engine& engine,
+  LayerFeed& feed,
+  int focus = -1,
+  bool focusVisible = true
 ) {
   feed.ensure(ctx);
   // The clear color lives under the tree's own theme scope: a root

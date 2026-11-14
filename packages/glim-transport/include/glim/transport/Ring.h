@@ -28,7 +28,7 @@ class RingWriter {
  public:
   explicit RingWriter(std::uint32_t capacity) : capacity_(capacity) {}
   Io push(
-      std::span<std::byte> region, std::span<const std::byte> head, std::span<const std::byte> body
+    std::span<std::byte> region, std::span<const std::byte> head, std::span<const std::byte> body
   );
 
  private:

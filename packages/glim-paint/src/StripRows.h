@@ -79,7 +79,7 @@ struct ColumnRange {
 // pixels outside the windows must have zero coverage.
 template <typename Rows, typename Cov>
 void flattenCoverageRows(
-    int x0, int y0, int x1, int y1, std::vector<Strip>& out, Rows&& rows, Cov&& covAt
+  int x0, int y0, int x1, int y1, std::vector<Strip>& out, Rows&& rows, Cov&& covAt
 ) {
   if (y1 > y0) out.reserve(out.size() + static_cast<std::size_t>(y1 - y0));
   for (int y = y0; y < y1; ++y) {
@@ -101,7 +101,7 @@ void flattenCoverageRows(
       };
       for (int x = ra; x < rb; ++x) {
         const float cov =
-            snapCoverage(covAt(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f));
+          snapCoverage(covAt(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f));
         if (runCov < 0.f) {
           runX = x;
           runCov = cov;
@@ -125,16 +125,16 @@ void flattenCoverageRows(
 template <typename Cov>
 void flattenCoverage(int x0, int y0, int x1, int y1, std::vector<Strip>& out, Cov&& covAt) {
   flattenCoverageRows(
-      x0,
-      y0,
-      x1,
-      y1,
-      out,
-      [&](int, ColumnRange* r) {
-        r[0] = {x0, x1};
-        return 1;
-      },
-      covAt
+    x0,
+    y0,
+    x1,
+    y1,
+    out,
+    [&](int, ColumnRange* r) {
+      r[0] = {x0, x1};
+      return 1;
+    },
+    covAt
   );
 }
 

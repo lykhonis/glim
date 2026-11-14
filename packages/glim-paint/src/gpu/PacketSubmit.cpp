@@ -9,16 +9,16 @@
 namespace glim::paint {
 
 void Renderer::submitLayer(
-    gpu::CommandEncoder& encoder,
-    const std::vector<Quad>& quads,
-    const std::vector<BlitQuad>& blits,
-    const std::vector<GradientQuad>& gradients,
-    const std::vector<Isolate>& isolates,
-    const Mat4& projection,
-    int viewportW,
-    int viewportH,
-    void* nativeColor,
-    gpu::LoadOp load
+  gpu::CommandEncoder& encoder,
+  const std::vector<Quad>& quads,
+  const std::vector<BlitQuad>& blits,
+  const std::vector<GradientQuad>& gradients,
+  const std::vector<Isolate>& isolates,
+  const Mat4& projection,
+  int viewportW,
+  int viewportH,
+  void* nativeColor,
+  gpu::LoadOp load
 ) {
   gpu::PassDesc passDesc;
   passDesc.nativeColor = nativeColor;
@@ -171,9 +171,9 @@ void Renderer::submitLayer(
       continue;
     }
     const float isoU1 =
-        static_cast<float>(iso.contentW) / static_cast<float>(std::max(1, ft->width()));
+      static_cast<float>(iso.contentW) / static_cast<float>(std::max(1, ft->width()));
     const float isoV1 =
-        static_cast<float>(iso.contentH) / static_cast<float>(std::max(1, ft->height()));
+      static_cast<float>(iso.contentH) / static_cast<float>(std::max(1, ft->height()));
     pass.end();
     gpu::LoadOp plateLoad = gpu::LoadOp::Clear;
     if (iso.hasGlass) {
@@ -190,71 +190,71 @@ void Renderer::submitLayer(
         void* src = nativeColor ? nativeColor : device_.colorNative();
         if (targets_.glassSrc.native() && src) {
           blitTexture(
-              encoder,
-              pipes_,
-              device_.nativeSampler(),
-              stats_,
-              targets_.glassSrc.native(),
-              hw,
-              hh,
-              src,
-              0.f,
-              0.f,
-              static_cast<float>(hw),
-              static_cast<float>(hh),
-              0.f,
-              0.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f
+            encoder,
+            pipes_,
+            device_.nativeSampler(),
+            stats_,
+            targets_.glassSrc.native(),
+            hw,
+            hh,
+            src,
+            0.f,
+            0.f,
+            static_cast<float>(hw),
+            static_cast<float>(hh),
+            0.f,
+            0.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f
           );
           glassFrozen = true;
         }
       }
       if (targets_.glassSrc.native()) {
         const GlassUniforms gu = makeGlassUniforms(
-            iso.lens,
-            iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
-            static_cast<int>(iso.lensPills.size()),
-            iso.contentW,
-            iso.contentH,
-            iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f,
-            iso.glassU0,
-            iso.glassV0,
-            iso.glassU1,
-            iso.glassV1
+          iso.lens,
+          iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
+          static_cast<int>(iso.lensPills.size()),
+          iso.contentW,
+          iso.contentH,
+          iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f,
+          iso.glassU0,
+          iso.glassV0,
+          iso.glassU1,
+          iso.glassV1
         );
         const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
         const Mat4 localProj = Mat4::orthoYDown(
-            0,
-            0,
-            iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
-            iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
+          0,
+          0,
+          iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+          iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
         );
         encodeGlassPlate(
-            encoder,
-            pipes_,
-            device_.nativeSampler(),
-            device_,
-            targets_,
-            stats_,
-            nullptr,
-            iso.lens,
-            gu,
-            static_cast<int>(iso.lensPills.size()),
-            targets_.glassSrc.native(),
-            ft->native(),
-            iso.contentW,
-            iso.contentH,
-            pr,
-            localProj,
-            iso.glassU0,
-            iso.glassV0,
-            iso.glassU1,
-            iso.glassV1
+          encoder,
+          pipes_,
+          device_.nativeSampler(),
+          device_,
+          targets_,
+          stats_,
+          nullptr,
+          iso.lens,
+          gu,
+          static_cast<int>(iso.lensPills.size()),
+          targets_.glassSrc.native(),
+          ft->native(),
+          iso.contentW,
+          iso.contentH,
+          pr,
+          localProj,
+          iso.glassU0,
+          iso.glassV0,
+          iso.glassU1,
+          iso.glassV1
         );
         plateLoad = gpu::LoadOp::Load;
       }
@@ -286,7 +286,7 @@ void Renderer::submitLayer(
               down.viewportH = hh;
               gpu::Pass dp = encoder.beginPass(down);
               const Mat4 dproj =
-                  Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
+                Mat4::orthoYDown(0, 0, static_cast<float>(hw), static_cast<float>(hh));
               setProjection(dp, dproj);
               BlitInstance blit{};
               blit.rect[0] = 0.f;
@@ -317,27 +317,27 @@ void Renderer::submitLayer(
         plate.viewportH = iso.contentH;
         gpu::Pass gp = encoder.beginPass(plate);
         const Mat4 localProj = Mat4::orthoYDown(
-            0,
-            0,
-            iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
-            iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
+          0,
+          0,
+          iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+          iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
         );
         setProjection(gp, localProj);
         const float pw = iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW);
         const float ph = iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH);
         const PlateInstance back = makePlate(
-            0.f,
-            0.f,
-            pw,
-            ph,
-            iso.backdropU0,
-            iso.backdropV0,
-            iso.backdropU1,
-            iso.backdropV1,
-            iso.backdropSigma,
-            iso.backdropFlat,
-            iso.backdropPills.empty() ? nullptr : iso.backdropPills.data(),
-            static_cast<int>(iso.backdropPills.size())
+          0.f,
+          0.f,
+          pw,
+          ph,
+          iso.backdropU0,
+          iso.backdropV0,
+          iso.backdropU1,
+          iso.backdropV1,
+          iso.backdropSigma,
+          iso.backdropFlat,
+          iso.backdropPills.empty() ? nullptr : iso.backdropPills.data(),
+          static_cast<int>(iso.backdropPills.size())
         );
         gp.setPipeline(pipes_.blur.native() ? pipes_.blur : pipes_.blitLinear);
         gp.setBytes(0, &back, sizeof(back));
@@ -350,65 +350,65 @@ void Renderer::submitLayer(
       }
     }
     const Mat4 localProj = Mat4::orthoYDown(
-        0,
-        0,
-        iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
-        iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
+      0,
+      0,
+      iso.destW > 0.f ? iso.destW : static_cast<float>(iso.contentW),
+      iso.destH > 0.f ? iso.destH : static_cast<float>(iso.contentH)
     );
     submitLayer(
-        encoder,
-        iso.quads,
-        iso.blits,
-        iso.gradients,
-        iso.isolates,
-        localProj,
-        iso.contentW,
-        iso.contentH,
-        ft->native(),
-        plateLoad
+      encoder,
+      iso.quads,
+      iso.blits,
+      iso.gradients,
+      iso.isolates,
+      localProj,
+      iso.contentW,
+      iso.contentH,
+      ft->native(),
+      plateLoad
     );
     if (iso.contentSigma > 0.f && pipes_.blur1d.native()) {
       const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : 1.f;
       const float csigma = iso.contentSigma * pr * 0.5f;
       if (csigma > 0.01f) {
         void* blurred = blurGlass(
-            encoder,
-            pipes_,
-            device_.nativeSampler(),
-            device_,
-            targets_,
-            ft->native(),
-            iso.contentW,
-            iso.contentH,
-            0.f,
-            0.f,
-            1.f,
-            1.f,
-            csigma,
-            &stats_
+          encoder,
+          pipes_,
+          device_.nativeSampler(),
+          device_,
+          targets_,
+          ft->native(),
+          iso.contentW,
+          iso.contentH,
+          0.f,
+          0.f,
+          1.f,
+          1.f,
+          csigma,
+          &stats_
         );
         if (blurred) {
           blitTexture(
-              encoder,
-              pipes_,
-              device_.nativeSampler(),
-              stats_,
-              ft->native(),
-              iso.contentW,
-              iso.contentH,
-              blurred,
-              0.f,
-              0.f,
-              static_cast<float>(iso.contentW),
-              static_cast<float>(iso.contentH),
-              0.f,
-              0.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f,
-              1.f
+            encoder,
+            pipes_,
+            device_.nativeSampler(),
+            stats_,
+            ft->native(),
+            iso.contentW,
+            iso.contentH,
+            blurred,
+            0.f,
+            0.f,
+            static_cast<float>(iso.contentW),
+            static_cast<float>(iso.contentH),
+            0.f,
+            0.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f,
+            1.f
           );
         }
       }
@@ -425,20 +425,20 @@ void Renderer::submitLayer(
       void* shadowTex = ft->native();
       if (ssigma > 0.01f && pipes_.blur1d.native()) {
         void* blurred = blurGlass(
-            encoder,
-            pipes_,
-            device_.nativeSampler(),
-            device_,
-            targets_,
-            ft->native(),
-            iso.contentW,
-            iso.contentH,
-            0.f,
-            0.f,
-            1.f,
-            1.f,
-            ssigma,
-            &stats_
+          encoder,
+          pipes_,
+          device_.nativeSampler(),
+          device_,
+          targets_,
+          ft->native(),
+          iso.contentW,
+          iso.contentH,
+          0.f,
+          0.f,
+          1.f,
+          1.f,
+          ssigma,
+          &stats_
         );
         if (blurred) {
           shadowTex = blurred;
@@ -497,7 +497,7 @@ void Renderer::submit(const FramePacket& packet) {
   stats_ = packet.stats;
   if (packet.stats.reuseHits == 1 && packet.stats.dirtyTiles == 0) {
     stats_.encodeMs =
-        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
     return;
   }
   if (!pipes_.ensure(device_)) {
@@ -506,7 +506,7 @@ void Renderer::submit(const FramePacket& packet) {
   const auto a0 = std::chrono::steady_clock::now();
   auto drawable = device_.nextDrawable();
   stats_.acquireMs =
-      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - a0).count();
+    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - a0).count();
   if (!drawable.ok()) {
     return;
   }
@@ -517,26 +517,26 @@ void Renderer::submit(const FramePacket& packet) {
   }
   gpu::CommandEncoder encoder = device_.encoder();
   const Mat4 proj = presentProjection(
-      Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y),
-      device_.presentRotationDegrees()
+    Mat4::orthoYDown(0, 0, packet.logicalSize.x, packet.logicalSize.y),
+    device_.presentRotationDegrees()
   );
   submitLayer(
-      encoder,
-      packet.quads,
-      packet.blits,
-      packet.gradients,
-      packet.isolates,
-      proj,
-      drawable->width(),
-      drawable->height(),
-      nullptr,
-      gpu::LoadOp::Clear
+    encoder,
+    packet.quads,
+    packet.blits,
+    packet.gradients,
+    packet.isolates,
+    proj,
+    drawable->width(),
+    drawable->height(),
+    nullptr,
+    gpu::LoadOp::Clear
   );
   encoder.present(drawable.value());
   encoder.submit(device_.queue());
   stats_.gpuMs = device_.lastGpuMs();
   stats_.encodeMs =
-      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
 #endif
 

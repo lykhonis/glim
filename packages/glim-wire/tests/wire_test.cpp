@@ -77,21 +77,21 @@ void versioning() {
   w::RecordView r(older.data());
   expect(w::validate(older, kRules) == w::Status::Ok, "older record valid");
   expect(
-      r.field<float>(kOpacity, 1.f) == 1.f, "newer reader defaults missing field over tail bytes"
+    r.field<float>(kOpacity, 1.f) == 1.f, "newer reader defaults missing field over tail bytes"
   );
   expect(text(*r.tail(kName)) == "old", "older tail");
 
   std::vector<std::byte> newer;
   w::Writer(newer)
-      .begin(kLabel, 48)
-      .set(kId, 9u)
-      .set(40, 123u)
-      .tail(kName, std::string_view("new"));
+    .begin(kLabel, 48)
+    .set(kId, 9u)
+    .set(40, 123u)
+    .tail(kName, std::string_view("new"));
   w::RecordView n(newer.data());
   expect(w::validate(newer, kRules) == w::Status::Ok, "newer record valid");
   expect(
-      n.field<std::uint32_t>(kId) == 9 && text(*n.tail(kName)) == "new",
-      "older reader ignores extra fields"
+    n.field<std::uint32_t>(kId) == 9 && text(*n.tail(kName)) == "new",
+    "older reader ignores extra fields"
   );
 
   std::vector<std::byte> bare;
@@ -106,7 +106,7 @@ void unknownTypes() {
   writer.begin(900, 16).set(8, 1u);
   writer.begin(kLabel, kLabelV1).set(kId, 3u).tail(kName, std::string_view("x"));
   writer.begin(kPoints, kPointsFixed)
-      .tail(kPointsRef, std::as_bytes(std::span<const float>({1.f, 2.f, 3.f, 4.f})));
+    .tail(kPointsRef, std::as_bytes(std::span<const float>({1.f, 2.f, 3.f, 4.f})));
   expect(w::validate(msg, kRules) == w::Status::Ok, "unknown type skipped");
   int seen = 0;
   w::forEachKnown(msg, kRules, [&](w::RecordView r) {
@@ -120,7 +120,7 @@ void unknownTypes() {
   std::vector<std::byte> must;
   w::Writer(must).begin(900, 8, w::kMustUnderstand);
   expect(
-      w::validate(must, kRules) == w::Status::MustUnderstand, "must-understand unknown rejected"
+    w::validate(must, kRules) == w::Status::MustUnderstand, "must-understand unknown rejected"
   );
   std::vector<std::byte> knownMust;
   w::Writer(knownMust).begin(kLabel, 8, w::kMustUnderstand);
@@ -136,8 +136,8 @@ void malformed() {
   };
   expect(w::validate(std::span(good).first(4), kRules) == w::Status::Truncated, "short header");
   expect(
-      w::validate(std::span(good).first(good.size() - 8), kRules) == w::Status::Truncated,
-      "truncated record"
+    w::validate(std::span(good).first(good.size() - 8), kRules) == w::Status::Truncated,
+    "truncated record"
   );
   expect(patch(w::kSizeOffset, 4u) == w::Status::BadSize, "size below header");
   expect(patch(w::kSizeOffset, 33u) == w::Status::BadSize, "unaligned size");

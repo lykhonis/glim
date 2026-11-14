@@ -35,13 +35,13 @@ std::optional<ChunkHeader> decodeChunk(std::span<const std::byte> frame) {
     return std::nullopt;
   }
   return ChunkHeader{
-      .stream = wire::loadLe<std::uint32_t>(&frame[0]),
-      .flags = flags,
-      .lane = static_cast<Lane>(lane),
-      .channel = wire::loadLe<std::uint16_t>(&frame[6]),
-      .size = wire::loadLe<std::uint32_t>(&frame[8]),
-      .kind = static_cast<Kind>(kind),
-      .request = wire::loadLe<std::uint32_t>(&frame[16])
+    .stream = wire::loadLe<std::uint32_t>(&frame[0]),
+    .flags = flags,
+    .lane = static_cast<Lane>(lane),
+    .channel = wire::loadLe<std::uint16_t>(&frame[6]),
+    .size = wire::loadLe<std::uint32_t>(&frame[8]),
+    .kind = static_cast<Kind>(kind),
+    .request = wire::loadLe<std::uint32_t>(&frame[16])
   };
 }
 

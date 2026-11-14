@@ -29,13 +29,13 @@ struct TickRuler : WithSemantic, WithA11y {
   static constexpr int kMinor = 5;          // ticks per unit
   static constexpr float kDragSlop = 4.0f;  // px before a press drags
   static constexpr float kFlickTau =
-      0.25f;  // s of coast the release speed carries
+    0.25f;  // s of coast the release speed carries
   static constexpr float kFlickMinPx =
-      120.0f;  // px/s below which a release just snaps
+    120.0f;  // px/s below which a release just snaps
   static constexpr float kRestSec =
-      0.1f;  // a pause this long before release is no flick
+    0.1f;  // a pause this long before release is no flick
   static constexpr float kSpeedMix =
-      0.6f;  // weight of the newest speed sample
+    0.6f;  // weight of the newest speed sample
   State<float> value = {"value", 0.5f};
   float shown = 0.5f;
   float lo = 0.0f;
@@ -53,7 +53,7 @@ struct TickRuler : WithSemantic, WithA11y {
 
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(
-        isUnbounded(c.maxW) ? 280.0f : c.maxW, kH, c
+      isUnbounded(c.maxW) ? 280.0f : c.maxW, kH, c
     );
   }
   static float unitPx(const Box& box) {
@@ -76,7 +76,7 @@ struct TickRuler : WithSemantic, WithA11y {
     const float dt = t - *trackT;
     if (dt <= 0.0f) return;
     speed =
-        kSpeedMix * (x - *trackX) / dt + (1.0f - kSpeedMix) * *speed;
+      kSpeedMix * (x - *trackX) / dt + (1.0f - kSpeedMix) * *speed;
     trackX = x;
     trackT = t;
   }
@@ -90,9 +90,9 @@ struct TickRuler : WithSemantic, WithA11y {
 
   A11yTraits a11yTraits() const {
     return {
-        .role = A11yRole::Slider,
-        .range = A11yRange{units(*value), lo, hi},
-        .actions = {A11yAction::Increment, A11yAction::Decrement}
+      .role = A11yRole::Slider,
+      .range = A11yRange{units(*value), lo, hi},
+      .actions = {A11yAction::Increment, A11yAction::Decrement},
     };
   }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
@@ -107,20 +107,18 @@ struct TickRuler : WithSemantic, WithA11y {
 
     const Box pill{mid - 20.0f, box.y, 40.0f, box.h};
     sink.fillGradient(
-        pill,
-        14,
-        withAlpha(
-            themeColor(e, kShowAccentTop, Show::kAccentTop), 0.28f
-        ),
-        withAlpha(
-            themeColor(e, kShowAccentBottom, Show::kAccentBottom), 0.10f
-        )
+      pill,
+      14,
+      withAlpha(themeColor(e, kShowAccentTop, Show::kAccentTop), 0.28f),
+      withAlpha(
+        themeColor(e, kShowAccentBottom, Show::kAccentBottom), 0.10f
+      )
     );
     sink.stroke(
-        pill,
-        14,
-        1.0f,
-        withAlpha(themeColor(e, kShowAccentTop, Show::kAccentTop), 0.6f)
+      pill,
+      14,
+      1.0f,
+      withAlpha(themeColor(e, kShowAccentTop, Show::kAccentTop), 0.6f)
     );
 
     sink.pushClip(box);
@@ -128,31 +126,31 @@ struct TickRuler : WithSemantic, WithA11y {
       const float v = center + static_cast<float>(n);
       const float x = xOf(v);
       const float fade =
-          std::max(0.0f, 1.0f - std::fabs(x - mid) / (box.w * 0.5f));
+        std::max(0.0f, 1.0f - std::fabs(x - mid) / (box.w * 0.5f));
       const std::string label = std::to_string(static_cast<int>(v));
       const float lw =
-          static_cast<float>(label.size()) * Tokens::kTypeAdvance;
+        static_cast<float>(label.size()) * Tokens::kTypeAdvance;
       sink.text(
-          x - lw * 0.5f,
-          box.y + 12.0f,
-          label,
-          withAlpha(ink, 0.25f + 0.75f * fade),
-          size
+        x - lw * 0.5f,
+        box.y + 12.0f,
+        label,
+        withAlpha(ink, 0.25f + 0.75f * fade),
+        size
       );
       for (int m = 0; m < kMinor; ++m) {
-        const float tx = x + unit * static_cast<float>(m) /
-                                 static_cast<float>(kMinor);
+        const float tx =
+          x + unit * static_cast<float>(m) / static_cast<float>(kMinor);
         const float h = m == 0 ? 30.0f : 18.0f;
         sink.fillRounded(
-            {tx - 0.75f, box.y + box.h - 12.0f - h, 1.5f, h},
-            1,
-            withAlpha(ink, 0.1f + 0.3f * fade)
+          {tx - 0.75f, box.y + box.h - 12.0f - h, 1.5f, h},
+          1,
+          withAlpha(ink, 0.1f + 0.3f * fade)
         );
       }
     }
     sink.pop();
     sink.fillRounded(
-        {mid - 1.0f, box.y + 34.0f, 2.0f, box.h - 46.0f}, 1, ink
+      {mid - 1.0f, box.y + 34.0f, 2.0f, box.h - 46.0f}, 1, ink
     );
   }
 
@@ -178,19 +176,19 @@ struct TickRuler : WithSemantic, WithA11y {
       // sub-pixel moves do not repaint.
       const float u = units(*grabValue) - dx / unitPx(box);
       const float next =
-          level(std::round(u / step * 10.0f) * step / 10.0f);
+        level(std::round(u / step * 10.0f) * step / 10.0f);
       if (next == *value) return false;
       value = next;
       return true;
     }
     if (auto u = ev.as<PointerUp>()) {
       const float target =
-          *dragging
-              ? snapped(units(*value) + flick(box, u->get().time))
-              : snapped(
-                    units(*value) +
-                    (u->get().x - (box.x + box.w * 0.5f)) / unitPx(box)
-                );
+        *dragging
+          ? snapped(units(*value) + flick(box, u->get().time))
+          : snapped(
+              units(*value) +
+              (u->get().x - (box.x + box.w * 0.5f)) / unitPx(box)
+            );
       dragging = false;
       if (target != *value) value = target;
       return true;
@@ -202,7 +200,7 @@ struct TickRuler : WithSemantic, WithA11y {
       const Key key = k->get().key;
       if (key != Key::Left && key != Key::Right) return false;
       value =
-          snapped(units(*value) + (key == Key::Right ? step : -step));
+        snapped(units(*value) + (key == Key::Right ? step : -step));
       return true;
     }
     return ev.is<Activate>();

@@ -83,7 +83,7 @@ Io Outbox::flushControl(Transport& transport) {
       continue;
     }
     const ChunkHeader header{
-        .flags = chunk::kCredit, .lane = static_cast<Lane>(lane), .size = owed_[lane]
+      .flags = chunk::kCredit, .lane = static_cast<Lane>(lane), .size = owed_[lane]
     };
     if (const auto io = sendHeader(transport, header, {}); io != Io::Ok) {
       return io;
@@ -106,7 +106,7 @@ Io Outbox::flush(Transport& transport) {
     return io;
   }
   const auto limit = static_cast<std::uint32_t>(
-      std::min<std::size_t>(config_.chunk, transport.maxFrame() - kChunkHeaderSize)
+    std::min<std::size_t>(config_.chunk, transport.maxFrame() - kChunkHeaderSize)
   );
   while (const auto lane = pick()) {
     auto& stream = lanes_[*lane].front();
@@ -116,15 +116,14 @@ Io Outbox::flush(Transport& transport) {
     const auto length = std::min({limit, remaining, credit_[*lane]});
     const bool end = length == remaining;
     const ChunkHeader header{
-        .stream = stream.id,
-        .flags = static_cast<std::uint8_t>(
-            (stream.started ? 0 : chunk::kStart) | (end ? chunk::kEnd : 0)
-        ),
-        .lane = message.lane,
-        .channel = message.channel,
-        .size = size,
-        .kind = message.kind,
-        .request = message.request
+      .stream = stream.id,
+      .flags =
+        static_cast<std::uint8_t>((stream.started ? 0 : chunk::kStart) | (end ? chunk::kEnd : 0)),
+      .lane = message.lane,
+      .channel = message.channel,
+      .size = size,
+      .kind = message.kind,
+      .request = message.request
     };
     const auto body = std::span(message.payload).subspan(stream.sent, length);
     if (const auto io = sendHeader(transport, header, body); io != Io::Ok) {

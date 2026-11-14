@@ -29,7 +29,7 @@ int main() {
   ctx.setFillColor(0xff0000ff);
   ctx.fill(glim::Rect::fromSize({64, 48}));
   const std::uint32_t id =
-      ctx.wrapNativeTexture(&dummy, 8, 8, glim::paint::SampleFormat::Rgba8Unorm);
+    ctx.wrapNativeTexture(&dummy, 8, 8, glim::paint::SampleFormat::Rgba8Unorm);
   expect(id != 0, "wrapNativeTexture returns id");
   ctx.blit(glim::Rect{{4, 4}, {16, 16}}, glim::paint::Matter::foreign(id));
   ctx.finish();
@@ -58,8 +58,8 @@ int main() {
   expect(buf[0] > 200 && buf[1] < 20 && buf[2] < 20, "cpu fill red");
   const std::size_t mid = static_cast<std::size_t>((8 * 64 + 8) * 4);
   expect(
-      buf[mid] > 200 && buf[mid + 1] < 20 && buf[mid + 2] < 20,
-      "cpu skips foreign blit (no CPU pixels)"
+    buf[mid] > 200 && buf[mid + 1] < 20 && buf[mid + 2] < 20,
+    "cpu skips foreign blit (no CPU pixels)"
   );
 
   glim::paint::Group merged = glim::paint::merge(ctx.scene().root);

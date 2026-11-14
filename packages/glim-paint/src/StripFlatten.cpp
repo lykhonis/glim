@@ -19,7 +19,7 @@ inline float discCoverage(float cx, float cy, float r, float px, float py) {
 }  // namespace
 
 void flattenDottedPolyline(
-    const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
+  const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
 ) {
   if (n < 2 || width <= 0.f || dotPitch <= 0.f) return;
   out.reserve(out.size() + n * 4);
@@ -83,8 +83,8 @@ void flattenSolidPolyline(const Vec2* pts, std::size_t n, float width, std::vect
       const int hi = static_cast<int>(std::ceil(std::max(xa, xb) + pad + 1.f));
       active.push_back({i, lo, hi});
       spans.emplace_back(
-          static_cast<int>(std::floor(std::min(a.x, b.x) - pad)),
-          static_cast<int>(std::ceil(std::max(a.x, b.x) + pad))
+        static_cast<int>(std::floor(std::min(a.x, b.x) - pad)),
+        static_cast<int>(std::ceil(std::max(a.x, b.x) + pad))
       );
     }
     if (active.empty()) continue;
@@ -165,20 +165,20 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
   }
   const Rect body{{sx1, sy1}, {sx2 - sx1, sy2 - sy1}};
   const Rect top{
-      {rect.origin.x + radius.lt, rect.origin.y},
-      {rect.size.x - radius.lt - radius.rt, sy1 - rect.origin.y}
+    {rect.origin.x + radius.lt, rect.origin.y},
+    {rect.size.x - radius.lt - radius.rt, sy1 - rect.origin.y}
   };
   const Rect bot{
-      {rect.origin.x + radius.lb, sy2},
-      {rect.size.x - radius.lb - radius.rb, rect.origin.y + rect.size.y - sy2}
+    {rect.origin.x + radius.lb, sy2},
+    {rect.size.x - radius.lb - radius.rb, rect.origin.y + rect.size.y - sy2}
   };
   const Rect left{
-      {rect.origin.x, rect.origin.y + radius.lt},
-      {sx1 - rect.origin.x, rect.size.y - radius.lt - radius.lb}
+    {rect.origin.x, rect.origin.y + radius.lt},
+    {sx1 - rect.origin.x, rect.size.y - radius.lt - radius.lb}
   };
   const Rect right{
-      {sx2, rect.origin.y + radius.rt},
-      {rect.origin.x + rect.size.x - sx2, rect.size.y - radius.rt - radius.rb}
+    {sx2, rect.origin.y + radius.rt},
+    {rect.origin.x + rect.size.x - sx2, rect.size.y - radius.rt - radius.rb}
   };
   emitRect(body);
   emitRect(top);
@@ -201,23 +201,20 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
         const float px = static_cast<float>(x) + 0.5f;
         const float py = static_cast<float>(y) + 0.5f;
         const bool inTiled =
-            (touches(body, x, y) || touches(top, x, y) || touches(bot, x, y) ||
-             touches(left, x, y) || touches(right, x, y)) &&
-            (touches(body, x + 1.f, y) || touches(top, x + 1.f, y) || touches(bot, x + 1.f, y) ||
-             touches(left, x + 1.f, y) || touches(right, x + 1.f, y)) &&
-            (touches(body, x, y + 1.f) || touches(top, x, y + 1.f) || touches(bot, x, y + 1.f) ||
-             touches(left, x, y + 1.f) || touches(right, x, y + 1.f)) &&
-            (touches(body, x + 1.f, y + 1.f) || touches(top, x + 1.f, y + 1.f) ||
-             touches(bot, x + 1.f, y + 1.f) || touches(left, x + 1.f, y + 1.f) ||
-             touches(right, x + 1.f, y + 1.f));
+          (touches(body, x, y) || touches(top, x, y) || touches(bot, x, y) || touches(left, x, y) ||
+           touches(right, x, y)) &&
+          (touches(body, x + 1.f, y) || touches(top, x + 1.f, y) || touches(bot, x + 1.f, y) ||
+           touches(left, x + 1.f, y) || touches(right, x + 1.f, y)) &&
+          (touches(body, x, y + 1.f) || touches(top, x, y + 1.f) || touches(bot, x, y + 1.f) ||
+           touches(left, x, y + 1.f) || touches(right, x, y + 1.f)) &&
+          (touches(body, x + 1.f, y + 1.f) || touches(top, x + 1.f, y + 1.f) ||
+           touches(bot, x + 1.f, y + 1.f) || touches(left, x + 1.f, y + 1.f) ||
+           touches(right, x + 1.f, y + 1.f));
         if (inTiled) {
           continue;
         }
         addSpan(
-            s,
-            static_cast<float>(x),
-            static_cast<float>(x + 1),
-            roundedCoverage(rect, radius, px, py)
+          s, static_cast<float>(x), static_cast<float>(x + 1), roundedCoverage(rect, radius, px, py)
         );
       }
       if (!s.spans.empty()) {
@@ -229,10 +226,10 @@ void flattenRounded(const Rect& rect, Radius radius, std::vector<Strip>& out) {
   corner(rect.origin.x + rect.size.x - radius.rt, rect.origin.y, radius.rt, radius.rt);
   corner(rect.origin.x, rect.origin.y + rect.size.y - radius.lb, radius.lb, radius.lb);
   corner(
-      rect.origin.x + rect.size.x - radius.rb,
-      rect.origin.y + rect.size.y - radius.rb,
-      radius.rb,
-      radius.rb
+    rect.origin.x + rect.size.x - radius.rb,
+    rect.origin.y + rect.size.y - radius.rb,
+    radius.rb,
+    radius.rb
   );
 }
 
@@ -242,7 +239,7 @@ void flattenStroke(const Rect& rect, Radius radius, float width, std::vector<Str
   }
   const float half = width * 0.5f;
   const Rect outer{
-      {rect.origin.x - half, rect.origin.y - half}, {rect.size.x + width, rect.size.y + width}
+    {rect.origin.x - half, rect.origin.y - half}, {rect.size.x + width, rect.size.y + width}
   };
   Radius orad = radius;
   orad.lt += half;
@@ -250,7 +247,7 @@ void flattenStroke(const Rect& rect, Radius radius, float width, std::vector<Str
   orad.lb += half;
   orad.rb += half;
   const Rect inner{
-      {rect.origin.x + half, rect.origin.y + half}, {rect.size.x - width, rect.size.y - width}
+    {rect.origin.x + half, rect.origin.y + half}, {rect.size.x - width, rect.size.y - width}
   };
   const bool hole = inner.size.x > kEps && inner.size.y > kEps;
   Radius irad{};
@@ -283,22 +280,22 @@ void flattenStroke(const Rect& rect, Radius radius, float width, std::vector<Str
   const int holeA = static_cast<int>(std::ceil(inner.origin.x)) + 2;
   const int holeB = static_cast<int>(std::floor(inner.origin.x + inner.size.x)) - 2;
   flattenCoverageRows(
-      x0,
-      y0,
-      x1,
-      y1,
-      out,
-      [&](int y, ColumnRange* r) {
-        const float py = static_cast<float>(y) + 0.5f;
-        if (py < bandTop || py > bandBottom || holeA >= holeB) {
-          r[0] = {x0, x1};
-          return 1;
-        }
-        r[0] = {x0, holeA};
-        r[1] = {holeB, x1};
-        return 2;
-      },
-      covAt
+    x0,
+    y0,
+    x1,
+    y1,
+    out,
+    [&](int y, ColumnRange* r) {
+      const float py = static_cast<float>(y) + 0.5f;
+      if (py < bandTop || py > bandBottom || holeA >= holeB) {
+        r[0] = {x0, x1};
+        return 1;
+      }
+      r[0] = {x0, holeA};
+      r[1] = {holeB, x1};
+      return 2;
+    },
+    covAt
   );
 }
 
@@ -362,13 +359,13 @@ void stripsToQuads(const std::vector<Strip>& strips, const Vec4& premul, std::ve
 }
 
 void appendGradientQuad(
-    std::vector<GradientQuad>& out,
-    float x,
-    float y,
-    float w,
-    float h,
-    float coverage,
-    const Matter& m
+  std::vector<GradientQuad>& out,
+  float x,
+  float y,
+  float w,
+  float h,
+  float coverage,
+  const Matter& m
 ) {
   if (w <= 0.f || h <= 0.f || coverage <= 1e-4f || !m.isGradient() || m.gradientStopCount <= 0) {
     return;
@@ -399,7 +396,7 @@ void appendGradientQuad(
 }
 
 void stripsToGradientQuads(
-    const std::vector<Strip>& strips, const Matter& m, std::vector<GradientQuad>& out
+  const std::vector<Strip>& strips, const Matter& m, std::vector<GradientQuad>& out
 ) {
   for (const Strip& s : strips) {
     for (const StripSpan& sp : s.spans) {

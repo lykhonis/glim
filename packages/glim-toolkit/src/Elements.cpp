@@ -52,7 +52,7 @@ Box Tap::place(Constraints c, const Engine& e) const {
   Constraints ic = detail::inset(c, static_cast<float>(2 * padH), static_cast<float>(2 * padV));
   Box inner = e.place(children[0], ic);
   return detail::resolveSize(
-      inner.w + static_cast<float>(2 * padH), inner.h + static_cast<float>(2 * padV), c
+    inner.w + static_cast<float>(2 * padH), inner.h + static_cast<float>(2 * padV), c
   );
 }
 

@@ -44,16 +44,16 @@ std::optional<Key> mapKey(shell::Key key) {
 }
 
 int run(
-    const Config& config,
-    Screen& screen,
-    Store& store,
-    const Engine& engine,
-    Build build,
-    Record record,
-    SeatViewFactory makeSeatView,
-    A11ySink a11ySink,
-    TelemetryHub* telemetry,
-    TelemetrySink telemetrySink
+  const Config& config,
+  Screen& screen,
+  Store& store,
+  const Engine& engine,
+  Build build,
+  Record record,
+  SeatViewFactory makeSeatView,
+  A11ySink a11ySink,
+  TelemetryHub* telemetry,
+  TelemetrySink telemetrySink
 ) {
   if (!config.crashReport.empty()) {
     if (auto previous = takeCrashReport(config.crashReport); previous && config.crashSink) {
@@ -157,14 +157,14 @@ int run(
 
   const auto frameAt = [&](float t) {
     return Frame{
-        context,
-        window,
-        window.size(),
-        window.safeArea(),
-        reduceTransparency,
-        t,
+      context,
+      window,
+      window.size(),
+      window.safeArea(),
+      reduceTransparency,
+      t,
 #if !GLIM_SOFTWARE
-        device,
+      device,
 #endif
     };
   };
@@ -186,11 +186,11 @@ int run(
     const Vec2 size = window.size();
     const bool wantTm = (telemetry != nullptr) || static_cast<bool>(telemetrySink);
     const auto b0 =
-        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+      wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     auto [tree, box] = buildFresh(size);
     startupMark("build");
     const auto b1 =
-        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+      wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (a11ySink) {
       a11ySink(a11yNodes(tree, box, active), screen.focus);
     }
@@ -198,13 +198,13 @@ int run(
     context.beginFrame();
     Frame frame = frameAt(std::chrono::duration<float>(now - start).count());
     const auto r0 =
-        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+      wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (record) {
       record(frame, tree, box);
     }
     startupMark("record");
     const auto r1 =
-        wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+      wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     context.finish();
     // Zero-cost when no native seats: sawSlots bit avoids collectSlots walk.
     if (!attached.empty() || context.sawSlots()) {
@@ -356,7 +356,7 @@ int run(
         return;
       }
       const double elapsed =
-          std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
       if (!pacer.admit(elapsed, targetFps(config.power))) {
         return;
       }
@@ -393,20 +393,20 @@ int run(
 }
 
 int run(
-    const Config& config,
-    Build build,
-    Record record,
-    SeatViewFactory makeSeatView,
-    A11ySink a11ySink,
-    TelemetryHub* telemetry,
-    TelemetrySink telemetrySink
+  const Config& config,
+  Build build,
+  Record record,
+  SeatViewFactory makeSeatView,
+  A11ySink a11ySink,
+  TelemetryHub* telemetry,
+  TelemetrySink telemetrySink
 ) {
   // Owned defaults: the loop borrows these, so locals must outlive it.
   Store store;
   Screen screen;
   Engine engine = measureEngine();
   return run(
-      config, screen, store, engine, build, record, makeSeatView, a11ySink, telemetry, telemetrySink
+    config, screen, store, engine, build, record, makeSeatView, a11ySink, telemetry, telemetrySink
   );
 }
 

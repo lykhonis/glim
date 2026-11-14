@@ -52,15 +52,15 @@ struct Layout {
   // River across the far city: the default framing shows its near bank
   // under the top edge, larger windows reveal the far bank behind it.
   std::vector<V2> river{
-      {-2600.f, 3700.f},
-      {-1475.f, 2734.f},
-      {-648.f, 2032.f},
-      {51.f, 1743.f},
-      {634.f, 1430.f},
-      {1158.f, 961.f},
-      {1705.f, 504.f},
-      {2626.f, 71.f},
-      {3900.f, -660.f}
+    {-2600.f, 3700.f},
+    {-1475.f, 2734.f},
+    {-648.f, 2032.f},
+    {51.f, 1743.f},
+    {634.f, 1430.f},
+    {1158.f, 961.f},
+    {1705.f, 504.f},
+    {2626.f, 71.f},
+    {3900.f, -660.f}
   };
   float riverHalf = 105.f;
 };
@@ -101,7 +101,7 @@ inline std::vector<V2> riverPath(const Layout& l) {
                        (3.f * b - a - 3.f * c + d) * t3);
       };
       out.push_back(
-          {cr(p0.x, p1.x, p2.x, p3.x), cr(p0.y, p1.y, p2.y, p3.y)}
+        {cr(p0.x, p1.x, p2.x, p3.x), cr(p0.y, p1.y, p2.y, p3.y)}
       );
     }
   }
@@ -115,12 +115,12 @@ inline float distanceTo(const std::vector<V2>& line, V2 p) {
     const V2 a = line[i], b = line[i + 1];
     const float dx = b.x - a.x, dy = b.y - a.y;
     const float t = std::clamp(
-        ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy),
-        0.f,
-        1.f
+      ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy),
+      0.f,
+      1.f
     );
     best = std::min(
-        best, std::hypot(p.x - a.x - dx * t, p.y - a.y - dy * t)
+      best, std::hypot(p.x - a.x - dx * t, p.y - a.y - dy * t)
     );
   }
   return best;
@@ -128,13 +128,13 @@ inline float distanceTo(const std::vector<V2>& line, V2 p) {
 
 // True when any corner of the rect lies within `pad` of the water.
 inline bool touchesWater(
-    const Layout& l,
-    const std::vector<V2>& river,
-    float x0,
-    float y0,
-    float x1,
-    float y1,
-    float pad
+  const Layout& l,
+  const std::vector<V2>& river,
+  float x0,
+  float y0,
+  float x1,
+  float y1,
+  float pad
 ) {
   for (V2 p :
        {V2{x0, y0},
@@ -147,7 +147,7 @@ inline bool touchesWater(
 }
 
 inline std::vector<Building> buildCity(
-    const Layout& l, const GridSpan& span
+  const Layout& l, const GridSpan& span
 ) {
   const std::vector<V2> river = riverPath(l);
   std::vector<Building> out;
@@ -164,18 +164,18 @@ inline std::vector<Building> buildCity(
       const float ux = cx + l.downtown.x - l.uptown.x,
                   uy = cy + l.downtown.y - l.uptown.y;
       const float core = std::max(
-          std::exp(-(cx * cx + cy * cy) / (330.f * 330.f)),
-          std::exp(-(ux * ux + uy * uy) / (520.f * 520.f))
+        std::exp(-(cx * cx + cy * cy) / (330.f * 330.f)),
+        std::exp(-(ux * ux + uy * uy) / (520.f * 520.f))
       );
       // Downtown lots are big single towers; the outskirts subdivide
       // into low perimeter blocks with a courtyard gap.
       const int split =
-          core > 0.45f
-              ? 1
-              : 2 + static_cast<int>(mapHash01(id * 7 + 2) * 1.99f);
+        core > 0.45f
+          ? 1
+          : 2 + static_cast<int>(mapHash01(id * 7 + 2) * 1.99f);
       const int nx = core > 0.45f ? 1 : split,
-                ny = core > 0.45f ? 1 + (mapHash01(id * 5 + 1) < 0.4f)
-                                  : 2;
+                ny =
+                  core > 0.45f ? 1 + (mapHash01(id * 5 + 1) < 0.4f) : 2;
       for (int i = 0; i < nx; ++i) {
         for (int j = 0; j < ny; ++j) {
           const int lot = id * 17 + i * 5 + j;
@@ -186,13 +186,13 @@ inline std::vector<Building> buildCity(
                       d = (by1 - by0) / static_cast<float>(ny);
           const float r = mapHash01(lot * 19 + 7);
           const float h =
-              6.f + r * 16.f + core * (30.f + 300.f * r * r * r);
+            6.f + r * 16.f + core * (30.f + 300.f * r * r * r);
           Building t{
-              bx0 + w * static_cast<float>(i) + inset,
-              by0 + d * static_cast<float>(j) + inset,
-              bx0 + w * static_cast<float>(i + 1) - inset,
-              by0 + d * static_cast<float>(j + 1) - inset,
-              h
+            bx0 + w * static_cast<float>(i) + inset,
+            by0 + d * static_cast<float>(j) + inset,
+            bx0 + w * static_cast<float>(i + 1) - inset,
+            by0 + d * static_cast<float>(j + 1) - inset,
+            h
           };
           if (touchesWater(l, river, t.x0, t.y0, t.x1, t.y1, 14.f))
             continue;
@@ -201,14 +201,14 @@ inline std::vector<Building> buildCity(
           float base = 0.f;
           for (int k = 0; k < tiers; ++k) {
             const float top =
-                k + 1 == tiers
-                    ? h
-                    : base + (h - base) * (k == 0 ? 0.3f : 0.55f);
+              k + 1 == tiers
+                ? h
+                : base + (h - base) * (k == 0 ? 0.3f : 0.55f);
             const bool crown = k + 1 == tiers;
             const float spire =
-                crown && h > 170.f && mapHash01(lot * 29 + 5) < 0.55f
-                    ? 18.f + mapHash01(lot * 31 + 1) * 46.f
-                    : 0.f;
+              crown && h > 170.f && mapHash01(lot * 29 + 5) < 0.55f
+                ? 18.f + mapHash01(lot * 31 + 1) * 46.f
+                : 0.f;
             out.push_back({t.x0, t.y0, t.x1, t.y1, top, base, spire});
             const float sx = (t.x1 - t.x0) * 0.14f,
                         sy = (t.y1 - t.y0) * 0.14f;
@@ -222,12 +222,12 @@ inline std::vector<Building> buildCity(
             const float sx = (t.x1 - t.x0) * 0.32f,
                         sy = (t.y1 - t.y0) * 0.32f;
             out.push_back(
-                {t.x0 + sx,
-                 t.y0 + sy,
-                 t.x1 - sx,
-                 t.y1 - sy,
-                 h + 3.f + mapHash01(lot * 41) * 5.f,
-                 h}
+              {t.x0 + sx,
+               t.y0 + sy,
+               t.x1 - sx,
+               t.y1 - sy,
+               h + 3.f + mapHash01(lot * 41) * 5.f,
+               h}
             );
           }
         }
@@ -245,34 +245,34 @@ struct Camera {
 };
 
 inline Camera orbit(
-    const Box& box, V3 target, float yawDeg, float pitchDeg, float dist
+  const Box& box, V3 target, float yawDeg, float pitchDeg, float dist
 ) {
   const float yaw = yawDeg * 3.14159265f / 180.f,
               pitch = pitchDeg * 3.14159265f / 180.f;
   const V3 fwd{
-      std::sin(yaw) * std::cos(pitch),
-      std::cos(yaw) * std::cos(pitch),
-      -std::sin(pitch)
+    std::sin(yaw) * std::cos(pitch),
+    std::cos(yaw) * std::cos(pitch),
+    -std::sin(pitch)
   };
   const V3 eye{
-      target.x - fwd.x * dist,
-      target.y - fwd.y * dist,
-      target.z - fwd.z * dist
+    target.x - fwd.x * dist,
+    target.y - fwd.y * dist,
+    target.z - fwd.z * dist
   };
   const V3 right{std::cos(yaw), -std::sin(yaw), 0.f};
   const V3 up{
-      right.y * fwd.z - right.z * fwd.y,
-      right.z * fwd.x - right.x * fwd.z,
-      right.x * fwd.y - right.y * fwd.x
+    right.y * fwd.z - right.z * fwd.y,
+    right.z * fwd.x - right.x * fwd.z,
+    right.x * fwd.y - right.y * fwd.x
   };
   return {
-      eye,
-      right,
-      up,
-      fwd,
-      box.h * 1.25f,
-      box.x + box.w * 0.5f,
-      box.y + box.h * 0.5f
+    eye,
+    right,
+    up,
+    fwd,
+    box.h * 1.25f,
+    box.x + box.w * 0.5f,
+    box.y + box.h * 0.5f
   };
 }
 
@@ -294,9 +294,9 @@ inline float depth(const Camera& c, V3 p) {
 inline bool unprojectGround(const Camera& c, V2 s, V2* out) {
   const float u = (s.x - c.cx) / c.focal, v = (c.cy - s.y) / c.focal;
   const V3 d{
-      c.fwd.x + c.right.x * u + c.up.x * v,
-      c.fwd.y + c.right.y * u + c.up.y * v,
-      c.fwd.z + c.right.z * u + c.up.z * v
+    c.fwd.x + c.right.x * u + c.up.x * v,
+    c.fwd.y + c.right.y * u + c.up.y * v,
+    c.fwd.z + c.right.z * u + c.up.z * v
   };
   if (d.z > -1e-4f) return false;
   const float t = -c.eye.z / d.z;
@@ -307,7 +307,7 @@ inline bool unprojectGround(const Camera& c, V2 s, V2* out) {
 // Blocks whose ground the screen box sees, plus a margin for towers
 // standing just below the frame and rising into it.
 inline GridSpan groundSpan(
-    const Layout& l, const Camera& c, const Box& box
+  const Layout& l, const Camera& c, const Box& box
 ) {
   float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
   for (V2 s :
@@ -322,10 +322,10 @@ inline GridSpan groundSpan(
   }
   const float pitch = l.block + l.street;
   return {
-      static_cast<int>(std::floor(x0 / pitch)) - 2,
-      static_cast<int>(std::ceil(x1 / pitch)) + 2,
-      static_cast<int>(std::floor(y0 / pitch)) - 3,
-      static_cast<int>(std::ceil(y1 / pitch)) + 2
+    static_cast<int>(std::floor(x0 / pitch)) - 2,
+    static_cast<int>(std::ceil(x1 / pitch)) + 2,
+    static_cast<int>(std::floor(y0 / pitch)) - 3,
+    static_cast<int>(std::ceil(y1 / pitch)) + 2
   };
 }
 
@@ -337,13 +337,13 @@ struct Face {
 // Visible faces of one building, back to front: camera-facing walls
 // then the roof. Empty when any corner falls behind the eye.
 inline std::vector<Face> visibleFaces(
-    const Camera& c, const Building& b
+  const Camera& c, const Building& b
 ) {
   const V3 base[4] = {
-      {b.x0, b.y0, b.z0},
-      {b.x1, b.y0, b.z0},
-      {b.x1, b.y1, b.z0},
-      {b.x0, b.y1, b.z0}
+    {b.x0, b.y0, b.z0},
+    {b.x1, b.y0, b.z0},
+    {b.x1, b.y1, b.z0},
+    {b.x0, b.y1, b.z0}
   };
   V2 lo[4], hi[4];
   for (int i = 0; i < 4; ++i) {
@@ -359,9 +359,9 @@ inline std::vector<Face> visibleFaces(
   for (int i = 0; i < 4; ++i) {
     const int k = (i + 1) % 4;
     const V3 mid{
-        (base[i].x + base[k].x) * 0.5f,
-        (base[i].y + base[k].y) * 0.5f,
-        (b.z0 + b.h) * 0.5f
+      (base[i].x + base[k].x) * 0.5f,
+      (base[i].y + base[k].y) * 0.5f,
+      (b.z0 + b.h) * 0.5f
     };
     if (dot(normals[i], c.eye - mid) <= 0.f) continue;
     faces.push_back({{lo[i], lo[k], hi[k], hi[i]}, lit[i]});
@@ -377,7 +377,7 @@ inline std::vector<V3> routePath(const Layout& l) {
     return V3{gridLine(l, gx), gridLine(l, gy), 0.5f};
   };
   return {
-      at(1, -3), at(1, 1), at(6, 1), at(6, 10), at(9, 10), at(9, 20)
+    at(1, -3), at(1, 1), at(6, 1), at(6, 10), at(9, 10), at(9, 20)
   };
 }
 

@@ -102,11 +102,10 @@ VkExtent2D Device::Impl::chooseSwapchainExtent(const VkSurfaceCapabilitiesKHR& c
     const int aw = ANativeWindow_getWidth(androidWindow);
     const int ah = ANativeWindow_getHeight(androidWindow);
     if (aw > 0 && ah > 0) {
-      w = std::clamp(
-          static_cast<uint32_t>(aw), caps.minImageExtent.width, caps.maxImageExtent.width
-      );
+      w =
+        std::clamp(static_cast<uint32_t>(aw), caps.minImageExtent.width, caps.maxImageExtent.width);
       h = std::clamp(
-          static_cast<uint32_t>(ah), caps.minImageExtent.height, caps.maxImageExtent.height
+        static_cast<uint32_t>(ah), caps.minImageExtent.height, caps.maxImageExtent.height
       );
     }
   }

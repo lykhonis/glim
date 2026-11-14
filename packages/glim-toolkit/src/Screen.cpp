@@ -10,7 +10,7 @@ namespace glim {
 namespace toolkit {
 
 bool Screen::pointerDown(
-    const Block& tree, const Box& box, float x, float y, int pointerId, const Engine& engine
+  const Block& tree, const Box& box, float x, float y, int pointerId, const Engine& engine
 ) {
   // Events borrow: the payload must outlive the dispatch.
   const PointerDown press{x, y, clock.now};
@@ -40,13 +40,13 @@ bool Screen::pointerUp(const Block& tree, const Box& box, float x, float y, cons
 }
 
 bool Screen::pointerMove(
-    const Block& tree,
-    const Box& box,
-    float x,
-    float y,
-    bool pressed,
-    int pointerId,
-    const Engine& engine
+  const Block& tree,
+  const Box& box,
+  float x,
+  float y,
+  bool pressed,
+  int pointerId,
+  const Engine& engine
 ) {
   if (!pressed) return false;
   PointerMove move{x, y, pressed, clock.now};
@@ -62,7 +62,7 @@ bool Screen::pointerMove(
 }
 
 bool Screen::wheel(
-    const Block& tree, const Box& box, float x, float y, float dx, float dy, const Engine& engine
+  const Block& tree, const Box& box, float x, float y, float dx, float dy, const Engine& engine
 ) {
   if (dx == 0 && dy == 0) return false;
   struct Candidate {
@@ -72,21 +72,21 @@ bool Screen::wheel(
   std::vector<Candidate> found;
   detail::ClipStack clip;
   walk(
-      tree,
-      box,
-      engine,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        // Only ancestor-visible points are candidates (own clip pushed below).
-        bool parentVisible = clip.visible(x, y);
-        clip.enter(n, bx);
-        if (parentVisible) {
-          if (const Roll* r = rollOf(n)) {
-            if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({std::cref(*r), bx});
-          }
+    tree,
+    box,
+    engine,
+    [&](const Block& n, const Box& bx, const Engine&) -> bool {
+      // Only ancestor-visible points are candidates (own clip pushed below).
+      bool parentVisible = clip.visible(x, y);
+      clip.enter(n, bx);
+      if (parentVisible) {
+        if (const Roll* r = rollOf(n)) {
+          if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({std::cref(*r), bx});
         }
-        return true;
-      },
-      [&](const Block&, const Box&, const Engine&) { clip.exit(); }
+      }
+      return true;
+    },
+    [&](const Block&, const Box&, const Engine&) { clip.exit(); }
   );
   // Innermost first; edge-clamped inner rolls chain outward.
   for (auto it = found.rbegin(); it != found.rend(); ++it) {

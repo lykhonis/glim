@@ -28,7 +28,8 @@ int main(int argc, char** argv) {
     t.build = [](const glim::toolkit::Engine&) {
       return glim::toolkit::Block{};
     };
-    t.paint = [](glim::paint::Context& ctx, glim::Vec2 size, float now
+    t.paint = [](
+                glim::paint::Context& ctx, glim::Vec2 size, float now
               ) { recordGlass(ctx, size, now); };
     return host::runE2e(t, flags);
   }
@@ -36,27 +37,27 @@ int main(int argc, char** argv) {
   // settles.
   static glim::toolkit::Store::Watch watch;
   return host::run(
-      {.title = "Glim Glass",
-       .drive = flags.drive,
-       .driveTrace = flags.driveTrace,
-       .startup = flags.startup},
-      [](const glim::toolkit::Engine& e) {
-        if (!watch.live()) {
-          glim::toolkit::State<float> tick =
-              glim::toolkit::rootScope(e).state("tick", 0.0f);
-          watch = e.store->get().watchFrame([tick](float now) mutable {
-            tick = now;
-            return true;
-          });
-        }
-        return glim::toolkit::Block{};
-      },
-      [](host::Frame& f,
-         const glim::toolkit::Block&,
-         const glim::toolkit::Box&) {
-        recordGlass(
-            f.context, f.size, f.time, f.safeArea, f.reduceTransparency
-        );
+    {
+      .title = "Glim Glass",
+      .drive = flags.drive,
+      .driveTrace = flags.driveTrace,
+      .startup = flags.startup,
+    },
+    [](const glim::toolkit::Engine& e) {
+      if (!watch.live()) {
+        glim::toolkit::State<float> tick =
+          glim::toolkit::rootScope(e).state("tick", 0.0f);
+        watch = e.store->get().watchFrame([tick](float now) mutable {
+          tick = now;
+          return true;
+        });
       }
+      return glim::toolkit::Block{};
+    },
+    [](host::Frame& f, const glim::toolkit::Block&, const glim::toolkit::Box&) {
+      recordGlass(
+        f.context, f.size, f.time, f.safeArea, f.reduceTransparency
+      );
+    }
   );
 }

@@ -24,7 +24,7 @@ std::vector<const Block*> focusables(const Block& root, const Box& box, const En
 
 // Spatial/linear focus move; returns the new index.
 int moveFocus(
-    const Block& root, const Box& box, int current, FocusDir dir, const Engine& e = Engine{}
+  const Block& root, const Box& box, int current, FocusDir dir, const Engine& e = Engine{}
 );
 
 // Box of the i-th focusable in the same walk moveFocus uses.
@@ -36,14 +36,14 @@ int focusAt(const Block& root, const Box& box, float x, float y, const Engine& e
 // Captured-pointer routing: return is routing, not consumption, so ignored moves keep capture.
 // Returns false only when i is out of range (caller falls back to dispatchPointer).
 bool dispatchCaptured(
-    const Block& root, const Box& box, int index, const Event& ev, const Engine& e = Engine{}
+  const Block& root, const Box& box, int index, const Event& ev, const Engine& e = Engine{}
 );
 
 // Focus-ring overlay, painted last (on top).
 // focusRingBox expands the focused box by pad (default 2px).
 inline constexpr const char* kFocusRingKind = "FocusRing";
 Box focusRingBox(
-    const Block& root, const Box& box, int index, float pad = 2.0f, const Engine& e = Engine{}
+  const Block& root, const Box& box, int index, float pad = 2.0f, const Engine& e = Engine{}
 );
 
 }  // namespace toolkit

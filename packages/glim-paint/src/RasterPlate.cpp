@@ -24,10 +24,10 @@ Pixel samplePixel(const std::vector<Pixel>& img, int w, int h, float px, float p
   const float ia = 1.f - fx;
   const float ib = 1.f - fy;
   return Pixel{
-      (a.r * ia + b.r * fx) * ib + (c.r * ia + d.r * fx) * fy,
-      (a.g * ia + b.g * fx) * ib + (c.g * ia + d.g * fx) * fy,
-      (a.b * ia + b.b * fx) * ib + (c.b * ia + d.b * fx) * fy,
-      (a.a * ia + b.a * fx) * ib + (c.a * ia + d.a * fx) * fy
+    (a.r * ia + b.r * fx) * ib + (c.r * ia + d.r * fx) * fy,
+    (a.g * ia + b.g * fx) * ib + (c.g * ia + d.g * fx) * fy,
+    (a.b * ia + b.b * fx) * ib + (c.b * ia + d.b * fx) * fy,
+    (a.a * ia + b.a * fx) * ib + (c.a * ia + d.a * fx) * fy
   };
 }
 
@@ -171,23 +171,23 @@ void blurCheap(std::vector<Pixel>& img, int w, int h, float sigma) {
   blurSeparable(small, dw, dh, sigma / static_cast<float>(scale));
   for (int y = 0; y < h; ++y) {
     const float py =
-        (static_cast<float>(y) + 0.5f) * static_cast<float>(dh) / static_cast<float>(h);
+      (static_cast<float>(y) + 0.5f) * static_cast<float>(dh) / static_cast<float>(h);
     for (int x = 0; x < w; ++x) {
       const float px =
-          (static_cast<float>(x) + 0.5f) * static_cast<float>(dw) / static_cast<float>(w);
+        (static_cast<float>(x) + 0.5f) * static_cast<float>(dw) / static_cast<float>(w);
       img[static_cast<std::size_t>(y * w + x)] = samplePixel(small, dw, dh, px, py);
     }
   }
 }
 
 void copyDestPlate(
-    std::vector<Pixel>& plate,
-    int iw,
-    int ih,
-    const std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    Rect src
+  std::vector<Pixel>& plate,
+  int iw,
+  int ih,
+  const std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  Rect src
 ) {
   const float plateW = static_cast<float>(iw);
   const float plateH = static_cast<float>(ih);

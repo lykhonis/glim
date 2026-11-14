@@ -11,9 +11,9 @@ std::string smartHomeDump(glim::toolkit::Store& store);
 std::string smartHomeFocusDump(glim::toolkit::Store& store);
 std::string smartHomeA11yDump(glim::toolkit::Store& store);
 void paintSmartHomeScene(
-    glim::paint::Context& ctx,
-    glim::toolkit::host::LayerFeed& feed,
-    glim::toolkit::Store& store,
-    int focus = -1,
-    bool focusVisible = true
+  glim::paint::Context& ctx,
+  glim::toolkit::host::LayerFeed& feed,
+  glim::toolkit::Store& store,
+  int focus = -1,
+  bool focusVisible = true
 );

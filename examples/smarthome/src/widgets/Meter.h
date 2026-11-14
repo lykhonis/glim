@@ -18,7 +18,7 @@ struct Meter : WithSemantic {
   float value = 0.0f;  // 0..1
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(
-        isUnbounded(c.maxW) ? 240.0f : c.maxW, kH, c
+      isUnbounded(c.maxW) ? 240.0f : c.maxW, kH, c
     );
   }
   void record(const Box& box, Rec& rec) const {
@@ -31,17 +31,15 @@ struct Meter : WithSemantic {
     for (float x = box.x + fillW + 6.0f; x < box.x + box.w - 6.0f;
          x += 5.0f)
       sink.fillRounded(
-          {x, box.y + 6.0f, 1.5f, box.h - 12.0f},
-          1,
-          withAlpha(ink, 0.18f)
+        {x, box.y + 6.0f, 1.5f, box.h - 12.0f}, 1, withAlpha(ink, 0.18f)
       );
     if (fillW < 1.0f) return;
     const Box fill{box.x, box.y, fillW, box.h};
     sink.fillGradient(
-        fill,
-        12,
-        themeColor(e, kShowAccentTop, Show::kAccentTop),
-        themeColor(e, kShowAccentBottom, Show::kAccentBottom)
+      fill,
+      12,
+      themeColor(e, kShowAccentTop, Show::kAccentTop),
+      themeColor(e, kShowAccentBottom, Show::kAccentBottom)
     );
     gelCoat(sink, fill, 12);
   }

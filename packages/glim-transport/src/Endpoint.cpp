@@ -12,9 +12,9 @@ class Endpoint::Sink final : public InboxSink {
   void deliver(const Message& message) override {
     if (message.kind == Kind::Reply || message.kind == Kind::Error) {
       endpoint_.requests_.settle(
-          message.request,
-          {message.kind == Kind::Reply ? Outcome::Ok : Outcome::Error,
-           {message.payload.begin(), message.payload.end()}}
+        message.request,
+        {message.kind == Kind::Reply ? Outcome::Ok : Outcome::Error,
+         {message.payload.begin(), message.payload.end()}}
       );
       return;
     }
@@ -55,29 +55,29 @@ Endpoint::~Endpoint() {
 }
 
 bool Endpoint::post(
-    Lane lane, std::uint16_t channel, std::vector<std::byte> payload, bool supersede
+  Lane lane, std::uint16_t channel, std::vector<std::byte> payload, bool supersede
 ) {
   return !broken_ && outbox_.push(
-                         {.lane = lane,
-                          .kind = Kind::Event,
-                          .channel = channel,
-                          .supersede = supersede,
-                          .payload = std::move(payload)}
+                       {.lane = lane,
+                        .kind = Kind::Event,
+                        .channel = channel,
+                        .supersede = supersede,
+                        .payload = std::move(payload)}
                      );
 }
 
 Call Endpoint::request(
-    Owner& owner,
-    Lane lane,
-    std::uint16_t channel,
-    std::vector<std::byte> payload,
-    std::uint64_t timeout
+  Owner& owner,
+  Lane lane,
+  std::uint16_t channel,
+  std::vector<std::byte> payload,
+  std::uint64_t timeout
 ) {
   return Call(
-      *this,
-      owner,
-      {.lane = lane, .kind = Kind::Request, .channel = channel, .payload = std::move(payload)},
-      timeout
+    *this,
+    owner,
+    {.lane = lane, .kind = Kind::Request, .channel = channel, .payload = std::move(payload)},
+    timeout
   );
 }
 
@@ -88,7 +88,7 @@ bool Endpoint::start(Call& call, std::coroutine_handle<> handle) {
   }
   const auto deadline = call.timeout_ == 0 ? 0 : now_ + call.timeout_;
   const auto id =
-      requests_.add({&call.owner_, call.message_.lane, deadline, handle, &call.result_});
+    requests_.add({&call.owner_, call.message_.lane, deadline, handle, &call.result_});
   call.message_.request = id;
   if (!outbox_.push(std::move(call.message_))) {
     requests_.remove(id);
@@ -101,11 +101,11 @@ bool Endpoint::start(Call& call, std::coroutine_handle<> handle) {
 bool Endpoint::answer(const Message& request, Kind kind, std::vector<std::byte> payload) {
   return !broken_ && request.kind == Kind::Request &&
          outbox_.push(
-             {.lane = request.lane,
-              .kind = kind,
-              .channel = request.channel,
-              .request = request.request,
-              .payload = std::move(payload)}
+           {.lane = request.lane,
+            .kind = kind,
+            .channel = request.channel,
+            .request = request.request,
+            .payload = std::move(payload)}
          );
 }
 

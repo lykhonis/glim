@@ -68,7 +68,7 @@ float Window::pixelRatio() const { return detail::pixelRatio(); }
 
 Vec2 Window::drawableSize() const {
   return {
-      static_cast<float>(detail::drawableWidth()), static_cast<float>(detail::drawableHeight())
+    static_cast<float>(detail::drawableWidth()), static_cast<float>(detail::drawableHeight())
   };
 }
 

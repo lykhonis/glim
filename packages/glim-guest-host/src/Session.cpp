@@ -39,7 +39,7 @@ bool Session::start() {
     return false;
   }
   transport_ = std::make_unique<t::RingTransport>(
-      [this] { return runtime_.memory(); }, announce->rx, announce->tx
+    [this] { return runtime_.memory(); }, announce->rx, announce->tx
   );
   state_ = State::Offered;
   service();
@@ -54,7 +54,7 @@ void Session::handshake() {
   }
   const auto hello = io == t::Io::Ok ? t::readHello(frame) : std::nullopt;
   const auto answer =
-      hello ? t::negotiate(*hello, options_.support) : t::Answer{t::Refusal::Malformed};
+    hello ? t::negotiate(*hello, options_.support) : t::Answer{t::Refusal::Malformed};
   std::vector<std::byte> reply;
   t::writeAnswer(answer, reply);
   if (transport_->send({}, reply) != t::Io::Ok) {

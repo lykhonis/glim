@@ -59,15 +59,15 @@ class Endpoint {
   Endpoint& operator=(const Endpoint&) = delete;
 
   bool post(
-      Lane lane, std::uint16_t channel, std::vector<std::byte> payload, bool supersede = false
+    Lane lane, std::uint16_t channel, std::vector<std::byte> payload, bool supersede = false
   );
   // A timeout of 0 waits until reply, owner drop or reset.
   Call request(
-      Owner& owner,
-      Lane lane,
-      std::uint16_t channel,
-      std::vector<std::byte> payload,
-      std::uint64_t timeout = 0
+    Owner& owner,
+    Lane lane,
+    std::uint16_t channel,
+    std::vector<std::byte> payload,
+    std::uint64_t timeout = 0
   );
   bool reply(const Message& request, std::vector<std::byte> payload);
   bool fail(const Message& request, std::vector<std::byte> payload);

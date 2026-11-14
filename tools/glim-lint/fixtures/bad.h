@@ -18,4 +18,13 @@ inline Block plate() {
   g.radius = 4;
   return column(g, RadiusTag{2});
 }
+
+inline Block tall() {
+  return column(shadow(
+    {.sigma = kLiftedCardShadowSigma,
+     .offsetY = kLiftedCardShadowOffsetY,
+     .spread = kLiftedCardShadowSpread,
+     .color = kLiftedCardShadowColor}
+  ));
+}
 }  // namespace glim

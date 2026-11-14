@@ -110,7 +110,7 @@ float segDist(Vec2 p, Vec2 a, Vec2 b, float& tOut, float& lenOut) {
 }
 
 float polylineCoverage(
-    const Vec2* pts, std::size_t n, float width, float dotPitch, float px, float py
+  const Vec2* pts, std::size_t n, float width, float dotPitch, float px, float py
 ) {
   if (n < 2 || width <= 0.f) return 0.f;
   const float half = width * 0.5f;

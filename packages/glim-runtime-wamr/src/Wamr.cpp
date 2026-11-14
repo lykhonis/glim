@@ -81,11 +81,11 @@ std::byte* guestBytes(wasm_exec_env_t env, std::uint32_t offset, std::uint64_t s
 }
 
 std::uint32_t wasiFdWrite(
-    wasm_exec_env_t env,
-    std::uint32_t fd,
-    std::uint32_t iovs,
-    std::uint32_t count,
-    std::uint32_t written
+  wasm_exec_env_t env,
+  std::uint32_t fd,
+  std::uint32_t iovs,
+  std::uint32_t count,
+  std::uint32_t written
 ) {
   if (fd != 1 && fd != 2) {
     return kWasiBadDescriptor;
@@ -105,8 +105,8 @@ std::uint32_t wasiFdWrite(
         return kWasiFault;
       }
       host.log(
-          fd == 2 ? transport::kLogError : transport::kLogInfo,
-          {reinterpret_cast<const char*>(text), at[1]}
+        fd == 2 ? transport::kLogError : transport::kLogInfo,
+        {reinterpret_cast<const char*>(text), at[1]}
       );
       sum += at[1];
     }
@@ -116,7 +116,7 @@ std::uint32_t wasiFdWrite(
 }
 
 std::uint32_t wasiClockTimeGet(
-    wasm_exec_env_t env, std::uint32_t, std::uint64_t, std::uint32_t out
+  wasm_exec_env_t env, std::uint32_t, std::uint64_t, std::uint32_t out
 ) {
   auto* time = guestBytes(env, out, 8);
   if (!time) {
@@ -130,7 +130,7 @@ std::uint32_t wasiClockTimeGet(
 }
 
 std::uint32_t wasiFdSeek(
-    wasm_exec_env_t, std::uint32_t, std::int64_t, std::uint32_t, std::uint32_t
+  wasm_exec_env_t, std::uint32_t, std::int64_t, std::uint32_t, std::uint32_t
 ) {
   return kWasiBadDescriptor;
 }
@@ -138,37 +138,37 @@ std::uint32_t wasiFdSeek(
 std::uint32_t wasiFdClose(wasm_exec_env_t, std::uint32_t) { return kWasiBadDescriptor; }
 
 NativeSymbol kImports[] = {
-    {.symbol = "host_send",
-     .func_ptr = reinterpret_cast<void*>(hostSend),
-     .signature = "()",
-     .attachment = nullptr},
-    {.symbol = "host_now",
-     .func_ptr = reinterpret_cast<void*>(hostNow),
-     .signature = "()I",
-     .attachment = nullptr},
-    {.symbol = "host_log",
-     .func_ptr = reinterpret_cast<void*>(hostLog),
-     .signature = "(i*~)",
-     .attachment = nullptr},
+  {.symbol = "host_send",
+   .func_ptr = reinterpret_cast<void*>(hostSend),
+   .signature = "()",
+   .attachment = nullptr},
+  {.symbol = "host_now",
+   .func_ptr = reinterpret_cast<void*>(hostNow),
+   .signature = "()I",
+   .attachment = nullptr},
+  {.symbol = "host_log",
+   .func_ptr = reinterpret_cast<void*>(hostLog),
+   .signature = "(i*~)",
+   .attachment = nullptr},
 };
 
 NativeSymbol kWasi[] = {
-    {.symbol = "fd_write",
-     .func_ptr = reinterpret_cast<void*>(wasiFdWrite),
-     .signature = "(iiii)i",
-     .attachment = nullptr},
-    {.symbol = "clock_time_get",
-     .func_ptr = reinterpret_cast<void*>(wasiClockTimeGet),
-     .signature = "(iIi)i",
-     .attachment = nullptr},
-    {.symbol = "fd_seek",
-     .func_ptr = reinterpret_cast<void*>(wasiFdSeek),
-     .signature = "(iIii)i",
-     .attachment = nullptr},
-    {.symbol = "fd_close",
-     .func_ptr = reinterpret_cast<void*>(wasiFdClose),
-     .signature = "(i)i",
-     .attachment = nullptr},
+  {.symbol = "fd_write",
+   .func_ptr = reinterpret_cast<void*>(wasiFdWrite),
+   .signature = "(iiii)i",
+   .attachment = nullptr},
+  {.symbol = "clock_time_get",
+   .func_ptr = reinterpret_cast<void*>(wasiClockTimeGet),
+   .signature = "(iIi)i",
+   .attachment = nullptr},
+  {.symbol = "fd_seek",
+   .func_ptr = reinterpret_cast<void*>(wasiFdSeek),
+   .signature = "(iIii)i",
+   .attachment = nullptr},
+  {.symbol = "fd_close",
+   .func_ptr = reinterpret_cast<void*>(wasiFdClose),
+   .signature = "(i)i",
+   .attachment = nullptr},
 };
 
 // A guest may import only what the Engine registered; anything else would
@@ -181,8 +181,8 @@ void requireLinkedImports(wasm_module_t module) {
     if (import.kind == WASM_IMPORT_EXPORT_KIND_FUNC &&
         !wasm_runtime_is_import_func_linked(import.module_name, import.name)) {
       fail(
-          std::string("guest imports ") + import.module_name + "." + import.name +
-          " outside the guest ABI"
+        std::string("guest imports ") + import.module_name + "." + import.name +
+        " outside the guest ABI"
       );
     }
   }
@@ -235,15 +235,15 @@ struct Instance::Vm {
   }
 
   void call(
-      wasm_function_inst_t function, std::span<wasm_val_t> args, std::span<wasm_val_t> results
+    wasm_function_inst_t function, std::span<wasm_val_t> args, std::span<wasm_val_t> results
   ) {
     if (!wasm_runtime_call_wasm_a(
-            env,
-            function,
-            static_cast<std::uint32_t>(results.size()),
-            results.data(),
-            static_cast<std::uint32_t>(args.size()),
-            args.data()
+          env,
+          function,
+          static_cast<std::uint32_t>(results.size()),
+          results.data(),
+          static_cast<std::uint32_t>(args.size()),
+          args.data()
         )) {
       const std::string trap = wasm_runtime_get_exception(instance);
       wasm_runtime_clear_exception(instance);
@@ -254,13 +254,13 @@ struct Instance::Vm {
 
 Instance::Instance(Engine&, std::span<const std::byte> module, Limits limits)
     : module_(
-          reinterpret_cast<const std::uint8_t*>(module.data()),
-          reinterpret_cast<const std::uint8_t*>(module.data()) + module.size()
+        reinterpret_cast<const std::uint8_t*>(module.data()),
+        reinterpret_cast<const std::uint8_t*>(module.data()) + module.size()
       ),
       vm_(std::make_unique<Vm>()) {
   char error[kErrorSize] = {};
   vm_->module = wasm_runtime_load(
-      module_.data(), static_cast<std::uint32_t>(module_.size()), error, kErrorSize
+    module_.data(), static_cast<std::uint32_t>(module_.size()), error, kErrorSize
   );
   if (!vm_->module) {
     fail(error);
@@ -294,9 +294,9 @@ std::span<std::byte> Instance::memory() {
     return {};
   }
   return {
-      static_cast<std::byte*>(wasm_memory_get_base_address(memory)),
-      static_cast<std::size_t>(wasm_memory_get_cur_page_count(memory)) *
-          wasm_memory_get_bytes_per_page(memory)
+    static_cast<std::byte*>(wasm_memory_get_base_address(memory)),
+    static_cast<std::size_t>(wasm_memory_get_cur_page_count(memory)) *
+      wasm_memory_get_bytes_per_page(memory)
   };
 }
 

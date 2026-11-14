@@ -32,10 +32,10 @@ struct Column : WithGap, WithCenter, WithPad {
   }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     Box inner{
-        box.x + static_cast<float>(padH),
-        box.y + static_cast<float>(padV),
-        box.w - static_cast<float>(2 * padH),
-        box.h - static_cast<float>(2 * padV)
+      box.x + static_cast<float>(padH),
+      box.y + static_cast<float>(padV),
+      box.w - static_cast<float>(2 * padH),
+      box.h - static_cast<float>(2 * padV)
     };
     if (inner.w < 0) inner.w = 0;
     if (inner.h < 0) inner.h = 0;

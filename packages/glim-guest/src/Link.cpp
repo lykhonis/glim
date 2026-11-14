@@ -8,12 +8,12 @@ namespace glim::guest {
 namespace t = transport;
 
 Link::Link(
-    t::Imports& imports,
-    std::function<std::span<std::byte>()> memory,
-    std::span<std::byte> region,
-    std::uint32_t offset,
-    t::Terms hello,
-    t::Endpoint::Handler handler
+  t::Imports& imports,
+  std::function<std::span<std::byte>()> memory,
+  std::span<std::byte> region,
+  std::uint32_t offset,
+  t::Terms hello,
+  t::Endpoint::Handler handler
 )
     : imports_(imports),
       memory_(std::move(memory)),

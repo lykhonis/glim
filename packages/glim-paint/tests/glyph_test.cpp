@@ -32,9 +32,9 @@ int main() {
   const glim::paint::TextSize fps = ctx.measureText("FPS 60", 16.f);
   expect(fps.width > empty.width, "FPS 60 is wider than empty");
   const glim::paint::TextSize skip = ctx.measureText(
-      "A\x80"
-      "B",
-      16.f
+    "A\x80"
+    "B",
+    16.f
   );
   const glim::paint::TextSize ab = ctx.measureText("AB", 16.f);
   expect(glim::nearlyEqual(skip.width, ab.width), "non-latin byte skipped");
@@ -62,8 +62,8 @@ int main() {
   glim::paint::Group rootCopy = ctx.scene().root;
   glim::paint::Group merged = glim::paint::merge(std::move(rootCopy), &stats);
   expect(
-      std::get_if<glim::paint::GlyphRun>(&merged.shapes.back()) != nullptr,
-      "merged GlyphRun stays a GlyphRun"
+    std::get_if<glim::paint::GlyphRun>(&merged.shapes.back()) != nullptr,
+    "merged GlyphRun stays a GlyphRun"
   );
 
   ctx.beginFrame();

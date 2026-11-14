@@ -13,8 +13,8 @@ struct GroupOrder {
   bool next(bool backdrop, bool glass) {
     if (backdrop) {
       GLIM_ASSERT(
-          !afterBackdrop && !seenGlass,
-          "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
+        !afterBackdrop && !seenGlass,
+        "backdrop Groups must be consecutive ([under*][backdrop*][glass*][overlay*])"
       );
       seenBackdrop = true;
       return false;

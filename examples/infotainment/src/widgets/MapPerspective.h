@@ -49,12 +49,12 @@ inline float mapPersp(const MapCamera& cam, float d) {
 }
 
 inline void mapProject(
-    const Box& box,
-    const MapCamera& cam,
-    float xn,
-    float d,
-    float* sx,
-    float* sy
+  const Box& box,
+  const MapCamera& cam,
+  float xn,
+  float d,
+  float* sx,
+  float* sy
 ) {
   const float cx = box.x + box.w * 0.5f;
   const float horizonY = box.y + box.h * cam.horizonFrac;
@@ -63,20 +63,20 @@ inline void mapProject(
   *sx = cx + xn * (box.w * 0.5f) * p;
   const float t = 1.f - d;
   const float g =
-      std::pow(t < 0.f ? 0.f : (t > 1.f ? 1.f : t), cam.gamma);
+    std::pow(t < 0.f ? 0.f : (t > 1.f ? 1.f : t), cam.gamma);
   *sy = horizonY + (bottomY - horizonY) * g * (0.35f + 0.65f * p);
 }
 
 inline void paintProjectedMap(
-    const Box& box,
-    AnySink& sink,
-    const Engine& e,
-    const MapCamera& cam = MapCamera{}
+  const Box& box,
+  AnySink& sink,
+  const Engine& e,
+  const MapCamera& cam = MapCamera{}
 ) {
   const std::uint32_t bgTop =
-      themeColor(e, kInfoCardTop, Info::kCardTop);
+    themeColor(e, kInfoCardTop, Info::kCardTop);
   const std::uint32_t bgBottom =
-      themeColor(e, kInfoCardBottom, Info::kCardBottom);
+    themeColor(e, kInfoCardBottom, Info::kCardBottom);
 
   sink.fillGradient(box, 8, bgTop, bgBottom);
 
@@ -104,8 +104,8 @@ inline void paintProjectedMap(
     float pts[32];
     const int n = 16;
     for (int i = 0; i < n; ++i) {
-      const float xn = -1.f + 2.f * static_cast<float>(i) /
-                                  static_cast<float>(n - 1);
+      const float xn =
+        -1.f + 2.f * static_cast<float>(i) / static_cast<float>(n - 1);
       float sx, sy;
       mapProject(box, cam, xn, d, &sx, &sy);
       pts[i * 2] = sx;
@@ -142,10 +142,10 @@ inline void paintProjectedMap(
   // Route: world-space zigzag dives to the horizon, Plus dotted orange.
   {
     const float wx[8] = {
-        0.30f, 0.38f, 0.32f, 0.40f, 0.34f, 0.42f, 0.30f, 0.22f
+      0.30f, 0.38f, 0.32f, 0.40f, 0.34f, 0.42f, 0.30f, 0.22f
     };
     const float wz[8] = {
-        0.02f, 0.14f, 0.26f, 0.38f, 0.50f, 0.62f, 0.76f, 0.90f
+      0.02f, 0.14f, 0.26f, 0.38f, 0.50f, 0.62f, 0.76f, 0.90f
     };
     float route[16];
     float carX = 0.f, carY = 0.f;
@@ -160,7 +160,7 @@ inline void paintProjectedMap(
       }
     }
     const std::uint32_t accent =
-        themeColor(e, kInfoAccent, Info::kAccent);
+      themeColor(e, kInfoAccent, Info::kAccent);
     sink.pushBlend(BlendMode::Plus);
     sink.polyline(route, 8, 2.5f, 6.f, accent);
     sink.pop();
@@ -168,16 +168,16 @@ inline void paintProjectedMap(
     // No halo quad: a radial glow rasterizes as a solid block at this
     // size.
     float chev[10] = {
-        carX,
-        carY - 8.f,
-        carX + 7.f,
-        carY + 6.f,
-        carX,
-        carY + 2.f,
-        carX - 7.f,
-        carY + 6.f,
-        carX,
-        carY - 8.f
+      carX,
+      carY - 8.f,
+      carX + 7.f,
+      carY + 6.f,
+      carX,
+      carY + 2.f,
+      carX - 7.f,
+      carY + 6.f,
+      carX,
+      carY - 8.f
     };
     sink.polyline(chev, 5, 2.f, 0.f, 0xffffffffu);
     sink.fillRounded({carX - 2.f, carY - 2.f, 4.f, 4.f}, 2, accent);
@@ -190,7 +190,7 @@ inline void paintProjectedMap(
       float sx, sy;
       mapProject(box, cam, wpx[i], wpz[i], &sx, &sy);
       float tri[8] = {
-          sx - 5.f, sy, sx + 5.f, sy, sx, sy - 7.f, sx - 5.f, sy
+        sx - 5.f, sy, sx + 5.f, sy, sx, sy - 7.f, sx - 5.f, sy
       };
       sink.polyline(tri, 4, 1.5f, 0.f, withAlpha(waypoint, 0.35f));
     }

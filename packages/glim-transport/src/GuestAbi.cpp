@@ -26,10 +26,7 @@ bool apart(std::uint64_t a, std::uint64_t aSize, std::uint64_t b, std::uint64_t 
 }  // namespace
 
 std::optional<Announce> writeAnnounce(
-    std::span<std::byte> region,
-    std::uint32_t offset,
-    std::uint32_t protocol,
-    std::uint32_t capacity
+  std::span<std::byte> region, std::uint32_t offset, std::uint32_t protocol, std::uint32_t capacity
 ) {
   if (!validRingCapacity(capacity) || capacity < kMinRingCapacity ||
       region.size() < linkBytes(capacity) || offset % 8 != 0) {
@@ -37,11 +34,10 @@ std::optional<Announce> writeAnnounce(
   }
   const auto ring = static_cast<std::uint32_t>(ringBytes(capacity));
   const Announce announce{
-      .protocol = protocol,
-      .tx = {.offset = offset + static_cast<std::uint32_t>(kAnnounceSize), .capacity = capacity},
-      .rx =
-          {.offset = offset + static_cast<std::uint32_t>(kAnnounceSize) + ring, .capacity = capacity
-          },
+    .protocol = protocol,
+    .tx = {.offset = offset + static_cast<std::uint32_t>(kAnnounceSize), .capacity = capacity},
+    .rx =
+      {.offset = offset + static_cast<std::uint32_t>(kAnnounceSize) + ring, .capacity = capacity},
   };
   if (!initRing(region.subspan(kAnnounceSize, ring), capacity) ||
       !initRing(region.subspan(kAnnounceSize + ring, ring), capacity)) {
@@ -64,13 +60,13 @@ std::optional<Announce> readAnnounce(std::span<const std::byte> memory, std::uin
   std::byte block[kAnnounceSize];
   std::memcpy(block, memory.data() + offset, kAnnounceSize);
   const Announce announce{
-      .protocol = wire::loadLe<std::uint32_t>(&block[kProtocolAt]),
-      .tx =
-          {.offset = wire::loadLe<std::uint32_t>(&block[kTxAt]),
-           .capacity = wire::loadLe<std::uint32_t>(&block[kTxAt + 4])},
-      .rx =
-          {.offset = wire::loadLe<std::uint32_t>(&block[kRxAt]),
-           .capacity = wire::loadLe<std::uint32_t>(&block[kRxAt + 4])},
+    .protocol = wire::loadLe<std::uint32_t>(&block[kProtocolAt]),
+    .tx =
+      {.offset = wire::loadLe<std::uint32_t>(&block[kTxAt]),
+       .capacity = wire::loadLe<std::uint32_t>(&block[kTxAt + 4])},
+    .rx =
+      {.offset = wire::loadLe<std::uint32_t>(&block[kRxAt]),
+       .capacity = wire::loadLe<std::uint32_t>(&block[kRxAt + 4])},
   };
   const auto& tx = announce.tx;
   const auto& rx = announce.rx;

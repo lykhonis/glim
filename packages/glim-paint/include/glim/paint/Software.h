@@ -14,10 +14,10 @@ struct RasterOptions {
 };
 
 void rasterScene(
-    const Scene& scene, int width, int height, std::uint8_t* rgba, RasterOptions options = {}
+  const Scene& scene, int width, int height, std::uint8_t* rgba, RasterOptions options = {}
 );
 void rasterPacket(
-    const FramePacket& packet, int width, int height, std::uint8_t* rgba, RasterOptions options = {}
+  const FramePacket& packet, int width, int height, std::uint8_t* rgba, RasterOptions options = {}
 );
 
 }  // namespace glim::paint

@@ -68,36 +68,35 @@ template <class T, class = void>
 struct has_place : std::false_type {};
 template <class T>
 struct has_place<
-    T,
-    std::void_t<decltype(std::declval<const T&>()
-                             .place(std::declval<Constraints>(), std::declval<const Engine&>()))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>()
+                         .place(std::declval<Constraints>(), std::declval<const Engine&>()))>>
     : std::is_same<
-          decltype(std::declval<const T&>()
-                       .place(std::declval<Constraints>(), std::declval<const Engine&>())),
-          Box> {};
+        decltype(std::declval<const T&>()
+                   .place(std::declval<Constraints>(), std::declval<const Engine&>())),
+        Box> {};
 
 template <class T>
 struct is_block : std::is_same<std::decay_t<T>, Block> {};
 template <class T>
-struct is_block_arm : std::integral_constant<
-                          bool,
-                          std::is_same<std::decay_t<T>, Empty>::value ||
-                              std::is_same<std::decay_t<T>, Row>::value ||
-                              std::is_same<std::decay_t<T>, Column>::value ||
-                              std::is_same<std::decay_t<T>, Stack>::value ||
-                              std::is_same<std::decay_t<T>, Lines>::value ||
-                              std::is_same<std::decay_t<T>, List>::value ||
-                              std::is_same<std::decay_t<T>, Roll>::value ||
-                              std::is_same<std::decay_t<T>, Tap>::value ||
-                              std::is_same<std::decay_t<T>, Seat>::value ||
-                              std::is_same<std::decay_t<T>, Custom>::value> {};
+struct is_block_arm
+    : std::integral_constant<
+        bool,
+        std::is_same<std::decay_t<T>, Empty>::value || std::is_same<std::decay_t<T>, Row>::value ||
+          std::is_same<std::decay_t<T>, Column>::value ||
+          std::is_same<std::decay_t<T>, Stack>::value ||
+          std::is_same<std::decay_t<T>, Lines>::value ||
+          std::is_same<std::decay_t<T>, List>::value ||
+          std::is_same<std::decay_t<T>, Roll>::value || std::is_same<std::decay_t<T>, Tap>::value ||
+          std::is_same<std::decay_t<T>, Seat>::value ||
+          std::is_same<std::decay_t<T>, Custom>::value> {};
 template <class T>
 struct is_child_type
     : std::integral_constant<
-          bool,
-          is_block<T>::value || is_block_arm<T>::value || has_view<std::decay_t<T>>::value ||
-              (has_place<std::decay_t<T>>::value &&
-               (has_record<std::decay_t<T>>::value || has_kind<std::decay_t<T>>::value))> {};
+        bool,
+        is_block<T>::value || is_block_arm<T>::value || has_view<std::decay_t<T>>::value ||
+          (has_place<std::decay_t<T>>::value &&
+           (has_record<std::decay_t<T>>::value || has_kind<std::decay_t<T>>::value))> {};
 
 template <class T>
 struct always_false : std::false_type {};
@@ -115,10 +114,10 @@ Block toBlock(T&& t) {
     return Block{Custom{std::forward<T>(t)}};
   } else {
     static_assert(
-        always_false<U>::value,
-        "child must be Block, an element, provide 'Block view() const', or "
-        "provide 'Box place(Constraints, const Engine&) const' plus 'void record(const "
-        "Box&, Rec&) const' or 'const char* kind() const' (see elements/Row.h)"
+      always_false<U>::value,
+      "child must be Block, an element, provide 'Block view() const', or "
+      "provide 'Box place(Constraints, const Engine&) const' plus 'void record(const "
+      "Box&, Rec&) const' or 'const char* kind() const' (see elements/Row.h)"
     );
   }
 }

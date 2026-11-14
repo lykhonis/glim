@@ -102,34 +102,34 @@ class Renderer {
   struct Batch {
     void clearAll();
     void flushSolid(
-        gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
+      gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
     );
     void flushRounded(
-        gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
+      gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
     );
     void flushGradient(
-        gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
+      gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend = Blend::SrcOver
     );
     void flushBlit(
-        gpu::Pass& pass,
-        const Pipelines& pipes,
-        void* sampler,
-        Stats& stats,
-        Blend blend = Blend::SrcOver
+      gpu::Pass& pass,
+      const Pipelines& pipes,
+      void* sampler,
+      Stats& stats,
+      Blend blend = Blend::SrcOver
     );
     void flushGlyph(
-        gpu::Pass& pass,
-        const Pipelines& pipes,
-        void* sampler,
-        Stats& stats,
-        Blend blend = Blend::SrcOver
+      gpu::Pass& pass,
+      const Pipelines& pipes,
+      void* sampler,
+      Stats& stats,
+      Blend blend = Blend::SrcOver
     );
     void flushAll(
-        gpu::Pass& pass,
-        const Pipelines& pipes,
-        void* sampler,
-        Stats& stats,
-        Blend blend = Blend::SrcOver
+      gpu::Pass& pass,
+      const Pipelines& pipes,
+      void* sampler,
+      Stats& stats,
+      Blend blend = Blend::SrcOver
     );
     std::vector<SolidInstance> solid;
     std::vector<RoundedInstance> rounded;
@@ -158,29 +158,29 @@ class Renderer {
  private:
 #if GLIM_EMBED
   void submitLayer(
-      gpu::CommandEncoder& encoder,
-      const std::vector<Quad>& quads,
-      const std::vector<BlitQuad>& blits,
-      const std::vector<GradientQuad>& gradients,
-      const std::vector<Isolate>& isolates,
-      const Mat4& projection,
-      int viewportW,
-      int viewportH,
-      void* nativeColor,
-      gpu::LoadOp load
+    gpu::CommandEncoder& encoder,
+    const std::vector<Quad>& quads,
+    const std::vector<BlitQuad>& blits,
+    const std::vector<GradientQuad>& gradients,
+    const std::vector<Isolate>& isolates,
+    const Mat4& projection,
+    int viewportW,
+    int viewportH,
+    void* nativeColor,
+    gpu::LoadOp load
   );
 #else
   void encodeGroup(
-      gpu::CommandEncoder& encoder,
-      const Group& group,
-      const Mat4& projection,
-      int viewportW,
-      int viewportH,
-      void* nativeColor,
-      gpu::LoadOp load,
-      float pixelRatio,
-      Vec2 logicalSize,
-      const Mat4& extra = Mat4::identity()
+    gpu::CommandEncoder& encoder,
+    const Group& group,
+    const Mat4& projection,
+    int viewportW,
+    int viewportH,
+    void* nativeColor,
+    gpu::LoadOp load,
+    float pixelRatio,
+    Vec2 logicalSize,
+    const Mat4& extra = Mat4::identity()
   );
   // What decides whether a frame repeats the last one drawn.
   struct FrameKey {
@@ -196,13 +196,13 @@ class Renderer {
   bool repeats(const FrameKey& key) const;
   void skipRepeat(const FrameKey& key, std::chrono::steady_clock::time_point t0);
   void drawInto(
-      const Scene& scene,
-      int targetW,
-      int targetH,
-      void* nativeColor,
-      const gpu::Drawable* drawable,
-      const FrameKey& key,
-      std::chrono::steady_clock::time_point t0
+    const Scene& scene,
+    int targetW,
+    int targetH,
+    void* nativeColor,
+    const gpu::Drawable* drawable,
+    const FrameKey& key,
+    std::chrono::steady_clock::time_point t0
   );
 #endif
   gpu::Device& device_;

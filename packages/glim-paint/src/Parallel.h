@@ -13,11 +13,11 @@ void parallelFor(std::size_t count, Fn&& fn) {
     for (std::size_t i = begin; i < count; i += step) fn(i);
   };
 #if (defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)) || \
-    (defined(__wasi__) && !defined(__wasm_atomics__))
+  (defined(__wasi__) && !defined(__wasm_atomics__))
   strided(0, 1);
 #else
   const std::size_t workers = std::min<std::size_t>(
-      count, std::clamp<std::size_t>(std::thread::hardware_concurrency(), 1, 8)
+    count, std::clamp<std::size_t>(std::thread::hardware_concurrency(), 1, 8)
   );
   std::vector<std::thread> threads;
   for (std::size_t t = 1; t < workers; ++t) threads.emplace_back(strided, t, workers);

@@ -47,13 +47,13 @@ void Renderer::Batch::clearAll() {
 }
 
 void Renderer::Batch::flushSolid(
-    gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
 ) {
   if (solid.empty()) {
     return;
   }
   const gpu::Pipeline& pipe =
-      (blend == Blend::Plus && pipes.solidPlus.native()) ? pipes.solidPlus : pipes.solid;
+    (blend == Blend::Plus && pipes.solidPlus.native()) ? pipes.solidPlus : pipes.solid;
   pass.setPipeline(pipe);
   // 4 KB chunks stay on the setBytes fast path; raise only with device validation.
   constexpr std::size_t kMax = 4096 / sizeof(SolidInstance);
@@ -70,7 +70,7 @@ void Renderer::Batch::flushSolid(
 }
 
 void Renderer::Batch::flushRounded(
-    gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
 ) {
   if (rounded.empty()) {
     return;
@@ -100,7 +100,7 @@ void Renderer::Batch::flushRounded(
 }
 
 void Renderer::Batch::flushGradient(
-    gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, Stats& stats, Blend blend
 ) {
   if (gradient.empty()) {
     return;
@@ -130,7 +130,7 @@ void Renderer::Batch::flushGradient(
 }
 
 void Renderer::Batch::flushBlit(
-    gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
 ) {
   if (blit.empty() || !blitTex) {
     blit.clear();
@@ -138,7 +138,7 @@ void Renderer::Batch::flushBlit(
     return;
   }
   const gpu::Pipeline& pipe =
-      (blend == Blend::Plus && pipes.blitPlus.native()) ? pipes.blitPlus : pipes.blit;
+    (blend == Blend::Plus && pipes.blitPlus.native()) ? pipes.blitPlus : pipes.blit;
   pass.setPipeline(pipe);
   pass.setFragmentTexture(0, blitTex);
   pass.setFragmentSampler(0, sampler);
@@ -157,7 +157,7 @@ void Renderer::Batch::flushBlit(
 }
 
 void Renderer::Batch::flushGlyph(
-    gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
 ) {
   if (glyph.empty() || !glyphTex) {
     glyph.clear();
@@ -165,7 +165,7 @@ void Renderer::Batch::flushGlyph(
     return;
   }
   const gpu::Pipeline& pipe =
-      (blend == Blend::Plus && pipes.glyphPlus.native()) ? pipes.glyphPlus : pipes.glyph;
+    (blend == Blend::Plus && pipes.glyphPlus.native()) ? pipes.glyphPlus : pipes.glyph;
   pass.setPipeline(pipe);
   pass.setFragmentTexture(0, glyphTex);
   pass.setFragmentSampler(0, sampler);
@@ -184,7 +184,7 @@ void Renderer::Batch::flushGlyph(
 }
 
 void Renderer::Batch::flushAll(
-    gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
+  gpu::Pass& pass, const Pipelines& pipes, void* sampler, Stats& stats, Blend blend
 ) {
   flushSolid(pass, pipes, stats, blend);
   flushRounded(pass, pipes, stats, blend);

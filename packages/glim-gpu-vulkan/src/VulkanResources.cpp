@@ -139,7 +139,7 @@ void Device::Impl::destroy() {
 }
 
 VkResult Device::Impl::makeBuffer(
-    VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memFlags, GpuBuffer& out
+  VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memFlags, GpuBuffer& out
 ) {
   destroyBuffer(out);
   VkBufferCreateInfo bi{};
@@ -173,7 +173,7 @@ VkResult Device::Impl::makeBuffer(
 }
 
 VkResult Device::Impl::makeImage(
-    int w, int h, VkImageUsageFlags usage, GpuImage& out, bool sampled, VkFormat imgFormat
+  int w, int h, VkImageUsageFlags usage, GpuImage& out, bool sampled, VkFormat imgFormat
 ) {
   destroyImage(out);
   out.width = std::max(w, 1);
@@ -201,7 +201,7 @@ VkResult Device::Impl::makeImage(
   ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   ai.allocationSize = req.size;
   ai.memoryTypeIndex =
-      findMemoryType(physical, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    findMemoryType(physical, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   if (ai.memoryTypeIndex == UINT32_MAX) {
     ai.memoryTypeIndex = findMemoryType(physical, req.memoryTypeBits, 0);
   }
@@ -243,7 +243,7 @@ VkResult Device::Impl::makeImage(
 }
 
 VkRenderPass Device::Impl::makeRenderPass(
-    VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkImageLayout initial
+  VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkImageLayout initial
 ) {
   VkAttachmentDescription color{};
   color.format = format;
@@ -268,7 +268,7 @@ VkRenderPass Device::Impl::makeRenderPass(
   dep.srcSubpass = VK_SUBPASS_EXTERNAL;
   dep.dstSubpass = 0;
   dep.srcStageMask =
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
   dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   dep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
   dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;

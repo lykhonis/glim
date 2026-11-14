@@ -81,28 +81,28 @@ using A11ySink = std::function<void(const std::vector<A11yNode>& nodes, int focu
 // Telemetry is opt-in both ways: hub retains the ring for pull (dashboard
 // labels/charts), sink fires per painted frame for push (log/ship elsewhere).
 int run(
-    const Config& config,
-    Screen& screen,
-    Store& store,
-    const Engine& engine,
-    Build build,
-    Record record,
-    SeatViewFactory makeSeatView = nullptr,
-    A11ySink a11ySink = nullptr,
-    TelemetryHub* telemetry = nullptr,
-    TelemetrySink telemetrySink = nullptr
+  const Config& config,
+  Screen& screen,
+  Store& store,
+  const Engine& engine,
+  Build build,
+  Record record,
+  SeatViewFactory makeSeatView = nullptr,
+  A11ySink a11ySink = nullptr,
+  TelemetryHub* telemetry = nullptr,
+  TelemetrySink telemetrySink = nullptr
 );
 
 // Getting-started path: the host owns Store, Screen, measuring Engine, and
 // the default paint; scoped state allocates into the host Store where it renders.
 int run(
-    const Config& config,
-    Build build,
-    Record record = Record{},
-    SeatViewFactory makeSeatView = nullptr,
-    A11ySink a11ySink = nullptr,
-    TelemetryHub* telemetry = nullptr,
-    TelemetrySink telemetrySink = nullptr
+  const Config& config,
+  Build build,
+  Record record = Record{},
+  SeatViewFactory makeSeatView = nullptr,
+  A11ySink a11ySink = nullptr,
+  TelemetryHub* telemetry = nullptr,
+  TelemetrySink telemetrySink = nullptr
 );
 
 }  // namespace host

@@ -29,7 +29,7 @@ struct Mat4 {
 
   static Mat4 identity() noexcept;
   static Mat4 orthoYDown(
-      float left, float top, float right, float bottom, float zNear = -1.0f, float zFar = 1.0f
+    float left, float top, float right, float bottom, float zNear = -1.0f, float zFar = 1.0f
   ) noexcept;
   static Mat4 translate(float x, float y, float z = 0) noexcept;
   static Mat4 scale(float x, float y, float z = 1) noexcept;
@@ -63,11 +63,11 @@ struct Color {
   Color() = default;
   explicit constexpr Color(std::uint32_t rgba_) noexcept : rgba(rgba_) {}
   constexpr Color(
-      unsigned char r, unsigned char g, unsigned char b, unsigned char a = 0xff
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a = 0xff
   ) noexcept
       : rgba(
-            (static_cast<std::uint32_t>(r) << 24) | (static_cast<std::uint32_t>(g) << 16) |
-            (static_cast<std::uint32_t>(b) << 8) | a
+          (static_cast<std::uint32_t>(r) << 24) | (static_cast<std::uint32_t>(g) << 16) |
+          (static_cast<std::uint32_t>(b) << 8) | a
         ) {}
 
   constexpr unsigned char r() const noexcept {

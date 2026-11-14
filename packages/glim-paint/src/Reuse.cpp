@@ -75,7 +75,7 @@ std::uint64_t mix64(std::uint64_t x) {
 
 std::uint64_t hashPixels(const std::uint8_t* p, std::size_t n) {
   constexpr std::uint64_t kLaneSeed[4] = {
-      0x9e3779b97f4a7c15ull, 0xbf58476d1ce4e5b9ull, 0x94d049bb133111ebull, 0x2545f4914f6cdd1dull
+    0x9e3779b97f4a7c15ull, 0xbf58476d1ce4e5b9ull, 0x94d049bb133111ebull, 0x2545f4914f6cdd1dull
   };
   std::uint64_t lanes[4] = {kLaneSeed[0], kLaneSeed[1], kLaneSeed[2], kLaneSeed[3]};
   std::size_t i = 0;
@@ -360,9 +360,9 @@ void hashGroup(FpContext& ctx, const Group& g, int windowLevel) {
   ctx.h.u32(p.semantic);
   const int childLevel = windowLevel >= 2 ? 2 : windowLevel + 1;
   visitGroup(
-      g,
-      [&](const Shape& s) { hashShape(ctx, s, windowContent); },
-      [&](const Group& child) { hashGroup(ctx, child, childLevel); }
+    g,
+    [&](const Shape& s) { hashShape(ctx, s, windowContent); },
+    [&](const Group& child) { hashGroup(ctx, child, childLevel); }
   );
 }
 
@@ -397,8 +397,8 @@ Rect shapeTileBounds(const Shape& s) {
   if (const auto* st = std::get_if<Stroke>(&s)) {
     const float o = std::max(0.f, st->width) * 0.5f;
     return {
-        {st->rect.origin.x - o, st->rect.origin.y - o},
-        {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}
+      {st->rect.origin.x - o, st->rect.origin.y - o},
+      {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}
     };
   }
   if (const auto* b = std::get_if<Blit>(&s)) {
@@ -674,19 +674,19 @@ void ReuseCache::clear() {
 std::size_t ReuseCache::size() const { return impl_->entries.size(); }
 
 std::uint64_t hashSceneStructure(
-    const Scene& scene, float pixelRatio, Vec2* outOrigin, bool* outHasForeign, bool* outHas3D
+  const Scene& scene, float pixelRatio, Vec2* outOrigin, bool* outHasForeign, bool* outHas3D
 ) {
   SceneHashCache cache;
   return hashSceneStructure(scene, pixelRatio, cache, outOrigin, outHasForeign, outHas3D);
 }
 
 std::uint64_t hashSceneStructure(
-    const Scene& scene,
-    float pixelRatio,
-    SceneHashCache& cache,
-    Vec2* outOrigin,
-    bool* outHasForeign,
-    bool* outHas3D
+  const Scene& scene,
+  float pixelRatio,
+  SceneHashCache& cache,
+  Vec2* outOrigin,
+  bool* outHasForeign,
+  bool* outHas3D
 ) {
   FpContext ctx;
   ctx.imageFp = cache.images;
@@ -716,16 +716,16 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
   const float prBucket = bucketPixelRatio(pixelRatio);
   const auto finish = [&](FramePacket pkt) {
     pkt.stats.encodeMs =
-        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
     return pkt;
   };
 
   auto it = impl_->entries.find(hash);
   const bool exactHit =
-      it != impl_->entries.end() && probe.origin.x == it->second.origin.x &&
-      probe.origin.y == it->second.origin.y && !probe.hasForeign && !probe.has3D &&
-      !it->second.has3D && it->second.logicalSize.x == scene.logicalSize.x &&
-      it->second.logicalSize.y == scene.logicalSize.y && it->second.prBucket == prBucket;
+    it != impl_->entries.end() && probe.origin.x == it->second.origin.x &&
+    probe.origin.y == it->second.origin.y && !probe.hasForeign && !probe.has3D &&
+    !it->second.has3D && it->second.logicalSize.x == scene.logicalSize.x &&
+    it->second.logicalSize.y == scene.logicalSize.y && it->second.prBucket == prBucket;
   if (exactHit) {
     FramePacket hit = it->second.packet;
     hit.stats.reuseHits = 1;
@@ -755,7 +755,7 @@ FramePacket ReuseCache::encode(const Scene& scene, float pixelRatio) {
       hitIt->second.logicalSize.y == scene.logicalSize.y && hitIt->second.prBucket == prBucket) {
     FramePacket hit = hitIt->second.packet;
     offsetPacket(
-        hit, probe.origin.x - hitIt->second.origin.x, probe.origin.y - hitIt->second.origin.y
+      hit, probe.origin.x - hitIt->second.origin.x, probe.origin.y - hitIt->second.origin.y
     );
     hit.stats.reuseHits = 1;
     hit.stats.reuseMisses = 0;

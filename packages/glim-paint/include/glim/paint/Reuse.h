@@ -44,19 +44,19 @@ struct SceneHashCache {
 
 // Translation-normalized structural hash; out params optional.
 std::uint64_t hashSceneStructure(
-    const Scene& scene,
-    float pixelRatio,
-    Vec2* outOrigin = nullptr,
-    bool* outHasForeign = nullptr,
-    bool* outHas3D = nullptr
+  const Scene& scene,
+  float pixelRatio,
+  Vec2* outOrigin = nullptr,
+  bool* outHasForeign = nullptr,
+  bool* outHas3D = nullptr
 );
 std::uint64_t hashSceneStructure(
-    const Scene& scene,
-    float pixelRatio,
-    SceneHashCache& cache,
-    Vec2* outOrigin = nullptr,
-    bool* outHasForeign = nullptr,
-    bool* outHas3D = nullptr
+  const Scene& scene,
+  float pixelRatio,
+  SceneHashCache& cache,
+  Vec2* outOrigin = nullptr,
+  bool* outHasForeign = nullptr,
+  bool* outHas3D = nullptr
 );
 
 FramePacket encodeWithReuse(const Scene& scene, ReuseCache& cache, float pixelRatio = 1.0f);

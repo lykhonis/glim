@@ -13,14 +13,14 @@ Pass::~Pass() {
     vkCmdEndRenderPass(impl_->cmd);
     if (impl_->target && !impl_->target->swapchain) {
       imageBarrier(
-          impl_->cmd,
-          impl_->target->image,
-          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-          VK_ACCESS_SHADER_READ_BIT,
-          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+        impl_->cmd,
+        impl_->target->image,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
       );
       impl_->target->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     } else if (impl_->target) {
@@ -85,10 +85,10 @@ void Pass::setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t w, std::ui
 }
 
 void Pass::draw(
-    std::uint32_t vertexCount,
-    std::uint32_t instanceCount,
-    std::uint32_t firstVertex,
-    std::uint32_t firstInstance
+  std::uint32_t vertexCount,
+  std::uint32_t instanceCount,
+  std::uint32_t firstVertex,
+  std::uint32_t firstInstance
 ) {
   Device::Impl* d = impl_->device;
   Frame& frame = d->frames[d->frameIndex];
@@ -131,15 +131,15 @@ void Pass::draw(
   VkDescriptorImageInfo images[kMaxFragmentTextures]{};
   for (int i = 0; i < kMaxFragmentTextures; ++i) {
     images[i].imageView = impl_->fragmentViews[i]
-                              ? reinterpret_cast<VkImageView>(impl_->fragmentViews[i])
-                              : d->dummyImage.view;
+                            ? reinterpret_cast<VkImageView>(impl_->fragmentViews[i])
+                            : d->dummyImage.view;
     images[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   }
   VkDescriptorImageInfo samplers[kMaxFragmentSamplers]{};
   for (int i = 0; i < kMaxFragmentSamplers; ++i) {
     samplers[i].sampler = impl_->fragmentSamplers[i]
-                              ? reinterpret_cast<VkSampler>(impl_->fragmentSamplers[i])
-                              : d->sampler;
+                            ? reinterpret_cast<VkSampler>(impl_->fragmentSamplers[i])
+                            : d->sampler;
   }
 
   VkWriteDescriptorSet writes[kBindingCount]{};
@@ -174,7 +174,7 @@ void Pass::draw(
   }
   vkUpdateDescriptorSets(d->device, kBindingCount, writes, 0, nullptr);
   vkCmdBindDescriptorSets(
-      impl_->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d->pipelineLayout, 0, 1, &set, 0, nullptr
+    impl_->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d->pipelineLayout, 0, 1, &set, 0, nullptr
   );
   vkCmdDraw(impl_->cmd, vertexCount, instanceCount, firstVertex, firstInstance);
 }
@@ -188,14 +188,14 @@ void Pass::end() {
   vkCmdEndRenderPass(impl_->cmd);
   if (impl_->target && !impl_->target->swapchain) {
     imageBarrier(
-        impl_->cmd,
-        impl_->target->image,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+      impl_->cmd,
+      impl_->target->image,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      VK_ACCESS_SHADER_READ_BIT,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
     );
     impl_->target->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   } else if (impl_->target) {
@@ -252,14 +252,14 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
       srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
     imageBarrier(
-        impl_->cmd,
-        img->image,
-        img->layout,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        src,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        srcStage,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+      impl_->cmd,
+      img->image,
+      img->layout,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      src,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      srcStage,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     );
     img->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
   }
@@ -293,14 +293,16 @@ bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
   if (!src || !src->image || !dest || !dest->image) {
     return false;
   }
-  auto barrier = [&](GpuImage* img,
-                     VkImageLayout neu,
-                     VkAccessFlags srcAccess,
-                     VkAccessFlags dstAccess,
-                     VkPipelineStageFlags srcStage,
-                     VkPipelineStageFlags dstStage) {
+  auto barrier = [&](
+                   GpuImage* img,
+                   VkImageLayout neu,
+                   VkAccessFlags srcAccess,
+                   VkAccessFlags dstAccess,
+                   VkPipelineStageFlags srcStage,
+                   VkPipelineStageFlags dstStage
+                 ) {
     imageBarrier(
-        impl_->cmd, img->image, img->layout, neu, srcAccess, dstAccess, srcStage, dstStage
+      impl_->cmd, img->image, img->layout, neu, srcAccess, dstAccess, srcStage, dstStage
     );
     img->layout = neu;
   };
@@ -315,12 +317,12 @@ bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
       ss = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
     barrier(
-        src,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        sa,
-        VK_ACCESS_TRANSFER_READ_BIT,
-        ss,
-        VK_PIPELINE_STAGE_TRANSFER_BIT
+      src,
+      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      sa,
+      VK_ACCESS_TRANSFER_READ_BIT,
+      ss,
+      VK_PIPELINE_STAGE_TRANSFER_BIT
     );
   }
   if (dest->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
@@ -334,12 +336,12 @@ bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
       ss = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     }
     barrier(
-        dest,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        sa,
-        VK_ACCESS_TRANSFER_WRITE_BIT,
-        ss,
-        VK_PIPELINE_STAGE_TRANSFER_BIT
+      dest,
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      sa,
+      VK_ACCESS_TRANSFER_WRITE_BIT,
+      ss,
+      VK_PIPELINE_STAGE_TRANSFER_BIT
     );
   }
   VkImageBlit region{};
@@ -350,30 +352,30 @@ bool CommandEncoder::copyColorTo(const FrameTarget& dst) {
   region.dstSubresource.layerCount = 1;
   region.dstOffsets[1] = {dest->width, dest->height, 1};
   vkCmdBlitImage(
-      impl_->cmd,
-      src->image,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      dest->image,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1,
-      &region,
-      VK_FILTER_LINEAR
+    impl_->cmd,
+    src->image,
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    dest->image,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    1,
+    &region,
+    VK_FILTER_LINEAR
   );
   barrier(
-      dest,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_TRANSFER_WRITE_BIT,
-      VK_ACCESS_SHADER_READ_BIT,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+    dest,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    VK_ACCESS_TRANSFER_WRITE_BIT,
+    VK_ACCESS_SHADER_READ_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
   );
   barrier(
-      src,
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      VK_ACCESS_TRANSFER_READ_BIT,
-      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    src,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_ACCESS_TRANSFER_READ_BIT,
+    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
   );
   return true;
 }
@@ -392,14 +394,14 @@ void CommandEncoder::submit(Queue&) {
     GpuImage& img = d->swapImages[impl_->imageIndex];
     if (img.layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
       imageBarrier(
-          impl_->cmd,
-          img.image,
-          img.layout,
-          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-          0,
-          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+        impl_->cmd,
+        img.image,
+        img.layout,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        0,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
       );
       img.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     }

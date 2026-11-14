@@ -77,22 +77,22 @@ struct Link {
 
 void chunkHeader() {
   const t::ChunkHeader in{
-      .stream = 9,
-      .flags = t::chunk::kStart | t::chunk::kEnd,
-      .lane = t::Lane::Frame,
-      .channel = 0x1234,
-      .size = 77,
-      .kind = t::Kind::Request,
-      .request = 5
+    .stream = 9,
+    .flags = t::chunk::kStart | t::chunk::kEnd,
+    .lane = t::Lane::Frame,
+    .channel = 0x1234,
+    .size = 77,
+    .kind = t::Kind::Request,
+    .request = 5
   };
   std::byte raw[t::kChunkHeaderSize];
   t::encodeChunk(in, raw);
   const auto out = t::decodeChunk(raw);
   expect(
-      out && out->stream == 9 && out->flags == in.flags && out->lane == t::Lane::Frame &&
-          out->channel == 0x1234 && out->size == 77 && out->kind == t::Kind::Request &&
-          out->request == 5,
-      "chunk header round-trip"
+    out && out->stream == 9 && out->flags == in.flags && out->lane == t::Lane::Frame &&
+      out->channel == 0x1234 && out->size == 77 && out->kind == t::Kind::Request &&
+      out->request == 5,
+    "chunk header round-trip"
   );
   raw[5] = std::byte{4};
   expect(!t::decodeChunk(raw), "unknown lane rejected");
@@ -211,8 +211,8 @@ void interleaving() {
   link.a.endpoint.post(t::Lane::Control, 2, bytes(4, 6));
   link.pump();
   expect(
-      link.b.got.size() == 2 && link.b.got[0].channel == 2 && link.b.got[1].channel == 1,
-      "control passes a frame in flight"
+    link.b.got.size() == 2 && link.b.got[0].channel == 2 && link.b.got[1].channel == 1,
+    "control passes a frame in flight"
   );
 }
 
@@ -231,9 +231,9 @@ void bulkShare() {
     order.push_back(t::decodeChunk(frame)->lane);
   }
   expect(
-      order.size() == 68 && order[3] == t::Lane::Bulk && order[7] == t::Lane::Bulk &&
-          order[2] == t::Lane::Frame,
-      "bulk gets every 4th chunk"
+    order.size() == 68 && order[3] == t::Lane::Bulk && order[7] == t::Lane::Bulk &&
+      order[2] == t::Lane::Frame,
+    "bulk gets every 4th chunk"
   );
 }
 
@@ -260,8 +260,8 @@ void credits() {
   second.a.endpoint.post(t::Lane::Frame, 2, bytes(4096, 2));
   second.pump();
   expect(
-      second.b.got.size() == 2 && second.b.got[1].payload == bytes(4096, 2),
-      "credit returns and the second message completes"
+    second.b.got.size() == 2 && second.b.got[1].payload == bytes(4096, 2),
+    "credit returns and the second message completes"
   );
 }
 
@@ -304,7 +304,7 @@ void streamViolations() {
   send({.stream = 1, .flags = t::chunk::kEnd, .lane = lane, .size = 8}, 8);
   send({.stream = 3, .flags = t::chunk::kStart | t::chunk::kEnd, .lane = lane, .size = 9}, 4);
   send(
-      {.stream = 4, .flags = t::chunk::kStart | t::chunk::kEnd, .lane = lane, .size = 1u << 30}, 1
+    {.stream = 4, .flags = t::chunk::kStart | t::chunk::kEnd, .lane = lane, .size = 1u << 30}, 1
   );
   send({.stream = 5, .flags = t::chunk::kStart, .lane = lane, .size = 8}, 4);
   send({.stream = 5, .flags = t::chunk::kAbort, .lane = lane}, 0);
@@ -332,8 +332,8 @@ void supersede() {
   link.a.endpoint.post(t::Lane::Frame, 1, bytes(8192, 2), true);
   link.pump();
   expect(
-      link.b.got.size() == 1 && link.b.got[0].payload == bytes(8192, 2),
-      "queued stale frame is dropped"
+    link.b.got.size() == 1 && link.b.got[0].payload == bytes(8192, 2),
+    "queued stale frame is dropped"
   );
 
   Link inFlight(config, 4096);
@@ -343,13 +343,13 @@ void supersede() {
   inFlight.a.endpoint.post(t::Lane::Frame, 1, bytes(8192, 4), true);
   inFlight.pump();
   expect(
-      inFlight.b.got.size() == 1 && inFlight.b.got[0].payload == bytes(8192, 4),
-      "stale frame in flight is aborted"
+    inFlight.b.got.size() == 1 && inFlight.b.got[0].payload == bytes(8192, 4),
+    "stale frame in flight is aborted"
   );
 }
 
 t::Task ask(
-    t::Endpoint& endpoint, t::Owner& owner, std::optional<t::Reply>& out, std::uint64_t timeout = 0
+  t::Endpoint& endpoint, t::Owner& owner, std::optional<t::Reply>& out, std::uint64_t timeout = 0
 ) {
   out = co_await endpoint.request(owner, t::Lane::Input, 3, bytes(4, 9), timeout);
 }
@@ -398,8 +398,8 @@ void requests() {
   link.a.endpoint.tick(200);
   link.pump();
   expect(
-      reply && reply->outcome == t::Outcome::Timeout && link.b.got.size() == seen,
-      "unsent request is withdrawn, not cancelled"
+    reply && reply->outcome == t::Outcome::Timeout && link.b.got.size() == seen,
+    "unsent request is withdrawn, not cancelled"
   );
 
   reply.reset();
@@ -420,13 +420,12 @@ void ownerDrop() {
   expect(!reply, "dropped owner is never resumed");
   const auto& got = link.b.got;
   expect(
-      got.size() == 2 && got[0].kind == t::Kind::Request && got[1].kind == t::Kind::Cancel &&
-          got[1].request == got[0].request,
-      "peer gets the cancel"
+    got.size() == 2 && got[0].kind == t::Kind::Request && got[1].kind == t::Kind::Cancel &&
+      got[1].request == got[0].request,
+    "peer gets the cancel"
   );
   link.b.endpoint.reply(
-      {.kind = t::Kind::Request, .lane = t::Lane::Input, .request = got[0].request, .payload = {}},
-      {}
+    {.kind = t::Kind::Request, .lane = t::Lane::Input, .request = got[0].request, .payload = {}}, {}
   );
   link.pump();
   expect(!reply, "late reply is ignored");

@@ -10,7 +10,7 @@
 
 int main(int argc, char** argv) {
   const char* goldenPath =
-      argc > 1 ? argv[1] : "examples/glass/golden/glass.png";
+    argc > 1 ? argv[1] : "examples/glass/golden/glass.png";
   glim::paint::Context ctx;
   ctx.setSize({720, 480});
   ctx.beginFrame();
@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
   options.glassMerge = true;
   glim::image::Image got = glim::image::Image::rgba8(720, 480);
   glim::paint::rasterScene(
-      ctx.scene(), got.width, got.height, got.rgba.data(), options
+    ctx.scene(), got.width, got.height, got.rgba.data(), options
   );
 
   if (!glim::image::matchCpuGolden(got, goldenPath, argv[0], "glass"))

@@ -58,100 +58,108 @@ inline Block spacer() { return column(expand(), gap(0)); }
 
 inline Block stat(std::string label, std::string value) {
   return column(
-      expand(),
-      gap(6),
-      lines(std::move(label)),
-      valueLines(std::move(value))
+    expand(),
+    gap(6),
+    lines(std::move(label)),
+    valueLines(std::move(value))
   );
 }
 
 // Greeting over the villa sky, with the house at a glance beneath it.
 inline Block hero(const OverviewData& d) {
   return column(
-      gap(10),
-      heroLines(home::greeting(d.day)),
-      heroLines("Welcome home."),
-      lines(home::homeSummary(d.readings, home::brightness({d.light})))
+    gap(10),
+    heroLines(home::greeting(d.day)),
+    heroLines("Welcome home."),
+    lines(home::homeSummary(d.readings, home::brightness({d.light})))
   );
 }
 
 inline Block energyCard(const OverviewData& d) {
   const home::Readings& r = d.readings;
   return glassCard(
-      d.glassTint,
-      radius(20),
-      gap(14),
-      semantic("energy"),
-      titleLines("Energy"),
-      row(gap(10),
-          center(),
-          valueLines(home::percentText(d.shown.energy)),
-          lines(home::energyText(r.energy))),
-      wide(meter({.value = d.shown.energy})),
-      row(gap(0), lines("Today"), spacer(), lines("Daily budget"))
+    d.glassTint,
+    radius(20),
+    gap(14),
+    semantic("energy"),
+    titleLines("Energy"),
+    row(
+      gap(10),
+      center(),
+      valueLines(home::percentText(d.shown.energy)),
+      lines(home::energyText(r.energy))
+    ),
+    wide(meter({.value = d.shown.energy})),
+    row(gap(0), lines("Today"), spacer(), lines("Daily budget"))
   );
 }
 
 inline Block climateCard(const OverviewData& d) {
   return glassCard(
-      d.glassTint,
-      radius(20),
+    d.glassTint,
+    radius(20),
+    gap(12),
+    semantic("climate"),
+    row(
       gap(12),
-      semantic("climate"),
-      row(gap(12),
-          center(),
-          titleLines("Living Room"),
-          spacer(),
-          toggle(
-              {.value = d.thermostatCells.on}, semantic("Thermostat")
-          )),
-      wide(heroLines(
-          home::temperatureText(d.shown.indoorC), alignCenter()
-      )),
-      wide(lines(
-          home::climateText(d.readings.indoorC, d.thermostat),
-          alignCenter(),
-          a11y({.live = A11yLive::Polite})
-      )),
-      wide(tickRuler(
-          {.value = d.thermostatCells.level,
-           .shown = d.shown.thermostat,
-           .lo = home::kThermoMinC,
-           .hi = home::kThermoMaxC,
-           .step = home::kThermoStepC},
-          semantic("Target temperature"),
-          a11y(
-              {.value = home::temperatureText(
-                   home::celsius(d.thermostat.level)
-               )}
-          )
-      ))
+      center(),
+      titleLines("Living Room"),
+      spacer(),
+      toggle({.value = d.thermostatCells.on}, semantic("Thermostat"))
+    ),
+    wide(
+      heroLines(home::temperatureText(d.shown.indoorC), alignCenter())
+    ),
+    wide(lines(
+      home::climateText(d.readings.indoorC, d.thermostat),
+      alignCenter(),
+      a11y({.live = A11yLive::Polite})
+    )),
+    wide(tickRuler(
+      {
+        .value = d.thermostatCells.level,
+        .shown = d.shown.thermostat,
+        .lo = home::kThermoMinC,
+        .hi = home::kThermoMaxC,
+        .step = home::kThermoStepC,
+      },
+      semantic("Target temperature"),
+      a11y({
+        .value =
+          home::temperatureText(home::celsius(d.thermostat.level)),
+      })
+    ))
   );
 }
 
 inline Block lightCard(const OverviewData& d) {
   return glassCard(
-      d.glassTint,
-      radius(20),
-      gap(14),
-      semantic("light"),
-      row(gap(12),
-          center(),
-          titleLines("Ceiling Lights"),
-          spacer(),
-          toggle({.value = d.lightCells.on}, semantic("Ceiling lights"))
-      ),
-      row(gap(10),
-          center(),
-          valueLines(home::percentText(d.shown.brightness)),
-          lines(home::lightText(d.light))),
-      wide(gauge(
-          {.value = d.lightCells.level,
-           .shown = d.shown.light,
-           .on = d.light.on},
-          semantic("Brightness"),
-          a11y({.value = home::percentText(d.light.level)})
-      ))
+    d.glassTint,
+    radius(20),
+    gap(14),
+    semantic("light"),
+    row(
+      gap(12),
+      center(),
+      titleLines("Ceiling Lights"),
+      spacer(),
+      toggle({.value = d.lightCells.on}, semantic("Ceiling lights"))
+    ),
+    row(
+      gap(10),
+      center(),
+      valueLines(home::percentText(d.shown.brightness)),
+      lines(home::lightText(d.light))
+    ),
+    wide(gauge(
+      {
+        .value = d.lightCells.level,
+        .shown = d.shown.light,
+        .on = d.light.on,
+      },
+      semantic("Brightness"),
+      a11y({.value = home::percentText(d.light.level)})
+    ))
   );
 }
 
@@ -159,46 +167,54 @@ inline Block wifiCard(const OverviewData& d) {
   const home::Readings& r = d.readings;
   const bool on = *d.wifi;
   return glassCard(
-      d.glassTint,
-      radius(20),
-      gap(14),
-      semantic("wifi"),
-      row(gap(10),
-          center(),
-          titleLines("Wi-Fi"),
-          spacer(),
-          toggle({.value = d.wifi}, semantic("Wi-Fi"))),
-      row(gap(10),
-          center(),
-          signalBars({.bars = home::signalBars(r, on)}),
-          lines("Glim_5G"),
-          spacer(),
-          lines(home::wifiStatus(r, on))),
-      row(gap(16),
-          stat("Latency", home::latencyText(r, on)),
-          stat("Jitter", home::jitterText(r, on)))
+    d.glassTint,
+    radius(20),
+    gap(14),
+    semantic("wifi"),
+    row(
+      gap(10),
+      center(),
+      titleLines("Wi-Fi"),
+      spacer(),
+      toggle({.value = d.wifi}, semantic("Wi-Fi"))
+    ),
+    row(
+      gap(10),
+      center(),
+      signalBars({.bars = home::signalBars(r, on)}),
+      lines("Glim_5G"),
+      spacer(),
+      lines(home::wifiStatus(r, on))
+    ),
+    row(
+      gap(16),
+      stat("Latency", home::latencyText(r, on)),
+      stat("Jitter", home::jitterText(r, on))
+    )
   );
 }
 
 inline Block solarCard(const OverviewData& d) {
   const home::Readings& r = d.readings;
   return glassCard(
-      d.glassTint,
-      radius(20),
+    d.glassTint,
+    radius(20),
+    gap(10),
+    semantic("solar"),
+    titleLines("Solar"),
+    row(
       gap(10),
-      semantic("solar"),
-      titleLines("Solar"),
-      row(gap(10),
-          center(),
-          valueLines(home::kwhText(r.solarKwh)),
-          lines("kWh generated today")),
-      wide(areaChart(
-          {.values = r.solarCurve,
-           .slots = home::kLogBuckets,
-           .shift = d.shown.solarShift,
-           .labels = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"},
-           .callout = home::kwhText(r.solarKwh) + " kWh"}
-      ))
+      center(),
+      valueLines(home::kwhText(r.solarKwh)),
+      lines("kWh generated today")
+    ),
+    wide(areaChart({
+      .values = r.solarCurve,
+      .slots = home::kLogBuckets,
+      .shift = d.shown.solarShift,
+      .labels = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"},
+      .callout = home::kwhText(r.solarKwh) + " kWh",
+    }))
   );
 }
 
@@ -225,9 +241,9 @@ inline Block overviewPage(const OverviewData& d) {
   page.maxCols = 2;
   page.children.push_back(overview::hero(d));
   page.children.push_back(column(
-      gap(kGlassGap),
-      wide(grid(std::move(cards))),
-      wide(overview::solarCard(d))
+    gap(kGlassGap),
+    wide(grid(std::move(cards))),
+    wide(overview::solarCard(d))
   ));
   return grid(std::move(page));
 }

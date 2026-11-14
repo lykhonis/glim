@@ -63,16 +63,16 @@ std::vector<int> edgeMap(const Image& im) {
 
 // 3x5 digit glyphs, rows top to bottom, 3 bits each (MSB = left).
 constexpr std::uint8_t kDigits[10][5] = {
-    {7, 5, 5, 5, 7},
-    {2, 6, 2, 2, 7},
-    {7, 1, 7, 4, 7},
-    {7, 1, 7, 1, 7},
-    {5, 5, 7, 1, 1},
-    {7, 4, 7, 1, 7},
-    {7, 4, 7, 5, 7},
-    {7, 1, 1, 1, 1},
-    {7, 5, 7, 5, 7},
-    {7, 5, 7, 1, 7},
+  {7, 5, 5, 5, 7},
+  {2, 6, 2, 2, 7},
+  {7, 1, 7, 4, 7},
+  {7, 1, 7, 1, 7},
+  {5, 5, 7, 1, 1},
+  {7, 4, 7, 1, 7},
+  {7, 4, 7, 5, 7},
+  {7, 1, 1, 1, 1},
+  {7, 5, 7, 5, 7},
+  {7, 5, 7, 1, 7},
 };
 
 void drawNumber(Image& im, int x, int y, int value, Rgb c) {
@@ -101,7 +101,7 @@ Image crop(const Image& im, Region r) {
   Image out = Image::rgba8(r.w, r.h);
   for (int y = 0; y < r.h; ++y)
     std::copy_n(
-        &im.rgba[at(im, r.x, r.y + y)], static_cast<std::size_t>(r.w) * 4, &out.rgba[at(out, 0, y)]
+      &im.rgba[at(im, r.x, r.y + y)], static_cast<std::size_t>(r.w) * 4, &out.rgba[at(out, 0, y)]
     );
   return out;
 }
@@ -152,9 +152,9 @@ Image stack(const std::vector<Image>& parts, bool vertical, int gap) {
   for (const Image& p : parts) {
     for (int y = 0; y < p.height; ++y)
       std::copy_n(
-          &p.rgba[at(p, 0, y)],
-          static_cast<std::size_t>(p.width) * 4,
-          &out.rgba[vertical ? at(out, 0, off + y) : at(out, off, y)]
+        &p.rgba[at(p, 0, y)],
+        static_cast<std::size_t>(p.width) * 4,
+        &out.rgba[vertical ? at(out, 0, off + y) : at(out, off, y)]
       );
     off += (vertical ? p.height : p.width) + gap;
   }
@@ -220,9 +220,9 @@ bool parseMask(std::string_view s, Mask* out) {
   if (end != hex.c_str() + 6) return false;
   out->kind = Mask::Kind::Near;
   out->color = {
-      static_cast<std::uint8_t>(v >> 16),
-      static_cast<std::uint8_t>(v >> 8),
-      static_cast<std::uint8_t>(v)
+    static_cast<std::uint8_t>(v >> 16),
+    static_cast<std::uint8_t>(v >> 8),
+    static_cast<std::uint8_t>(v)
   };
   if (s.size() > 8 && s[7] == ':') out->tolerance = std::atoi(std::string(s.substr(8)).c_str());
   return true;
@@ -290,7 +290,7 @@ std::vector<Peak> lumaPeaks(const Image& im, Line l, int minLuma) {
 }
 
 std::vector<Peak> rayPeaks(
-    const Image& im, float cx, float cy, float deg, int r0, int r1, int minLuma
+  const Image& im, float cx, float cy, float deg, int r0, int r1, int minLuma
 ) {
   const double a = deg * 3.14159265358979 / 180.0;
   std::vector<int> v;
@@ -304,7 +304,7 @@ std::vector<Peak> rayPeaks(
 }
 
 std::vector<ArcRun> ringRuns(
-    const Image& im, float cx, float cy, float r, const Mask& m, float deg0, float deg1, float step
+  const Image& im, float cx, float cy, float r, const Mask& m, float deg0, float deg1, float step
 ) {
   std::vector<ArcRun> out;
   bool open = false;

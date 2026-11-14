@@ -26,12 +26,12 @@ struct SignalBars : WithSemantic {
     for (int i = 0; i < 4; ++i) {
       const float h = 5.0f + 5.0f * static_cast<float>(i);
       sink.fillRounded(
-          {box.x + 7.0f * static_cast<float>(i),
-           box.y + box.h - h,
-           4.0f,
-           h},
-          1,
-          i < bars ? lit : withAlpha(ink, 0.18f)
+        {box.x + 7.0f * static_cast<float>(i),
+         box.y + box.h - h,
+         4.0f,
+         h},
+        1,
+        i < bars ? lit : withAlpha(ink, 0.18f)
       );
     }
   }

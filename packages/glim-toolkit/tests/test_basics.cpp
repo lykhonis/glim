@@ -46,11 +46,11 @@ void test_basics() {
 
   {
     Block at = column(
-        tap(
-            lines("OK"), [] {}, semantic("ok-btn")
-        ),
-        seat({.id = 3, .width = 200.0f, .height = 40.0f}, semantic("field")),
-        lines("Name")
+      tap(
+        lines("OK"), [] {}, semantic("ok-btn")
+      ),
+      seat({.id = 3, .width = 200.0f, .height = 40.0f}, semantic("field")),
+      lines("Name")
     );
     Box ab = place(at, {0, 720, 0, 480});
     std::vector<A11yNode> nodes = a11yNodes(at, ab);
@@ -73,20 +73,20 @@ void test_basics() {
   }
   {
     Block at = column(
-        tap(
-            lines("Wi-Fi"),
-            [] {},
-            semantic("wifi"),
-            a11y(
-                {.value = "Glim_5G",
-                 .states = {A11yState::Checkable, A11yState::Selected, A11yState::Disabled}}
-            )
-        ),
-        lines("Saved", expand(), a11y({.role = A11yRole::Heading, .live = A11yLive::Assertive})),
-        lines("", a11y({.live = A11yLive::Polite})),
-        tap(
-            lines("+"), [] {}, a11y({.actions = {A11yAction::Increment, A11yAction::Decrement}})
+      tap(
+        lines("Wi-Fi"),
+        [] {},
+        semantic("wifi"),
+        a11y(
+          {.value = "Glim_5G",
+           .states = {A11yState::Checkable, A11yState::Selected, A11yState::Disabled}}
         )
+      ),
+      lines("Saved", expand(), a11y({.role = A11yRole::Heading, .live = A11yLive::Assertive})),
+      lines("", a11y({.live = A11yLive::Polite})),
+      tap(
+        lines("+"), [] {}, a11y({.actions = {A11yAction::Increment, A11yAction::Decrement}})
+      )
     );
     Box ab = place(at, {0, 720, 0, 480});
     std::vector<A11yNode> nodes = a11yNodes(at, ab);
@@ -103,18 +103,18 @@ void test_basics() {
     std::ostringstream ad;
     dumpA11y(ad, nodes);
     assert(
-        ad.str() ==
-        "button Tap [0,0 40x14] wifi * value=Glim_5G states=checkable,selected,disabled "
-        "actions=activate\n"
-        "text Lines [0,0 40x14] Wi-Fi\n"
-        "heading Lines [0,14 40x438] Saved live=assertive\n"
-        "text Lines [0,452 0x14] live=polite\n"
-        "button Tap [0,466 8x14] * actions=increment,decrement\n"
-        "text Lines [0,466 8x14] +\n"
+      ad.str() ==
+      "button Tap [0,0 40x14] wifi * value=Glim_5G states=checkable,selected,disabled "
+      "actions=activate\n"
+      "text Lines [0,0 40x14] Wi-Fi\n"
+      "heading Lines [0,14 40x438] Saved live=assertive\n"
+      "text Lines [0,452 0x14] live=polite\n"
+      "button Tap [0,466 8x14] * actions=increment,decrement\n"
+      "text Lines [0,466 8x14] +\n"
     );
     A11yTraits base{.value = "a", .range = A11yRange{2, 0, 4}, .states = {A11yState::Checked}};
     A11yTraits top =
-        overlay(base, {.states = {A11yState::Selected}, .actions = {A11yAction::Activate}});
+      overlay(base, {.states = {A11yState::Selected}, .actions = {A11yAction::Activate}});
     assert(top.value == "a" && top.range->now == 2);
     assert(top.states == (A11yStates{A11yState::Checked, A11yState::Selected}));
     assert(top.states.with(A11yState::Checked, false) == A11yStates{A11yState::Selected});
@@ -132,7 +132,7 @@ void test_basics() {
   {
     Box tb = focusBox(m, mb, 0);
     assert(
-        dispatchPointer(m, mb, tb.x + 1, tb.y + 1, Event::borrow(PointerDown{tb.x + 1, tb.y + 1}))
+      dispatchPointer(m, mb, tb.x + 1, tb.y + 1, Event::borrow(PointerDown{tb.x + 1, tb.y + 1}))
     );
   }
 

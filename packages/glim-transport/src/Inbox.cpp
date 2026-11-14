@@ -24,14 +24,14 @@ void Inbox::drop(InboxSink& sink, std::uint32_t stream) {
 }
 
 void Inbox::deliver(
-    InboxSink& sink, const ChunkHeader& header, std::span<const std::byte> payload
+  InboxSink& sink, const ChunkHeader& header, std::span<const std::byte> payload
 ) {
   sink.deliver(
-      {.kind = header.kind,
-       .lane = header.lane,
-       .channel = header.channel,
-       .request = header.request,
-       .payload = payload}
+    {.kind = header.kind,
+     .lane = header.lane,
+     .channel = header.channel,
+     .request = header.request,
+     .payload = payload}
   );
   release(sink, header.lane, payload.size());
 }

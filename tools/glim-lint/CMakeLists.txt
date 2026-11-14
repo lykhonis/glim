@@ -17,4 +17,4 @@ add_test(NAME glim-lint-accepts-good
 add_test(NAME glim-lint-rejects-bad
     COMMAND glim-lint ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/bad.h)
 set_tests_properties(glim-lint-rejects-bad PROPERTIES
-    PASS_REGULAR_EXPRESSION "pinned takes 3 fixed params.*gone takes As&&\\.\\.\\. without forwarding.*lost takes As&&\\.\\.\\. without finish.*drop takes 2 fixed params.*GlassTag built by hand.*RadiusTag built by hand")
+    PASS_REGULAR_EXPRESSION "pinned takes 3 fixed params.*gone takes As&&\\.\\.\\. without forwarding.*lost takes As&&\\.\\.\\. without finish.*drop takes 2 fixed params.*GlassTag built by hand.*RadiusTag built by hand.*needs a trailing comma")

@@ -27,7 +27,7 @@ class TraceWriter {
   explicit TraceWriter(std::ostream& os) : os_(os) { os_ << "{\"traceEvents\":[\n"; }
 
   void slice(
-      const char* name, int tid, long long tsUs, long long durUs, const std::string& args = {}
+    const char* name, int tid, long long tsUs, long long durUs, const std::string& args = {}
   ) {
     os_ << (first_ ? "" : ",\n") << "{\"name\":\"" << name
         << "\",\"ph\":\"X\",\"pid\":1,\"tid\":" << tid << ",\"ts\":" << tsUs << ",\"dur\":" << durUs

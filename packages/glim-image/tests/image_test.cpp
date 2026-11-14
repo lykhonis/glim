@@ -78,7 +78,7 @@ int main() {
   // load() dispatches PNG by magic.
   expect(glim::image::Png::write(path, a), "write png for load");
   expect(
-      glim::image::load(path, &loaded) && glim::image::compare(a, loaded, 0).match(), "load png"
+    glim::image::load(path, &loaded) && glim::image::compare(a, loaded, 0).match(), "load png"
   );
   std::remove(path);
 
@@ -103,8 +103,8 @@ int main() {
   expect(peaks.size() == 1 && peaks[0].at == 5, "luma peaks");
   gi::Mask near;
   expect(
-      gi::parseMask("#fa780a:8", &near) && near.tolerance == 8 && near.test({250, 120, 10}),
-      "mask hex"
+    gi::parseMask("#fa780a:8", &near) && near.tolerance == 8 && near.test({250, 120, 10}),
+    "mask hex"
   );
   gi::Image c = gi::crop(bar, {4, 2, 3, 3});
   expect(c.width == 3 && c.height == 3 && gi::pixel(c, 1, 0).r == 250, "crop");

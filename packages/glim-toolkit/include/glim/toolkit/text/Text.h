@@ -25,12 +25,12 @@ std::vector<std::string> wrapText(const std::string& text, float maxW, const Eng
 std::vector<std::string> truncateLines(std::vector<std::string> lines, float maxW, float maxH);
 
 std::vector<std::string> layoutLines(
-    const std::string& text, float maxW, float maxH, bool wrap, const Engine& e = Engine{}
+  const std::string& text, float maxW, float maxH, bool wrap, const Engine& e = Engine{}
 );
 
 // Fixed-advance offsets by design; engine only selects the breaker.
 std::vector<PlacedLine> layoutPlacedLines(
-    const std::string& text, const Box& box, bool wrap, int align, const Engine& e = Engine{}
+  const std::string& text, const Box& box, bool wrap, int align, const Engine& e = Engine{}
 );
 
 }  // namespace text

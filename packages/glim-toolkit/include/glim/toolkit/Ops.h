@@ -100,10 +100,10 @@ struct Op {
 
 inline const char* opKindName(Op::Kind k) {
   static constexpr const char* kNames[] = {
-      "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
-      "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
-      "Slot",     "PushRotate", "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
-      "Polyline", "PushShadow", "PushEffect",  "PushOpacity",
+    "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
+    "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
+    "Slot",     "PushRotate", "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
+    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",
   };
   static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushOpacity) + 1);
   return kNames[static_cast<int>(k)];
@@ -137,11 +137,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void fillGradient(
-      const Box& b,
-      int radius,
-      std::uint32_t top,
-      std::uint32_t bottom,
-      const std::string& mark = {}
+    const Box& b, int radius, std::uint32_t top, std::uint32_t bottom, const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::FillGradient;
@@ -153,7 +149,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void stroke(
-      const Box& b, int radius, float width, std::uint32_t rgba, const std::string& mark = {}
+    const Box& b, int radius, float width, std::uint32_t rgba, const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::Stroke;
@@ -165,12 +161,12 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void text(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      const std::string& mark = {}
+    float x,
+    float y,
+    const std::string& s,
+    std::uint32_t rgba,
+    float size,
+    const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::Text;
@@ -182,14 +178,14 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void textStyled(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      float condense,
-      float weight,
-      const std::string& mark = {}
+    float x,
+    float y,
+    const std::string& s,
+    std::uint32_t rgba,
+    float size,
+    float condense,
+    float weight,
+    const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::Text;
@@ -212,12 +208,12 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void pushGlass(
-      const Box& b,
-      int radius,
-      bool clear,
-      std::uint8_t edge,
-      std::uint32_t tint,
-      std::uint8_t material = 0
+    const Box& b,
+    int radius,
+    bool clear,
+    std::uint8_t edge,
+    std::uint32_t tint,
+    std::uint8_t material = 0
   ) {
     Op o;
     o.kind = Op::Kind::PushGlass;
@@ -263,11 +259,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void fillRadial(
-      const Box& b,
-      int radius,
-      std::uint32_t center,
-      std::uint32_t edge,
-      const std::string& mark = {}
+    const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::FillRadial;
@@ -288,7 +280,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void strokeChamfer(
-      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& mark = {}
+    const Box& b, float cut, float width, std::uint32_t rgba, const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::StrokeChamfer;
@@ -300,14 +292,14 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void arc(
-      float cx,
-      float cy,
-      float radius,
-      float thickness,
-      float startDeg,
-      float sweepDeg,
-      std::uint32_t rgba,
-      const std::string& mark = {}
+    float cx,
+    float cy,
+    float radius,
+    float thickness,
+    float startDeg,
+    float sweepDeg,
+    std::uint32_t rgba,
+    const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::Arc;
@@ -322,12 +314,12 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void polyline(
-      const float* xy,
-      std::size_t n,
-      float width,
-      float dotPitch,
-      std::uint32_t rgba,
-      const std::string& mark = {}
+    const float* xy,
+    std::size_t n,
+    float width,
+    float dotPitch,
+    std::uint32_t rgba,
+    const std::string& mark = {}
   ) {
     Op o;
     o.kind = Op::Kind::Polyline;
@@ -340,7 +332,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void pushShadow(
-      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+    float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
   ) {
     Op o;
     o.kind = Op::Kind::PushShadow;
@@ -353,7 +345,7 @@ struct OpsRecorder {
     ops.push_back(o);
   }
   void pushEffect(
-      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
   ) {
     Op o;
     o.kind = Op::Kind::PushEffect;

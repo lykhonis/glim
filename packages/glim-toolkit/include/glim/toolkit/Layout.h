@@ -33,7 +33,7 @@ struct Rec {
   };
   std::vector<Entry> entries;
   void push(
-      std::string kind, Box box, std::string text = {}, std::string mark = {}, int radius = 0
+    std::string kind, Box box, std::string text = {}, std::string mark = {}, int radius = 0
   ) {
     entries.push_back({std::move(kind), box, std::move(text), std::move(mark), radius});
   }

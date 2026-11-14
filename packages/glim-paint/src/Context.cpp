@@ -79,7 +79,7 @@ void Context::strokeChamfer(const Rect& rect, float cut, float width) {
     return;
   }
   recordShape(
-      current(), transformStrokeChamfer(state_.model, StrokeChamfer{rect, cut, width, state_.fill})
+    current(), transformStrokeChamfer(state_.model, StrokeChamfer{rect, cut, width, state_.fill})
   );
 }
 
@@ -110,7 +110,7 @@ void Context::clipRect(const Rect& rect, Radius radius) {
   Group* g = current();
   const Rect xf = transformRect(state_.model, rect);
   const FillRounded scaled =
-      transformRounded(state_.model, FillRounded{rect, radius, Matter::solid(Color{})});
+    transformRounded(state_.model, FillRounded{rect, radius, Matter::solid(Color{})});
   if (!hasClip(g->params)) {
     g->params.clip = xf;
     g->params.clipRadius = scaled.radius;
@@ -119,9 +119,9 @@ void Context::clipRect(const Rect& rect, Radius radius) {
   const float x0 = std::max(g->params.clip.origin.x, xf.origin.x);
   const float y0 = std::max(g->params.clip.origin.y, xf.origin.y);
   const float x1 =
-      std::min(g->params.clip.origin.x + g->params.clip.size.x, xf.origin.x + xf.size.x);
+    std::min(g->params.clip.origin.x + g->params.clip.size.x, xf.origin.x + xf.size.x);
   const float y1 =
-      std::min(g->params.clip.origin.y + g->params.clip.size.y, xf.origin.y + xf.size.y);
+    std::min(g->params.clip.origin.y + g->params.clip.size.y, xf.origin.y + xf.size.y);
   if (x1 <= x0 || y1 <= y0) {
     g->params.clip = {};
     g->params.clipRadius = {};
@@ -190,7 +190,7 @@ void Context::text(Vec2 origin, const char* latin, float sizePx) {
 }
 
 void Context::textStyled(
-    Vec2 origin, const char* latin, float sizePx, float condense, float weightPx
+  Vec2 origin, const char* latin, float sizePx, float condense, float weightPx
 ) {
   if (!recording_ || !latin || sizePx <= 0.f) {
     return;

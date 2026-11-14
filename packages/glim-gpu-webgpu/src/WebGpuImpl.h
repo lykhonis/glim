@@ -230,7 +230,7 @@ struct Device::Impl {
     }
     WGPUTextureDescriptor td{};
     td.usage =
-        static_cast<WGPUTextureUsage>(WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst);
+      static_cast<WGPUTextureUsage>(WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst);
     td.dimension = WGPUTextureDimension_2D;
     td.size = {1, 1, 1};
     td.format = WGPUTextureFormat_RGBA8Unorm;
@@ -254,16 +254,16 @@ struct Device::Impl {
     WGPUExtent3D extent{1, 1, 1};
     wgpuQueueWriteTexture(queue, &dst, white, sizeof(white), &layout, &extent);
     zeroBuf = webgpu::makeBuffer(
-        device, 64, static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst)
+      device, 64, static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst)
     );
     if (zeroBuf == nullptr) {
       return false;
     }
     for (WGPUBuffer& b : ring) {
       b = webgpu::makeBuffer(
-          device,
-          webgpu::kRingBytes,
-          static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst)
+        device,
+        webgpu::kRingBytes,
+        static_cast<WGPUBufferUsage>(WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst)
       );
       if (b == nullptr) {
         return false;
@@ -276,7 +276,7 @@ struct Device::Impl {
     }
     for (int i = 0; i < 2; ++i) {
       entries[i].visibility =
-          static_cast<WGPUShaderStage>(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment);
+        static_cast<WGPUShaderStage>(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment);
       entries[i].buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
       entries[i].buffer.hasDynamicOffset = WGPU_FALSE;
       entries[i].buffer.minBindingSize = 0;
@@ -317,8 +317,7 @@ struct Device::Impl {
     cfg.viewFormatCount = format != surfaceFormat ? 1 : 0;
     cfg.viewFormats = &format;
     cfg.usage = static_cast<WGPUTextureUsage>(
-        WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding |
-        WGPUTextureUsage_CopySrc
+      WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopySrc
     );
     cfg.width = static_cast<std::uint32_t>(w);
     cfg.height = static_cast<std::uint32_t>(h);

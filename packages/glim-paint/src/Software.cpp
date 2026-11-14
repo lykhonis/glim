@@ -22,14 +22,14 @@ namespace raster {
 namespace {
 
 void rasterGroup(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Group& g,
-    const ImageStore& images,
-    const Mat4& extra,
-    const ClipState& parentClip,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Group& g,
+  const ImageStore& images,
+  const Mat4& extra,
+  const ClipState& parentClip,
+  float pixelRatio
 );
 
 bool bakesQuads(const Shape& s) {
@@ -61,74 +61,74 @@ std::vector<FlatShape> flattenShapes(const Group& g, const Mat4& world, const Cl
 }
 
 void paintShapes(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Group& g,
-    const ImageStore& images,
-    const Mat4& world,
-    const ClipState& clip,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Group& g,
+  const ImageStore& images,
+  const Mat4& world,
+  const ClipState& clip,
+  float pixelRatio
 ) {
   std::vector<FlatShape> flat = flattenShapes(g, world, clip);
   GroupOrder runs;
   visitGroup(
-      g,
-      [&](const Shape& s) {
-        const Blend blend = g.params.blend;
-        // Blit/glyph fast path keeps AABB bake (now correct AABB);
-        // rotated quads go through the world-aware stripper.
-        if (!bakesQuads(s)) {
-          const Shape xf = transformShape(world, s);
-          if (const auto* blit = std::get_if<Blit>(&xf)) {
-            blitImage(
-                dest, w, h, *blit, images, premulLinear(blit->matter.color), clip, false, blend
-            );
-            return;
-          }
-          if (std::get_if<SlotHole>(&xf)) {
-            return;
-          }
-          if (std::get_if<GlyphRun>(&xf)) {
-            std::vector<Quad> unused;
-            std::vector<BlitQuad> blits;
-            std::vector<GradientQuad> unusedGrads;
-            appendShape(unused, blits, unusedGrads, xf, clip);
-            for (const BlitQuad& q : blits) {
-              Blit b;
-              b.rect = {{q.x, q.y}, {q.w, q.h}};
-              b.matter.kind = MatterKind::Sampled;
-              b.matter.imageId = q.imageId;
-              b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
-              blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0, blend);
-            }
-            return;
-          }
+    g,
+    [&](const Shape& s) {
+      const Blend blend = g.params.blend;
+      // Blit/glyph fast path keeps AABB bake (now correct AABB);
+      // rotated quads go through the world-aware stripper.
+      if (!bakesQuads(s)) {
+        const Shape xf = transformShape(world, s);
+        if (const auto* blit = std::get_if<Blit>(&xf)) {
+          blitImage(
+            dest, w, h, *blit, images, premulLinear(blit->matter.color), clip, false, blend
+          );
+          return;
         }
-        const FlatShape f = flat.empty()
-                                ? flattenShape(s, world, clip)
-                                : std::move(flat[static_cast<std::size_t>(&s - g.shapes.data())]);
-        fillQuads(dest, w, h, f.quads, blend);
-        fillGradients(dest, w, h, f.grads, blend);
-      },
-      [&](const Group& child) {
-        const bool backdrop = hasBackdrop(child);
-        const bool glassWork = hasGlassWork(child);
-        runs.next(backdrop, glassWork);
-        rasterGroup(dest, w, h, child, images, world, clip, pixelRatio);
+        if (std::get_if<SlotHole>(&xf)) {
+          return;
+        }
+        if (std::get_if<GlyphRun>(&xf)) {
+          std::vector<Quad> unused;
+          std::vector<BlitQuad> blits;
+          std::vector<GradientQuad> unusedGrads;
+          appendShape(unused, blits, unusedGrads, xf, clip);
+          for (const BlitQuad& q : blits) {
+            Blit b;
+            b.rect = {{q.x, q.y}, {q.w, q.h}};
+            b.matter.kind = MatterKind::Sampled;
+            b.matter.imageId = q.imageId;
+            b.matter.uv = {{q.u0, q.v0}, {q.u1 - q.u0, q.v1 - q.v0}};
+            blitImage(dest, w, h, b, images, {q.r, q.g, q.b, q.a}, clip, q.sdf != 0, blend);
+          }
+          return;
+        }
       }
+      const FlatShape f = flat.empty()
+                            ? flattenShape(s, world, clip)
+                            : std::move(flat[static_cast<std::size_t>(&s - g.shapes.data())]);
+      fillQuads(dest, w, h, f.quads, blend);
+      fillGradients(dest, w, h, f.grads, blend);
+    },
+    [&](const Group& child) {
+      const bool backdrop = hasBackdrop(child);
+      const bool glassWork = hasGlassWork(child);
+      runs.next(backdrop, glassWork);
+      rasterGroup(dest, w, h, child, images, world, clip, pixelRatio);
+    }
   );
 }
 
 void rasterGroup(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Group& g,
-    const ImageStore& images,
-    const Mat4& extra,
-    const ClipState& parentClip,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Group& g,
+  const ImageStore& images,
+  const Mat4& extra,
+  const ClipState& parentClip,
+  float pixelRatio
 ) {
   const Mat4 world = extra * g.params.transform;
   const ClipState clip = intersectClip(parentClip, clipOf(g.params, world));
@@ -139,12 +139,11 @@ void rasterGroup(
     const bool content = hasContentBlur(g);
     const bool explicitBounds = g.params.bounds.size.x > 0.f && g.params.bounds.size.y > 0.f;
     const Rect surface =
-        glassWork
-            ? glassSurface(g)
-            : (hasBackdrop(g)
-                   ? backdropSurface(g)
-                   : ((shadow || content) ? shadowContentSurface(g)
-                                          : (explicitBounds ? g.params.bounds : contentBounds(g))));
+      glassWork ? glassSurface(g)
+                : (hasBackdrop(g) ? backdropSurface(g)
+                                  : ((shadow || content)
+                                       ? shadowContentSurface(g)
+                                       : (explicitBounds ? g.params.bounds : contentBounds(g))));
     const float pr = pixelRatio > 0.f ? pixelRatio : 1.f;
     const float effPr = useHalfIsolate(g) ? pr * 0.5f : pr;
     const int iw = isolatePixelSize(surface.size.x, effPr);
@@ -184,7 +183,7 @@ void rasterGroup(
       local->params.clip = surface;
     }
     const Mat4 localX =
-        Mat4::scale(effPr, effPr) * Mat4::translate(-surface.origin.x, -surface.origin.y);
+      Mat4::scale(effPr, effPr) * Mat4::translate(-surface.origin.x, -surface.origin.y);
     const ClipState localClip = clipOf(local->params, localX);
     if (shadow || content) {
       std::vector<Pixel> card(static_cast<std::size_t>(iw * ih), Pixel{0, 0, 0, 0});
@@ -224,20 +223,20 @@ void rasterGroup(
 }
 
 void rasterIsolate(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Isolate& iso,
-    const ImageStore& images,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Isolate& iso,
+  const ImageStore& images,
+  float pixelRatio
 );
 
 void paintBlits(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const std::vector<BlitQuad>& blits,
-    const ImageStore& images
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const std::vector<BlitQuad>& blits,
+  const ImageStore& images
 ) {
   for (const BlitQuad& q : blits) {
     Blit b;
@@ -251,15 +250,15 @@ void paintBlits(
 }
 
 void paintQuads(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const std::vector<Quad>& quads,
-    const std::vector<BlitQuad>& blits,
-    const std::vector<GradientQuad>& grads,
-    const std::vector<Isolate>& isolates,
-    const ImageStore& images,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const std::vector<Quad>& quads,
+  const std::vector<BlitQuad>& blits,
+  const std::vector<GradientQuad>& grads,
+  const std::vector<Isolate>& isolates,
+  const ImageStore& images,
+  float pixelRatio
 ) {
   for (const Quad& q : quads) {
     fillQuad(dest, w, h, q);
@@ -272,12 +271,12 @@ void paintQuads(
 }
 
 void rasterIsolate(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Isolate& iso,
-    const ImageStore& images,
-    float pixelRatio
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Isolate& iso,
+  const ImageStore& images,
+  float pixelRatio
 ) {
   std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
   if (iso.hasGlass) {
@@ -286,15 +285,15 @@ void rasterIsolate(
       const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
       const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
       const PlateSpec field = glassPillsToField(
-          iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
-          static_cast<int>(iso.lensPills.size()),
-          iso.lens.mergeKPx,
-          pr,
-          local,
-          tlsRaster
+        iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
+        static_cast<int>(iso.lensPills.size()),
+        iso.lens.mergeKPx,
+        pr,
+        local,
+        tlsRaster
       );
       sampleGlassPlate(
-          tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.lens, field, tlsRaster
+        tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.lens, field, tlsRaster
       );
     }
   } else if (iso.backdropSigma > 0.f) {
@@ -307,18 +306,18 @@ void rasterIsolate(
   }
   if (iso.hasShadow || iso.contentSigma > 0.f) {
     std::vector<Pixel> card(
-        static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
+      static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
     );
     paintQuads(
-        card,
-        iso.contentW,
-        iso.contentH,
-        iso.quads,
-        iso.blits,
-        iso.gradients,
-        iso.isolates,
-        images,
-        pixelRatio
+      card,
+      iso.contentW,
+      iso.contentH,
+      iso.quads,
+      iso.blits,
+      iso.gradients,
+      iso.isolates,
+      images,
+      pixelRatio
     );
     if (iso.contentSigma > 0.f) {
       blurCheap(card, iso.contentW, iso.contentH, iso.contentSigma * pixelRatio * 0.5f);
@@ -326,7 +325,7 @@ void rasterIsolate(
     if (iso.hasShadow) {
       const Vec4 tint = premulLinear(iso.shadow.color);
       std::vector<Pixel> sh(
-          static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
+        static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
       );
       for (std::size_t i = 0; i < card.size() && i < sh.size(); ++i) {
         const float a = card[i].a;
@@ -339,7 +338,7 @@ void rasterIsolate(
       }
       blurCheap(sh, iso.contentW, iso.contentH, iso.shadow.sigma * pixelRatio * 0.5f);
       const Rect shRect{
-          {iso.destX + iso.shadow.offset.x, iso.destY + iso.shadow.offset.y}, {iso.destW, iso.destH}
+        {iso.destX + iso.shadow.offset.x, iso.destY + iso.shadow.offset.y}, {iso.destW, iso.destH}
       };
       blitBuffer(dest, w, h, sh, iso.contentW, iso.contentH, shRect, 1.f);
     }
@@ -348,26 +347,26 @@ void rasterIsolate(
     }
   } else {
     paintQuads(
-        tmp,
-        iso.contentW,
-        iso.contentH,
-        iso.quads,
-        iso.blits,
-        iso.gradients,
-        iso.isolates,
-        images,
-        pixelRatio
-    );
-  }
-  blitBuffer(
-      dest,
-      w,
-      h,
       tmp,
       iso.contentW,
       iso.contentH,
-      Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}},
-      iso.opacity
+      iso.quads,
+      iso.blits,
+      iso.gradients,
+      iso.isolates,
+      images,
+      pixelRatio
+    );
+  }
+  blitBuffer(
+    dest,
+    w,
+    h,
+    tmp,
+    iso.contentW,
+    iso.contentH,
+    Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}},
+    iso.opacity
   );
 }
 
@@ -385,36 +384,36 @@ void toRgba(const std::vector<Pixel>& buf, std::uint8_t* rgba) {
 }  // namespace raster
 
 void rasterScene(
-    const Scene& scene, int width, int height, std::uint8_t* rgba, RasterOptions options
+  const Scene& scene, int width, int height, std::uint8_t* rgba, RasterOptions options
 ) {
   tlsRaster = options;
   thread_local std::vector<raster::Pixel> buf;
   buf.assign(static_cast<std::size_t>(width * height), raster::Pixel{0, 0, 0, 1});
   Group root = merge(scene.root, nullptr);
   const float pr =
-      scene.logicalSize.x > 0.f ? static_cast<float>(width) / scene.logicalSize.x : 1.f;
+    scene.logicalSize.x > 0.f ? static_cast<float>(width) / scene.logicalSize.x : 1.f;
   raster::rasterGroup(buf, width, height, root, scene.images, Mat4::scale(pr, pr), {}, pr);
   raster::toRgba(buf, rgba);
 }
 
 void rasterPacket(
-    const FramePacket& packet, int width, int height, std::uint8_t* rgba, RasterOptions options
+  const FramePacket& packet, int width, int height, std::uint8_t* rgba, RasterOptions options
 ) {
   tlsRaster = options;
   thread_local std::vector<raster::Pixel> buf;
   buf.assign(static_cast<std::size_t>(width * height), raster::Pixel{0, 0, 0, 1});
   const float pr =
-      packet.logicalSize.x > 0.f ? static_cast<float>(width) / packet.logicalSize.x : 1.f;
+    packet.logicalSize.x > 0.f ? static_cast<float>(width) / packet.logicalSize.x : 1.f;
   raster::paintQuads(
-      buf,
-      width,
-      height,
-      packet.quads,
-      packet.blits,
-      packet.gradients,
-      packet.isolates,
-      packet.images,
-      pr
+    buf,
+    width,
+    height,
+    packet.quads,
+    packet.blits,
+    packet.gradients,
+    packet.isolates,
+    packet.images,
+    pr
   );
   raster::toRgba(buf, rgba);
 }

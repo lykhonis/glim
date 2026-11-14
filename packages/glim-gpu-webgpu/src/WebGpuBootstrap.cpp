@@ -10,11 +10,11 @@ WebBootstrap& web() {
 namespace {
 
 void onDeviceLost(
-    const WGPUDevice* device,
-    WGPUDeviceLostReason reason,
-    WGPUStringView message,
-    void* userdata1,
-    void* userdata2
+  const WGPUDevice* device,
+  WGPUDeviceLostReason reason,
+  WGPUStringView message,
+  void* userdata1,
+  void* userdata2
 ) {
   (void)device;
   (void)reason;
@@ -30,11 +30,11 @@ void onDeviceLost(
 }
 
 void onDevice(
-    WGPURequestDeviceStatus status,
-    WGPUDevice device,
-    WGPUStringView message,
-    void* userdata1,
-    void* userdata2
+  WGPURequestDeviceStatus status,
+  WGPUDevice device,
+  WGPUStringView message,
+  void* userdata1,
+  void* userdata2
 ) {
   (void)userdata1;
   (void)userdata2;
@@ -63,11 +63,11 @@ void onDevice(
 }
 
 void onUncaptured(
-    const WGPUDevice* device,
-    WGPUErrorType type,
-    WGPUStringView message,
-    void* userdata1,
-    void* userdata2
+  const WGPUDevice* device,
+  WGPUErrorType type,
+  WGPUStringView message,
+  void* userdata1,
+  void* userdata2
 ) {
   (void)device;
   (void)type;
@@ -101,11 +101,11 @@ void requestDevice() {
 namespace {
 
 void onAdapter(
-    WGPURequestAdapterStatus status,
-    WGPUAdapter adapter,
-    WGPUStringView message,
-    void* userdata1,
-    void* userdata2
+  WGPURequestAdapterStatus status,
+  WGPUAdapter adapter,
+  WGPUStringView message,
+  void* userdata1,
+  void* userdata2
 ) {
   (void)userdata1;
   (void)userdata2;

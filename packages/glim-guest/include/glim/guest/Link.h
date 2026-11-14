@@ -21,12 +21,12 @@ class Link {
   enum class State { Idle, Offered, Ready, Refused, Broken };
 
   Link(
-      transport::Imports& imports,
-      std::function<std::span<std::byte>()> memory,
-      std::span<std::byte> region,
-      std::uint32_t offset,
-      transport::Terms hello,
-      transport::Endpoint::Handler handler
+    transport::Imports& imports,
+    std::function<std::span<std::byte>()> memory,
+    std::span<std::byte> region,
+    std::uint32_t offset,
+    transport::Terms hello,
+    transport::Endpoint::Handler handler
   );
 
   std::uint32_t init(std::uint32_t protocol, std::uint32_t capacity);

@@ -81,7 +81,7 @@ struct Anim {
     core_->live = true;
     core_->started = false;
     core_->watch =
-        store_->get().watchCell(core_->cell, [c = core_](float now) { return c->step(now); });
+      store_->get().watchCell(core_->cell, [c = core_](float now) { return c->step(now); });
   }
   void operator=(const T& t) const { set(t); }
   // Jump, cancelling anything live.
@@ -112,8 +112,8 @@ struct Anim {
     ensure();
     src.ensure();
     assert(
-        core_ && src.core_ &&
-        "Anim::follow needs bound Anims (construct from a Scope or wait for a walk)"
+      core_ && src.core_ &&
+      "Anim::follow needs bound Anims (construct from a Scope or wait for a walk)"
     );
     core_->src = src.core_;
     std::weak_ptr<Core> w = core_;

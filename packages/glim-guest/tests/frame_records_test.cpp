@@ -84,8 +84,8 @@ void goldenEquality() {
   const p::Scene s = scene();
   const p::FramePacket direct = p::encode(s);
   expect(
-      !direct.quads.empty() && !direct.blits.empty() && !direct.gradients.empty(),
-      "scene covers draw kinds"
+    !direct.quads.empty() && !direct.blits.empty() && !direct.gradients.empty(),
+    "scene covers draw kinds"
   );
   expect(!direct.isolates.empty(), "scene carries isolates");
 
@@ -98,8 +98,8 @@ void goldenEquality() {
   expect(raster(*decoded) == raster(direct), "decoded packet renders the in-process golden");
   expect(encoded(*decoded) == bytes, "re-encode is byte-identical");
   expect(
-      decoded->logicalSize.x == kW && decoded->isolates.size() == direct.isolates.size(),
-      "frame fields"
+    decoded->logicalSize.x == kW && decoded->isolates.size() == direct.isolates.size(),
+    "frame fields"
   );
 }
 
@@ -146,9 +146,9 @@ void structure() {
 
   std::vector<std::byte> rootPills = encoded(p::FramePacket{});
   w::Writer(rootPills)
-      .begin(g::kLensPillsRecord, 24, w::kMustUnderstand)
-      .set(8, 25u)
-      .allocTail(16, 25);
+    .begin(g::kLensPillsRecord, 24, w::kMustUnderstand)
+    .set(8, 25u)
+    .allocTail(16, 25);
   expect(!decode(rootPills).has_value(), "pills outside an isolate rejected");
 
   std::vector<std::byte> headless;
@@ -197,14 +197,14 @@ void padding() {
   const auto bytes = encoded(packet);
   const auto quad = bytes.end() - 40;
   expect(
-      quad[32] == std::byte{1} && quad[33] == std::byte{0} && quad[34] == std::byte{0} &&
-          quad[35] == std::byte{0},
-      "struct padding is zeroed on the wire"
+    quad[32] == std::byte{1} && quad[33] == std::byte{0} && quad[34] == std::byte{0} &&
+      quad[35] == std::byte{0},
+    "struct padding is zeroed on the wire"
   );
   const auto back = decode(bytes);
   expect(
-      back && back->quads.size() == 1 && back->quads[0].h == 4 && back->quads[0].plus == 1,
-      "memcpy decode"
+    back && back->quads.size() == 1 && back->quads[0].h == 4 && back->quads[0].plus == 1,
+    "memcpy decode"
   );
 }
 
@@ -213,21 +213,21 @@ void reuse() {
   const auto little = encoded(small());
   p::FramePacket packet;
   expect(
-      g::readFrame(big, p::ImageStore{}, packet) && !packet.isolates.empty(), "decode into packet"
+    g::readFrame(big, p::ImageStore{}, packet) && !packet.isolates.empty(), "decode into packet"
   );
   const auto capacity = packet.quads.capacity();
   expect(
-      g::readFrame(little, p::ImageStore{}, packet) && packet.quads.size() == 1 &&
-          packet.isolates.size() == 1,
-      "second frame replaces the first"
+    g::readFrame(little, p::ImageStore{}, packet) && packet.quads.size() == 1 &&
+      packet.isolates.size() == 1,
+    "second frame replaces the first"
   );
   expect(packet.quads.capacity() == capacity, "array capacity reused across frames");
   auto broken = little;
   broken.resize(broken.size() - 8);
   expect(
-      !g::readFrame(broken, p::ImageStore{}, packet) && packet.quads.empty() &&
-          packet.isolates.empty(),
-      "failed decode leaves no draws"
+    !g::readFrame(broken, p::ImageStore{}, packet) && packet.quads.empty() &&
+      packet.isolates.empty(),
+    "failed decode leaves no draws"
   );
 }
 
@@ -239,12 +239,11 @@ void versioning() {
   w::storeLe(older.data() + 16 + 24, 5.f);
   const auto frame = decode(older);
   expect(
-      frame && frame->logicalSize.y == 20.f && frame->dirtyRect.size.x == 0.f,
-      "older frame defaults"
+    frame && frame->logicalSize.y == 20.f && frame->dirtyRect.size.x == 0.f, "older frame defaults"
   );
   expect(
-      frame && frame->quads.size() == 1 && frame->quads[0].x == 5.f && frame->quads[0].a == 0.f,
-      "shorter element stride defaults later fields"
+    frame && frame->quads.size() == 1 && frame->quads[0].x == 5.f && frame->quads[0].a == 0.f,
+    "shorter element stride defaults later fields"
   );
 
   std::vector<std::byte> newer;
@@ -257,8 +256,8 @@ void versioning() {
   next.begin(0x7fff, 16);
   const auto ahead = decode(newer);
   expect(
-      ahead && ahead->quads.size() == 2 && ahead->quads[1].x == 7.f,
-      "longer stride and unknown types skipped"
+    ahead && ahead->quads.size() == 2 && ahead->quads[1].x == 7.f,
+    "longer stride and unknown types skipped"
   );
 
   std::vector<std::byte> required = encoded(small());

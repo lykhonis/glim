@@ -36,7 +36,7 @@ void put32(std::vector<std::uint8_t>& o, std::uint32_t v) {
 }
 
 void chunk(
-    std::vector<std::uint8_t>& o, const char type[4], const std::uint8_t* data, std::size_t n
+  std::vector<std::uint8_t>& o, const char type[4], const std::uint8_t* data, std::size_t n
 ) {
   put32(o, static_cast<std::uint32_t>(n));
   const std::size_t start = o.size();
@@ -62,15 +62,15 @@ bool Png::write(const char* path, const Image& image) {
   for (int y = 0; y < height; ++y) {
     raw[static_cast<std::size_t>(y * (width * 4 + 1))] = 0;
     std::memcpy(
-        &raw[static_cast<std::size_t>(y * (width * 4 + 1) + 1)],
-        rgba + y * width * 4,
-        static_cast<std::size_t>(width * 4)
+      &raw[static_cast<std::size_t>(y * (width * 4 + 1) + 1)],
+      rgba + y * width * 4,
+      static_cast<std::size_t>(width * 4)
     );
   }
   uLongf bound = compressBound(static_cast<uLong>(raw.size()));
   std::vector<std::uint8_t> defl(bound);
   if (compress2(
-          defl.data(), &bound, raw.data(), static_cast<uLong>(raw.size()), Z_BEST_COMPRESSION
+        defl.data(), &bound, raw.data(), static_cast<uLong>(raw.size()), Z_BEST_COMPRESSION
       ) != Z_OK) {
     return false;
   }
@@ -141,9 +141,9 @@ bool Png::read(const char* path, Image* out) {
       h = (png[i + 4] << 24) | (png[i + 5] << 16) | (png[i + 6] << 8) | png[i + 7];
     } else if (std::memcmp(type, "IDAT", 4) == 0) {
       idat.insert(
-          idat.end(),
-          png.begin() + static_cast<std::ptrdiff_t>(i),
-          png.begin() + static_cast<std::ptrdiff_t>(i + len)
+        idat.end(),
+        png.begin() + static_cast<std::ptrdiff_t>(i),
+        png.begin() + static_cast<std::ptrdiff_t>(i + len)
       );
     } else if (std::memcmp(type, "IEND", 4) == 0) {
       break;
@@ -165,9 +165,9 @@ bool Png::read(const char* path, Image* out) {
       return false;
     }
     std::memcpy(
-        image.rgba.data() + y * w * 4,
-        &raw[static_cast<std::size_t>(y * (w * 4 + 1) + 1)],
-        static_cast<std::size_t>(w * 4)
+      image.rgba.data() + y * w * 4,
+      &raw[static_cast<std::size_t>(y * (w * 4 + 1) + 1)],
+      static_cast<std::size_t>(w * 4)
     );
   }
   *out = std::move(image);

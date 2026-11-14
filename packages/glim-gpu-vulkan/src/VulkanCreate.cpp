@@ -48,11 +48,11 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   std::vector<const char*> instanceExts;
   if (!headless) {
     instanceExts = {
-        VK_KHR_SURFACE_EXTENSION_NAME,
+      VK_KHR_SURFACE_EXTENSION_NAME,
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
-        VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
+      VK_KHR_ANDROID_SURFACE_EXTENSION_NAME
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-        VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
+      VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
 #endif
     };
   }
@@ -182,7 +182,7 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   }
   if (best < 0) {
     return Result<Device>::fail(
-        headless ? "no GPU with graphics queue" : "no GPU with graphics + present + swapchain"
+      headless ? "no GPU with graphics queue" : "no GPU with graphics + present + swapchain"
     );
   }
   vkGetPhysicalDeviceProperties(d.physical, &d.props);
@@ -204,9 +204,9 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   }
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
   const char* ahbExts[] = {
-      VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
-      VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
-      VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME
+    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
+    VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME
   };
   d.haveAhb = true;
   for (const char* e : ahbExts) {
@@ -239,19 +239,19 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     return Result<Device>::fail("no suitable swapchain format");
   }
   d.rpClear = d.makeRenderPass(
-      VK_ATTACHMENT_LOAD_OP_CLEAR,
-      VK_ATTACHMENT_STORE_OP_STORE,
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    VK_ATTACHMENT_LOAD_OP_CLEAR,
+    VK_ATTACHMENT_STORE_OP_STORE,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
   );
   d.rpLoad = d.makeRenderPass(
-      VK_ATTACHMENT_LOAD_OP_LOAD,
-      VK_ATTACHMENT_STORE_OP_STORE,
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    VK_ATTACHMENT_LOAD_OP_LOAD,
+    VK_ATTACHMENT_STORE_OP_STORE,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
   );
   d.rpDontCare = d.makeRenderPass(
-      VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-      VK_ATTACHMENT_STORE_OP_STORE,
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    VK_ATTACHMENT_STORE_OP_STORE,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
   );
   if (!d.rpClear || !d.rpLoad || !d.rpDontCare) {
     return Result<Device>::fail("vkCreateRenderPass failed");
@@ -307,20 +307,20 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   }
 
   if (d.makeImage(
-          1,
-          1,
-          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-              VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-          d.dummyImage,
-          true
+        1,
+        1,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+          VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        d.dummyImage,
+        true
       ) != VK_SUCCESS) {
     return Result<Device>::fail("dummy image failed");
   }
   if (d.makeBuffer(
-          kRingBytes * kFrames,
-          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-          d.ring
+        kRingBytes * kFrames,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        d.ring
       ) != VK_SUCCESS ||
       !d.ring.mapped) {
     return Result<Device>::fail("upload ring buffer failed");
@@ -379,14 +379,14 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(d.frames[0].cmd, &begin);
   imageBarrier(
-      d.frames[0].cmd,
-      d.dummyImage.image,
-      VK_IMAGE_LAYOUT_UNDEFINED,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      0,
-      VK_ACCESS_SHADER_READ_BIT,
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+    d.frames[0].cmd,
+    d.dummyImage.image,
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    0,
+    VK_ACCESS_SHADER_READ_BIT,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
   );
   vkEndCommandBuffer(d.frames[0].cmd);
   VkSubmitInfo dummySubmit{};

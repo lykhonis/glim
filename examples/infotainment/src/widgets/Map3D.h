@@ -85,16 +85,16 @@ inline void ensureCityPlate(glim::paint::Context& ctx, Store& store) {
   }();
   Map3DFeed f = st.get();
   f.cityId = ctx.addImage(
-      static_cast<int>(kCityPlateW),
-      static_cast<int>(kCityPlateH),
-      rgba.data()
+    static_cast<int>(kCityPlateW),
+    static_cast<int>(kCityPlateH),
+    rgba.data()
   );
   f.cityOwner = &ctx;
   st.set(f);
 }
 
 inline void ensureMap3DFeed(
-    glim::paint::Context& ctx, Map3DFeed& feed, Map3DProvider* provider
+  glim::paint::Context& ctx, Map3DFeed& feed, Map3DProvider* provider
 ) {
   int w = 0, h = 0;
   void* native = provider ? provider->nativeTexture(&w, &h) : nullptr;
@@ -137,10 +137,10 @@ struct Map3D {
   // Backdrop: fills the window, design size only when unbounded.
   Box place(Constraints c, const Engine&) const {
     return {
-        0.f,
-        0.f,
-        isUnbounded(c.maxW) ? width : c.maxW,
-        isUnbounded(c.maxH) ? height : c.maxH
+      0.f,
+      0.f,
+      isUnbounded(c.maxW) ? width : c.maxW,
+      isUnbounded(c.maxH) ? height : c.maxH
     };
   }
   void record(const Box& box, Rec& rec) const {

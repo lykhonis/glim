@@ -32,9 +32,9 @@ void syncSlots() {
   std::vector<glim::paint::SlotPlacement> places;
   glim::paint::collectSlots(gContext->scene(), &places);
   std::sort(
-      places.begin(),
-      places.end(),
-      [](const auto& a, const auto& b) { return a.id < b.id; }
+    places.begin(),
+    places.end(),
+    [](const auto& a, const auto& b) { return a.id < b.id; }
   );
   std::vector<std::uint32_t> live;
   gWindow->forEachSlot([&](std::uint32_t id, glim::Rect) {
@@ -73,7 +73,7 @@ bool ensureDevice() {
     return false;
   }
   gDevice =
-      std::make_unique<glim::gpu::Device>(std::move(created.value()));
+    std::make_unique<glim::gpu::Device>(std::move(created.value()));
   gRenderer = std::make_unique<glim::paint::Renderer>(*gDevice);
   return true;
 }
@@ -86,12 +86,12 @@ void paintOnce() {
   gContext->setSize(size);
   gContext->beginFrame();
   recordGlass(
-      *gContext, size, gTime, gWindow->safeArea(), gReduceTransparency
+    *gContext, size, gTime, gWindow->safeArea(), gReduceTransparency
   );
   gContext->finish();
   const glim::Vec2 drawable = gWindow->drawableSize();
   gDevice->setDrawableSize(
-      static_cast<int>(drawable.x), static_cast<int>(drawable.y)
+    static_cast<int>(drawable.x), static_cast<int>(drawable.y)
   );
   gRenderer->draw(gContext->scene());
   syncSlots();
@@ -117,7 +117,7 @@ extern "C" void glimWebResize(int w, int h, float pixelRatio) {
 }
 
 extern "C" void glimWebFrame(
-    double timeSeconds, int reduceTransparency
+  double timeSeconds, int reduceTransparency
 ) {
   gTime = static_cast<float>(timeSeconds);
   gReduceTransparency = reduceTransparency != 0;

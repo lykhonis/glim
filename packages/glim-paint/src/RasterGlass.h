@@ -13,25 +13,25 @@ namespace glim::paint::raster {
 void maskFrostPlate(std::vector<Pixel>& plate, int iw, int ih, const PlateSpec& spec);
 
 PlateSpec glassPillsToField(
-    const LensPill* pills,
-    int n,
-    float mergeKPx,
-    float pr,
-    const Rect& surface,
-    const RasterOptions& options
+  const LensPill* pills,
+  int n,
+  float mergeKPx,
+  float pr,
+  const Rect& surface,
+  const RasterOptions& options
 );
 
 void sampleGlassPlate(
-    std::vector<Pixel>& plate,
-    int iw,
-    int ih,
-    const std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    Rect src,
-    const Lens& mat,
-    const PlateSpec& field,
-    const RasterOptions& options
+  std::vector<Pixel>& plate,
+  int iw,
+  int ih,
+  const std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  Rect src,
+  const Lens& mat,
+  const PlateSpec& field,
+  const RasterOptions& options
 );
 
 }  // namespace glim::paint::raster

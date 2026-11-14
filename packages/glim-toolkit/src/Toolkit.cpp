@@ -11,14 +11,14 @@ Box Engine::place(const Block& b, Constraints c) const {
 
 void Engine::record(const Block& b, const Box& box, Rec& r) const {
   walk(
-      b,
-      box,
-      *this,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        describeSelf(n, bx, r);
-        return true;
-      },
-      [](const Block&, const Box&, const Engine&) {}
+    b,
+    box,
+    *this,
+    [&](const Block& n, const Box& bx, const Engine&) -> bool {
+      describeSelf(n, bx, r);
+      return true;
+    },
+    [](const Block&, const Box&, const Engine&) {}
   );
 }
 

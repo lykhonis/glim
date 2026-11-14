@@ -13,7 +13,7 @@ namespace {
 Constraints childConstraints(Constraints c) { return {0, c.maxW, 0, c.maxH}; }
 
 Flow flowAxis(
-    const std::vector<Block>& children, int gap, Constraints c, const Engine& e, bool horizontal
+  const std::vector<Block>& children, int gap, Constraints c, const Engine& e, bool horizontal
 ) {
   Flow f;
   std::size_t nFlex = 0;

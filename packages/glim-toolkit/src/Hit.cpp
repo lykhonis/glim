@@ -43,7 +43,7 @@ bool ClipStack::visible(float x, float y) const {
 }  // namespace detail
 
 std::pair<BlockRef, Box> hitWithBox(
-    const Block& b, const Box& box, float x, float y, const Engine& e
+  const Block& b, const Box& box, float x, float y, const Engine& e
 ) {
   BlockRef found;
   Box foundBox{0, 0, 0, 0};
@@ -58,43 +58,43 @@ std::pair<BlockRef, Box> hitWithBox(
   detail::ClipStack clip;
   const auto visible = [&]() { return clip.visible(x, y); };
   walk(
-      b,
-      box,
-      e,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        clip.enter(n, bx);
-        if (claimsHit(n)) {
-          if (detail::boxContains(bx, x, y) && visible()) {
-            found = std::cref(n);
-            foundBox = bx;
-            detail::noteHit();
-            ++matches;
-            return false;
-          }
-          claims.push_back({std::cref(n), matches});
-          return true;
-        }
+    b,
+    box,
+    e,
+    [&](const Block& n, const Box& bx, const Engine&) -> bool {
+      clip.enter(n, bx);
+      if (claimsHit(n)) {
         if (detail::boxContains(bx, x, y) && visible()) {
-          if (hitParticipates(n)) {
-            found = std::cref(n);
-            foundBox = bx;
-            detail::noteHit();
-            ++matches;
-          }
+          found = std::cref(n);
+          foundBox = bx;
+          detail::noteHit();
+          ++matches;
+          return false;
         }
+        claims.push_back({std::cref(n), matches});
         return true;
-      },
-      [&](const Block& n, const Box& bx, const Engine&) {
-        clip.exit();
-        if (!claims.empty() && claims.back().node && &claims.back().node->get() == &n) {
-          if (matches > claims.back().entered && visible()) {
-            found = std::cref(n);
-            foundBox = bx;
-            detail::noteHit();
-          }
-          claims.pop_back();
+      }
+      if (detail::boxContains(bx, x, y) && visible()) {
+        if (hitParticipates(n)) {
+          found = std::cref(n);
+          foundBox = bx;
+          detail::noteHit();
+          ++matches;
         }
       }
+      return true;
+    },
+    [&](const Block& n, const Box& bx, const Engine&) {
+      clip.exit();
+      if (!claims.empty() && claims.back().node && &claims.back().node->get() == &n) {
+        if (matches > claims.back().entered && visible()) {
+          found = std::cref(n);
+          foundBox = bx;
+          detail::noteHit();
+        }
+        claims.pop_back();
+      }
+    }
   );
   return {found, foundBox};
 }
@@ -114,28 +114,28 @@ void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, i
   };
   int depth = indent;
   walk(
-      b,
-      box,
-      e,
-      [&](const Block& n, const Box& bx, const Engine&) -> bool {
-        const char* mark = n.has<ExpandTag>() ? "[expand]" : "";
-        Rec tmp;
-        describeSelf(n, bx, tmp);
-        if (tmp.entries.empty()) {
-          if (!walkHasChildren(n)) {
-            for (int i = 0; i < depth; ++i) os << "  ";
-            os << "Custom [" << bx.x << "," << bx.y << " " << bx.w << "x" << bx.h << "]";
-            if (mark[0] != '\0') os << " " << mark;
-            os << "\n";
-          }
-          ++depth;  // balanced with exit; pruned below
-          return false;
+    b,
+    box,
+    e,
+    [&](const Block& n, const Box& bx, const Engine&) -> bool {
+      const char* mark = n.has<ExpandTag>() ? "[expand]" : "";
+      Rec tmp;
+      describeSelf(n, bx, tmp);
+      if (tmp.entries.empty()) {
+        if (!walkHasChildren(n)) {
+          for (int i = 0; i < depth; ++i) os << "  ";
+          os << "Custom [" << bx.x << "," << bx.y << " " << bx.w << "x" << bx.h << "]";
+          if (mark[0] != '\0') os << " " << mark;
+          os << "\n";
         }
-        for (const auto& en : tmp.entries) print(en, mark, depth);
-        ++depth;
-        return walkHasChildren(n);
-      },
-      [&](const Block&, const Box&, const Engine&) { --depth; }
+        ++depth;  // balanced with exit; pruned below
+        return false;
+      }
+      for (const auto& en : tmp.entries) print(en, mark, depth);
+      ++depth;
+      return walkHasChildren(n);
+    },
+    [&](const Block&, const Box&, const Engine&) { --depth; }
   );
 }
 

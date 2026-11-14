@@ -171,7 +171,7 @@ int collectLensPills(const Group& g, std::span<LensPill> out) {
       collectFills(*child, out, n);
       if (n == before) {
         const bool childBounds =
-            child->params.bounds.size.x > 0.f && child->params.bounds.size.y > 0.f;
+          child->params.bounds.size.x > 0.f && child->params.bounds.size.y > 0.f;
         Rect b = childBounds ? child->params.bounds : contentBounds(*child);
         emitPill(out, n, b, plateRadius(child->params.clipRadius));
       }

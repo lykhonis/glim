@@ -103,11 +103,11 @@ struct Counter {
     auto c = count;
     using namespace glim::toolkit;
     return column(
-        gap(8),
-        lines("Count: " + std::to_string(*c)),
-        tap(
-            lines("Inc"), [c] { c = *c + 1; }, primary()
-        )
+      gap(8),
+      lines("Count: " + std::to_string(*c)),
+      tap(
+        lines("Inc"), [c] { c = *c + 1; }, primary()
+      )
     );
   }
 };

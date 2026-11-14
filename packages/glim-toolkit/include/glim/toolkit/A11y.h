@@ -31,7 +31,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
 
 // First node with id, or nullptr. Duplicate ids resolve pre-order.
 std::optional<std::reference_wrapper<const A11yNode>> a11yFind(
-    const std::vector<A11yNode>& nodes, const std::string& id
+  const std::vector<A11yNode>& nodes, const std::string& id
 );
 
 // Text lowering for goldens.

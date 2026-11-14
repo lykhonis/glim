@@ -9,11 +9,11 @@
 #include <cstdint>
 
 void recordGlass(
-    glim::paint::Context& context,
-    glim::Vec2 size,
-    float timeSeconds,
-    glim::Rect safeArea,
-    bool reduceTransparency
+  glim::paint::Context& context,
+  glim::Vec2 size,
+  float timeSeconds,
+  glim::Rect safeArea,
+  bool reduceTransparency
 ) {
   using glim::Radius;
   using glim::Rect;
@@ -41,7 +41,7 @@ void recordGlass(
   const float origin = -scroll;
   const int first = static_cast<int>(std::floor(-origin / stripe)) - 1;
   const int last =
-      static_cast<int>(std::ceil((win.size.x - origin) / stripe)) + 1;
+    static_cast<int>(std::ceil((win.size.x - origin) / stripe)) + 1;
   for (int i = first; i <= last; ++i) {
     const float x = origin + static_cast<float>(i) * stripe;
     const int k = ((i % 4) + 4) % 4;
@@ -77,23 +77,23 @@ void recordGlass(
   const float rowY2 = rowY + pillH + rowGap;
   const Rect clearR{{area.origin.x + pad, rowY}, {cellW, pillH}};
   const Rect frostedR{
-      {clearR.origin.x + cellW + gap, rowY}, {cellW, pillH}
+    {clearR.origin.x + cellW + gap, rowY}, {cellW, pillH}
   };
 
   // Merge pair shares the third cell; the animated gap stays inside it.
   const float circleS = pillH;
   const float rectW = circleS * 1.2f;
   const float mergeT =
-      0.5f - 0.5f * std::cos(t * 0.35f);  // t=0: pair overlaps, neck
+    0.5f - 0.5f * std::cos(t * 0.35f);  // t=0: pair overlaps, neck
   const float mergeGapMax = cellW - circleS - rectW;
   const float mergeGap =
-      -circleS * 0.1f + (mergeGapMax + circleS * 0.1f) * mergeT;
+    -circleS * 0.1f + (mergeGapMax + circleS * 0.1f) * mergeT;
   const float mergeInner = circleS + mergeGap + rectW;
   const float mergeX = frostedR.origin.x + cellW + gap +
                        std::max(0.f, (cellW - mergeInner) * 0.5f);
   const Rect circleR{{mergeX, rowY}, {circleS, circleS}};
   const Rect rectR{
-      {circleR.origin.x + circleS + mergeGap, rowY}, {rectW, circleS}
+    {circleR.origin.x + circleS + mergeGap, rowY}, {rectW, circleS}
   };
   const Rect mergeBox{{mergeX, rowY}, {mergeInner, circleS}};
 

@@ -14,7 +14,7 @@ double bestRecordMs(Record record) {
     const auto t0 = Clock::now();
     record();
     return std::chrono::duration<double, std::milli>(Clock::now() - t0)
-        .count();
+      .count();
   };
   for (int i = 0; i < 3; ++i) once();
   double best = once();

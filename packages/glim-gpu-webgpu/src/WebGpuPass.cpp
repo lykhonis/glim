@@ -81,10 +81,10 @@ void Pass::setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t w, std::ui
 }
 
 void Pass::draw(
-    std::uint32_t vertexCount,
-    std::uint32_t instanceCount,
-    std::uint32_t firstVertex,
-    std::uint32_t firstInstance
+  std::uint32_t vertexCount,
+  std::uint32_t instanceCount,
+  std::uint32_t firstVertex,
+  std::uint32_t firstInstance
 ) {
   if (!impl_ || !impl_->pass || !impl_->pipeline || !impl_->dev) {
     return;
@@ -104,12 +104,12 @@ void Pass::draw(
   for (int i = 0; i < kMaxFragmentTextures; ++i) {
     entries[kTextureBinding + i].binding = static_cast<std::uint32_t>(kTextureBinding + i);
     entries[kTextureBinding + i].textureView =
-        impl_->tex[i] != nullptr ? impl_->tex[i] : dev->dummyView;
+      impl_->tex[i] != nullptr ? impl_->tex[i] : dev->dummyView;
   }
   for (int i = 0; i < kMaxFragmentSamplers; ++i) {
     entries[kSamplerBinding + i].binding = static_cast<std::uint32_t>(kSamplerBinding + i);
     entries[kSamplerBinding + i].sampler =
-        impl_->samp[i] != nullptr ? impl_->samp[i] : dev->sampler;
+      impl_->samp[i] != nullptr ? impl_->samp[i] : dev->sampler;
   }
   WGPUBindGroupDescriptor bgd{};
   bgd.layout = dev->bindLayout;
@@ -160,7 +160,7 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
   color.loadOp = desc.load == LoadOp::Load ? WGPULoadOp_Load : WGPULoadOp_Clear;
   color.storeOp = WGPUStoreOp_Store;
   color.clearValue = {
-      desc.clear.rgba[0], desc.clear.rgba[1], desc.clear.rgba[2], desc.clear.rgba[3]
+    desc.clear.rgba[0], desc.clear.rgba[1], desc.clear.rgba[2], desc.clear.rgba[3]
   };
   WGPURenderPassDescriptor rpd{};
   rpd.colorAttachmentCount = 1;
@@ -170,7 +170,7 @@ Pass CommandEncoder::beginPass(const PassDesc& desc) {
   pass.impl_->pass = wgpuCommandEncoderBeginRenderPass(impl_->encoder, &rpd);
   if (desc.viewportW > 0 && desc.viewportH > 0) {
     pass.setViewport(
-        0, 0, static_cast<float>(desc.viewportW), static_cast<float>(desc.viewportH), 0, 1
+      0, 0, static_cast<float>(desc.viewportW), static_cast<float>(desc.viewportH), 0, 1
     );
   }
   return pass;

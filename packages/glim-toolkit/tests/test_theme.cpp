@@ -28,18 +28,19 @@ void test_theme() {
     {
       std::uint32_t seen = 0;
       Block t = themed(
-          themeColor(kTestAccent, 0x11111111),
-          themed(themeColor(kTestAccent, 0x22222222), toBlock(AccentProbe{&seen}))
+        themeColor(kTestAccent, 0x11111111),
+        themed(themeColor(kTestAccent, 0x22222222), toBlock(AccentProbe{&seen}))
       );
       place(t, {0, 720, 0, 480});
       assert(seen == 0x22222222);
     }
     {
       std::uint32_t sa = 0, sb = 0;
-      Block t =
-          row(gap(0),
-              themed(themeColor(kTestAccent, 0xaaaaaaaa), toBlock(AccentProbe{&sa})),
-              themed(themeColor(kTestAccent, 0xbbbbbbbb), toBlock(AccentProbe{&sb})));
+      Block t = row(
+        gap(0),
+        themed(themeColor(kTestAccent, 0xaaaaaaaa), toBlock(AccentProbe{&sa})),
+        themed(themeColor(kTestAccent, 0xbbbbbbbb), toBlock(AccentProbe{&sb}))
+      );
       place(t, {0, 720, 0, 480});
       assert(sa == 0xaaaaaaaa && sb == 0xbbbbbbbb);
     }

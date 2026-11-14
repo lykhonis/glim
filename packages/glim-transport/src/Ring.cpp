@@ -62,7 +62,7 @@ bool initRing(std::span<std::byte> region, std::uint32_t capacity) {
 }
 
 Io RingWriter::push(
-    std::span<std::byte> region, std::span<const std::byte> head, std::span<const std::byte> body
+  std::span<std::byte> region, std::span<const std::byte> head, std::span<const std::byte> body
 ) {
   const auto length = head.size() + body.size();
   if (!fits(region, capacity_) || length > maxRingEntry(capacity_)) {

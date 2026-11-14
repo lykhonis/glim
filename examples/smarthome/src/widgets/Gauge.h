@@ -25,7 +25,7 @@ struct Gauge : WithSemantic, WithA11y {
   static constexpr int kTicks = 25;
   static constexpr float kStep = 0.05f;  // key step
   static constexpr float kGrain =
-      0.01f;  // drag writes land on whole percents
+    0.01f;  // drag writes land on whole percents
   State<float> value = {"value", 0.0f};
   float shown = 0.0f;
   bool on = true;
@@ -35,9 +35,9 @@ struct Gauge : WithSemantic, WithA11y {
   };
   static Dial dial(const Box& box) {
     return {
-        box.x + box.w * 0.5f,
-        box.y + box.h - 2.0f,
-        std::min(box.w * 0.5f - 12.0f, box.h - 14.0f)
+      box.x + box.w * 0.5f,
+      box.y + box.h - 2.0f,
+      std::min(box.w * 0.5f - 12.0f, box.h - 14.0f)
     };
   }
   // Level under a point: the angle swept from the dial's left end,
@@ -45,42 +45,39 @@ struct Gauge : WithSemantic, WithA11y {
   static float levelAt(const Box& box, float x, float y) {
     const Dial d = dial(box);
     if (y >= d.cy) return x < d.cx ? 0.0f : 1.0f;
-    const float deg = std::atan2(y - d.cy, x - d.cx) * 180.0f /
-                      3.14159265f;  // -180..0
+    const float deg =
+      std::atan2(y - d.cy, x - d.cx) * 180.0f / 3.14159265f;  // -180..0
     return std::clamp(
-        std::round((deg + 180.0f) / 180.0f / kGrain) * kGrain,
-        0.0f,
-        1.0f
+      std::round((deg + 180.0f) / 180.0f / kGrain) * kGrain, 0.0f, 1.0f
     );
   }
 
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(
-        isUnbounded(c.maxW) ? 240.0f : c.maxW, kH, c
+      isUnbounded(c.maxW) ? 240.0f : c.maxW, kH, c
     );
   }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     const std::uint32_t ink = themeColor(e, kThemeInkOnLight);
     const std::uint32_t lit = withAlpha(
-        themeColor(e, kShowAccentTop, Show::kAccentTop),
-        on ? 1.0f : 0.35f
+      themeColor(e, kShowAccentTop, Show::kAccentTop), on ? 1.0f : 0.35f
     );
     const Dial d = dial(box);
     const float level = std::clamp(shown, 0.0f, 1.0f);
     constexpr float kDeg = 3.14159265f / 180.0f;
     for (int i = 0; i < kTicks; ++i) {
       const float t =
-          static_cast<float>(i) / static_cast<float>(kTicks - 1);
+        static_cast<float>(i) / static_cast<float>(kTicks - 1);
       const float a = (180.0f + 180.0f * t) * kDeg;
       const float xy[4] = {
-          d.cx + (d.r - 22.0f) * std::cos(a),
-          d.cy + (d.r - 22.0f) * std::sin(a),
-          d.cx + d.r * std::cos(a),
-          d.cy + d.r * std::sin(a),
+        d.cx + (d.r - 22.0f) * std::cos(a),
+        d.cy + (d.r - 22.0f) * std::sin(a),
+        d.cx + d.r * std::cos(a),
+        d.cy + d.r * std::sin(a),
       };
       sink.polyline(
-          xy, 2, 3.0f, 0.0f, t <= level ? lit : withAlpha(ink, 0.18f)
+        xy, 2, 3.0f, 0.0f, t <= level ? lit : withAlpha(ink, 0.18f)
       );
     }
     const float a = (180.0f + 180.0f * level) * kDeg;
@@ -92,9 +89,9 @@ struct Gauge : WithSemantic, WithA11y {
 
   A11yTraits a11yTraits() const {
     return {
-        .role = A11yRole::Slider,
-        .range = A11yRange{*value, 0.0f, 1.0f},
-        .actions = {A11yAction::Increment, A11yAction::Decrement}
+      .role = A11yRole::Slider,
+      .range = A11yRange{*value, 0.0f, 1.0f},
+      .actions = {A11yAction::Increment, A11yAction::Decrement},
     };
   }
   bool handleAt(const Box& box, const Event& ev) const {
@@ -117,7 +114,7 @@ struct Gauge : WithSemantic, WithA11y {
       const Key key = k->get().key;
       if (key != Key::Left && key != Key::Right) return false;
       value = std::clamp(
-          *value + (key == Key::Right ? kStep : -kStep), 0.0f, 1.0f
+        *value + (key == Key::Right ? kStep : -kStep), 0.0f, 1.0f
       );
       return true;
     }

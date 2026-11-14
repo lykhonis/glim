@@ -31,13 +31,13 @@ void writeFrame(const paint::FramePacket& packet, std::vector<std::byte>& out);
 // Validates framing, then decodes in one pass that reads each source byte
 // once and checks values on the copy; nullopt on any error.
 std::optional<paint::FramePacket> readFrame(
-    std::span<const std::byte> message, paint::ImageStore images
+  std::span<const std::byte> message, paint::ImageStore images
 );
 
 // Same, decoding into `out` and reusing its array capacity across frames.
 // On failure `out` holds no draws.
 bool readFrame(
-    std::span<const std::byte> message, paint::ImageStore images, paint::FramePacket& out
+  std::span<const std::byte> message, paint::ImageStore images, paint::FramePacket& out
 );
 
 }  // namespace glim::guest

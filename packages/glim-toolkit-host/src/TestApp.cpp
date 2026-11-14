@@ -114,23 +114,23 @@ TestApp::Snap TestApp::snapshotTimed(bool withRaster) {
 std::string TestApp::dumpStats(const Snap& s) {
   char b[256];
   std::snprintf(
-      b,
-      sizeof(b),
-      "build %.2fms record %.2fms encode %.2fms draws %u instances %u "
-      "tiles %u dirty %u reuse %u/%u glass %u backdrop %u rev %llu ops %zu",
-      static_cast<double>(s.buildMs),
-      static_cast<double>(s.recordMs),
-      static_cast<double>(s.encodeMs),
-      s.stats.draws,
-      s.stats.instances,
-      s.stats.tileCount,
-      s.stats.dirtyTiles,
-      s.stats.reuseHits,
-      s.stats.reuseMisses,
-      s.stats.glassPassCount,
-      s.stats.backdropCount,
-      static_cast<unsigned long long>(s.revision),
-      s.ops.size()
+    b,
+    sizeof(b),
+    "build %.2fms record %.2fms encode %.2fms draws %u instances %u "
+    "tiles %u dirty %u reuse %u/%u glass %u backdrop %u rev %llu ops %zu",
+    static_cast<double>(s.buildMs),
+    static_cast<double>(s.recordMs),
+    static_cast<double>(s.encodeMs),
+    s.stats.draws,
+    s.stats.instances,
+    s.stats.tileCount,
+    s.stats.dirtyTiles,
+    s.stats.reuseHits,
+    s.stats.reuseMisses,
+    s.stats.glassPassCount,
+    s.stats.backdropCount,
+    static_cast<unsigned long long>(s.revision),
+    s.ops.size()
   );
   return b;
 }
@@ -143,7 +143,7 @@ bool TestApp::writeOps(const std::string& path) {
   std::ofstream out(path, std::ios::binary);
   if (!out) return false;
   out.write(
-      reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())
+    reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())
   );
   return static_cast<bool>(out);
 }

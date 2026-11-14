@@ -20,8 +20,8 @@ template <class T, class = void>
 struct has_handle : std::false_type {};
 template <class T>
 struct has_handle<
-    T,
-    std::void_t<decltype(std::declval<const T&>().handle(std::declval<const Event&>()))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>().handle(std::declval<const Event&>()))>>
     : std::is_same<decltype(std::declval<const T&>().handle(std::declval<const Event&>())), bool> {
 };
 
@@ -30,21 +30,21 @@ template <class T, class = void>
 struct has_handle_at : std::false_type {};
 template <class T>
 struct has_handle_at<
-    T,
-    std::void_t<decltype(std::declval<const T&>()
-                             .handleAt(std::declval<const Box&>(), std::declval<const Event&>()))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>()
+                         .handleAt(std::declval<const Box&>(), std::declval<const Event&>()))>>
     : std::is_same<
-          decltype(std::declval<const T&>()
-                       .handleAt(std::declval<const Box&>(), std::declval<const Event&>())),
-          bool> {};
+        decltype(std::declval<const T&>()
+                   .handleAt(std::declval<const Box&>(), std::declval<const Event&>())),
+        bool> {};
 
 template <class T, class = void>
 struct has_record : std::false_type {};
 template <class T>
 struct has_record<
-    T,
-    std::void_t<decltype(std::declval<const T&>()
-                             .record(std::declval<const Box&>(), std::declval<Rec&>()))>>
+  T,
+  std::void_t<
+    decltype(std::declval<const T&>().record(std::declval<const Box&>(), std::declval<Rec&>()))>>
     : std::true_type {};
 
 // Opt-out: elements without record() are described by kind.
@@ -76,28 +76,28 @@ struct AnySink {
   void (*fillFn)(void*, const Box&, std::uint32_t, const std::string&) = nullptr;
   void (*fillRoundedFn)(void*, const Box&, int, std::uint32_t, const std::string&) = nullptr;
   void (*fillGradientFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
-      nullptr;
+    nullptr;
   void (*textFn)(void*, float, float, const std::string&, std::uint32_t, float, const std::string&) =
-      nullptr;
+    nullptr;
   void (*textStyledFn)(void*, float, float, const std::string&, std::uint32_t, float, float, float, const std::string&) =
-      nullptr;
+    nullptr;
   void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
   void (*pushGlassFn)(void*, const Box&, int, bool, std::uint8_t, std::uint32_t, std::uint8_t) =
-      nullptr;
+    nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*pushOpacityFn)(void*, float) = nullptr;
   void (*pushTransformFn)(void*, float, float) = nullptr;
   void (*pushRotateFn)(void*, float, float, float) = nullptr;
   void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
-      nullptr;
+    nullptr;
   void (*fillChamferFn)(void*, const Box&, float, std::uint32_t, const std::string&) = nullptr;
   void (*strokeChamferFn)(void*, const Box&, float, float, std::uint32_t, const std::string&) =
-      nullptr;
+    nullptr;
   void (*arcFn)(void*, float, float, float, float, float, float, std::uint32_t, const std::string&) =
-      nullptr;
+    nullptr;
   void (*polylineFn)(void*, const float*, std::size_t, float, float, std::uint32_t, const std::string&) =
-      nullptr;
+    nullptr;
   void (*pushShadowFn)(void*, float, float, float, std::uint32_t, float, float) = nullptr;
   void (*pushEffectFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, float) = nullptr;
   void (*popFn)(void*) = nullptr;
@@ -111,20 +111,12 @@ struct AnySink {
     fillRoundedFn(sink, b, radius, rgba, mark);
   }
   void fillGradient(
-      const Box& b,
-      int radius,
-      std::uint32_t top,
-      std::uint32_t bottom,
-      const std::string& mark = {}
+    const Box& b, int radius, std::uint32_t top, std::uint32_t bottom, const std::string& mark = {}
   ) {
     fillGradientFn(sink, b, radius, top, bottom, mark);
   }
   void fillRadial(
-      const Box& b,
-      int radius,
-      std::uint32_t center,
-      std::uint32_t edge,
-      const std::string& mark = {}
+    const Box& b, int radius, std::uint32_t center, std::uint32_t edge, const std::string& mark = {}
   ) {
     fillRadialFn(sink, b, radius, center, edge, mark);
   }
@@ -132,63 +124,63 @@ struct AnySink {
     fillChamferFn(sink, b, cut, rgba, mark);
   }
   void strokeChamfer(
-      const Box& b, float cut, float width, std::uint32_t rgba, const std::string& mark = {}
+    const Box& b, float cut, float width, std::uint32_t rgba, const std::string& mark = {}
   ) {
     strokeChamferFn(sink, b, cut, width, rgba, mark);
   }
   void arc(
-      float cx,
-      float cy,
-      float radius,
-      float thickness,
-      float startDeg,
-      float sweepDeg,
-      std::uint32_t rgba,
-      const std::string& mark = {}
+    float cx,
+    float cy,
+    float radius,
+    float thickness,
+    float startDeg,
+    float sweepDeg,
+    std::uint32_t rgba,
+    const std::string& mark = {}
   ) {
     arcFn(sink, cx, cy, radius, thickness, startDeg, sweepDeg, rgba, mark);
   }
   void polyline(
-      const float* xy,
-      std::size_t nPoints,
-      float width,
-      float dotPitch,
-      std::uint32_t rgba,
-      const std::string& mark = {}
+    const float* xy,
+    std::size_t nPoints,
+    float width,
+    float dotPitch,
+    std::uint32_t rgba,
+    const std::string& mark = {}
   ) {
     polylineFn(sink, xy, nPoints, width, dotPitch, rgba, mark);
   }
   // `opacity` fades the caster, not the shadow. 0 casts a plate that must
   // not paint (the visible card is a sibling glass group).
   void pushShadow(
-      float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
+    float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
   ) {
     pushShadowFn(sink, sigma, ox, oy, color, expand, opacity);
   }
   void pushEffect(
-      const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
   ) {
     pushEffectFn(sink, b, radius, kind, color, intensity);
   }
   void text(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      const std::string& mark = {}
+    float x,
+    float y,
+    const std::string& s,
+    std::uint32_t rgba,
+    float size,
+    const std::string& mark = {}
   ) {
     textFn(sink, x, y, s, rgba, size, mark);
   }
   void textStyled(
-      float x,
-      float y,
-      const std::string& s,
-      std::uint32_t rgba,
-      float size,
-      float condense,
-      float weight,
-      const std::string& mark = {}
+    float x,
+    float y,
+    const std::string& s,
+    std::uint32_t rgba,
+    float size,
+    float condense,
+    float weight,
+    const std::string& mark = {}
   ) {
     if (textStyledFn) {
       textStyledFn(sink, x, y, s, rgba, size, condense, weight, mark);
@@ -200,12 +192,12 @@ struct AnySink {
     imageFn(sink, b, id, foreign, mark);
   }
   void pushGlass(
-      const Box& b,
-      int radius,
-      bool clear,
-      std::uint8_t edge,
-      std::uint32_t tint,
-      std::uint8_t material = 0
+    const Box& b,
+    int radius,
+    bool clear,
+    std::uint8_t edge,
+    std::uint32_t tint,
+    std::uint8_t material = 0
   ) {
     pushGlassFn(sink, b, radius, clear, edge, tint, material);
   }
@@ -217,7 +209,7 @@ struct AnySink {
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
   void stroke(
-      const Box& b, int radius, float width, std::uint32_t rgba, const std::string& mark = {}
+    const Box& b, int radius, float width, std::uint32_t rgba, const std::string& mark = {}
   ) {
     strokeFn(sink, b, radius, width, rgba, mark);
   }
@@ -230,46 +222,51 @@ void bindOps(AnySink& a) {
   a.fillFn = [](void* s, const Box& b, std::uint32_t rgba, const std::string& mark) {
     static_cast<S*>(s)->fill(b, rgba, mark);
   };
-  a.fillRoundedFn = [](void* s, const Box& b, int radius, std::uint32_t rgba, const std::string& m
+  a.fillRoundedFn = [](
+                      void* s, const Box& b, int radius, std::uint32_t rgba, const std::string& m
                     ) { static_cast<S*>(s)->fillRounded(b, radius, rgba, m); };
-  a.fillGradientFn = [](void* s,
-                        const Box& b,
-                        int radius,
-                        std::uint32_t top,
-                        std::uint32_t bottom,
-                        const std::string& m) {
-    static_cast<S*>(s)->fillGradient(b, radius, top, bottom, m);
-  };
-  a.textFn = [](void* s,
-                float x,
-                float y,
-                const std::string& str,
-                std::uint32_t rgba,
-                float size,
-                const std::string& m) { static_cast<S*>(s)->text(x, y, str, rgba, size, m); };
-  a.textStyledFn = [](void* s,
-                      float x,
-                      float y,
-                      const std::string& str,
-                      std::uint32_t rgba,
-                      float size,
-                      float condense,
-                      float weight,
-                      const std::string& m) {
+  a.fillGradientFn = [](
+                       void* s,
+                       const Box& b,
+                       int radius,
+                       std::uint32_t top,
+                       std::uint32_t bottom,
+                       const std::string& m
+                     ) { static_cast<S*>(s)->fillGradient(b, radius, top, bottom, m); };
+  a.textFn = [](
+               void* s,
+               float x,
+               float y,
+               const std::string& str,
+               std::uint32_t rgba,
+               float size,
+               const std::string& m
+             ) { static_cast<S*>(s)->text(x, y, str, rgba, size, m); };
+  a.textStyledFn = [](
+                     void* s,
+                     float x,
+                     float y,
+                     const std::string& str,
+                     std::uint32_t rgba,
+                     float size,
+                     float condense,
+                     float weight,
+                     const std::string& m
+                   ) {
     static_cast<S*>(s)->textStyled(x, y, str, rgba, size, condense, weight, m);
   };
   a.imageFn = [](void* s, const Box& b, std::uint32_t id, bool foreign, const std::string& m) {
     static_cast<S*>(s)->image(b, id, foreign, m);
   };
-  a.pushGlassFn = [](void* s,
-                     const Box& b,
-                     int radius,
-                     bool clear,
-                     std::uint8_t edge,
-                     std::uint32_t tint,
-                     std::uint8_t material) {
-    static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material);
-  };
+  a.pushGlassFn = [](
+                    void* s,
+                    const Box& b,
+                    int radius,
+                    bool clear,
+                    std::uint8_t edge,
+                    std::uint32_t tint,
+                    std::uint8_t material
+                  ) { static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material); };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.pushOpacityFn = [](void* s, float opacity) { static_cast<S*>(s)->pushOpacity(opacity); };
@@ -279,53 +276,55 @@ void bindOps(AnySink& a) {
   a.pushRotateFn = [](void* s, float angleDeg, float cx, float cy) {
     static_cast<S*>(s)->pushRotate(angleDeg, cx, cy);
   };
-  a.fillRadialFn = [](void* s,
-                      const Box& b,
-                      int radius,
-                      std::uint32_t center,
-                      std::uint32_t edge,
-                      const std::string& m) {
-    static_cast<S*>(s)->fillRadial(b, radius, center, edge, m);
-  };
+  a.fillRadialFn = [](
+                     void* s,
+                     const Box& b,
+                     int radius,
+                     std::uint32_t center,
+                     std::uint32_t edge,
+                     const std::string& m
+                   ) { static_cast<S*>(s)->fillRadial(b, radius, center, edge, m); };
   a.fillChamferFn = [](void* s, const Box& b, float cut, std::uint32_t rgba, const std::string& m) {
     static_cast<S*>(s)->fillChamfer(b, cut, rgba, m);
   };
   a.strokeChamferFn =
-      [](void* s, const Box& b, float cut, float width, std::uint32_t rgba, const std::string& m) {
-        static_cast<S*>(s)->strokeChamfer(b, cut, width, rgba, m);
-      };
-  a.arcFn = [](void* s,
-               float cx,
-               float cy,
-               float radius,
-               float thickness,
-               float startDeg,
-               float sweepDeg,
-               std::uint32_t rgba,
-               const std::string& m) {
-    static_cast<S*>(s)->arc(cx, cy, radius, thickness, startDeg, sweepDeg, rgba, m);
-  };
-  a.polylineFn = [](void* s,
-                    const float* xy,
-                    std::size_t n,
-                    float width,
-                    float dotPitch,
-                    std::uint32_t rgba,
-                    const std::string& m) {
-    static_cast<S*>(s)->polyline(xy, n, width, dotPitch, rgba, m);
-  };
+    [](void* s, const Box& b, float cut, float width, std::uint32_t rgba, const std::string& m) {
+      static_cast<S*>(s)->strokeChamfer(b, cut, width, rgba, m);
+    };
+  a.arcFn = [](
+              void* s,
+              float cx,
+              float cy,
+              float radius,
+              float thickness,
+              float startDeg,
+              float sweepDeg,
+              std::uint32_t rgba,
+              const std::string& m
+            ) { static_cast<S*>(s)->arc(cx, cy, radius, thickness, startDeg, sweepDeg, rgba, m); };
+  a.polylineFn = [](
+                   void* s,
+                   const float* xy,
+                   std::size_t n,
+                   float width,
+                   float dotPitch,
+                   std::uint32_t rgba,
+                   const std::string& m
+                 ) { static_cast<S*>(s)->polyline(xy, n, width, dotPitch, rgba, m); };
   a.pushShadowFn =
-      [](void* s, float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity
-      ) { static_cast<S*>(s)->pushShadow(sigma, ox, oy, color, expand, opacity); };
+    [](void* s, float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity) {
+      static_cast<S*>(s)->pushShadow(sigma, ox, oy, color, expand, opacity);
+    };
   a.pushEffectFn =
-      [](void* s, const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-      ) { static_cast<S*>(s)->pushEffect(b, radius, kind, color, intensity); };
+    [](
+      void* s, const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
+    ) { static_cast<S*>(s)->pushEffect(b, radius, kind, color, intensity); };
   a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };
   a.slotFn = [](void* s, const Box& b, std::uint32_t id) { static_cast<S*>(s)->slot(b, id); };
   a.strokeFn =
-      [](void* s, const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
-        static_cast<S*>(s)->stroke(b, radius, width, rgba, m);
-      };
+    [](void* s, const Box& b, int radius, float width, std::uint32_t rgba, const std::string& m) {
+      static_cast<S*>(s)->stroke(b, radius, width, rgba, m);
+    };
 }
 
 template <class S, class F>
@@ -345,10 +344,10 @@ template <class T, class = void>
 struct has_paint : std::false_type {};
 template <class T>
 struct has_paint<
-    T,
-    std::void_t<decltype(std::declval<const T&>().paint(
-        std::declval<const Box&>(), std::declval<AnySink&>(), std::declval<const Engine&>()
-    ))>> : std::true_type {};
+  T,
+  std::void_t<decltype(std::declval<const T&>().paint(
+    std::declval<const Box&>(), std::declval<AnySink&>(), std::declval<const Engine&>()
+  ))>> : std::true_type {};
 
 template <class T>
 struct is_tagged : std::false_type {};
@@ -359,8 +358,8 @@ template <class T, class = void>
 struct has_attach : std::false_type {};
 template <class T>
 struct has_attach<
-    T,
-    std::void_t<decltype(std::declval<const T&>().attach(std::declval<const Engine&>()))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>().attach(std::declval<const Engine&>()))>>
     : std::true_type {};
 
 // Borrowed a11y id; tree must outlive the pointer.
@@ -388,9 +387,10 @@ struct has_a11y_traits<T, std::void_t<decltype(std::declval<const T&>().a11yTrai
     : std::is_same<decltype(std::declval<const T&>().a11yTraits()), A11yTraits> {};
 
 template <class T, class = void>
-struct provides_a11y : std::integral_constant<
-                           bool,
-                           has_a11y_traits<T>::value || std::is_base_of<WithA11y, T>::value> {};
+struct provides_a11y
+    : std::
+        integral_constant<bool, has_a11y_traits<T>::value || std::is_base_of<WithA11y, T>::value> {
+};
 template <class T>
 struct provides_a11y<T, std::enable_if_t<is_tagged<T>::value>>
     : provides_a11y<typename T::inner_type> {};
@@ -413,37 +413,37 @@ template <class T, class = void>
 struct has_eachChild : std::false_type {};
 template <class T>
 struct has_eachChild<
-    T,
-    std::void_t<decltype(std::declval<const T&>().eachChild(std::declval<void (*)(const Block&)>())
-    )>> : std::true_type {};
+  T,
+  std::void_t<decltype(std::declval<const T&>().eachChild(std::declval<void (*)(const Block&)>()))>>
+    : std::true_type {};
 
 template <class T, class = void>
 struct has_child_vector : std::false_type {};
 template <class T>
 struct has_child_vector<
-    T,
-    std::void_t<
-        decltype(std::declval<const T&>().children.begin()),
-        decltype(std::declval<const T&>().children.end())>> : std::true_type {};
+  T,
+  std::void_t<
+    decltype(std::declval<const T&>().children.begin()),
+    decltype(std::declval<const T&>().children.end())>> : std::true_type {};
 
 template <class T, class = void>
 struct has_childBox : std::false_type {};
 template <class T>
 struct has_childBox<
-    T,
-    std::void_t<decltype(std::declval<const T&>().childBox(
-        std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
-    ))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>().childBox(
+    std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
+  ))>>
     : std::is_same<
-          decltype(std::declval<const T&>().childBox(
-              std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
-          )),
-          Box> {};
+        decltype(std::declval<const T&>().childBox(
+          std::declval<std::size_t>(), std::declval<const Box&>(), std::declval<const Engine&>()
+        )),
+        Box> {};
 
 template <class T>
 struct has_children
     : std::bool_constant<
-          (has_eachChild<T>::value || has_child_vector<T>::value) && has_childBox<T>::value> {};
+        (has_eachChild<T>::value || has_child_vector<T>::value) && has_childBox<T>::value> {};
 
 template <class T, class F>
 void eachChildOf(const T& el, F&& f) {
@@ -459,8 +459,8 @@ template <class T, class = void>
 struct has_inner_box : std::false_type {};
 template <class T>
 struct has_inner_box<
-    T,
-    std::void_t<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>()))>>
+  T,
+  std::void_t<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>()))>>
     : std::is_same<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>())), Box> {};
 
 struct Custom {
@@ -497,17 +497,17 @@ struct Custom {
   Custom(T&& t) {
     using U = std::decay_t<T>;
     static_assert(
-        std::is_same<
-            decltype(std::declval<const U&>()
-                         .place(std::declval<Constraints>(), std::declval<const Engine&>())),
-            Box>::value,
-        "custom element must provide 'Box place(Constraints, const Engine&) const' "
-        "(see elements/Row.h)"
+      std::is_same<
+        decltype(std::declval<const U&>()
+                   .place(std::declval<Constraints>(), std::declval<const Engine&>())),
+        Box>::value,
+      "custom element must provide 'Box place(Constraints, const Engine&) const' "
+      "(see elements/Row.h)"
     );
     static_assert(
-        has_record<U>::value || has_kind<U>::value,
-        "custom element must provide 'void record(const Box&, Rec&) const' "
-        "or 'const char* kind() const' (see elements/Row.h)"
+      has_record<U>::value || has_kind<U>::value,
+      "custom element must provide 'void record(const Box&, Rec&) const' "
+      "or 'const char* kind() const' (see elements/Row.h)"
     );
     vt = vtableFor<U>();
     if constexpr (sizeof(U) <= kCapacity) {
@@ -754,7 +754,7 @@ struct Custom {
 
   template <class U>
   static std::optional<std::reference_wrapper<const std::string>> (*semanticFor())(
-      const void*, bool
+    const void*, bool
   ) {
     return [](const void* s, bool heap) {
       return elementSemanticPtr(*static_cast<const U*>(addr<U>(s, heap)));
@@ -786,59 +786,59 @@ struct Custom {
   template <class U>
   static const VTable* vtableFor() {
     static const VTable v{
-        []() -> const std::type_info& { return typeid(U); },
-        [](const void* s, bool heap, Constraints c, const Engine& e) -> Box {
-          const U* u = static_cast<const U*>(addr<U>(s, heap));
-          if constexpr (has_attach<U>::value) u->attach(e);
-          return u->place(c, e);
-        },
-        [](const void* s, bool heap, const Box& b, Rec& r) {
-          const U* u = static_cast<const U*>(addr<U>(s, heap));
-          if constexpr (has_record<U>::value) {
-            u->record(b, r);
-          } else {
-            r.push(u->kind(), b);
-          }
-        },
-        handleFor<U>(),
-        handleAtFor<U>(),
-        paintFor<U>(),
-        clipsFor<U>(),
-        semanticFor<U>(),
-        a11yFor<U>(),
-        themeScopeFor<U>(),
-        childCountFn<U>(),
-        childAtFn<U>(),
-        childBoxFn<U>(),
-        [](void* s, bool heap) {
-          if (heap) {
-            delete *static_cast<U**>(s);
-          } else {
-            static_cast<U*>(s)->~U();
-          }
-        },
-        [](void* d, void* s, bool& dheap, bool& sheap) {
-          if (sheap) {
-            *static_cast<U**>(d) = *static_cast<U**>(s);
-            dheap = true;
-            sheap = false;
-          } else {
-            new (d) U(std::move(*static_cast<U*>(s)));
-            static_cast<U*>(s)->~U();
-            dheap = false;
-          }
-        },
-        [](const void* s, bool heap, void* d, bool& dheap) {
-          if (heap) {
-            *static_cast<U**>(d) = new U(*static_cast<const U*>(*static_cast<U* const*>(s)));
-            dheap = true;
-          } else {
-            new (d) U(*static_cast<const U*>(s));
-            dheap = false;
-          }
-        },
-        hasTagFor<U>(),
-        tagPtrFor<U>()
+      []() -> const std::type_info& { return typeid(U); },
+      [](const void* s, bool heap, Constraints c, const Engine& e) -> Box {
+        const U* u = static_cast<const U*>(addr<U>(s, heap));
+        if constexpr (has_attach<U>::value) u->attach(e);
+        return u->place(c, e);
+      },
+      [](const void* s, bool heap, const Box& b, Rec& r) {
+        const U* u = static_cast<const U*>(addr<U>(s, heap));
+        if constexpr (has_record<U>::value) {
+          u->record(b, r);
+        } else {
+          r.push(u->kind(), b);
+        }
+      },
+      handleFor<U>(),
+      handleAtFor<U>(),
+      paintFor<U>(),
+      clipsFor<U>(),
+      semanticFor<U>(),
+      a11yFor<U>(),
+      themeScopeFor<U>(),
+      childCountFn<U>(),
+      childAtFn<U>(),
+      childBoxFn<U>(),
+      [](void* s, bool heap) {
+        if (heap) {
+          delete *static_cast<U**>(s);
+        } else {
+          static_cast<U*>(s)->~U();
+        }
+      },
+      [](void* d, void* s, bool& dheap, bool& sheap) {
+        if (sheap) {
+          *static_cast<U**>(d) = *static_cast<U**>(s);
+          dheap = true;
+          sheap = false;
+        } else {
+          new (d) U(std::move(*static_cast<U*>(s)));
+          static_cast<U*>(s)->~U();
+          dheap = false;
+        }
+      },
+      [](const void* s, bool heap, void* d, bool& dheap) {
+        if (heap) {
+          *static_cast<U**>(d) = new U(*static_cast<const U*>(*static_cast<U* const*>(s)));
+          dheap = true;
+        } else {
+          new (d) U(*static_cast<const U*>(s));
+          dheap = false;
+        }
+      },
+      hasTagFor<U>(),
+      tagPtrFor<U>()
     };
     return &v;
   }

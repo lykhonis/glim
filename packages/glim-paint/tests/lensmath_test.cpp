@@ -67,8 +67,8 @@ int main() {
   expect(hairWeight(-5.f, 1.2f, 1.8f) == 0.f, "hair far inside");
   expect(near(hairWeight(0.3f, 1.2f, 1.8f), 0.03125f), "hair tabulated mid");
   expect(
-      near(hairWeight(1.2f + 0.45f, 1.2f, 1.8f), hairWeight(1.2f - 0.45f, 1.2f, 1.8f), 1e-6f),
-      "hair symmetric"
+    near(hairWeight(1.2f + 0.45f, 1.2f, 1.8f), hairWeight(1.2f - 0.45f, 1.2f, 1.8f), 1e-6f),
+    "hair symmetric"
   );
 
   // domeTilt: 1 at the rim, linear to 0 at the radius, clamped beyond.
@@ -155,16 +155,16 @@ int main() {
           expect(std::fabs(sw.curv) <= 1.02f, "swellAt curvature bound");
           const Swell loop = swellAt(u, v, ph + kTau);
           expect(
-              near(sw.sx, loop.sx, 1e-4f) && near(sw.sy, loop.sy, 1e-4f) &&
-                  near(sw.curv, loop.curv, 1e-4f),
-              "swellAt loops every 2*pi"
+            near(sw.sx, loop.sx, 1e-4f) && near(sw.sy, loop.sy, 1e-4f) &&
+              near(sw.curv, loop.curv, 1e-4f),
+            "swellAt loops every 2*pi"
           );
         }
       }
     }
     expect(
-        !near(swellAt(0.3f, 0.2f, 0.f).sx, swellAt(0.3f, 0.2f, 1.f).sx, 1e-2f),
-        "swellAt drifts with phase"
+      !near(swellAt(0.3f, 0.2f, 0.f).sx, swellAt(0.3f, 0.2f, 1.f).sx, 1e-2f),
+      "swellAt drifts with phase"
     );
   }
 
@@ -174,8 +174,8 @@ int main() {
     const double tt = t * t;
     const float want = static_cast<float>(0.04 + 0.96 * tt * tt * t);
     expect(
-        near(fresnelSchlick(0.04f, static_cast<float>(1.0 - t)), want, 1e-6f),
-        "fresnel matches double recomputation"
+      near(fresnelSchlick(0.04f, static_cast<float>(1.0 - t)), want, 1e-6f),
+      "fresnel matches double recomputation"
     );
   }
 

@@ -34,13 +34,13 @@ PlateSpec specFromIsolate(const Isolate& iso, float pr);
 void blurCheap(std::vector<Pixel>& img, int w, int h, float sigma);
 
 void copyDestPlate(
-    std::vector<Pixel>& plate,
-    int iw,
-    int ih,
-    const std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    Rect src
+  std::vector<Pixel>& plate,
+  int iw,
+  int ih,
+  const std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  Rect src
 );
 
 }  // namespace glim::paint::raster

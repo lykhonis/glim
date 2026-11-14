@@ -65,7 +65,7 @@ void fillQuad(std::vector<Pixel>& buf, int w, int h, const Quad& q, Blend fallba
 }
 
 void fillQuads(
-    std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& quads, Blend fallback
+  std::vector<Pixel>& buf, int w, int h, const std::vector<Quad>& quads, Blend fallback
 ) {
   for (const Quad& q : quads) {
     fillQuad(buf, w, h, q, fallback);
@@ -80,7 +80,7 @@ inline Blend gradientBlend(const GradientQuad& q, Blend fallback) {
 }
 
 void fillGradientQuad(
-    std::vector<Pixel>& buf, int w, int h, const GradientQuad& q, Blend fallback = Blend::SrcOver
+  std::vector<Pixel>& buf, int w, int h, const GradientQuad& q, Blend fallback = Blend::SrcOver
 ) {
   const int n = static_cast<int>(q.stopCount);
   if (n <= 0 || w <= 0 || h <= 0) {
@@ -153,7 +153,7 @@ void fillGradientQuad(
 }  // namespace
 
 void fillGradients(
-    std::vector<Pixel>& buf, int w, int h, const std::vector<GradientQuad>& grads, Blend fallback
+  std::vector<Pixel>& buf, int w, int h, const std::vector<GradientQuad>& grads, Blend fallback
 ) {
   for (const GradientQuad& q : grads) {
     fillGradientQuad(buf, w, h, q, fallback);
@@ -175,14 +175,14 @@ float clipCoverageAt(const ClipState& clip, float px, float py) {
 }  // namespace
 
 void blitBuffer(
-    std::vector<Pixel>& dest,
-    int dw,
-    int dh,
-    const std::vector<Pixel>& src,
-    int sw,
-    int sh,
-    Rect dstRect,
-    float opacity
+  std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  const std::vector<Pixel>& src,
+  int sw,
+  int sh,
+  Rect dstRect,
+  float opacity
 ) {
   const int x0 = std::max(0, static_cast<int>(std::floor(dstRect.origin.x)));
   const int y0 = std::max(0, static_cast<int>(std::floor(dstRect.origin.y)));
@@ -211,11 +211,11 @@ void blitBuffer(
     }
     const float py = sh <= 1 ? 0.5f
                              : (static_cast<float>(y) + 0.5f - dstRect.origin.y) / dstRect.size.y *
-                                   static_cast<float>(sh);
+                                 static_cast<float>(sh);
     for (int x = x0; x < x1; ++x) {
       const float px = sw <= 1 ? 0.5f
                                : (static_cast<float>(x) + 0.5f - dstRect.origin.x) /
-                                     dstRect.size.x * static_cast<float>(sw);
+                                   dstRect.size.x * static_cast<float>(sw);
       Pixel p = samplePixel(src, sw, sh, px, py);
       p.r *= opacity;
       p.g *= opacity;
@@ -255,15 +255,15 @@ float sampleChannel(const StoredImage& img, float u, float v, int channel) {
 }  // namespace
 
 void blitImage(
-    std::vector<Pixel>& dest,
-    int w,
-    int h,
-    const Blit& b,
-    const ImageStore& images,
-    Vec4 tint,
-    const ClipState& clip,
-    bool sdf,
-    Blend blend
+  std::vector<Pixel>& dest,
+  int w,
+  int h,
+  const Blit& b,
+  const ImageStore& images,
+  Vec4 tint,
+  const ClipState& clip,
+  bool sdf,
+  Blend blend
 ) {
   auto img = images.get(b.matter.imageId);
   if (!img || img->get().rgba.empty()) {
@@ -281,12 +281,12 @@ void blitImage(
   const float iw = static_cast<float>(im.width);
   const float texelsPerPx = b.rect.size.x > 1e-6f ? (std::fabs(du) * iw) / b.rect.size.x : 1.f;
   const float aa = std::max(
-      0.03f,
-      0.6f * texelsPerPx * (static_cast<float>(kSdfOnEdge) / 255.f) / static_cast<float>(kSdfPad)
+    0.03f,
+    0.6f * texelsPerPx * (static_cast<float>(kSdfOnEdge) / 255.f) / static_cast<float>(kSdfPad)
   );
   for (int y = y0; y < y1; ++y) {
     const float fy =
-        b.rect.size.y <= 0 ? 0.f : (static_cast<float>(y) + 0.5f - b.rect.origin.y) / b.rect.size.y;
+      b.rect.size.y <= 0 ? 0.f : (static_cast<float>(y) + 0.5f - b.rect.origin.y) / b.rect.size.y;
     const float v = v0 + fy * dv;
     const float cy = static_cast<float>(y) + 0.5f;
     if (cy < b.rect.origin.y || cy >= b.rect.origin.y + b.rect.size.y) {
@@ -297,9 +297,8 @@ void blitImage(
       if (cx < b.rect.origin.x || cx >= b.rect.origin.x + b.rect.size.x) {
         continue;
       }
-      const float fx = b.rect.size.x <= 0
-                           ? 0.f
-                           : (static_cast<float>(x) + 0.5f - b.rect.origin.x) / b.rect.size.x;
+      const float fx =
+        b.rect.size.x <= 0 ? 0.f : (static_cast<float>(x) + 0.5f - b.rect.origin.x) / b.rect.size.x;
       const float u = u0 + fx * du;
       Pixel src;
       if (sdf) {
@@ -320,7 +319,7 @@ void blitImage(
         src.a *= tint.w;
       }
       const float cov =
-          clipCoverageAt(clip, static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f);
+        clipCoverageAt(clip, static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f);
       if (cov <= 0.f) {
         continue;
       }

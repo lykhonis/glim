@@ -39,12 +39,12 @@ struct FxCard {
   }
   void
   paint(const glim::toolkit::Box& b, glim::toolkit::AnySink& sink, const glim::toolkit::Engine&)
-      const {
+    const {
     sink.pushShadow(6.f, 8.f, 8.f, 0x000000ffu, 0.f, 0.f);
     sink.fillRounded(b, 4, 0xff0000ffu);
     sink.pop();
     sink.pushEffect(
-        b, 10, static_cast<std::uint32_t>(glim::toolkit::EffectKind::Glow), 0x00ff00ffu, 1.f
+      b, 10, static_cast<std::uint32_t>(glim::toolkit::EffectKind::Glow), 0x00ff00ffu, 1.f
     );
     sink.pop();
   }
@@ -53,13 +53,13 @@ struct FxCard {
 glim::toolkit::Block fxScene() {
   using namespace glim::toolkit;
   return column(
-      gap(0),
-      pad(40),
-      column(
-          shadow({.sigma = 6.f, .offsetY = 0.f, .color = 0x000000ffu, .opacity = 0.5f}),
-          effectGlow({.radius = 4, .color = 0x0000ffffu}),
-          finish(FxCard{})
-      )
+    gap(0),
+    pad(40),
+    column(
+      shadow({.sigma = 6.f, .offsetY = 0.f, .color = 0x000000ffu, .opacity = 0.5f}),
+      effectGlow({.radius = 4, .color = 0x0000ffffu}),
+      finish(FxCard{})
+    )
   );
 }
 
@@ -107,7 +107,7 @@ int main() {
     rec.text(1.0f, 2.0f, "hi", 0xffffffff, 14.0f, "m3");
     rec.image({0, 0, 10, 10}, 9, true);
     rec.pushGlass(
-        {0, 0, 10, 10}, 12, true, static_cast<std::uint8_t>(glim::toolkit::GlassEdge::Full), 0
+      {0, 0, 10, 10}, 12, true, static_cast<std::uint8_t>(glim::toolkit::GlassEdge::Full), 0
     );
     rec.pushClip({0, 0, 10, 10});
     rec.pop();
@@ -227,10 +227,10 @@ int main() {
     }
     // Tag shadow, tag effect, then the card's own shadow and glow inside them.
     assert(
-        (pushes ==
-         std::vector<Op::Kind>{
-             Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushShadow, Op::Kind::PushEffect
-         })
+      (pushes ==
+       std::vector<Op::Kind>{
+         Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushShadow, Op::Kind::PushEffect
+       })
     );
     assert((casters == std::vector<float>{0.5f, 0.f}));
     assert(maxDepth == 3 && depth == 0);
@@ -281,14 +281,14 @@ int main() {
     const glim::paint::Lens def = painted(0, 0);
     assert(def.material == glim::paint::LensMaterial::Glass);
     const glim::paint::Lens metal =
-        painted(static_cast<std::uint8_t>(GlassMaterial::LiquidMetal), 0xd8a84eff);
+      painted(static_cast<std::uint8_t>(GlassMaterial::LiquidMetal), 0xd8a84eff);
     assert(metal.material == glim::paint::LensMaterial::LiquidMetal);
     assert(metal.transmit == 0.f && metal.tint.rgba == 0xd8a84eff);
     const glim::paint::Lens water = painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0);
     assert(water.material == glim::paint::LensMaterial::Water);
     assert(water.transmit == 1.f);
     const glim::paint::Lens teal =
-        painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0x2a9d8fff);
+      painted(static_cast<std::uint8_t>(GlassMaterial::Water), 0x2a9d8fff);
     assert(teal.tint.rgba == 0x2a9d8fff);
   }
 
@@ -312,7 +312,7 @@ int main() {
     };
     std::uint32_t seen = 0;
     auto tree = themed(
-        themeColor(kTestCard, 0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{seen}}}
+      themeColor(kTestCard, 0x123456ff), glim::toolkit::Block{glim::toolkit::Custom{Probe{seen}}}
     );
     glim::toolkit::place(tree, {0, 720, 0, 480});
     assert(seen == 0x123456ff);
@@ -326,7 +326,7 @@ int main() {
     app.h = 32;
     app.build = [](const glim::toolkit::Engine&) { return glim::toolkit::lines("Probe"); };
     const std::string dir =
-        (std::filesystem::temp_directory_path() / "glim-host-test-probe").string();
+      (std::filesystem::temp_directory_path() / "glim-host-test-probe").string();
     std::ostringstream out;
     host::Probe probe(app, out);
     assert(probe.exec("out " + dir));
@@ -416,19 +416,19 @@ int main() {
       return host::parseE2e(static_cast<int>(argv.size()), argv.data());
     };
     const host::E2eFlags f = flagsOf(
-        {"--e2e=step:0.1;~Driver",
-         "--soak",
-         "3",
-         "--trace-frames=4",
-         "--trace-out",
-         (dir / "trace.csv").string(),
-         "--trace-json=" + (dir / "trace.json").string(),
-         "--snapshot",
-         (dir / "snap.png").string(),
-         "--dump-ops",
-         (dir / "ops.bin").string(),
-         "--drive=d.drive",
-         "--drive-trace=d.json"}
+      {"--e2e=step:0.1;~Driver",
+       "--soak",
+       "3",
+       "--trace-frames=4",
+       "--trace-out",
+       (dir / "trace.csv").string(),
+       "--trace-json=" + (dir / "trace.json").string(),
+       "--snapshot",
+       (dir / "snap.png").string(),
+       "--dump-ops",
+       (dir / "ops.bin").string(),
+       "--drive=d.drive",
+       "--drive-trace=d.json"}
     );
     assert(f.any() && f.soak == 3 && f.traceFrames == 4);
     assert(f.drive == "d.drive" && f.driveTrace == "d.json");
@@ -476,11 +476,11 @@ int main() {
     namespace host = glim::toolkit::host;
     using glim::shell::EventType;
     const host::DriveScript s = host::parseDriveScript(
-        "# warm up\n"
-        "wait 1\n"
-        "click 10 20 2 0.2   # two taps\n"
-        "drag 0 0 100 50 0.5 10\n"
-        "key right\n"
+      "# warm up\n"
+      "wait 1\n"
+      "click 10 20 2 0.2   # two taps\n"
+      "drag 0 0 100 50 0.5 10\n"
+      "key right\n"
     );
     assert(s.error.empty());
     // 2 clicks (down+up) + drag (down, 5 moves, up) + key.
@@ -494,7 +494,7 @@ int main() {
     assert(std::fabs(dragEnd.at - 1.9f) < 1e-5f);
     assert(s.steps[9].event.type() == EventType::PointerMove && s.steps[9].event.y() == 50.0f);
     assert(
-        s.steps[11].event.type() == EventType::KeyDown && s.steps[11].event.key() == Key::DpadRight
+      s.steps[11].event.type() == EventType::KeyDown && s.steps[11].event.key() == Key::DpadRight
     );
     for (std::size_t i = 1; i < s.steps.size(); ++i) assert(s.steps[i].at >= s.steps[i - 1].at);
     assert(!host::parseDriveScript("click 1\n").error.empty());
@@ -562,11 +562,11 @@ int main() {
     r.markAt("presented", 40.0);
     assert(r.totalMs() == 40.0);
     assert(
-        r.summary() ==
-        "startup launch           10.0\n"
-        "startup record           25.5\n"
-        "startup presented         4.5\n"
-        "startup total            40.0\n"
+      r.summary() ==
+      "startup launch           10.0\n"
+      "startup record           25.5\n"
+      "startup presented         4.5\n"
+      "startup total            40.0\n"
     );
     assert(host::processUptimeMs() > 0.0);
 
@@ -614,7 +614,7 @@ int main() {
   {
     namespace host = glim::toolkit::host;
     const std::string path =
-        (std::filesystem::temp_directory_path() / "glim-host-test.crash").string();
+      (std::filesystem::temp_directory_path() / "glim-host-test.crash").string();
     std::filesystem::remove(path);
     assert(!host::takeCrashReport(path));
 

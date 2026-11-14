@@ -29,4 +29,8 @@ FactoryReport checkFactories(std::string_view file, std::string_view src);
 // as a `FooTag{...}` literal or a default `FooTag x;` filled by hand.
 std::vector<Finding> checkTagLiterals(std::string_view file, std::string_view src);
 
+// Layout rule: a designated initializer `{.a = ...}` spanning lines
+// ends in a trailing comma so clang-format lays it out as a block.
+std::vector<Finding> checkTrailingCommas(std::string_view file, std::string_view src);
+
 }  // namespace glimlint

@@ -69,10 +69,10 @@ Engine engineFor(Store& store) {
 }
 
 std::string dumpOf(
-    Store& store,
-    float w,
-    float h,
-    const glim::home::SensorLog& log = glim::home::demoLog()
+  Store& store,
+  float w,
+  float h,
+  const glim::home::SensorLog& log = glim::home::demoLog()
 ) {
   Engine e = engineFor(store);
   Block tree = smartHomeTree(rootScope(e), log);
@@ -94,15 +94,15 @@ std::size_t cardColumns(float width) {
   Box box = e.place(tree, {0, width, 0, 760});
   std::set<int> xs;
   walk(
-      tree,
-      box,
-      e,
-      [&](const Block& n, const Box& b, const Engine&) {
-        if (auto c = n.get<Custom>())
-          if (c->get().as<Pane>()) xs.insert(static_cast<int>(b.x));
-        return true;
-      },
-      [](const Block&, const Box&, const Engine&) {}
+    tree,
+    box,
+    e,
+    [&](const Block& n, const Box& b, const Engine&) {
+      if (auto c = n.get<Custom>())
+        if (c->get().as<Pane>()) xs.insert(static_cast<int>(b.x));
+      return true;
+    },
+    [](const Block&, const Box&, const Engine&) {}
   );
   return xs.size();
 }
@@ -121,12 +121,12 @@ glim::image::Image paintSmartHome(Store& app, int height) {
 
 bool press(const Block& tree, const Box& box, Box at, const Engine& e) {
   return dispatchPointer(
-      tree,
-      box,
-      at.x + 1,
-      at.y + 1,
-      Event::borrow(PointerDown{at.x + 1, at.y + 1}),
-      e
+    tree,
+    box,
+    at.x + 1,
+    at.y + 1,
+    Event::borrow(PointerDown{at.x + 1, at.y + 1}),
+    e
   );
 }
 
@@ -138,21 +138,21 @@ int main(int argc, char** argv) {
   if (argc > 2 && std::string(argv[1]) == "--golden") {
     Store app;
     return glim::image::matchCpuGolden(
-               paintSmartHome(app, 760), argv[2], argv[0], "smarthome"
+             paintSmartHome(app, 760), argv[2], argv[0], "smarthome"
            )
-               ? EXIT_SUCCESS
-               : EXIT_FAILURE;
+             ? EXIT_SUCCESS
+             : EXIT_FAILURE;
   }
   // Headless eyeball: --paint out.png [live] [light] [height] renders
   // the full scene through the software rasterizer, no window needed.
   if (argc > 2 && std::string(argv[1]) == "--paint") {
     const int paintH =
-        argc > 5 ? std::max(200, std::atoi(argv[5])) : 760;
+      argc > 5 ? std::max(200, std::atoi(argv[5])) : 760;
     Store app;
     if (argc > 3) app.state("live", true) = (std::atoi(argv[3]) != 0);
     if (argc > 4) app.state("theme", true) = (std::atoi(argv[4]) != 0);
     if (!glim::image::Png::write(
-            argv[2], paintSmartHome(app, paintH)
+          argv[2], paintSmartHome(app, paintH)
         )) {
       std::cerr << "could not write " << argv[2] << '\n';
       return EXIT_FAILURE;
@@ -193,12 +193,12 @@ int main(int argc, char** argv) {
   {
     using namespace glim::home;
     assert(
-        band(0.2f) == "Low" && band(0.5f) == "Medium" &&
-        band(0.9f) == "High"
+      band(0.2f) == "Low" && band(0.5f) == "Medium" &&
+      band(0.9f) == "High"
     );
     assert(
-        feedStatus(true) == "All devices online" &&
-        feedStatus(false) == "Updates paused"
+      feedStatus(true) == "All devices online" &&
+      feedStatus(false) == "Updates paused"
     );
     // Steady 16 ms frames with 3 ms of work for two seconds: a
     // half-loaded, 62.5 fps, noise-free house.
@@ -209,34 +209,32 @@ int main(int argc, char** argv) {
     const Readings r = readings(log);
     assert(r.energy == 0.5f && percentText(r.energy) == "50%");
     assert(
-        std::fabs(r.fps - 62.5f) < 1e-3f &&
-        kwhText(r.solarKwh) == "12.5"
+      std::fabs(r.fps - 62.5f) < 1e-3f && kwhText(r.solarKwh) == "12.5"
     );
     assert(
-        r.indoorC == 22.5f && temperatureText(r.indoorC) == "22.5 C"
+      r.indoorC == 22.5f && temperatureText(r.indoorC) == "22.5 C"
     );
     assert(
-        r.wifiBars == 4 && wifiStatus(r, true) == "Excellent signal"
+      r.wifiBars == 4 && wifiStatus(r, true) == "Excellent signal"
     );
     assert(
-        signalBars(r, false) == 0 &&
-        wifiStatus(r, false) == "Disconnected"
+      signalBars(r, false) == 0 &&
+      wifiStatus(r, false) == "Disconnected"
     );
     assert(
-        latencyText(r, true) == "16.0 ms" &&
-        jitterText(r, true) == "0.0 ms"
+      latencyText(r, true) == "16.0 ms" &&
+      jitterText(r, true) == "0.0 ms"
     );
     // Readings hold still inside a bucket: frames that land in the
     // open bucket change nothing until it closes.
     SensorLog more = logSample(
-        log, {log.open.index * kBucketSec + 0.01f, 40.0f, 6.0f}
+      log, {log.open.index * kBucketSec + 0.01f, 40.0f, 6.0f}
     );
     assert(
-        readings(more).fps == r.fps && readings(more).energy == r.energy
+      readings(more).fps == r.fps && readings(more).energy == r.energy
     );
     more = logSample(
-        std::move(more),
-        {(log.open.index + 1) * kBucketSec, 16.0f, 3.0f}
+      std::move(more), {(log.open.index + 1) * kBucketSec, 16.0f, 3.0f}
     );
     assert(readings(more).energy > r.energy);
     // Input paints between vsyncs split a frame in two: the short
@@ -245,31 +243,31 @@ int main(int argc, char** argv) {
       SensorLog split;
       for (int i = 0; i < 125; ++i) {
         split = logSample(
-            std::move(split), {i * 0.016f - 0.004f, 2.0f, 1.0f}
+          std::move(split), {i * 0.016f - 0.004f, 2.0f, 1.0f}
         );
         split = logSample(std::move(split), {i * 0.016f, 14.0f, 2.0f});
       }
       const Readings sr = readings(split);
       assert(
-          std::fabs(sr.fps - 62.5f) < 1e-3f && sr.jitterMs < 1e-3f &&
-          sr.energy == 0.5f
+        std::fabs(sr.fps - 62.5f) < 1e-3f && sr.jitterMs < 1e-3f &&
+        sr.energy == 0.5f
       );
     }
     // Nothing closed yet: zero readings, empty curve.
     const Readings none = readings(logSample({}, {0.0f, 16.0f, 3.0f}));
     assert(
-        none.energy == 0.0f && none.solarCurve.empty() &&
-        none.wifiBars == 0
+      none.energy == 0.0f && none.solarCurve.empty() &&
+      none.wifiBars == 0
     );
     // Pacing noise degrades the signal.
     SensorLog noisy;
     for (int i = 0; i < 120; ++i)
       noisy = logSample(
-          std::move(noisy), {i * 0.017f, i % 2 ? 10.0f : 24.0f, 3.0f}
+        std::move(noisy), {i * 0.017f, i % 2 ? 10.0f : 24.0f, 3.0f}
       );
     assert(
-        readings(noisy).wifiBars == 1 &&
-        readings(noisy).wifiQuality == "Weak"
+      readings(noisy).wifiBars == 1 &&
+      readings(noisy).wifiQuality == "Weak"
     );
     // The log keeps a bounded window; the curve maps it against its
     // peak.
@@ -278,7 +276,7 @@ int main(int argc, char** argv) {
     const Readings d = readings(demo);
     assert(d.solarCurve.size() == kLogBuckets);
     const auto [lo, hi] =
-        std::minmax_element(d.solarCurve.begin(), d.solarCurve.end());
+      std::minmax_element(d.solarCurve.begin(), d.solarCurve.end());
     assert(*lo >= 0.2f && *hi == 0.9f && *lo < *hi);
     // Lights and the thermostat read from device values.
     Device ceiling = rooms()[0].devices[0];
@@ -288,10 +286,10 @@ int main(int argc, char** argv) {
     Device thermostat = rooms()[0].devices[2];
     assert(climateText(21.6f, thermostat) == "Holding at 21.4 C");
     assert(
-        climateText(18.0f, thermostat) == "Heating to 21.4 C, 14 min"
+      climateText(18.0f, thermostat) == "Heating to 21.4 C, 14 min"
     );
     assert(
-        climateText(24.0f, thermostat) == "Cooling to 21.4 C, 11 min"
+      climateText(24.0f, thermostat) == "Cooling to 21.4 C, 11 min"
     );
     thermostat.on = false;
     assert(climateText(21.6f, thermostat) == "Thermostat off");
@@ -308,8 +306,8 @@ int main(int argc, char** argv) {
     t.encodeMs = 1.5f;
     const glim::home::FrameSample sample = frameSample(t);
     assert(
-        sample.time == 1.25f && sample.frameMs == 16.0f &&
-        sample.workMs == 3.0f
+      sample.time == 1.25f && sample.frameMs == 16.0f &&
+      sample.workMs == 3.0f
     );
     glim::home::SensorLog log;
     for (int i = 0; i < 125; ++i) {
@@ -319,8 +317,8 @@ int main(int argc, char** argv) {
     Store live;
     const std::string d = dumpOf(live, 1240, 1100, log);
     assert(
-        has(d, "50%") && has(d, "Medium") && has(d, "12.5 kWh") &&
-        has(d, "22.5 C")
+      has(d, "50%") && has(d, "Medium") && has(d, "12.5 kWh") &&
+      has(d, "22.5 C")
     );
     assert(has(d, "Excellent signal") && has(d, "16.0 ms"));
   }
@@ -329,16 +327,16 @@ int main(int argc, char** argv) {
   {
     const std::string d = smartHomeDump(s);
     assert(
-        has(d, "Backdrop") && has(d, "Grid") && has(d, "Card") &&
-        !has(d, "Nav")
+      has(d, "Backdrop") && has(d, "Grid") && has(d, "Card") &&
+      !has(d, "Nav")
     );
     assert(
-        has(d, "Glim Home") && has(d, "All devices online") &&
-        has(d, "Energy")
+      has(d, "Glim Home") && has(d, "All devices online") &&
+      has(d, "Energy")
     );
     assert(
-        has(d, "Meter") && has(d, "Gauge") && has(d, "AreaChart") &&
-        has(d, "TickRuler")
+      has(d, "Meter") && has(d, "Gauge") && has(d, "AreaChart") &&
+      has(d, "TickRuler")
     );
     assert(has(smartHomeFocusDump(s), kFocusRingKind));
     // Every control carries a spoken name, and named controls that
@@ -354,12 +352,12 @@ int main(int argc, char** argv) {
           "Light mode"})
       assert(has(a11y, name));
     assert(
-        has(a11y, "Wi-Fi * states=checkable,checked actions=activate")
+      has(a11y, "Wi-Fi * states=checkable,checked actions=activate")
     );
     assert(has(a11y, "switch Switch"));
     assert(has(a11y, "slider TickRuler") && has(a11y, "slider Gauge"));
     assert(
-        has(a11y, "heading Lines.scale [") && has(a11y, "] Wi-Fi\n")
+      has(a11y, "heading Lines.scale [") && has(a11y, "] Wi-Fi\n")
     );
   }
   // Determinism: the scene renders identically twice.
@@ -476,14 +474,14 @@ int main(int argc, char** argv) {
     auto gesture = [&](std::vector<std::pair<float, float>> pts) {
       {
         auto [tree, box] = at(0);
-        assert(scr.pointerDown(
-            tree, box, pts[0].first, pts[0].second, 1, te
-        ));
+        assert(
+          scr.pointerDown(tree, box, pts[0].first, pts[0].second, 1, te)
+        );
       }
       for (std::size_t k = 1; k < pts.size(); ++k) {
         auto [tree, box] = at(0);
         scr.pointerMove(
-            tree, box, pts[k].first, pts[k].second, true, 1, te
+          tree, box, pts[k].first, pts[k].second, true, 1, te
         );
       }
       auto [tree, box] = at(0);
@@ -496,7 +494,7 @@ int main(int argc, char** argv) {
     };
     auto celsiusNow = [&] {
       return glim::home::celsius(
-          *t.state("home/living/climate/level", 0.0f)
+        *t.state("home/living/climate/level", 0.0f)
       );
     };
 
@@ -508,15 +506,14 @@ int main(int argc, char** argv) {
     // half degree. A press that never leaves the slop is a tap.
     const Box ruler = boxOf(2);
     const float unit =
-        ruler.w / static_cast<float>(2 * TickRuler::kSpan + 1);
+      ruler.w / static_cast<float>(2 * TickRuler::kSpan + 1);
     const float mid = ruler.x + ruler.w * 0.5f,
                 my = ruler.y + ruler.h * 0.5f;
     const float c0 = celsiusNow();
     gesture({{mid, my}, {mid - unit, my}, {mid - 2.0f * unit, my}});
     assert(
-        std::fabs(
-            celsiusNow() - std::round((c0 + 2.0f) * 2.0f) / 2.0f
-        ) < 1e-3f
+      std::fabs(celsiusNow() - std::round((c0 + 2.0f) * 2.0f) / 2.0f) <
+      1e-3f
     );
     // Tapping a number goes there.
     const float c1 = celsiusNow();
@@ -533,16 +530,16 @@ int main(int argc, char** argv) {
     // time, advanced a frame (1/60 s) per move.
     {
       const float frame = 1.0f / 60.0f;
-      auto flickLeft = [&](float perMove, int moves, float restBeforeUp
-                       ) {
-        {
-          auto [tree, box] = at(0);
-          assert(scr.pointerDown(tree, box, mid, my, 1, te));
-        }
-        for (int k = 1; k <= moves; ++k) {
-          scr.clock.advance(frame);
-          auto [tree, box] = at(0);
-          scr.pointerMove(
+      auto flickLeft =
+        [&](float perMove, int moves, float restBeforeUp) {
+          {
+            auto [tree, box] = at(0);
+            assert(scr.pointerDown(tree, box, mid, my, 1, te));
+          }
+          for (int k = 1; k <= moves; ++k) {
+            scr.clock.advance(frame);
+            auto [tree, box] = at(0);
+            scr.pointerMove(
               tree,
               box,
               mid - perMove * static_cast<float>(k),
@@ -550,14 +547,14 @@ int main(int argc, char** argv) {
               true,
               1,
               te
-          );
-        }
-        scr.clock.advance(restBeforeUp);
-        auto [tree, box] = at(0);
-        scr.pointerUp(
+            );
+          }
+          scr.clock.advance(restBeforeUp);
+          auto [tree, box] = at(0);
+          scr.pointerUp(
             tree, box, mid - perMove * static_cast<float>(moves), my, te
-        );
-      };
+          );
+        };
       const float rest = celsiusNow();
       // 0.2 unit a frame = 12 units/s: 5 frames drag 1 degree, the
       // release carries 12 * kFlickTau = 3 more.
@@ -574,15 +571,15 @@ int main(int argc, char** argv) {
       const float slowPx = TickRuler::kFlickMinPx / 60.0f * 0.5f;
       flickLeft(slowPx, 5, 0.0f);
       assert(
-          std::fabs(celsiusNow() - (slow + 5.0f * slowPx / unit)) <=
-          0.5f + 1e-3f
+        std::fabs(celsiusNow() - (slow + 5.0f * slowPx / unit)) <=
+        0.5f + 1e-3f
       );
     }
     // The hero follows the target, and the scale glides behind it.
     settle();
     assert(has(
-        dumpOf(t, 1240, 1100),
-        "ing to " + glim::home::temperatureText(celsiusNow()) + ", "
+      dumpOf(t, 1240, 1100),
+      "ing to " + glim::home::temperatureText(celsiusNow()) + ", "
     ));
     assert(tap(1) && !*t.state("home/living/climate/on", true));
     assert(has(dumpOf(t, 1240, 1100), "Thermostat off"));
@@ -594,12 +591,12 @@ int main(int argc, char** argv) {
     settle();
     gesture({{d.cx, d.cy - d.r}});
     assert(
-        std::fabs(*t.state("home/living/ceiling/level", 0.0f) - 0.5f) <
-        1e-3f
+      std::fabs(*t.state("home/living/ceiling/level", 0.0f) - 0.5f) <
+      1e-3f
     );
     State<float> shownLight = t.state("glide/brightness", 0.0f);
     assert(
-        *shownLight == 0.8f && has(dumpOf(t, 1240, 1100), "80%")
+      *shownLight == 0.8f && has(dumpOf(t, 1240, 1100), "80%")
     );  // not stepped yet
     t.stepValues(clock += 10.0f);
     t.stepValues(clock += kGlideSpec.dur * 0.5f);
@@ -608,10 +605,10 @@ int main(int argc, char** argv) {
     assert(*shownLight == 0.5f && !has(dumpOf(t, 1240, 1100), "80%"));
     // Dragging around to the right end turns it all the way up.
     gesture(
-        {{d.cx - d.r, d.cy - 4.0f},
-         {d.cx, d.cy - d.r},
-         {d.cx + d.r, d.cy - 4.0f},
-         {d.cx + d.r, d.cy + 20.0f}}
+      {{d.cx - d.r, d.cy - 4.0f},
+       {d.cx, d.cy - d.r},
+       {d.cx + d.r, d.cy - 4.0f},
+       {d.cx + d.r, d.cy + 20.0f}}
     );
     assert(*t.state("home/living/ceiling/level", 0.0f) == 1.0f);
     settle();
@@ -651,7 +648,7 @@ int main(int argc, char** argv) {
   {
     Store bs;
     bs.state(kVillaKey, VillaPlates{}) =
-        VillaPlates{{1, 16, 9}, {2, 16, 9}, {3, 16, 9}, nullptr};
+      VillaPlates{{1, 16, 9}, {2, 16, 9}, {3, 16, 9}, nullptr};
     Engine be = engineFor(bs);
     auto images = [&](BackdropProps p) {
       OpsRecorder rec;
@@ -668,14 +665,14 @@ int main(int argc, char** argv) {
     };
     using Plates = std::vector<std::pair<std::uint32_t, float>>;
     assert(
-        (images({.daylight = 0.5f, .lit = 0.3f}) ==
-         Plates{{2, 1.0f}, {3, 0.3f}, {1, 0.5f}})
+      (images({.daylight = 0.5f, .lit = 0.3f}) ==
+       Plates{{2, 1.0f}, {3, 0.3f}, {1, 0.5f}})
     );
     assert(
-        (images({.daylight = 0.0f, .lit = 0.0f}) == Plates{{2, 1.0f}})
+      (images({.daylight = 0.0f, .lit = 0.0f}) == Plates{{2, 1.0f}})
     );
     assert(
-        (images({.daylight = 1.0f, .lit = 1.0f}) == Plates{{1, 1.0f}})
+      (images({.daylight = 1.0f, .lit = 1.0f}) == Plates{{1, 1.0f}})
     );
   }
 
@@ -719,19 +716,19 @@ int main(int argc, char** argv) {
     int glyphRuns = 0;
     int glassGroups = 0;
     std::function<void(const glim::paint::Group&)> walkGroups =
-        [&](const glim::paint::Group& g) {
-          glim::paint::visitGroup(
-              g,
-              [&](const glim::paint::Shape& sh) {
-                if (std::holds_alternative<glim::paint::GlyphRun>(sh))
-                  ++glyphRuns;
-              },
-              [&](const glim::paint::Group& c) {
-                if (glim::paint::hasGlass(c)) ++glassGroups;
-                walkGroups(c);
-              }
-          );
-        };
+      [&](const glim::paint::Group& g) {
+        glim::paint::visitGroup(
+          g,
+          [&](const glim::paint::Shape& sh) {
+            if (std::holds_alternative<glim::paint::GlyphRun>(sh))
+              ++glyphRuns;
+          },
+          [&](const glim::paint::Group& c) {
+            if (glim::paint::hasGlass(c)) ++glassGroups;
+            walkGroups(c);
+          }
+        );
+      };
     walkGroups(ctx.scene().root);
     std::cout << "glass groups " << glassGroups << "\n";
     assert(glassGroups == 6);
@@ -779,7 +776,7 @@ int main(int argc, char** argv) {
     Block swt = toggle({.value = v, .pos = p});
     Box sb = place(swt, {0, 720, 0, 480});
     assert(dispatchPointer(
-        swt, sb, 26, 14, Event::borrow(PointerDown{26, 14})
+      swt, sb, 26, 14, Event::borrow(PointerDown{26, 14})
     ));
     assert(*v == true && *p == 0.0f && m.valuesLive());
     m.stepValues(0.0f);
@@ -795,11 +792,11 @@ int main(int argc, char** argv) {
     Scope ms(m, "");
     Anim<float> a{ms, "a", 2.0f};
     assert(
-        !a.live() && *a == 2.0f && a.target() == 2.0f && !m.valuesLive()
+      !a.live() && *a == 2.0f && a.target() == 2.0f && !m.valuesLive()
     );
     a = 10.0f;
     assert(
-        a.live() && *a == 2.0f && a.target() == 10.0f && m.valuesLive()
+      a.live() && *a == 2.0f && a.target() == 10.0f && m.valuesLive()
     );
     m.stepValues(1.0f);
     m.stepValues(1.11f);
@@ -825,7 +822,7 @@ int main(int argc, char** argv) {
     m.stepValues(7.0f);
     a.snap(1.0f);
     assert(
-        *a == 1.0f && a.target() == 1.0f && !a.live() && !m.valuesLive()
+      *a == 1.0f && a.target() == 1.0f && !a.live() && !m.valuesLive()
     );
     // Re-setting the settled value is a no-op: keeps the spec,
     // skips the pump, stays exact.
@@ -839,7 +836,7 @@ int main(int argc, char** argv) {
     Scope ms(m, "");
     Anim<float> a{ms, "a", 0.0f};
     a.set(
-        10.0f, {.spring = true, .stiffness = 120.0f, .damping = 8.0f}
+      10.0f, {.spring = true, .stiffness = 120.0f, .damping = 8.0f}
     );
     assert(a.live() && m.valuesLive());
     float t = 0.0f;
@@ -967,14 +964,14 @@ int main(int argc, char** argv) {
     pctx.finish();
     int strokes = 0, fills = 0;
     glim::paint::visitGroup(
-        pctx.scene().root,
-        [&](const glim::paint::Shape& s) {
-          if (std::holds_alternative<glim::paint::Stroke>(s))
-            ++strokes;
-          else if (std::holds_alternative<glim::paint::FillRounded>(s))
-            ++fills;
-        },
-        [&](const glim::paint::Group&) {}
+      pctx.scene().root,
+      [&](const glim::paint::Shape& s) {
+        if (std::holds_alternative<glim::paint::Stroke>(s))
+          ++strokes;
+        else if (std::holds_alternative<glim::paint::FillRounded>(s))
+          ++fills;
+      },
+      [&](const glim::paint::Group&) {}
     );
     assert(strokes == 1 && fills == 0);
     OpsRecorder cr;

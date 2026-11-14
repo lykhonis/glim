@@ -6,12 +6,12 @@
 
 int main(int argc, char** argv) {
   return glim::examples::runGpuGolden(
-      argc,
-      argv,
-      "examples/glass/golden/glass.png",
-      {.maxOverDelta = 210000, .maxChannelDelta = 180},
-      [](glim::paint::Context& ctx, glim::Vec2 size) {
-        recordGlass(ctx, size, 0.0f);
-      }
+    argc,
+    argv,
+    "examples/glass/golden/glass.png",
+    {.maxOverDelta = 210000, .maxChannelDelta = 180},
+    [](glim::paint::Context& ctx, glim::Vec2 size) {
+      recordGlass(ctx, size, 0.0f);
+    }
   );
 }

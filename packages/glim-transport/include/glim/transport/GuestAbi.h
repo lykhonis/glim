@@ -47,10 +47,7 @@ constexpr std::size_t linkBytes(std::uint32_t capacity) {
 // Lays out the block and both rings in `region`, which lies at `offset` in
 // guest memory; nullopt if the region is too small or misaligned.
 std::optional<Announce> writeAnnounce(
-    std::span<std::byte> region,
-    std::uint32_t offset,
-    std::uint32_t protocol,
-    std::uint32_t capacity
+  std::span<std::byte> region, std::uint32_t offset, std::uint32_t protocol, std::uint32_t capacity
 );
 
 // Host side: copies the block once and checks both rings lie inside

@@ -70,16 +70,7 @@ const xdg_wm_base_listener kWmListener = [] {
 }();
 
 void outputGeometry(
-    void*,
-    wl_output*,
-    int32_t,
-    int32_t,
-    int32_t,
-    int32_t,
-    int32_t,
-    const char*,
-    const char*,
-    int32_t
+  void*, wl_output*, int32_t, int32_t, int32_t, int32_t, int32_t, const char*, const char*, int32_t
 ) {}
 void outputMode(void*, wl_output*, uint32_t, int32_t, int32_t, int32_t) {}
 void outputDone(void*, wl_output*) {}
@@ -207,11 +198,11 @@ const wl_seat_listener kSeatListener = [] {
 }();
 
 void registryGlobal(
-    void*, wl_registry* registry, uint32_t name, const char* interface, uint32_t version
+  void*, wl_registry* registry, uint32_t name, const char* interface, uint32_t version
 ) {
   if (std::strcmp(interface, wl_compositor_interface.name) == 0) {
     gWl.compositor = static_cast<wl_compositor*>(
-        wl_registry_bind(registry, name, &wl_compositor_interface, version < 4 ? version : 4)
+      wl_registry_bind(registry, name, &wl_compositor_interface, version < 4 ? version : 4)
     );
   } else if (std::strcmp(interface, xdg_wm_base_interface.name) == 0) {
     gWl.wm = static_cast<xdg_wm_base*>(wl_registry_bind(registry, name, &xdg_wm_base_interface, 1));
@@ -220,21 +211,21 @@ void registryGlobal(
     gWl.shm = static_cast<wl_shm*>(wl_registry_bind(registry, name, &wl_shm_interface, 1));
   } else if (std::strcmp(interface, wl_seat_interface.name) == 0) {
     gWl.seat = static_cast<wl_seat*>(
-        wl_registry_bind(registry, name, &wl_seat_interface, version < 5 ? version : 5)
+      wl_registry_bind(registry, name, &wl_seat_interface, version < 5 ? version : 5)
     );
     wl_seat_add_listener(gWl.seat, &kSeatListener, nullptr);
   } else if (std::strcmp(interface, wl_output_interface.name) == 0 && !gWl.output) {
     gWl.output = static_cast<wl_output*>(
-        wl_registry_bind(registry, name, &wl_output_interface, version < 2 ? version : 2)
+      wl_registry_bind(registry, name, &wl_output_interface, version < 2 ? version : 2)
     );
     wl_output_add_listener(gWl.output, &kOutputListener, nullptr);
   } else if (std::strcmp(interface, wp_viewporter_interface.name) == 0) {
     gWl.viewporter =
-        static_cast<wp_viewporter*>(wl_registry_bind(registry, name, &wp_viewporter_interface, 1));
+      static_cast<wp_viewporter*>(wl_registry_bind(registry, name, &wp_viewporter_interface, 1));
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
   } else if (std::strcmp(interface, wp_fractional_scale_manager_v1_interface.name) == 0) {
     gWl.fractional = static_cast<wp_fractional_scale_manager_v1*>(
-        wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1)
+      wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1)
     );
 #endif
   }

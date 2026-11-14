@@ -145,7 +145,7 @@ int main() {
       const auto t0 = std::chrono::steady_clock::now();
       glim::paint::rasterScene(gui.scene(), 720, 480, pixels.data());
       total +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     }
     std::cout << "typical-raster: avgMs=" << total / static_cast<double>(kRasterIters) << '\n';
   }

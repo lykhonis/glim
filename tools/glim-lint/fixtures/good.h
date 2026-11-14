@@ -28,4 +28,10 @@ inline Block lifted() {
   std::optional<ShadowTag> held = lift;
   return column(lift, is_tag<ShadowTag>{});
 }
+
+inline Block tall() {
+  return column(shadow({
+    .sigma = 24.f,
+  }));
+}
 }  // namespace glim

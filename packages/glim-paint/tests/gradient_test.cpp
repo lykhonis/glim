@@ -26,8 +26,8 @@ bool near(float a, float b, float eps = 2.f) { return std::fabs(a - b) <= eps; }
 
 glim::paint::Matter linearBW(float x0, float x1) {
   const glim::paint::GradientStop stops[2] = {
-      {0.f, glim::Color{0, 0, 0, 255}},
-      {1.f, glim::Color{255, 255, 255, 255}},
+    {0.f, glim::Color{0, 0, 0, 255}},
+    {1.f, glim::Color{255, 255, 255, 255}},
   };
   return glim::paint::Matter::linearGradient({x0, 0.f}, {x1, 0.f}, stops, 2);
 }
@@ -40,17 +40,17 @@ int main() {
   // 1. Factories sort stops and degrade color to the first stop.
   {
     const GradientStop unsorted[3] = {
-        {1.f, Color{0, 0, 255, 255}},
-        {0.f, Color{255, 0, 0, 255}},
-        {0.5f, Color{0, 255, 0, 255}},
+      {1.f, Color{0, 0, 255, 255}},
+      {0.f, Color{255, 0, 0, 255}},
+      {0.5f, Color{0, 255, 0, 255}},
     };
     const Matter m = Matter::linearGradient({0, 0}, {100, 0}, unsorted, 3);
     expect(m.isGradient(), "linear factory sets Gradient kind");
     expect(m.gradientStopCount == 3, "stop count kept");
     expect(
-        m.gradientStops[0].offset == 0.f && m.gradientStops[1].offset == 0.5f &&
-            m.gradientStops[2].offset == 1.f,
-        "stops sorted by offset"
+      m.gradientStops[0].offset == 0.f && m.gradientStops[1].offset == 0.5f &&
+        m.gradientStops[2].offset == 1.f,
+      "stops sorted by offset"
     );
     expect(m.color.rgba == Color{255, 0, 0, 255}.rgba, "color degrades to first stop");
     const Matter clamped = Matter::radialGradient({0, 0}, 10.f, unsorted, 99);
@@ -62,8 +62,8 @@ int main() {
   // 2. Group scale scales radial radius.
   {
     const GradientStop stops[2] = {
-        {0.f, Color{255, 0, 0, 255}},
-        {1.f, Color{0, 0, 255, 255}},
+      {0.f, Color{255, 0, 0, 255}},
+      {1.f, Color{0, 0, 255, 255}},
     };
     Context ctx;
     ctx.setSize({200, 200});
@@ -79,8 +79,8 @@ int main() {
     expect(packet.gradients.size() == 1, "scaled radial encodes");
     expect(near(packet.gradients[0].radius, 40.f), "radius scales with group");
     expect(
-        near(packet.gradients[0].p0x, 50.f) && near(packet.gradients[0].p0y, 50.f),
-        "center scales with group"
+      near(packet.gradients[0].p0x, 50.f) && near(packet.gradients[0].p0y, 50.f),
+      "center scales with group"
     );
   }
 
@@ -122,8 +122,8 @@ int main() {
       expect(g.coverage > 0.f && g.coverage <= 1.f, "coverage in range");
     }
     const GradientStop stops[2] = {
-        {0.f, Color{255, 0, 0, 255}},
-        {1.f, Color{0, 0, 255, 255}},
+      {0.f, Color{255, 0, 0, 255}},
+      {1.f, Color{0, 0, 255, 255}},
     };
     Context rc;
     rc.setSize({100, 100});
@@ -156,8 +156,8 @@ int main() {
   // 6. CPU: radial red->blue disc.
   {
     const GradientStop stops[2] = {
-        {0.f, Color{255, 0, 0, 255}},
-        {1.f, Color{0, 0, 255, 255}},
+      {0.f, Color{255, 0, 0, 255}},
+      {1.f, Color{0, 0, 255, 255}},
     };
     Context ctx;
     ctx.setSize({100, 100});
@@ -186,8 +186,8 @@ int main() {
         c.translate({dx, 0.f});
       }
       const GradientStop stops[2] = {
-          {0.f, Color{c0}},
-          {1.f, Color{255, 255, 255, 255}},
+        {0.f, Color{c0}},
+        {1.f, Color{255, 255, 255, 255}},
       };
       c.setFill(Matter::linearGradient({0, 0}, {200, 0}, stops, 2));
       c.fill(Rect{{0, 0}, {200, 100}});
@@ -208,12 +208,12 @@ int main() {
     const FramePacket moved = cache.encode(c.scene(), 1.f);
     expect(moved.stats.reuseHits == 1, "translated gradient scene hits");
     expect(
-        !moved.gradients.empty() && near(moved.gradients[0].x, first.gradients[0].x + 32.f),
-        "translation shifts gradient quads and geometry"
+      !moved.gradients.empty() && near(moved.gradients[0].x, first.gradients[0].x + 32.f),
+      "translation shifts gradient quads and geometry"
     );
     expect(
-        near(moved.gradients[0].p0x, first.gradients[0].p0x + 32.f),
-        "translation shifts gradient points"
+      near(moved.gradients[0].p0x, first.gradients[0].p0x + 32.f),
+      "translation shifts gradient points"
     );
     Context d;
     record(d, 0.f, 0x00ff00ff);

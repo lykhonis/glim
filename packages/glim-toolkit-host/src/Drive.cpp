@@ -32,14 +32,14 @@ shell::Event pointer(EventType type, float x, float y) {
 
 bool keyNamed(const std::string& name, shell::Key& out) {
   static const std::pair<const char*, shell::Key> kKeys[] = {
-      {"enter", shell::Key::Enter},
-      {"escape", shell::Key::Escape},
-      {"back", shell::Key::Back},
-      {"up", shell::Key::DpadUp},
-      {"down", shell::Key::DpadDown},
-      {"left", shell::Key::DpadLeft},
-      {"right", shell::Key::DpadRight},
-      {"center", shell::Key::DpadCenter},
+    {"enter", shell::Key::Enter},
+    {"escape", shell::Key::Escape},
+    {"back", shell::Key::Back},
+    {"up", shell::Key::DpadUp},
+    {"down", shell::Key::DpadDown},
+    {"left", shell::Key::DpadLeft},
+    {"right", shell::Key::DpadRight},
+    {"center", shell::Key::DpadCenter},
   };
   for (const auto& [n, k] : kKeys) {
     if (name == n) {
@@ -66,19 +66,19 @@ const char* eventName(EventType t) {
 }
 
 void distribution(
-    std::ostringstream& os, const char* name, const std::vector<float>& v, const char* note
+  std::ostringstream& os, const char* name, const std::vector<float>& v, const char* note
 ) {
   char line[160];
   std::snprintf(
-      line,
-      sizeof(line),
-      "  %-8s p50 %7.2f  p95 %7.2f  p99 %7.2f  max %7.2f ms   %s\n",
-      name,
-      static_cast<double>(detail::percentile(v, 50)),
-      static_cast<double>(detail::percentile(v, 95)),
-      static_cast<double>(detail::percentile(v, 99)),
-      static_cast<double>(detail::percentile(v, 100)),
-      note
+    line,
+    sizeof(line),
+    "  %-8s p50 %7.2f  p95 %7.2f  p99 %7.2f  max %7.2f ms   %s\n",
+    name,
+    static_cast<double>(detail::percentile(v, 50)),
+    static_cast<double>(detail::percentile(v, 95)),
+    static_cast<double>(detail::percentile(v, 99)),
+    static_cast<double>(detail::percentile(v, 100)),
+    note
   );
   os << line;
 }
@@ -129,7 +129,7 @@ DriveScript parseDriveScript(std::string_view text) {
       for (int i = 1; i <= n; ++i) {
         const float f = static_cast<float>(i) / static_cast<float>(n);
         out.steps.push_back(
-            {t + s * f, pointer(EventType::PointerMove, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)}
+          {t + s * f, pointer(EventType::PointerMove, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)}
         );
       }
       t += s;
@@ -154,7 +154,7 @@ void DriveReport::event(float atMs, EventType type, float lagMs, float handleMs)
 
 void DriveReport::paint(float atMs, const FrameTelemetry& t) {
   paints_.push_back(
-      {atMs, t.frameMs, t.buildMs + t.recordMs + t.encodeMs, t.stats.acquireMs, t.stats.gpuMs}
+    {atMs, t.frameMs, t.buildMs + t.recordMs + t.encodeMs, t.stats.acquireMs, t.stats.gpuMs}
   );
 }
 
@@ -176,17 +176,17 @@ std::string DriveReport::summary() const {
     frameStalls += p.frameMs > kStallMs ? 1 : 0;
   }
   const float spanMs = std::max(
-      events_.empty() ? 0.f : events_.back().atMs, paints_.empty() ? 0.f : paints_.back().atMs
+    events_.empty() ? 0.f : events_.back().atMs, paints_.empty() ? 0.f : paints_.back().atMs
   );
   std::ostringstream os;
   char head[160];
   std::snprintf(
-      head,
-      sizeof(head),
-      "drive: %zu events, %zu paints over %.1f s\n",
-      events_.size(),
-      paints_.size(),
-      static_cast<double>(spanMs / 1000.f)
+    head,
+    sizeof(head),
+    "drive: %zu events, %zu paints over %.1f s\n",
+    events_.size(),
+    paints_.size(),
+    static_cast<double>(spanMs / 1000.f)
   );
   os << head;
   distribution(os, "lag", lag, "due -> dispatched (main-thread backlog)");
@@ -204,7 +204,7 @@ std::string DriveReport::summary() const {
 
 bool DriveReport::stalled() const {
   return std::any_of(
-             events_.begin(), events_.end(), [](const Event& e) { return e.lagMs > kStallMs; }
+           events_.begin(), events_.end(), [](const Event& e) { return e.lagMs > kStallMs; }
          ) ||
          std::any_of(paints_.begin(), paints_.end(), [](const Paint& p) {
            return p.frameMs > kStallMs;
@@ -216,11 +216,11 @@ std::string DriveReport::traceJson() const {
   detail::TraceWriter trace(os);
   auto slice = [&](const char* name, int tid, float startMs, float durMs, const std::string& args) {
     trace.slice(
-        name,
-        tid,
-        static_cast<long long>(startMs * 1000.f),
-        static_cast<long long>(std::max(durMs, 0.001f) * 1000.f),
-        args
+      name,
+      tid,
+      static_cast<long long>(startMs * 1000.f),
+      static_cast<long long>(std::max(durMs, 0.001f) * 1000.f),
+      args
     );
   };
   for (const Event& e : events_) {
@@ -228,12 +228,12 @@ std::string DriveReport::traceJson() const {
   }
   for (const Paint& p : paints_) {
     slice(
-        "paint",
-        2,
-        p.atMs - p.paintMs,
-        p.paintMs,
-        "\"acquireMs\":" + std::to_string(p.acquireMs) + ",\"gpuMs\":" + std::to_string(p.gpuMs) +
-            ",\"frameMs\":" + std::to_string(p.frameMs)
+      "paint",
+      2,
+      p.atMs - p.paintMs,
+      p.paintMs,
+      "\"acquireMs\":" + std::to_string(p.acquireMs) + ",\"gpuMs\":" + std::to_string(p.gpuMs) +
+        ",\"frameMs\":" + std::to_string(p.frameMs)
     );
   }
   trace.close();
@@ -258,7 +258,7 @@ std::unique_ptr<DriveRun> DriveRun::load(const char* path) {
 
 float DriveRun::sinceStartMs() const {
   return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start_)
-      .count();
+    .count();
 }
 
 void DriveRun::start(shell::Window& window) {
@@ -287,7 +287,7 @@ float DriveRun::poll(shell::Window& window) {
     const float dispatchMs = sinceStartMs();
     window.dispatch(s.event);
     report_.event(
-        dispatchMs, s.event.type(), dispatchMs - s.at * 1000.f, sinceStartMs() - dispatchMs
+      dispatchMs, s.event.type(), dispatchMs - s.at * 1000.f, sinceStartMs() - dispatchMs
     );
   }
   const float endSec = (steps_.empty() ? 0.f : steps_.back().at) + kDrainSec;

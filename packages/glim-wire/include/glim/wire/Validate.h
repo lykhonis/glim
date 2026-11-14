@@ -44,7 +44,7 @@ const TypeRule* findRule(std::span<const TypeRule> rules, std::uint16_t type);
 // unknown records are skipped by size.
 template <class Visit>
 void forEachKnown(
-    std::span<const std::byte> message, std::span<const TypeRule> rules, Visit&& visit
+  std::span<const std::byte> message, std::span<const TypeRule> rules, Visit&& visit
 ) {
   for (std::size_t at = 0; at < message.size();) {
     RecordView record(message.data() + at);

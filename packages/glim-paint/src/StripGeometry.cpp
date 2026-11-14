@@ -80,7 +80,7 @@ Rect intersectRect(Rect a, Rect b) {
 Rect strokeBounds(const Stroke& s) {
   const float o = std::max(0.f, s.width) * 0.5f;
   return {
-      {s.rect.origin.x - o, s.rect.origin.y - o}, {s.rect.size.x + o * 2.f, s.rect.size.y + o * 2.f}
+    {s.rect.origin.x - o, s.rect.origin.y - o}, {s.rect.size.x + o * 2.f, s.rect.size.y + o * 2.f}
   };
 }
 

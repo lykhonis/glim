@@ -55,12 +55,12 @@ void guestFrameMatchesGolden(w::Engine& engine, const std::vector<std::byte>& mo
   w::Instance guest(engine, module, {});
   std::vector<std::vector<std::byte>> frames;
   h::Session session(
-      guest,
-      {.support = support(),
-       .clock = [] { return std::uint64_t{7}; },
-       .logger = [](std::uint32_t,
-                    std::string_view text) { std::cerr << "guest: " << text << '\n'; }},
-      [&frames](const t::Message& m) { frames.emplace_back(m.payload.begin(), m.payload.end()); }
+    guest,
+    {.support = support(),
+     .clock = [] { return std::uint64_t{7}; },
+     .logger = [](std::uint32_t, std::string_view text) { std::cerr << "guest: " << text << '\n'; }
+    },
+    [&frames](const t::Message& m) { frames.emplace_back(m.payload.begin(), m.payload.end()); }
   );
   guest.attach(session);
   expect(session.start(), "session starts");

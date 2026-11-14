@@ -18,10 +18,10 @@ inline constexpr AnimSpec kGlideSpec{.dur = 0.24f, .ease = easeOut};
 
 // The displayed value of `goal`, gliding to each new goal.
 inline float glide(
-    const Scope& scope,
-    const std::string& key,
-    float goal,
-    AnimSpec spec = kGlideSpec
+  const Scope& scope,
+  const std::string& key,
+  float goal,
+  AnimSpec spec = kGlideSpec
 ) {
   State<float> last = scope.state(key + "/goal", goal);
   Anim<float> shown(scope, key, goal, spec);
@@ -36,10 +36,10 @@ inline float glide(
 // fling's tail lasts as long as it travels while a nudge stays brisk.
 // A jump across the whole 0..1 range adds `perRange` seconds.
 inline float coast(
-    const Scope& scope,
-    const std::string& key,
-    float goal,
-    float perRange = 1.0f
+  const Scope& scope,
+  const std::string& key,
+  float goal,
+  float perRange = 1.0f
 ) {
   State<float> last = scope.state(key + "/goal", goal);
   AnimSpec spec = kGlideSpec;
@@ -52,20 +52,19 @@ inline float coast(
 // curve is linear and a touch longer than the period, so back-to-back
 // points run as one steady scroll. Capped at `maxLead` points.
 inline float slide(
-    const Scope& scope,
-    const std::string& key,
-    long head,
-    float period,
-    float maxLead
+  const Scope& scope,
+  const std::string& key,
+  long head,
+  float period,
+  float maxLead
 ) {
   State<long> seen = scope.state(key + "/head", head);
   Anim<float> offset(
-      scope, key, 0.0f, {.dur = period * 1.1f, .ease = easeLinear}
+    scope, key, 0.0f, {.dur = period * 1.1f, .ease = easeLinear}
   );
   if (*seen != head) {
-    const float lead = head > *seen
-                           ? *offset + static_cast<float>(head - *seen)
-                           : 0.0f;
+    const float lead =
+      head > *seen ? *offset + static_cast<float>(head - *seen) : 0.0f;
     seen = head;
     offset.snap(std::min(lead, maxLead));
     offset = 0.0f;

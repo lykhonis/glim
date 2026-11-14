@@ -39,7 +39,7 @@ bool quadsEqual(const std::vector<glim::paint::Quad>& a, const std::vector<glim:
 }
 
 bool isolatesEqual(
-    const std::vector<glim::paint::Isolate>& a, const std::vector<glim::paint::Isolate>& b
+  const std::vector<glim::paint::Isolate>& a, const std::vector<glim::paint::Isolate>& b
 );
 
 bool packetsEqual(const glim::paint::FramePacket& a, const glim::paint::FramePacket& b) {
@@ -62,7 +62,7 @@ bool packetsEqual(const glim::paint::FramePacket& a, const glim::paint::FramePac
 }
 
 bool isolatesEqual(
-    const std::vector<glim::paint::Isolate>& a, const std::vector<glim::paint::Isolate>& b
+  const std::vector<glim::paint::Isolate>& a, const std::vector<glim::paint::Isolate>& b
 ) {
   if (a.size() != b.size()) {
     return false;
@@ -169,9 +169,9 @@ int main() {
     const glim::paint::FramePacket fresh = glim::paint::encode(b.scene(), 1.f);
     expect(packetsEqual(moved, fresh), "translated hit matches fresh encode");
     expect(
-        !moved.quads.empty() && nearly(moved.quads[0].x, first.quads[0].x + 12.f) &&
-            nearly(moved.quads[0].y, first.quads[0].y - 7.f),
-        "translated hit rewrites quad origins"
+      !moved.quads.empty() && nearly(moved.quads[0].x, first.quads[0].x + 12.f) &&
+        nearly(moved.quads[0].y, first.quads[0].y - 7.f),
+      "translated hit rewrites quad origins"
     );
   }
 
@@ -197,8 +197,7 @@ int main() {
     a.fill(glim::Rect::fromSize({64, 64}));
     const std::uint32_t foreignId = a.wrapNativeTexture(reinterpret_cast<void*>(0x1234), 16, 16);
     a.blit(
-        glim::Rect{{8, 8}, {16, 16}},
-        glim::paint::Matter::foreign(foreignId, glim::Color{0xffffffff})
+      glim::Rect{{8, 8}, {16, 16}}, glim::paint::Matter::foreign(foreignId, glim::Color{0xffffffff})
     );
     a.finish();
     const glim::paint::FramePacket first = cache.encode(a.scene(), 1.f);
@@ -206,7 +205,7 @@ int main() {
     expect(cache.size() == 0, "foreign scene is never stored");
     const glim::paint::FramePacket second = cache.encode(a.scene(), 1.f);
     expect(
-        second.stats.reuseMisses == 1 && second.stats.reuseHits == 0, "foreign scene always misses"
+      second.stats.reuseMisses == 1 && second.stats.reuseHits == 0, "foreign scene always misses"
     );
   }
 
@@ -224,9 +223,9 @@ int main() {
     const glim::paint::FramePacket fresh = glim::paint::encode(b.scene(), 1.f);
     expect(packetsEqual(moved, fresh), "translated frost matches fresh encode");
     expect(
-        moved.isolates.size() == 1 &&
-            nearly(moved.isolates[0].backdropU0, moved.isolates[0].destX / 120.f),
-        "isolate UVs rebase to the new dest"
+      moved.isolates.size() == 1 &&
+        nearly(moved.isolates[0].backdropU0, moved.isolates[0].destX / 120.f),
+      "isolate UVs rebase to the new dest"
     );
   }
 
@@ -253,8 +252,8 @@ int main() {
     recordCards(b, 0x00ff00ff);
     const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
     expect(
-        second.stats.reuseHits == 1 && second.stats.dirtyTiles == 0,
-        "identical frame hits with zero dirty tiles"
+      second.stats.reuseHits == 1 && second.stats.dirtyTiles == 0,
+      "identical frame hits with zero dirty tiles"
     );
   }
 
@@ -281,8 +280,8 @@ int main() {
     const glim::paint::FramePacket changed = cache.encode(b.scene(), 1.f);
     expect(changed.stats.reuseMisses == 1, "color change misses");
     expect(
-        changed.stats.dirtyTiles > 0 && changed.stats.dirtyTiles <= 6,
-        "small change dirties only nearby tiles"
+      changed.stats.dirtyTiles > 0 && changed.stats.dirtyTiles <= 6,
+      "small change dirties only nearby tiles"
     );
   }
 
@@ -309,8 +308,8 @@ int main() {
     const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
     expect(second.stats.dirtyTiles == 0, "identical frame has zero dirty tiles");
     expect(
-        second.dirtyRect.size.x <= 0.f || second.dirtyRect.size.y <= 0.f,
-        "identical frame has empty dirty rect"
+      second.dirtyRect.size.x <= 0.f || second.dirtyRect.size.y <= 0.f,
+      "identical frame has empty dirty rect"
     );
   }
 
@@ -336,21 +335,21 @@ int main() {
     const glim::paint::FramePacket changed = cache.encode(b.scene(), 1.f);
     expect(changed.stats.dirtyTiles > 0, "color change dirties tiles");
     expect(
-        changed.dirtyRect.size.x > 0.f && changed.dirtyRect.size.y > 0.f,
-        "color change has non-empty dirty rect"
+      changed.dirtyRect.size.x > 0.f && changed.dirtyRect.size.y > 0.f,
+      "color change has non-empty dirty rect"
     );
     expect(
-        changed.dirtyRect.origin.x >= 0.f && changed.dirtyRect.origin.y >= 0.f,
-        "dirty rect stays in scene bounds"
+      changed.dirtyRect.origin.x >= 0.f && changed.dirtyRect.origin.y >= 0.f,
+      "dirty rect stays in scene bounds"
     );
     expect(
-        changed.dirtyRect.origin.x + changed.dirtyRect.size.x <= 200.f &&
-            changed.dirtyRect.origin.y + changed.dirtyRect.size.y <= 120.f,
-        "dirty rect stays inside the scene"
+      changed.dirtyRect.origin.x + changed.dirtyRect.size.x <= 200.f &&
+        changed.dirtyRect.origin.y + changed.dirtyRect.size.y <= 120.f,
+      "dirty rect stays inside the scene"
     );
     expect(
-        changed.dirtyRect.origin.x < 64.f && changed.dirtyRect.origin.y < 64.f,
-        "dirty rect covers the changed card"
+      changed.dirtyRect.origin.x < 64.f && changed.dirtyRect.origin.y < 64.f,
+      "dirty rect covers the changed card"
     );
   }
 
@@ -431,8 +430,8 @@ int main() {
     recordGlassAt(b, metalLater);
     const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
     expect(
-        second.stats.reuseHits == 1 && second.stats.reuseMisses == 0,
-        "still metal time change still hits"
+      second.stats.reuseHits == 1 && second.stats.reuseMisses == 0,
+      "still metal time change still hits"
     );
     // Flowing metal (the preset) re-encodes as time advances.
     glim::paint::Context c;
@@ -447,7 +446,7 @@ int main() {
     glim::paint::Context e;
     auto resting = glim::paint::Lens::liquidMetal();
     resting.motion =
-        glim::paint::LensMotion{4.5f, 0.6f, 0.55f, glim::paint::LensMotionCurve::Spring, 0.2f};
+      glim::paint::LensMotion{4.5f, 0.6f, 0.55f, glim::paint::LensMotionCurve::Spring, 0.2f};
     resting.timeSec = 3.f;
     recordGlassAt(e, resting);
     cache.encode(e.scene(), 1.f);
@@ -474,8 +473,8 @@ int main() {
     recordGlassAt(b, waterLater);
     const glim::paint::FramePacket second = cache.encode(b.scene(), 1.f);
     expect(
-        second.stats.reuseMisses == 1 && second.stats.reuseHits == 0,
-        "rippling water time change misses"
+      second.stats.reuseMisses == 1 && second.stats.reuseHits == 0,
+      "rippling water time change misses"
     );
   }
 
@@ -513,8 +512,8 @@ int main() {
     expect(missesAt([](Lens& g) { g.motion.travel = 0.3f; }), "motion.travel change misses");
     expect(missesAt([](Lens& g) { g.motion.period = 6.f; }), "motion.period change misses");
     expect(
-        missesAt([](Lens& g) { g.motion.curve = glim::paint::LensMotionCurve::Smooth; }),
-        "motion.curve change misses"
+      missesAt([](Lens& g) { g.motion.curve = glim::paint::LensMotionCurve::Smooth; }),
+      "motion.curve change misses"
     );
     expect(missesAfter([](Lens& g) { g.envSoft = 0.2f; }), "envSoft change misses");
     expect(missesAfter([](Lens& g) { g.absorbK = 0.5f; }), "absorbK change misses");

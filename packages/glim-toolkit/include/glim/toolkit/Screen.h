@@ -33,24 +33,24 @@ struct Screen {
 
   // Captured drags return false (Frame tick presents them); hover moves never dispatch.
   bool pointerDown(
-      const Block& tree,
-      const Box& box,
-      float x,
-      float y,
-      int pointerId,
-      const Engine& engine = Engine{}
+    const Block& tree,
+    const Box& box,
+    float x,
+    float y,
+    int pointerId,
+    const Engine& engine = Engine{}
   );
   bool pointerUp(
-      const Block& tree, const Box& box, float x, float y, const Engine& engine = Engine{}
+    const Block& tree, const Box& box, float x, float y, const Engine& engine = Engine{}
   );
   bool pointerMove(
-      const Block& tree,
-      const Box& box,
-      float x,
-      float y,
-      bool pressed,
-      int pointerId,
-      const Engine& engine = Engine{}
+    const Block& tree,
+    const Box& box,
+    float x,
+    float y,
+    bool pressed,
+    int pointerId,
+    const Engine& engine = Engine{}
   );
   bool key(const Block& tree, const Box& box, Key key, const Engine& engine = Engine{});
   // Fling integrate at clock.now; walk-clamped so a mid-coast resize still settles inside.
@@ -59,13 +59,13 @@ struct Screen {
   bool moving() const { return flinging_; }
   // Routes to the innermost scrollable Roll that can move, then chains outward.
   bool wheel(
-      const Block& tree,
-      const Box& box,
-      float x,
-      float y,
-      float dx,
-      float dy,
-      const Engine& engine = Engine{}
+    const Block& tree,
+    const Box& box,
+    float x,
+    float y,
+    float dx,
+    float dy,
+    const Engine& engine = Engine{}
   );
 
   bool needsPaint(const Store& store) const;

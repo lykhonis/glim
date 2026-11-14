@@ -413,7 +413,7 @@ Rect shadowContentSurface(const Group& g) {
   if (g.params.shadow.has_value()) {
     const ShadowBlur& s = *g.params.shadow;
     pad = std::max(
-        pad, snapShadowSigma(s.sigma) + s.expandPx + std::fabs(s.offset.x) + std::fabs(s.offset.y)
+      pad, snapShadowSigma(s.sigma) + s.expandPx + std::fabs(s.offset.x) + std::fabs(s.offset.y)
     );
   }
   if (g.params.contentBlur > 0.f) {
@@ -523,16 +523,16 @@ Rect contentBounds(const Group& g) {
     } else if (const auto* st = std::get_if<Stroke>(&s)) {
       const float o = std::max(0.f, st->width) * 0.5f;
       b = unionRect(
-          b,
-          {{st->rect.origin.x - o, st->rect.origin.y - o},
-           {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}}
+        b,
+        {{st->rect.origin.x - o, st->rect.origin.y - o},
+         {st->rect.size.x + o * 2.f, st->rect.size.y + o * 2.f}}
       );
     } else if (const auto* sc = std::get_if<StrokeChamfer>(&s)) {
       const float o = std::max(0.f, sc->width) * 0.5f;
       b = unionRect(
-          b,
-          {{sc->rect.origin.x - o, sc->rect.origin.y - o},
-           {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}}
+        b,
+        {{sc->rect.origin.x - o, sc->rect.origin.y - o},
+         {sc->rect.size.x + o * 2.f, sc->rect.size.y + o * 2.f}}
       );
     } else if (const auto* a = std::get_if<Arc>(&s)) {
       const float o = a->radius + a->thickness * 0.5f;
@@ -777,12 +777,12 @@ Rect intersectAabb(Rect a, Rect b) {
 }
 
 void collectSlotsIn(
-    const Group& g,
-    const Mat4& extra,
-    Rect clip,
-    bool clipActive,
-    bool underIsolate,
-    std::vector<SlotPlacement>* out
+  const Group& g,
+  const Mat4& extra,
+  Rect clip,
+  bool clipActive,
+  bool underIsolate,
+  std::vector<SlotPlacement>* out
 ) {
   const Mat4 world = extra;
   const bool isolate = underIsolate || needsIsolate(g);
@@ -830,7 +830,7 @@ void collectSlots(const Scene& scene, std::vector<SlotPlacement>* out) {
   // unpainted area eating input (archived input notes §1, roadmap P0.8).
   const bool viewport = scene.logicalSize.x > 0.f && scene.logicalSize.y > 0.f;
   collectSlotsIn(
-      scene.root, Mat4::identity(), Rect::fromSize(scene.logicalSize), viewport, false, out
+    scene.root, Mat4::identity(), Rect::fromSize(scene.logicalSize), viewport, false, out
   );
 }
 

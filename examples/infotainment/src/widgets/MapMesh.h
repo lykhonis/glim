@@ -23,21 +23,21 @@ inline float mapHash01(int n) {
 }
 
 inline void paintSubtleMapRoute(
-    const Box& box, AnySink& sink, const Engine& e
+  const Box& box, AnySink& sink, const Engine& e
 );
 inline void paintMapCar(
-    const Box& box, AnySink& sink, const Engine& e, float u, float v
+  const Box& box, AnySink& sink, const Engine& e, float u, float v
 );
 inline void
 paintSubtleMapVignette(const Box& box, AnySink& sink, const Engine&);
 
 inline void paintSubtleMap(
-    const Box& box, AnySink& sink, const Engine& e
+  const Box& box, AnySink& sink, const Engine& e
 ) {
   const std::uint32_t bgTop =
-      themeColor(e, kInfoCardTop, Info::kCardTop);
+    themeColor(e, kInfoCardTop, Info::kCardTop);
   const std::uint32_t bgBottom =
-      themeColor(e, kInfoCardBottom, Info::kCardBottom);
+    themeColor(e, kInfoCardBottom, Info::kCardBottom);
   const std::uint32_t ink = themeColor(e, kThemeInkOnLight, Info::kInk);
 
   sink.fillGradient(box, 8, bgTop, bgBottom);
@@ -62,11 +62,11 @@ inline void paintSubtleMap(
       for (int sg = 0; sg < segs; ++sg) {
         float t0 = static_cast<float>(sg) / static_cast<float>(segs);
         float t1 =
-            static_cast<float>(sg + 1) / static_cast<float>(segs);
+          static_cast<float>(sg + 1) / static_cast<float>(segs);
         float gap = 0.25f + mapHash01(i * 13 + sg * 7 + 2) * 0.40f;
         float ya = box.y + 6.f + (box.h - 12.f) * t0;
-        float yb = box.y + 6.f +
-                   (box.h - 12.f) * (t0 + (t1 - t0) * (1.f - gap));
+        float yb =
+          box.y + 6.f + (box.h - 12.f) * (t0 + (t1 - t0) * (1.f - gap));
         float jx = (mapHash01(i * 5 + sg * 11 + 4) - 0.5f) * 20.f;
         float ba = meshA * (0.5f + mapHash01(i * 7 + sg * 3 + 9));
         if (yb - ya > 7.f)
@@ -80,11 +80,11 @@ inline void paintSubtleMap(
       for (int sg = 0; sg < segs; ++sg) {
         float t0 = static_cast<float>(sg) / static_cast<float>(segs);
         float t1 =
-            static_cast<float>(sg + 1) / static_cast<float>(segs);
+          static_cast<float>(sg + 1) / static_cast<float>(segs);
         float gap = 0.30f + mapHash01(i * 17 + sg * 5 + 6) * 0.40f;
         float xa = box.x + 6.f + (box.w - 12.f) * t0;
-        float xb = box.x + 6.f +
-                   (box.w - 12.f) * (t0 + (t1 - t0) * (1.f - gap));
+        float xb =
+          box.x + 6.f + (box.w - 12.f) * (t0 + (t1 - t0) * (1.f - gap));
         float jy = (mapHash01(i * 9 + sg * 13 + 8) - 0.5f) * 12.f;
         float ba = meshA * (0.5f + mapHash01(i * 3 + sg * 7 + 1));
         if (xb - xa > 10.f)
@@ -140,7 +140,7 @@ inline void paintSubtleMap(
                              : -(20.f + mapHash01(i * 5 + 137) * 24.f);
     sink.pushRotate(deg, x, y);
     sink.fill(
-        {x - len * 0.5f, y - 0.5f, len, 1.f}, withAlpha(street, 0.28f)
+      {x - len * 0.5f, y - 0.5f, len, 1.f}, withAlpha(street, 0.28f)
     );
     sink.pop();
   }
@@ -157,15 +157,15 @@ inline void paintSubtleMap(
 // Route overlay, shared by the fallback mesh and the foreign 3D layer
 // (stays Glim-side: crisp AA, theme accent, zero re-tessellation cost).
 inline void paintSubtleMapRoute(
-    const Box& box, AnySink& sink, const Engine& e
+  const Box& box, AnySink& sink, const Engine& e
 ) {
   const std::uint32_t accent =
-      themeColor(e, kInfoAccent, Info::kAccent);
+    themeColor(e, kInfoAccent, Info::kAccent);
   const float rx[8] = {
-      0.66f, 0.70f, 0.67f, 0.71f, 0.68f, 0.72f, 0.66f, 0.62f
+    0.66f, 0.70f, 0.67f, 0.71f, 0.68f, 0.72f, 0.66f, 0.62f
   };
   const float ry[8] = {
-      0.06f, 0.18f, 0.30f, 0.42f, 0.54f, 0.66f, 0.80f, 0.94f
+    0.06f, 0.18f, 0.30f, 0.42f, 0.54f, 0.66f, 0.80f, 0.94f
   };
   float route[16];
   for (int i = 0; i < 8; ++i) {
@@ -181,25 +181,25 @@ inline void paintSubtleMapRoute(
 // chevron + accent core. (u,v) are box fractions; default sits on the
 // route in the visible bottom gutter. Heading points up-route.
 inline void paintMapCar(
-    const Box& box, AnySink& sink, const Engine& e, float u, float v
+  const Box& box, AnySink& sink, const Engine& e, float u, float v
 ) {
   const std::uint32_t accent =
-      themeColor(e, kInfoAccent, Info::kAccent);
+    themeColor(e, kInfoAccent, Info::kAccent);
   const float x = box.x + u * box.w;
   const float y = box.y + v * box.h;
   // White navigation chevron (paper-plane) + accent core. No halo
   // quad: the halo rasterized as a solid block at this size.
   float chev[10] = {
-      x,
-      y - 8.f,
-      x + 7.f,
-      y + 6.f,
-      x,
-      y + 2.f,
-      x - 7.f,
-      y + 6.f,
-      x,
-      y - 8.f
+    x,
+    y - 8.f,
+    x + 7.f,
+    y + 6.f,
+    x,
+    y + 2.f,
+    x - 7.f,
+    y + 6.f,
+    x,
+    y - 8.f
   };
   sink.polyline(chev, 5, 2.f, 0.f, 0xffffffffu);
   sink.fillRounded({x - 2.f, y - 2.f, 4.f, 4.f}, 2, accent);
@@ -208,16 +208,16 @@ inline void paintMapCar(
 inline void
 paintSubtleMapVignette(const Box& box, AnySink& sink, const Engine&) {
   sink.fillGradient(
-      {box.x, box.y, box.w, 120.f},
-      0,
-      withAlpha(0x000000ff, 0.35f),
-      0x00000000u
+    {box.x, box.y, box.w, 120.f},
+    0,
+    withAlpha(0x000000ff, 0.35f),
+    0x00000000u
   );
   sink.fillGradient(
-      {box.x, box.y + box.h - 120.f, box.w, 120.f},
-      0,
-      0x00000000u,
-      withAlpha(0x000000ff, 0.35f)
+    {box.x, box.y + box.h - 120.f, box.w, 120.f},
+    0,
+    0x00000000u,
+    withAlpha(0x000000ff, 0.35f)
   );
 }
 
