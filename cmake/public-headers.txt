@@ -1,5 +1,6 @@
 packages/glim-core/include/glim/assert.h
 packages/glim-core/include/glim/math.h
+packages/glim-core/include/glim/trace.h
 packages/glim-embed/include/glim/embed/Host.h
 packages/glim-gpu/include/glim/gpu/Device.h
 packages/glim-gpu/include/glim/gpu/Result.h
@@ -110,6 +111,8 @@ packages/glim-toolkit/include/glim/toolkit.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Codec.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Crash.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Drive.h
+packages/glim-toolkit-host/include/glim/toolkit/host/Embedded.h
+packages/glim-toolkit-host/include/glim/toolkit/host/Feed.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Host.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Paint.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Power.h

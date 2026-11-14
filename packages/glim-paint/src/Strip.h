@@ -48,6 +48,8 @@ void appendGradientQuad(
   float coverage,
   const Matter& m
 );
+// Solid or dotted, memoized on world points, width and pitch.
+void flattenPolyline(const Polyline&, std::vector<Strip>&);
 void flattenDottedPolyline(
   const Vec2* pts, std::size_t n, float width, float dotPitch, std::vector<Strip>& out
 );

@@ -13,6 +13,14 @@ Renderer::Renderer(gpu::Device& device) : device_(device), textures_(device) {}
 
 Renderer::~Renderer() = default;
 
+Stats Renderer::stats() const {
+  Stats s = stats_;
+  s.textureBytes = textures_.uploadedBytes;
+  s.importedBytes = textures_.importedBytes;
+  s.targetBytes = targets_.bytes();
+  return s;
+}
+
 #else
 
 Renderer::Renderer(std::uint8_t* rgba, int width, int height)
@@ -25,6 +33,8 @@ void Renderer::setTarget(std::uint8_t* rgba, int width, int height) {
 }
 
 Renderer::~Renderer() = default;
+
+Stats Renderer::stats() const { return stats_; }
 
 #if GLIM_EMBED
 

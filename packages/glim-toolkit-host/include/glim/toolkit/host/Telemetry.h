@@ -14,6 +14,7 @@
 
 #include <glim/math.h>
 #include <glim/paint/Scene.h>
+#include <glim/trace.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +39,18 @@ struct FrameTelemetry {
 };
 
 using TelemetrySink = std::function<void(const FrameTelemetry&)>;
+
+// Per-frame paint and GPU counters on the trace timeline (R1).
+inline void traceStats(const paint::Stats& s) {
+  trace::counter("encode_ms", s.encodeMs);
+  trace::counter("acquire_ms", s.acquireMs);
+  trace::counter("gpu_ms", s.gpuMs);
+  trace::counter("draws", s.draws);
+  trace::counter("instances", s.instances);
+  trace::counter("texture_bytes", static_cast<double>(s.textureBytes));
+  trace::counter("imported_bytes", static_cast<double>(s.importedBytes));
+  trace::counter("target_bytes", static_cast<double>(s.targetBytes));
+}
 
 class TelemetryHub {
  public:

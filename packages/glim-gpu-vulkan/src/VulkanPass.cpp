@@ -406,6 +406,7 @@ void CommandEncoder::submit(Queue&) {
       img.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     }
   }
+  d->endTimestamp(impl_->cmd, impl_->frame);
   vkEndCommandBuffer(impl_->cmd);
   impl_->recording = false;
 

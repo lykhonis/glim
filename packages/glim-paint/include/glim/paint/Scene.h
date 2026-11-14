@@ -25,6 +25,9 @@ struct GradientStop {
 constexpr int kMaxGradientStops = 8;
 
 enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
+// Texture: a backend texture on Glim's device. Surface: a shareable buffer
+// (IOSurface) the renderer imports once per image id.
+enum class NativeKind { Texture, Surface };
 
 constexpr int kMaxImageSide = 4096;
 constexpr std::uint64_t kMaxImageBytes = 16ull * 1024ull * 1024ull;
@@ -35,6 +38,7 @@ struct StoredImage {
   std::vector<std::uint8_t> rgba;
   void* native = nullptr;
   SampleFormat format = SampleFormat::Rgba8Unorm;
+  NativeKind nativeKind = NativeKind::Texture;
   bool foreign = false;
 };
 
@@ -42,7 +46,9 @@ struct StoredImage {
 struct ImageStore {
   ImageStore();
   std::uint32_t add(int width, int height, const std::uint8_t* rgba);
-  std::uint32_t wrap(void* native, int width, int height, SampleFormat format);
+  std::uint32_t wrap(
+    void* native, int width, int height, SampleFormat format, NativeKind kind = NativeKind::Texture
+  );
   void release(std::uint32_t id);
   std::optional<std::reference_wrapper<const StoredImage>> get(std::uint32_t id) const;
 
@@ -482,6 +488,12 @@ struct Stats {
   unsigned shapeCount[kShapeKinds]{};
   unsigned shapeInstances[kShapeKinds]{};
   float shapeEncodeMs[kShapeKinds]{};
+  // Renderer-held GPU memory, bytes (RGBA8 estimate): uploaded images,
+  // imported producer surfaces (shared, owned by the producer), and
+  // isolate / backdrop / glass targets.
+  std::uint64_t textureBytes = 0;
+  std::uint64_t importedBytes = 0;
+  std::uint64_t targetBytes = 0;
 };
 
 float snapBackdropSigma(float sigma);

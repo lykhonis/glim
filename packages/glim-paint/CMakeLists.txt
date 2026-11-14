@@ -12,6 +12,7 @@ add_library(glim-paint STATIC
     src/Strip.cpp
     src/StripCoverage.cpp
     src/StripFlatten.cpp
+    src/PolylineCache.cpp
     src/StripGeometry.cpp
     src/Reuse.cpp
     src/Font.cpp)
@@ -127,6 +128,11 @@ if(GLIM_HOST_TESTS)
     target_link_libraries(glim-slot-test PRIVATE glim::paint-cpu)
     glim_test_defaults(glim-slot-test)
     add_test(NAME glim-slot-test COMMAND glim-slot-test)
+
+    add_executable(glim-context-test tests/context_test.cpp)
+    target_link_libraries(glim-context-test PRIVATE glim::paint)
+    glim_test_defaults(glim-context-test)
+    add_test(NAME glim-context-test COMMAND glim-context-test)
 
     add_executable(glim-foreign-test tests/foreign_test.cpp)
     target_link_libraries(glim-foreign-test PRIVATE glim::paint-cpu)

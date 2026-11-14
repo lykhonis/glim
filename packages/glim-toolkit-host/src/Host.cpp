@@ -183,11 +183,15 @@ int run(
   // snapshot fanned out to pull (hub) and push (sink).
   const auto paintBody = [&](const std::chrono::steady_clock::time_point& now, float frameMs) {
     startupMark("first-event");
+    const trace::Span frameSpan("frame");
     const Vec2 size = window.size();
     const bool wantTm = (telemetry != nullptr) || static_cast<bool>(telemetrySink);
     const auto b0 =
       wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-    auto [tree, box] = buildFresh(size);
+    auto [tree, box] = [&] {
+      const trace::Span span("build");
+      return buildFresh(size);
+    }();
     startupMark("build");
     const auto b1 =
       wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
@@ -200,14 +204,19 @@ int run(
     const auto r0 =
       wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if (record) {
+      const trace::Span span("record");
       record(frame, tree, box);
     }
     startupMark("record");
     const auto r1 =
       wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-    context.finish();
+    {
+      const trace::Span span("finish");
+      context.finish();
+    }
     // Zero-cost when no native seats: sawSlots bit avoids collectSlots walk.
     if (!attached.empty() || context.sawSlots()) {
+      const trace::Span span("embeds");
       syncSeats(window, context.scene(), attached, effective);
     }
 #if GLIM_SOFTWARE
@@ -220,7 +229,10 @@ int run(
     } else {
       renderer->setTarget(pixels, w, h);
     }
-    renderer->draw(context.scene());
+    {
+      const trace::Span span("draw");
+      renderer->draw(context.scene());
+    }
     window.presentSoftware();
     if (startup && !firstPainted) *presentedAt = processUptimeMs();
 #else
@@ -238,8 +250,18 @@ int run(
     if (startup && !firstPainted) {
       device.notifyNextPresented([presentedAt] { *presentedAt = processUptimeMs(); });
     }
-    renderer.draw(context.scene());
+    {
+      const trace::Span span("draw");
+      renderer.draw(context.scene());
+    }
 #endif
+    if (trace::enabled()) {
+#if GLIM_SOFTWARE
+      if (renderer) traceStats(renderer->stats());
+#else
+      traceStats(renderer.stats());
+#endif
+    }
     if (telemetry != nullptr || telemetrySink) {
       paint::Stats stats{};
 #if GLIM_SOFTWARE

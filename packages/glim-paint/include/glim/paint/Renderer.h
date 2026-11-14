@@ -47,7 +47,7 @@ class Renderer {
   void drawToTarget(const Scene& scene, gpu::FrameTarget& target);
 #endif
 #endif
-  const Stats& stats() const { return stats_; }
+  Stats stats() const;
 
 #if !GLIM_SOFTWARE
  public:
@@ -98,6 +98,8 @@ class Renderer {
     gpu::Device& device_;
     std::optional<std::reference_wrapper<const ImageStore>> images_;
     std::vector<gpu::Texture> textures_;
+    std::uint64_t uploadedBytes = 0;
+    std::uint64_t importedBytes = 0;
   };
   struct Batch {
     void clearAll();
@@ -142,6 +144,7 @@ class Renderer {
   struct TargetPool {
     gpu::FrameTarget* acquire(gpu::Device& device, int w, int h);
     void reset() { used_ = 0; }
+    std::uint64_t bytes() const;
     gpu::FrameTarget backdrop;
     gpu::FrameTarget glassSrc;
     gpu::FrameTarget glassBlurTmp;

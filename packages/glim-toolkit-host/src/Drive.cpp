@@ -8,7 +8,9 @@
 #include <sstream>
 #include <utility>
 
-#include "Trace.h"
+#include <glim/trace.h>
+
+#include "Percentile.h"
 
 namespace glim {
 namespace toolkit {
@@ -213,7 +215,7 @@ bool DriveReport::stalled() const {
 
 std::string DriveReport::traceJson() const {
   std::ostringstream os;
-  detail::TraceWriter trace(os);
+  trace::JsonWriter trace(os);
   auto slice = [&](const char* name, int tid, float startMs, float durMs, const std::string& args) {
     trace.slice(
       name,

@@ -1,9 +1,23 @@
 #include <glim/paint/Renderer.h>
 
+#include "Isolates.h"
+
 #include <algorithm>
 #include <cstddef>
 
 namespace glim::paint {
+namespace {
+
+gpu::SampleFormat toGpu(SampleFormat f) {
+  return f == SampleFormat::Bgra8Unorm ? gpu::SampleFormat::Bgra8Unorm
+                                       : gpu::SampleFormat::Rgba8Unorm;
+}
+
+}  // namespace
+
+std::uint64_t rgbaBytes(int width, int height) {
+  return static_cast<std::uint64_t>(width) * static_cast<std::uint64_t>(height) * 4ull;
+}
 
 void* Renderer::TextureCache::get(std::uint32_t imageId) {
   if (!images_ || imageId == 0) {
@@ -21,8 +35,17 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
     return nullptr;
   }
   const StoredImage& im = img->get();
-  if (im.native) {
+  if (im.native && im.nativeKind == NativeKind::Texture) {
     return im.native;
+  }
+  if (im.native) {
+    auto imported = device_.importSurface(im.native, im.width, im.height, toGpu(im.format));
+    if (!imported.ok()) {
+      return nullptr;
+    }
+    tex = std::move(imported.value());
+    importedBytes += rgbaBytes(im.width, im.height);
+    return tex.native();
   }
   if (im.rgba.empty()) {
     return nullptr;
@@ -33,6 +56,7 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
   }
   tex = std::move(created.value());
   device_.writeTexture(tex, im.rgba.data(), im.rgba.size());
+  uploadedBytes += rgbaBytes(im.width, im.height);
   return tex.native();
 }
 

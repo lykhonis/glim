@@ -108,6 +108,9 @@ void Device::Impl::destroy() {
         vkDestroyDescriptorPool(device, f.descriptors, nullptr);
       }
     }
+    if (timestamps) {
+      vkDestroyQueryPool(device, timestamps, nullptr);
+    }
     if (cmdPool) {
       vkDestroyCommandPool(device, cmdPool, nullptr);
     }
@@ -318,5 +321,31 @@ void androidUnregisterDevice(void* impl) {
   list.erase(std::remove(list.begin(), list.end(), static_cast<Device::Impl*>(impl)), list.end());
 }
 #endif
+
+void Device::Impl::readGpuMs(uint32_t slot) {
+  if (!timestamps || !timed[slot]) return;
+  uint64_t ticks[2]{};
+  const VkResult r = vkGetQueryPoolResults(
+    device, timestamps, 2 * slot, 2, sizeof(ticks), ticks, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT
+  );
+  timed[slot] = false;
+  if (r == VK_SUCCESS && ticks[1] >= ticks[0]) {
+    gpuMs = static_cast<float>(
+      static_cast<double>(ticks[1] - ticks[0]) * props.limits.timestampPeriod / 1.0e6
+    );
+  }
+}
+
+void Device::Impl::beginTimestamp(VkCommandBuffer cmd, uint32_t slot) {
+  if (!timestamps) return;
+  vkCmdResetQueryPool(cmd, timestamps, 2 * slot, 2);
+  vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timestamps, 2 * slot);
+}
+
+void Device::Impl::endTimestamp(VkCommandBuffer cmd, uint32_t slot) {
+  if (!timestamps) return;
+  vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestamps, 2 * slot + 1);
+  timed[slot] = true;
+}
 
 }  // namespace glim::gpu

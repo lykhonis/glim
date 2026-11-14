@@ -49,6 +49,8 @@ class Probe {
   const image::Image* pick(const std::string& which);
   bool compare(const std::string& label);
   bool bench(int frames);
+  bool benchGpu(int frames);
+  bool ensureGpu();
   std::string artifact(const std::string& name) const;
 
   TestApp& app_;

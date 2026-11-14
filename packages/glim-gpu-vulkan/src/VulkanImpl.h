@@ -166,6 +166,15 @@ struct Device::Impl {
   VkCommandPool cmdPool = VK_NULL_HANDLE;
   VkCommandPool uploadPool = VK_NULL_HANDLE;
   vulkan::Frame frames[vulkan::kFrames]{};
+  // Two timestamps per frame slot (begin, end); null when the queue
+  // cannot time. Read after the slot's fence wait, so never blocks.
+  VkQueryPool timestamps = VK_NULL_HANDLE;
+  bool timed[vulkan::kFrames]{};
+  float gpuMs = 0.f;
+
+  void readGpuMs(uint32_t slot);
+  void beginTimestamp(VkCommandBuffer cmd, uint32_t slot);
+  void endTimestamp(VkCommandBuffer cmd, uint32_t slot);
 
   std::vector<vulkan::ShaderRec> shaders;
   std::vector<vulkan::PipelineRec> pipelines;

@@ -105,6 +105,32 @@ int main() {
     std::cerr << failures << " pixel mismatches\n";
     return EXIT_FAILURE;
   }
+  // Polyline memo: a cache hit returns exactly what flattening produced.
+  {
+    using namespace glim::paint;
+    const Polyline line{.points = {{2, 3}, {40, 17}, {9, 30}}, .width = 3.f};
+    std::vector<Strip> direct, first, second;
+    flattenSolidPolyline(line.points.data(), line.points.size(), line.width, direct);
+    flattenPolyline(line, first);
+    flattenPolyline(line, second);
+    const auto same = [](const std::vector<Strip>& a, const std::vector<Strip>& b) {
+      if (a.size() != b.size()) return false;
+      for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].y != b[i].y || a[i].height != b[i].height ||
+            a[i].spans.size() != b[i].spans.size())
+          return false;
+        for (std::size_t k = 0; k < a[i].spans.size(); ++k) {
+          const StripSpan &x = a[i].spans[k], &y = b[i].spans[k];
+          if (x.x0 != y.x0 || x.x1 != y.x1 || x.coverage != y.coverage) return false;
+        }
+      }
+      return true;
+    };
+    if (direct.empty() || !same(direct, first) || !same(direct, second)) {
+      std::cerr << "polyline cache differs from direct flatten\n";
+      return EXIT_FAILURE;
+    }
+  }
   std::cout << "strip_test ok\n";
   return EXIT_SUCCESS;
 }

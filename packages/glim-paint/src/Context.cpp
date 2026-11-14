@@ -139,6 +139,10 @@ std::uint32_t Context::wrapNativeTexture(void* native, int width, int height, Sa
   return images_.wrap(native, width, height, format);
 }
 
+std::uint32_t Context::wrapSurface(void* surface, int width, int height, SampleFormat format) {
+  return images_.wrap(surface, width, height, format, NativeKind::Surface);
+}
+
 void Context::releaseImage(std::uint32_t id) { images_.release(id); }
 
 void Context::blit(const Rect& dst, Matter matter) {

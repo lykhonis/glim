@@ -271,6 +271,17 @@ PlateInstance makePlate(
   return p;
 }
 
+std::uint64_t Renderer::TargetPool::bytes() const {
+  std::uint64_t total = 0;
+  for (const gpu::FrameTarget* t : {&backdrop, &glassSrc, &glassBlurTmp, &glassBlur}) {
+    if (t->native()) total += rgbaBytes(t->width(), t->height());
+  }
+  for (const Slot& s : slots_) {
+    if (s.ft.native()) total += rgbaBytes(s.ft.width(), s.ft.height());
+  }
+  return total;
+}
+
 gpu::FrameTarget* Renderer::TargetPool::acquire(gpu::Device& device, int w, int h) {
   w = bucketSize(std::max(1, w));
   h = bucketSize(std::max(1, h));

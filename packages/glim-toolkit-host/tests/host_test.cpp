@@ -3,12 +3,15 @@
 #include <glim/toolkit/host/Codec.h>
 #include <glim/toolkit/host/Crash.h>
 #include <glim/toolkit/host/Drive.h>
+#include <glim/toolkit/host/Embedded.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Power.h>
 #include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/host/Startup.h>
+#include <glim/toolkit/host/Telemetry.h>
+#include <glim/trace.h>
 
 #include <signal.h>
 #include <sys/wait.h>
@@ -20,12 +23,20 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <typeinfo>
 #include <vector>
 
 namespace {
+
+struct LogEmbedder final : glim::toolkit::host::Embedder {
+  std::string log;
+  void attach(const glim::paint::SlotPlacement& p) override { log += "a" + std::to_string(p.id); }
+  void place(const glim::paint::SlotPlacement& p) override { log += "p" + std::to_string(p.id); }
+  void detach(std::uint32_t id) override { log += "d" + std::to_string(id); }
+};
 
 // Custom element that paints its own effects: a shadow whose caster is
 // hidden (opacity 0) and an additive glow, both through the AnySink.
@@ -93,6 +104,34 @@ int main() {
 #else
   assert(first == nullptr && second == nullptr);
 #endif
+
+  // Paint counters land on the trace timeline.
+  {
+    const std::string path = "glim-host-trace.json";
+    assert(glim::trace::startFile(path.c_str()));
+    glim::paint::Stats s{};
+    s.textureBytes = 4096;
+    glim::toolkit::host::traceStats(s);
+    glim::trace::stopFile();
+    std::ifstream in(path);
+    const std::string json{std::istreambuf_iterator<char>(in), {}};
+    std::filesystem::remove(path);
+    assert(json.find("\"name\":\"texture_bytes\",\"ph\":\"C\"") != std::string::npos);
+    assert(json.find("\"value\":4096") != std::string::npos);
+  }
+
+  // Embedded diff: attach new, place on move only, detach removed.
+  {
+    using glim::paint::SlotPlacement;
+    LogEmbedder e;
+    glim::toolkit::host::EmbedFrames attached;
+    const glim::Rect r1{{0, 0}, {10, 10}}, r2{{5, 0}, {10, 10}};
+    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{1, r1}, SlotPlacement{2, r1}}, attached);
+    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{1, r1}, SlotPlacement{2, r2}}, attached);
+    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{2, r2}}, attached);
+    assert(e.log == "a1a2p2d1");
+    assert(attached.size() == 1 && attached.at(2).origin.x == 5);
+  }
 
   // Primitive ops: elements serialize without new codec edits.
   {
@@ -379,6 +418,9 @@ int main() {
     assert(said("ops", "ops total="));
     assert(probe.exec("tops"));
     assert(said("bench 2", "bench frames=2"));
+    // Headless GPU is optional on CI runners; when present it must report.
+    const bool gpuBench = probe.exec("bench 2 gpu");
+    assert(!gpuBench || out.str().find("bench gpu frames=2") != std::string::npos);
     assert(said("hit 2 2", "box="));
     assert(probe.exec("tap 2 2") && probe.exec("tap i 0") && probe.exec("key Next"));
     assert(!probe.exec("key NoSuchKey"));

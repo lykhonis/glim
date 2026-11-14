@@ -4,6 +4,8 @@
 
 namespace glim::paint {
 
+std::uint64_t rgbaBytes(int width, int height);
+
 struct Uniforms {
   float projection[16];
 };

@@ -28,7 +28,9 @@ std::uint32_t ImageStore::add(int width, int height, const std::uint8_t* rgba) {
   return static_cast<std::uint32_t>(data_->slots.size() - 1);
 }
 
-std::uint32_t ImageStore::wrap(void* native, int width, int height, SampleFormat format) {
+std::uint32_t ImageStore::wrap(
+  void* native, int width, int height, SampleFormat format, NativeKind kind
+) {
   if (!data_ || !native || width <= 0 || height <= 0) {
     return 0;
   }
@@ -40,6 +42,7 @@ std::uint32_t ImageStore::wrap(void* native, int width, int height, SampleFormat
   img.height = height;
   img.native = native;
   img.format = format;
+  img.nativeKind = kind;
   img.foreign = true;
   data_->slots.push_back(std::move(img));
   return static_cast<std::uint32_t>(data_->slots.size() - 1);

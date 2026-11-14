@@ -26,7 +26,7 @@ Extent Device::drawableSize() const {
   return {static_cast<int>(impl_->extent.width), static_cast<int>(impl_->extent.height)};
 }
 
-float Device::lastGpuMs() const { return 0.f; }
+float Device::lastGpuMs() const { return impl_ ? impl_->gpuMs : 0.f; }
 
 void Device::notifyNextPresented(std::function<void()> fn) { impl_->onPresented = std::move(fn); }
 
@@ -128,11 +128,13 @@ CommandEncoder Device::encoder() {
     hframe.ringOffset = static_cast<VkDeviceSize>(impl_->frameIndex) * kRingBytes;
   }
   Frame& frame = impl_->frames[impl_->frameIndex];
+  impl_->readGpuMs(impl_->frameIndex);
   vkResetCommandBuffer(frame.cmd, 0);
   VkCommandBufferBeginInfo bi{};
   bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(frame.cmd, &bi);
+  impl_->beginTimestamp(frame.cmd, impl_->frameIndex);
   enc.impl_->device = impl_.get();
   enc.impl_->frame = impl_->frameIndex;
   enc.impl_->imageIndex = impl_->imageIndex;

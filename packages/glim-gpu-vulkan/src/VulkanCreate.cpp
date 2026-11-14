@@ -338,6 +338,16 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
     return Result<Device>::fail("vkCreateCommandPool failed");
   }
 
+  if (d.props.limits.timestampComputeAndGraphics) {
+    VkQueryPoolCreateInfo qp{};
+    qp.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    qp.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    qp.queryCount = 2 * kFrames;
+    if (vkCreateQueryPool(d.device, &qp, nullptr, &d.timestamps) != VK_SUCCESS) {
+      d.timestamps = VK_NULL_HANDLE;
+    }
+  }
+
   VkCommandBufferAllocateInfo cba{};
   cba.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cba.commandPool = d.cmdPool;

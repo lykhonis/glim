@@ -4,6 +4,7 @@
 #include <glim/paint/FramePacket.h>
 #include <glim/paint/Software.h>
 #include <glim/toolkit/host/Probe.h>
+#include <glim/toolkit/host/Telemetry.h>
 
 #if !GLIM_SOFTWARE
 #include <glim/gpu/Device.h>
@@ -23,7 +24,9 @@
 #include <optional>
 #include <sstream>
 
-#include "Trace.h"
+#include <glim/trace.h>
+
+#include "Percentile.h"
 
 namespace glim {
 namespace toolkit {
@@ -67,7 +70,8 @@ constexpr const char* kHelp = R"(probe commands (one per line, answers end with 
   tree | a11y | stats           toolkit dump, a11y nodes, paint stats
   hit X Y                       elements under a point, root to leaf
   ops                           op counts by kind and per element
-  bench [N]                     median build/record/encode/raster ms over N frames
+  bench [N] [gpu]               median build/record/encode/raster ms over N frames;
+                                gpu: full-redraw draw/gpu ms, draws, memory
   encode                        encode cost by paint shape kind (count, instances, ms)
   tap X Y | tap i N | wheel X Y DX DY | step DT   input and time
   key Left|Right|Up|Down|Next|Tab|Prev|Activate|Enter|Space
@@ -194,22 +198,7 @@ bool Probe::render(bool gpu) {
     paint::rasterScene(ctx.scene(), w, h, frame_.pixels.rgba.data());
   } else {
 #if !GLIM_SOFTWARE
-    if (!gpu_) {
-      gpu::DeviceCreateInfo info{};
-#if defined(__APPLE__)
-      info.backend = gpu::Backend::Metal;
-#else
-      info.backend = gpu::Backend::Vulkan;
-#endif
-      auto created = gpu::Device::create(info);
-      if (!created.ok()) {
-        out_ << "gpu device: " << created.message() << "\n";
-        return false;
-      }
-      gpu_ = std::make_unique<Gpu>();
-      gpu_->device = std::move(created.value());
-      gpu_->renderer = std::make_unique<paint::Renderer>(gpu_->device);
-    }
+    if (!ensureGpu()) return false;
     auto target = gpu_->device.createFrameTarget({w, h});
     if (!target.ok()) {
       out_ << "gpu target: " << target.message() << "\n";
@@ -300,17 +289,87 @@ bool Probe::compare(const std::string& label) {
   return true;
 }
 
+bool Probe::ensureGpu() {
+#if GLIM_SOFTWARE
+  out_ << "gpu unavailable in a SOFTWARE build\n";
+  return false;
+#else
+  if (gpu_) return true;
+  gpu::DeviceCreateInfo info{};
+#if defined(__APPLE__)
+  info.backend = gpu::Backend::Metal;
+#else
+  info.backend = gpu::Backend::Vulkan;
+#endif
+  auto created = gpu::Device::create(info);
+  if (!created.ok()) {
+    out_ << "gpu device: " << created.message() << "\n";
+    return false;
+  }
+  gpu_ = std::make_unique<Gpu>();
+  gpu_->device = std::move(created.value());
+  gpu_->renderer = std::make_unique<paint::Renderer>(gpu_->device);
+  return true;
+#endif
+}
+
+// Every frame draws into a fresh target, so nothing repeats: this is the
+// full-redraw cost, the worst case a live window pays on a change.
+bool Probe::benchGpu([[maybe_unused]] int frames) {
+  if (!ensureGpu()) return false;
+#if !GLIM_SOFTWARE
+  frames = std::max(1, frames);
+  const int w = static_cast<int>(app_.w), h = static_cast<int>(app_.h);
+  std::vector<double> record, draw, gpuMs;
+  std::vector<std::uint8_t> px(static_cast<std::size_t>(w) * h * 4);
+  paint::Stats last{};
+  paint::Context ctx;  // see bench()
+  for (int i = 0; i < frames; ++i) {
+    const trace::Span frame("frame");
+    app_.rebuild();
+    auto t = Clock::now();
+    {
+      const trace::Span span("record");
+      app_.recordScene(ctx);
+    }
+    record.push_back(msSince(t));
+    auto target = gpu_->device.createFrameTarget({w, h});
+    if (!target.ok()) return out_ << "gpu target: " << target.message() << "\n", false;
+    t = Clock::now();
+    {
+      const trace::Span span("draw");
+      gpu_->renderer->drawToTarget(ctx.scene(), target.value());
+      gpu_->device.readPixels(target.value(), px.data(), px.size());
+    }
+    draw.push_back(msSince(t));
+    gpuMs.push_back(gpu_->device.lastGpuMs());
+    last = gpu_->renderer->stats();
+    if (trace::enabled()) traceStats(last);
+  }
+  out_ << std::fixed << std::setprecision(3) << "bench gpu frames=" << frames
+       << " record_ms=" << median(record) << " draw_ms=" << median(draw)
+       << " draw_p95_ms=" << detail::percentile(draw, 95) << " gpu_ms=" << median(gpuMs)
+       << " draws=" << last.draws << " instances=" << last.instances
+       << " isolates=" << last.isolateCount << " glass_passes=" << last.glassPassCount
+       << " texture_kb=" << last.textureBytes / 1024 << " target_kb=" << last.targetBytes / 1024
+       << " imported_kb=" << last.importedBytes / 1024 << "\n";
+#endif
+  return true;
+}
+
 bool Probe::bench(int frames) {
   frames = std::max(1, frames);
   std::vector<double> build, record, encode, raster;
   const int w = static_cast<int>(app_.w), h = static_cast<int>(app_.h);
   gi::Image px = gi::Image::rgba8(w, h);
   std::size_t instances = 0;
+  // One context across frames, as the live host keeps: per-context
+  // assets (decoded images) load once.
+  paint::Context ctx;
   for (int i = 0; i < frames; ++i) {
     auto t = Clock::now();
     app_.rebuild();
     build.push_back(msSince(t));
-    paint::Context ctx;
     t = Clock::now();
     app_.recordScene(ctx);
     record.push_back(msSince(t));
@@ -564,7 +623,9 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
     }
     return true;
   }
-  if (cmd == "bench") return bench(toInt(a, 1, 10));
+  if (cmd == "bench") {
+    return a.size() > 2 && a[2] == "gpu" ? benchGpu(toInt(a, 1, 10)) : bench(toInt(a, 1, 10));
+  }
   if (cmd == "encode") {
     paint::Context ctx;
     app_.recordScene(ctx);
@@ -737,7 +798,7 @@ int runE2e(TestApp& app, const E2eFlags& f) {
       out = &file;
     }
     std::ofstream jfile;
-    std::optional<detail::TraceWriter> trace;
+    std::optional<trace::JsonWriter> trace;
     if (!f.traceJson.empty()) {
       jfile.open(f.traceJson);
       if (!jfile) return 1;

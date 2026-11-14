@@ -40,6 +40,9 @@ class Context {
   std::uint32_t wrapNativeTexture(
     void* native, int width, int height, SampleFormat format = SampleFormat::Rgba8Unorm
   );
+  std::uint32_t wrapSurface(
+    void* surface, int width, int height, SampleFormat format = SampleFormat::Bgra8Unorm
+  );
   void releaseImage(std::uint32_t id);
   const ImageStore& images() const { return images_; }
   void blit(const Rect& dst, Matter matter);

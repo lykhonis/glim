@@ -303,19 +303,8 @@ void appendShape(
     flat(strips);
     emitStrips(strips, clip, a->matter, quads, gradients);
   } else if (const auto* pl = std::get_if<Polyline>(&shape)) {
-    auto flat = [&](std::vector<Strip>& strips) {
-      if (pl->points.size() < 2) return;
-      if (pl->dotPitch > 0.f) {
-        // Dotted: stamp discs (O(dots × dot area), not O(bbox × dots)).
-        flattenDottedPolyline(
-          pl->points.data(), pl->points.size(), pl->width, pl->dotPitch, strips
-        );
-        return;
-      }
-      flattenSolidPolyline(pl->points.data(), pl->points.size(), pl->width, strips);
-    };
     std::vector<Strip> strips;
-    flat(strips);
+    flattenPolyline(*pl, strips);
     emitStrips(strips, clip, pl->matter, quads, gradients);
   } else if (const auto* b = std::get_if<Blit>(&shape)) {
     if (clip.active && (clip.rect.size.x <= 0.f || clip.rect.size.y <= 0.f)) {
