@@ -42,26 +42,7 @@ struct GlassTag {
   GlassMaterial material = GlassMaterial::Glass;
 };
 
-inline GlassTag glass(int radius = Tokens::kGlassRadius) { return {false, radius}; }
-
-inline GlassTag glassClear(int radius = Tokens::kGlassRadius) { return {true, radius}; }
-
-// Opaque reflective metal; tint is the metal color (0xRRGGBBAA).
-inline GlassTag glassMetal(std::uint32_t tint, int radius = Tokens::kGlassRadius) {
-  GlassTag t;
-  t.material = GlassMaterial::LiquidMetal;
-  t.tint = tint;
-  t.radius = radius;
-  return t;
-}
-
-// Shallow refractive water; zero tint keeps the preset teal absorption.
-inline GlassTag glassWater(int radius = Tokens::kGlassRadius) {
-  GlassTag t;
-  t.material = GlassMaterial::Water;
-  t.radius = radius;
-  return t;
-}
+inline GlassTag glass(GlassTag g = {}) { return g; }
 
 template <>
 struct is_tag<GlassTag> : std::true_type {};

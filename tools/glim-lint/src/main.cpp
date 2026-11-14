@@ -15,6 +15,14 @@ constexpr const char* kScopeDirs[] = {
     "packages/glim-toolkit/include/glim/toolkit/elements",
     "examples/smarthome/src/widgets",
     "examples/infotainment/src/widgets",
+    "packages/glim-toolkit/include/glim/toolkit/tags",
+};
+// Composition scope: everywhere UI trees are written.
+constexpr const char* kTreeDirs[] = {
+    "packages/glim-toolkit/include/glim/toolkit/elements",
+    "examples/smarthome/src",
+    "examples/infotainment/src",
+    "examples/glass/src",
 };
 constexpr const char* kScopeFiles[] = {
     "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h",
@@ -41,6 +49,17 @@ std::vector<fs::path> scopedFiles(const fs::path& root) {
   return files;
 }
 
+std::vector<fs::path> treeFiles(const fs::path& root) {
+  std::vector<fs::path> files;
+  for (const char* d : kTreeDirs)
+    for (const auto& e : fs::recursive_directory_iterator(root / d)) {
+      const auto ext = e.path().extension();
+      if (ext == ".h" || ext == ".cpp") files.push_back(e.path());
+    }
+  std::sort(files.begin(), files.end());
+  return files;
+}
+
 }  // namespace
 
 // glim-lint [--root DIR] [FILE...]
@@ -56,7 +75,9 @@ int main(int argc, char** argv) {
       else
         files.emplace_back(a);
     }
-    if (files.empty()) files = scopedFiles(root);
+    const bool repo = files.empty();
+    if (repo) files = scopedFiles(root);
+    std::vector<fs::path> trees = repo ? treeFiles(root) : files;
 
     int factories = 0;
     int bad = 0;
@@ -68,6 +89,11 @@ int main(int argc, char** argv) {
         ++bad;
       }
     }
+    for (const fs::path& f : trees)
+      for (const glimlint::Finding& x : glimlint::checkTagLiterals(f.string(), slurp(f))) {
+        std::cout << x.file << ":" << x.line << ": " << x.message << "\n";
+        ++bad;
+      }
     if (bad) return 1;
     std::cout << "factories OK: " << factories << " checked\n";
     return 0;

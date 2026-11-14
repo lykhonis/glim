@@ -261,7 +261,9 @@ int main(int argc, char** argv) {
   // rotated quads is still AABB-baked (Merge::transformRect), so
   // widgets keep dot-tessellated needles until encoders catch up.
   {
-    Block tree = row(rotate(30.f, 10.f, 20.f), lines("Rotor"));
+    Block tree =
+        row(rotate({.angleDeg = 30.f, .cx = 10.f, .cy = 20.f}),
+            lines("Rotor"));
     Engine e;
     Box b = place(tree, {0, 720, 0, 480});
     OpsRecorder rec;

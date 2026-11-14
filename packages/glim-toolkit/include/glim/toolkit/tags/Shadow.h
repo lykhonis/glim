@@ -17,16 +17,7 @@ struct ShadowTag {
   float opacity = 1.f;
 };
 
-inline ShadowTag shadow(
-    float sigma = 16.f,
-    float offsetX = 0.f,
-    float offsetY = 4.f,
-    std::uint32_t color = 0x000000a6u,
-    float expandPx = 0.f,
-    float opacity = 1.f
-) {
-  return {sigma, offsetX, offsetY, color, expandPx, opacity};
-}
+inline ShadowTag shadow(ShadowTag s = {}) { return s; }
 
 template <>
 struct is_tag<ShadowTag> : std::true_type {};

@@ -121,10 +121,10 @@ void test_tags() {
       bool foreign = false;
     } feed;
     Block t = column(
-        shadow(12.f, 1.f, 4.f, 0x000000a6u, 2.f, 0.5f),
-        effectGlow(0xff6a00ffu, 0.3f, 5),
+        shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
+        effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
         translate(3.f, -4.f),
-        rotate(30.f, 5.f, 6.f),
+        rotate({.angleDeg = 30.f, .cx = 5.f, .cy = 6.f}),
         lines("x")
     );
     Box tb = place(t, {0, 720, 0, 480});

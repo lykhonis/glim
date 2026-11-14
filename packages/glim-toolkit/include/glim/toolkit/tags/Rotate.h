@@ -13,7 +13,7 @@ struct RotateTag {
   float cy = 0.f;
 };
 
-inline RotateTag rotate(float angleDeg, float cx, float cy) { return {angleDeg, cx, cy}; }
+inline RotateTag rotate(RotateTag r) { return r; }
 
 template <>
 struct is_tag<RotateTag> : std::true_type {};

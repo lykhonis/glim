@@ -11,4 +11,11 @@ Block lost(Button b, As&&... as) {
   configure(b, std::forward<As>(as)...);
   return Block{};
 }
+inline ShadowTag drop(float sigma, float dy) { return {sigma, 0.f, dy}; }
+
+inline Block plate() {
+  GlassTag g;
+  g.radius = 4;
+  return column(g, RadiusTag{2});
+}
 }  // namespace glim

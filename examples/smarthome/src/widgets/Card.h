@@ -123,7 +123,7 @@ Block glassCard(std::uint32_t tint, As&&... as) {
   c.frosted = true;
   configure(c, c.children, std::forward<As>(as)...);
   assert(!c.children.empty());
-  GlassTag plate = glass(c.radius);
+  GlassTag plate = glass({.radius = c.radius});
   plate.tint = tint;
   Pane pane;
   pane.children.push_back(

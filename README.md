@@ -53,9 +53,9 @@ using namespace glim::toolkit;
 
 Block card() {
   return column(
-      glass(16),
-      shadow(16.f, 0.f, 8.f),
-      effectGlow(0xff7a3dffu, 0.6f, 12),
+      glass({.radius = 16}),
+      shadow({.sigma = 16.f, .offsetY = 8.f}),
+      effectGlow({.radius = 12, .color = 0xff7a3dffu, .intensity = 0.6f}),
       pad(20),
       lines("Glass, shadow and glow are tags.")
   );

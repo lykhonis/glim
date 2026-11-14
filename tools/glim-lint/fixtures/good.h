@@ -16,4 +16,16 @@ auto list(int count, F gen) {
 }
 
 inline Block spacer() { return Block{}; }
+
+struct ShadowTag {
+  float sigma = 16.f;
+};
+inline ShadowTag shadow(ShadowTag s = {}) { return s; }
+inline PadTag pad(int h, int v) { return {h, v}; }
+
+inline Block lifted() {
+  const ShadowTag lift = shadow({.sigma = 24.f});
+  std::optional<ShadowTag> held = lift;
+  return column(lift, is_tag<ShadowTag>{});
+}
 }  // namespace glim

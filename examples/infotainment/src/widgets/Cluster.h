@@ -42,26 +42,25 @@ namespace fui {
 
 // Frosted floating card: flat neutral frost over the city map, so the
 // buildings ghost through without adding hue (UI stays monochrome).
+constexpr std::uint32_t kFrostTint = 0x0a0c0e66u;
+
 inline GlassTag cardGlass() {
-  GlassTag g;
-  g.radius = 30;
-  g.edge = GlassEdge::None;
-  g.tint = 0x0a0c0e66u;
-  return g;
+  return glass(
+      {.radius = 30, .edge = GlassEdge::None, .tint = kFrostTint}
+  );
 }
 
 // Controls: the same frost with a lit rim, so they read as pressable
 // without leaving the monochrome palette.
 inline GlassTag controlGlass() {
-  GlassTag g = cardGlass();
-  g.radius = 34;
-  g.edge = GlassEdge::Full;
-  return g;
+  return glass({.radius = 34, .tint = kFrostTint});
 }
 
 // Dial lens: clear glass disc under the gauge; the bezel ring stays
 // open so the city refracts through it around the face.
-inline GlassTag dialGlass() { return glassClear(258); }
+inline GlassTag dialGlass() {
+  return glass({.clear = true, .radius = 258});
+}
 
 inline void plate(
     AnySink& sink,

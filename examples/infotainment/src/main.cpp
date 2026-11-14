@@ -70,7 +70,8 @@ Block clusterBoard(Scope app) {
   const GlassTag control = fui::controlGlass();
   // Toolkit drop shadow under each floating plate. The dial lens stays
   // unshadowed so the gauge face does not pick up a ring.
-  const ShadowTag lift = shadow(24.f, 0.f, 8.f, 0x000000e6u);
+  const ShadowTag lift =
+      shadow({.sigma = 24.f, .offsetY = 8.f, .color = 0x000000e6u});
   constexpr Anchor L = Anchor::Start, C = Anchor::Center,
                    R = Anchor::End;
   return pinned(

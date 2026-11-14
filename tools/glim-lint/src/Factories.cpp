@@ -10,9 +10,13 @@ namespace {
 
 using Tokens = std::vector<Token>;
 
-constexpr std::array<std::string_view, 2> kMultiFixedAllowed{"tap", "list"};
+constexpr std::array<std::string_view, 4> kMultiFixedAllowed{"tap", "list", "pad", "translate"};
 
 bool is(const Token& t, std::string_view text) { return t.text == text; }
+
+bool isTagType(const Token& t) {
+  return t.kind == Kind::Ident && t.text.size() > 3 && t.text.ends_with("Tag");
+}
 
 // Index of the token closing the bracket opened at `open`, or size.
 std::size_t closeOf(const Tokens& t, std::size_t open, std::string_view o, std::string_view c) {
@@ -101,7 +105,7 @@ FactoryReport checkFactories(std::string_view file, std::string_view src) {
       continue;
     }
     if (nonNamespaceDepth > 0) continue;
-    if (!(is(t[i], "Block") || is(t[i], "auto"))) continue;
+    if (!(is(t[i], "Block") || is(t[i], "auto") || isTagType(t[i]))) continue;
     if (i + 2 >= t.size() || t[i + 1].kind != Kind::Ident || !is(t[i + 2], "(")) continue;
     if (!startsDeclaration(t, i)) continue;
 
@@ -126,7 +130,7 @@ FactoryReport checkFactories(std::string_view file, std::string_view src) {
           {path,
            name.line,
            name.text + " takes " + std::to_string(fixed) +
-               " fixed params - pass the element struct instead"}
+               " fixed params - pass the props struct instead"}
       );
 
     if (!forwards) continue;
@@ -140,6 +144,21 @@ FactoryReport checkFactories(std::string_view file, std::string_view src) {
       report.findings.push_back({path, name.line, name.text + " takes As&&... without finish()"});
   }
   return report;
+}
+
+std::vector<Finding> checkTagLiterals(std::string_view file, std::string_view src) {
+  std::vector<Finding> findings;
+  const Tokens t = tokenize(src);
+  for (std::size_t i = 0; i + 1 < t.size(); ++i) {
+    if (!isTagType(t[i]) || (i > 0 && is(t[i - 1], "struct"))) continue;
+    const bool literal = is(t[i + 1], "{");
+    const bool bare = i + 2 < t.size() && t[i + 1].kind == Kind::Ident && is(t[i + 2], ";");
+    if (literal || bare)
+      findings.push_back(
+          {std::string(file), t[i].line, t[i].text + " built by hand - call its factory"}
+      );
+  }
+  return findings;
 }
 
 }  // namespace glimlint

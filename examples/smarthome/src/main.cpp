@@ -52,7 +52,7 @@ Block header(State<bool> live, State<bool> light, std::uint32_t tint) {
       row(gap(12),
           center(),
           pad(24, 12),
-          GlassTag{false, 0, GlassEdge::None, tint},
+          glass({.radius = 0, .edge = GlassEdge::None, .tint = tint}),
           strut({.width = static_cast<float>(kHeaderInsetL - 24)}),
           titleLines("Glim Home"),
           lines(home::feedStatus(*live)),

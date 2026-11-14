@@ -56,8 +56,8 @@ glim::toolkit::Block fxScene() {
       gap(0),
       pad(40),
       column(
-          shadow(6.f, 0.f, 0.f, 0x000000ffu, 0.f, 0.5f),
-          effectGlow(0x0000ffffu, 1.f, 4),
+          shadow({.sigma = 6.f, .offsetY = 0.f, .color = 0x000000ffu, .opacity = 0.5f}),
+          effectGlow({.radius = 4, .color = 0x0000ffffu}),
           finish(FxCard{})
       )
   );

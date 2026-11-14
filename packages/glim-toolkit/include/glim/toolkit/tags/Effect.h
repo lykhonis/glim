@@ -20,8 +20,9 @@ struct EffectTag {
   float intensity = 1.f;
 };
 
-inline EffectTag effectGlow(std::uint32_t color, float intensity = 1.f, int radius = 0) {
-  return {EffectKind::Glow, radius, color, intensity};
+inline EffectTag effectGlow(EffectTag e = {}) {
+  e.kind = EffectKind::Glow;
+  return e;
 }
 
 template <>
