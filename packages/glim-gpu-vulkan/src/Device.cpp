@@ -135,6 +135,7 @@ CommandEncoder Device::encoder() {
   bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(frame.cmd, &bi);
   impl_->beginTimestamp(frame.cmd, impl_->frameIndex);
+  impl_->foreignOwnership(frame.cmd, true);
   enc.impl_->device = impl_.get();
   enc.impl_->frame = impl_->frameIndex;
   enc.impl_->imageIndex = impl_->imageIndex;

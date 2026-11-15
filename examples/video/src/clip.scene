@@ -1,0 +1,57 @@
+// A dusk flyover over a lake, so motion, gradients and fine detail all
+// change every frame the way decoded footage does. Shared by the Metal
+// and Vulkan producers; each prelude defines float2, float3, CONST and
+// saturate, then calls shade(uv, t, pixel) with uv in 0..1, y down.
+
+float hash(float2 p) { return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+
+float noise(float2 p) {
+  float2 i = floor(p), f = fract(p);
+  float2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + float2(1, 0)), u.x),
+             mix(hash(i + float2(0, 1)), hash(i + float2(1, 1)), u.x), u.y);
+}
+
+float fbm(float2 p, int octaves) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < octaves; ++i) { v += a * noise(p); p *= 2.03; a *= 0.5; }
+  return v;
+}
+
+CONST float kHorizon = 0.66;
+
+float3 above(float2 uv, float t) {
+  float pan = t * 0.04;
+  float3 c = mix(float3(0.98, 0.62, 0.36), float3(0.16, 0.24, 0.46), pow(1.0 - uv.y / kHorizon, 1.4));
+  float2 sun = float2(0.68, 0.40);
+  float d = length((uv - sun) * float2(1.78, 1.0));
+  c += float3(1.0, 0.72, 0.42) * (0.55 * exp(-d * 7.0));
+  c = mix(c, float3(1.0, 0.95, 0.82), smoothstep(0.05, 0.043, d));
+  float cloud = fbm(float2(uv.x * 3.0 + pan * 0.6 + t * 0.015, uv.y * 9.0), 5);
+  c = mix(c, mix(float3(0.95, 0.62, 0.50), float3(0.36, 0.30, 0.42), uv.y / kHorizon),
+          smoothstep(0.5, 0.78, cloud) * smoothstep(kHorizon, 0.15, uv.y) * 0.8);
+  for (int k = 0; k < 3; ++k) {
+    float depth = float(k);
+    float x = uv.x * (1.5 + depth) + pan * (0.4 + depth * 0.5) + depth * 7.0;
+    float ridge = kHorizon - (0.20 - depth * 0.05) * fbm(float2(x, depth * 3.1), 4 - k);
+    float3 tone = mix(float3(0.46, 0.34, 0.44), float3(0.07, 0.09, 0.10), depth / 2.0);
+    c = mix(c, tone, smoothstep(ridge, ridge + 0.002, uv.y));
+  }
+  return c;
+}
+
+float3 shade(float2 uv, float t, float2 pixel) {
+  float3 c;
+  if (uv.y < kHorizon) {
+    c = above(uv, t);
+  } else {
+    float below = uv.y - kHorizon;
+    float ripple = (fbm(float2(uv.x * 6.0, below * 60.0 - t * 1.5), 3) - 0.5) * below * 0.25;
+    c = above(float2(uv.x + ripple, kHorizon - below * 1.2), t) * float3(0.74, 0.66, 0.62);
+    c += 0.08 * smoothstep(0.72, 0.9, noise(float2(uv.x * 90.0, below * 300.0 - t * 4.0)));
+  }
+  float2 v = uv - 0.5;
+  c *= 1.0 - dot(v, v) * 0.9;
+  c += (hash(pixel + fract(t) * 917.0) - 0.5) * 0.04;
+  return saturate(c);
+}

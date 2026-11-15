@@ -9,15 +9,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
+#include <vector>
 
 #include "App.h"
+#include "Launch.h"
 #include "WindowRegistry.h"
 
 namespace glim::gpu {
 void setAndroidNativeWindow(void* native);
 }
 
-extern "C" int glim_app_main();
+extern "C" int glim_app_main(int argc, char** argv);
 
 namespace glim::shell {
 namespace detail_app {
@@ -191,8 +194,8 @@ int32_t onInputEvent(android_app*, AInputEvent* event) {
   }
 }
 
-void pumpUntilWindow(android_app* app) {
-  while (!app->destroyRequested && app->window == nullptr) {
+void pumpUntil(android_app* app, bool (*done)(android_app*)) {
+  while (!done(app)) {
     android_poll_source* source = nullptr;
     const int ident = ALooper_pollOnce(-1, nullptr, nullptr, reinterpret_cast<void**>(&source));
     if (ident == ALOOPER_POLL_ERROR) {
@@ -228,12 +231,24 @@ extern "C" __attribute__((visibility("default"))) void android_main(android_app*
   glim::shell::detail::setAndroidApp(app);
   app->onAppCmd = glim::shell::detail_app::onAppCmd;
   app->onInputEvent = glim::shell::detail_app::onInputEvent;
-  glim::shell::detail_app::pumpUntilWindow(app);
+  using glim::shell::detail_app::pumpUntil;
+  pumpUntil(app, [](android_app* a) { return a->destroyRequested || a->window != nullptr; });
   if (app->destroyRequested || !app->window) {
     return;
   }
-  glim_app_main();
+  glim::shell::detail::forwardStdioToLogcat();
+  std::vector<std::string> args = glim::shell::detail::launchArgs(app);
+  std::vector<char*> argv;
+  for (std::string& a : args) argv.push_back(a.data());
+  argv.push_back(nullptr);
+  glim_app_main(static_cast<int>(args.size()), argv.data());
   glim::shell::detail_app::setChoreographer(false);
   glim::gpu::setAndroidNativeWindow(nullptr);
+  // The app returned (e.g. a drive closed it): finish the activity and keep
+  // serving its events until Android destroys it, or input times out (ANR).
+  if (!app->destroyRequested) {
+    ANativeActivity_finish(app->activity);
+    pumpUntil(app, [](android_app* a) { return a->destroyRequested != 0; });
+  }
   glim::shell::detail::setAndroidApp(nullptr);
 }

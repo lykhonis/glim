@@ -218,6 +218,9 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   }
   if (!d.haveAhb) {
     devExts.resize(headless ? 0 : 1);
+  } else if (hasExtension(dext, VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME)) {
+    devExts.push_back(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
+    d.foreignFamily = VK_QUEUE_FAMILY_FOREIGN_EXT;
   }
 #else
   (void)dext;

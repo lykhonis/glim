@@ -1,5 +1,7 @@
 #include <glim/shell/RunLoop.h>
 
+#include <cstdio>
+#include <cstdlib>
 #include <iterator>
 
 extern "C" void glimRunLoopTimerCallback(CFRunLoopTimerRef, void*) {
@@ -87,6 +89,11 @@ void RunLoop::drain() {
 void RunLoop::wake() { CFRunLoopStop(local_.runLoop); }
 
 void RunLoop::stop() {
+  if (!local_.running.load(std::memory_order_relaxed)) {
+    // Under UIApplicationMain there is no loop to return from.
+    std::fflush(nullptr);
+    std::exit(0);
+  }
   local_.running = false;
   CFRunLoopStop(local_.runLoop);
 }

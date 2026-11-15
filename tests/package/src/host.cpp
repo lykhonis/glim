@@ -7,9 +7,7 @@
 namespace host = glim::toolkit::host;
 
 #if defined(__ANDROID__)
-extern "C" int glim_app_main() {
-  int argc = 0;
-  char** argv = nullptr;
+extern "C" int glim_app_main(int argc, char** argv) {
 #else
 int main(int argc, char** argv) {
 #endif

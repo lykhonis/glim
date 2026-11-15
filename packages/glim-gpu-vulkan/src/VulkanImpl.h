@@ -53,6 +53,38 @@ inline bool hasExtension(const std::vector<VkExtensionProperties>& ext, const ch
   return false;
 }
 
+// Imported buffers belong to their producer between frames: acquire
+// from the foreign queue before sampling (makes its writes visible),
+// release back after the frame so it can write the next one.
+inline void foreignOwnership(
+  VkCommandBuffer cmd, VkImage image, uint32_t family, uint32_t foreign, bool acquire
+) {
+  VkImageMemoryBarrier b{};
+  b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  b.srcAccessMask = 0;
+  b.dstAccessMask = acquire ? VK_ACCESS_SHADER_READ_BIT : 0;
+  b.oldLayout = acquire ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  b.newLayout = acquire ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+  b.srcQueueFamilyIndex = acquire ? foreign : family;
+  b.dstQueueFamilyIndex = acquire ? family : foreign;
+  b.image = image;
+  b.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  b.subresourceRange.levelCount = 1;
+  b.subresourceRange.layerCount = 1;
+  vkCmdPipelineBarrier(
+    cmd,
+    acquire ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    acquire ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+    0,
+    0,
+    nullptr,
+    0,
+    nullptr,
+    1,
+    &b
+  );
+}
+
 inline void imageBarrier(
   VkCommandBuffer cmd,
   VkImage image,
@@ -89,6 +121,7 @@ struct GpuImage {
   bool swapchain = false;
   bool inUse = false;
   bool borrowed = false;
+  bool foreign = false;
 };
 
 struct GpuBuffer {
@@ -136,6 +169,13 @@ struct Device::Impl {
   Queue queueWrapper;
   bool vsync = true;
   bool haveAhb = false;
+  uint32_t foreignFamily = VK_QUEUE_FAMILY_EXTERNAL;
+  void foreignOwnership(VkCommandBuffer cmd, bool acquire) const {
+    for (const vulkan::GpuImage& img : sampled) {
+      if (img.foreign && img.image)
+        vulkan::foreignOwnership(cmd, img.image, queueFamily, foreignFamily, acquire);
+    }
+  }
 
   // Linear working space end to end: surfaces are sRGB-encoded,
   // shaders output linear (instance colors arrive linearized,

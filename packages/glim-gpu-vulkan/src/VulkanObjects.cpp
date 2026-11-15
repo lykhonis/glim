@@ -326,6 +326,7 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
       );
+      foreignOwnership(cmd, img.image, impl_->queueFamily, impl_->foreignFamily, false);
       vkEndCommandBuffer(cmd);
       VkSubmitInfo si{};
       si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -337,6 +338,7 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
     }
   }
   img.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  img.foreign = true;
 
   Texture t;
   t.handle_ = impl_->next++;

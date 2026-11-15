@@ -7,4 +7,4 @@ find_package(glim REQUIRED CONFIG)
 target_link_libraries(app PRIVATE glim::glim)
 ```
 
-The app defines `extern "C" int glim_app_main()` and points `NativeActivity` at its library. `android/sample` is a working Gradle app; `pnpm android-sample` assembles it.
+The app defines `extern "C" int glim_app_main(int argc, char** argv)` and points `NativeActivity` at its library. `android/sample` is a working Gradle app; `pnpm android-sample` assembles it.

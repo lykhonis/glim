@@ -27,6 +27,10 @@ First versioned release of the public packages.
 - Texture-mode feeds: `paint::Context::wrapSurface` wraps an `IOSurface` that the Metal renderer imports once per image id. `host::Feed` samples the newest buffer whose producer fence has passed (`MTLSharedEvent` on Apple) and never waits; `FeedStats` reports lag, fence misses and dropped buffers.
 - Video example (`examples/video`): GPU video in Texture mode under a glass label, with tap to play or pause. A Metal producer on its own queue publishes IOSurface frames through `host::Feed`.
 - iOS: run-loop tasks and timers now run under `UIApplicationMain` (they were never drained), so `--drive` works on iOS, and the drive report prints when the drive closes the window.
+- Video example on Android: a Vulkan producer on its own device renders the same scene into AHardwareBuffers. The scene source (`clip.scene`) is shared with the Metal producer.
+- Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
+- Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
+- iOS: the app exits when a drive finishes.
 - Tracing: `glim/trace.h` spans and counters go to os_signpost (Apple), ATrace (Android), `performance.measure` (web, opt-in) and a Chrome trace JSON file when `GLIM_TRACE=<path>` is set. The host loop traces its frame phases and per-frame counters.
 - `paint::Stats` reports renderer GPU memory: `textureBytes`, `importedBytes`, `targetBytes`. Vulkan now measures GPU time with timestamp queries (`gpuMs`); `Renderer::stats()` returns by value.
 - Polyline flattening is memoized on world points, width and pitch: infotainment's full-redraw CPU time drops from 9.5 to 7.9 ms with identical output.
