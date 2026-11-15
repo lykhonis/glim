@@ -34,8 +34,13 @@ class RunLoop final {
   void scheduleTask(Task);
   void scheduleRepeatedTask(Task);
   void scheduleFrameCallback(FrameCallback);
+  // CF timer entry: wakes run(), or drains tasks when run() is not entered.
+  void onTimer();
 
  private:
+  void drain();
+  void armOutsideRun();
+
   struct ScheduledTask {
     void operator()(TaskContext& context) const { task(context); }
     Task task;

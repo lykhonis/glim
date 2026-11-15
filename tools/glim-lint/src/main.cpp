@@ -23,6 +23,7 @@ constexpr const char* kTreeDirs[] = {
   "examples/smarthome/src",
   "examples/infotainment/src",
   "examples/glass/src",
+  "examples/video/src",
 };
 constexpr const char* kScopeFiles[] = {
   "packages/glim-toolkit/include/glim/toolkit/theme/Themed.h",

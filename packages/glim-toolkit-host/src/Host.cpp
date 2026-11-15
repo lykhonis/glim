@@ -297,10 +297,18 @@ int run(
   // coalesces into the next Frame's one paint, so queued input is not
   // stuck behind a GPU-bound paint per event.
   const auto invalidate = [&] { screen.dirty.invalidate(); };
+  // Reported at close: on iOS the run loop never returns to the caller.
+  std::optional<bool> driveOk;
+  const auto reportDrive = [&] {
+    if (!drive || driveOk) return;
+    driveOk = drive->finish(config.driveTrace.empty() ? nullptr : config.driveTrace.c_str());
+    std::cout << std::flush;
+  };
 
   window.setEventCallback([&](const shell::Event& e) {
     using T = shell::EventType;
     if (e.type() == T::WindowClosed) {
+      reportDrive();
       shell::RunLoop().stop();
       return;
     }
@@ -408,10 +416,8 @@ int run(
   if (startup) {
     std::cout << startup->summary();
   }
-  if (drive && !drive->finish(config.driveTrace.empty() ? nullptr : config.driveTrace.c_str())) {
-    return 1;
-  }
-  return 0;
+  reportDrive();
+  return driveOk.value_or(true) ? 0 : 1;
 }
 
 int run(

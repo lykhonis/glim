@@ -25,6 +25,8 @@ First versioned release of the public packages.
 - `host::Config::crashReport` and `crashSink`: crash reports from fatal signals, delivered on the next launch.
 - Native integration contract: `host::Embedder` (attach, place, detach) with one shared diff, `syncEmbeds`. Slots are its overlay implementation, `SlotOverlay`; behaviour is unchanged.
 - Texture-mode feeds: `paint::Context::wrapSurface` wraps an `IOSurface` that the Metal renderer imports once per image id. `host::Feed` samples the newest buffer whose producer fence has passed (`MTLSharedEvent` on Apple) and never waits; `FeedStats` reports lag, fence misses and dropped buffers.
+- Video example (`examples/video`): GPU video in Texture mode under a glass label, with tap to play or pause. A Metal producer on its own queue publishes IOSurface frames through `host::Feed`.
+- iOS: run-loop tasks and timers now run under `UIApplicationMain` (they were never drained), so `--drive` works on iOS, and the drive report prints when the drive closes the window.
 - Tracing: `glim/trace.h` spans and counters go to os_signpost (Apple), ATrace (Android), `performance.measure` (web, opt-in) and a Chrome trace JSON file when `GLIM_TRACE=<path>` is set. The host loop traces its frame phases and per-frame counters.
 - `paint::Stats` reports renderer GPU memory: `textureBytes`, `importedBytes`, `targetBytes`. Vulkan now measures GPU time with timestamp queries (`gpuMs`); `Renderer::stats()` returns by value.
 - Polyline flattening is memoized on world points, width and pitch: infotainment's full-redraw CPU time drops from 9.5 to 7.9 ms with identical output.

@@ -1,0 +1,21 @@
+if(APPLE)
+    set(_source src/VideoSourceMetal.mm)
+    set_source_files_properties(${_source} PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+else()
+    set(_source src/VideoSourceNone.cpp)
+endif()
+glim_add_example(video TITLE "Glim Video" SOURCES src/main.cpp ${_source})
+if(APPLE)
+    target_link_libraries(glim-video PRIVATE "-framework Metal" "-framework IOSurface")
+endif()
+
+if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # N3 gate: GPU video frames under glass, tap to pause.
+    add_executable(glim-video-test tests/video_test.mm ${_source})
+    set_source_files_properties(tests/video_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_include_directories(glim-video-test PRIVATE src)
+    target_link_libraries(glim-video-test PRIVATE glim::toolkit-host glim::image
+        "-framework Metal" "-framework IOSurface")
+    glim_test_defaults(glim-video-test)
+    add_test(NAME glim-video-test COMMAND glim-video-test)
+endif()

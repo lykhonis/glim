@@ -2,8 +2,8 @@
 
 #include <iterator>
 
-extern "C" void glimRunLoopTimerCallback(CFRunLoopTimerRef, void* info) {
-  CFRunLoopStop(static_cast<CFRunLoopRef>(info));
+extern "C" void glimRunLoopTimerCallback(CFRunLoopTimerRef, void*) {
+  glim::shell::RunLoop().onTimer();
 }
 
 namespace glim::shell {
@@ -50,28 +50,38 @@ void RunLoop::run() {
     if (frame) {
       frame();
     }
-    std::vector<ScheduledTask> tasks;
-    std::vector<ScheduledTask> repeated;
-    {
-      std::scoped_lock lock(local_.mutex);
-      std::move(local_.tasks.begin(), local_.tasks.end(), std::back_inserter(tasks));
-      local_.tasks.clear();
+    drain();
+  }
+}
+
+void RunLoop::onTimer() {
+  if (local_.running.load(std::memory_order_relaxed)) {
+    CFRunLoopStop(local_.runLoop);
+  } else {
+    drain();
+  }
+}
+
+void RunLoop::drain() {
+  std::vector<ScheduledTask> tasks;
+  std::vector<ScheduledTask> repeated;
+  {
+    std::scoped_lock lock(local_.mutex);
+    std::move(local_.tasks.begin(), local_.tasks.end(), std::back_inserter(tasks));
+    local_.tasks.clear();
+  }
+  for (auto& task : tasks) {
+    TaskContext context;
+    task(context);
+    if (context.stopped_) {
+      local_.running = false;
     }
-    for (auto& task : tasks) {
-      TaskContext context;
-      task(context);
-      if (context.stopped_) {
-        local_.running = false;
-      }
-      if (task.repeated && !context.cancelled_) {
-        repeated.push_back(std::move(task));
-      }
-    }
-    {
-      std::scoped_lock lock(local_.mutex);
-      std::move(repeated.begin(), repeated.end(), std::back_inserter(local_.tasks));
+    if (task.repeated && !context.cancelled_) {
+      repeated.push_back(std::move(task));
     }
   }
+  std::scoped_lock lock(local_.mutex);
+  std::move(repeated.begin(), repeated.end(), std::back_inserter(local_.tasks));
 }
 
 void RunLoop::wake() { CFRunLoopStop(local_.runLoop); }
@@ -88,11 +98,21 @@ void RunLoop::scheduleTimer(std::chrono::duration<float> delay) {
 void RunLoop::scheduleTask(Task task) {
   std::scoped_lock lock(local_.mutex);
   local_.tasks.push_back({std::move(task)});
+  armOutsideRun();
 }
 
 void RunLoop::scheduleRepeatedTask(Task task) {
   std::scoped_lock lock(local_.mutex);
   local_.tasks.push_back({std::move(task), true});
+  armOutsideRun();
+}
+
+// UIApplicationMain owns the loop on iOS and run() is never entered, so
+// queued tasks need the timer to reach them.
+void RunLoop::armOutsideRun() {
+  if (!local_.running.load(std::memory_order_relaxed)) {
+    CFRunLoopTimerSetNextFireDate(local_.timer, CFAbsoluteTimeGetCurrent());
+  }
 }
 
 void RunLoop::scheduleFrameCallback(FrameCallback cb) {

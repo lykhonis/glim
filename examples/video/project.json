@@ -1,0 +1,114 @@
+{
+  "name": "video",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/video",
+  "projectType": "application",
+  "tags": [
+    "example"
+  ],
+  "implicitDependencies": [
+    "core"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "dependsOn": [
+        "gpu-vulkan:shaders"
+      ],
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-video",
+        "install": true
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/video/glim-video"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-video-test",
+        "ctestRegex": "glim-video-test"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-video"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-ios-sim"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/video/glim-video.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.video"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-video"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-tvos-sim"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/video/glim-video.app",
+        "simulator": "tvos",
+        "bundleId": "com.glim.video"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-video"
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-android"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/video/glim-video.apk",
+        "android": true,
+        "packageName": "com.glim.video"
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    }
+  }
+}
