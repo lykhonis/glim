@@ -20,6 +20,7 @@ if(GLIM_HOST_TESTS)
         tests/test_basics.cpp
         tests/test_layout.cpp
         tests/test_scroll.cpp
+        tests/test_hit.cpp
         tests/test_motion.cpp
         tests/test_pump.cpp
         tests/test_chrome.cpp

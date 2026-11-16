@@ -14,18 +14,21 @@ struct FocusedBox {
   const Block* block;
   Box box;
   std::vector<int> path;
+  detail::Affine toNode;
 };
 
 void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<FocusedBox>& out) {
+  detail::PointStack points(0, 0);
   walk(
     b,
     box,
     e,
     [&](const Block& n, const Box& bx, const Engine&) -> bool {
-      if (canHandle(n)) out.push_back({&n, bx, detail::AutoCtx::path()});
+      points.enter(n, bx);
+      if (canHandle(n)) out.push_back({&n, bx, detail::AutoCtx::path(), points.toNode()});
       return walkHasChildren(n);
     },
-    [](const Block&, const Box&, const Engine&) {}
+    [&](const Block&, const Box&, const Engine&) { points.exit(); }
   );
 }
 
@@ -50,8 +53,8 @@ int focusAt(const Block& root, const Box& box, float x, float y, const Engine& e
   std::vector<FocusedBox> found;
   collectFocus(root, box, e, found);
   for (std::size_t i = 0; i < found.size(); ++i) {
-    const Box& b = found[i].box;
-    if (b.x <= x && x < b.x + b.w && b.y <= y && y < b.y + b.h) return static_cast<int>(i);
+    const auto [px, py] = found[i].toNode.apply(x, y);
+    if (detail::boxContains(found[i].box, px, py)) return static_cast<int>(i);
   }
   return -1;
 }
@@ -65,7 +68,7 @@ bool dispatchCaptured(
   const FocusedBox& f = found[static_cast<std::size_t>(index)];
   detail::AutoHandle h(e.store ? &e.store->get() : nullptr, f.path);
   // Return is routing, not consumption: routed-but-ignored moves must not read as stale.
-  handleAt(*f.block, f.box, ev);
+  detail::handleIn(*f.block, f.box, f.toNode, ev);
   return true;
 }
 

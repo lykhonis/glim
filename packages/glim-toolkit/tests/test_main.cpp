@@ -11,6 +11,7 @@ void test_text();
 void test_tags();
 void test_scoped();
 void test_theme();
+void test_hit();
 
 int main() {
   test_basics();
@@ -24,6 +25,7 @@ int main() {
   test_tags();
   test_scoped();
   test_theme();
+  test_hit();
 
   std::cout << "toolkit tests ok\n";
   return 0;

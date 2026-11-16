@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <ostream>
 #include <vector>
 
@@ -14,39 +15,49 @@ bool boxContains(const Box& b, float x, float y) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 }
 
-Box intersectBox(const Box& a, const Box& b) {
-  const float x0 = std::max(a.x, b.x);
-  const float y0 = std::max(a.y, b.y);
-  const float x1 = std::min(a.x + a.w, b.x + b.w);
-  const float y1 = std::min(a.y + a.h, b.y + b.h);
-  return {x0, y0, std::max(0.f, x1 - x0), std::max(0.f, y1 - y0)};
+Affine Affine::then(const Affine& n) const {
+  return {
+    n.a * a + n.c * b,
+    n.b * a + n.d * b,
+    n.a * c + n.c * d,
+    n.b * c + n.d * d,
+    n.a * tx + n.c * ty + n.tx,
+    n.b * tx + n.d * ty + n.ty,
+  };
 }
 
-void ClipStack::enter(const Block& n, const Box& bx) {
-  pushed.push_back(clipsChildren(n));
-  if (clipsChildren(n)) {
-    clips.push_back(clips.empty() ? bx : intersectBox(clips.back(), bx));
+Affine childSpace(const Block& n) {
+  Affine m;
+  if (auto t = n.tag<TransformTag>()) m.tx = -t->get().dx, m.ty = -t->get().dy;
+  if (auto r = n.tag<RotateTag>()) {
+    const RotateTag& rt = r->get();
+    const float rad = rt.angleDeg * 3.14159265f / 180.0f;
+    const float cs = std::cos(rad);
+    const float sn = std::sin(rad);
+    const Affine undo{
+      cs, -sn, sn, cs, rt.cx - (cs * rt.cx + sn * rt.cy), rt.cy - (cs * rt.cy - sn * rt.cx)
+    };
+    m = m.then(undo);
   }
+  return m;
 }
 
-void ClipStack::exit() {
-  if (!pushed.empty()) {
-    if (pushed.back() && !clips.empty()) clips.pop_back();
-    pushed.pop_back();
+void PointStack::enter(const Block& n, const Box& bx) {
+  const bool root = frames_.empty();
+  const Affine base = root ? Affine{} : frames_.back().toChildren;
+  const bool visible = root || frames_.back().childrenVisible;
+  Frame f{base, base.then(childSpace(n)), visible, visible};
+  if (visible && clipsChildren(n)) {
+    const auto [cx, cy] = f.toChildren.apply(x_, y_);
+    f.childrenVisible = boxContains(bx, cx, cy);
   }
-}
-
-bool ClipStack::visible(float x, float y) const {
-  return clips.empty() || boxContains(clips.back(), x, y);
+  frames_.push_back(f);
 }
 
 }  // namespace detail
 
-std::pair<BlockRef, Box> hitWithBox(
-  const Block& b, const Box& box, float x, float y, const Engine& e
-) {
-  BlockRef found;
-  Box foundBox{0, 0, 0, 0};
+HitAt hitWithBox(const Block& b, const Box& box, float x, float y, const Engine& e) {
+  HitAt found;
   int matches = 0;
   struct Claim {
     BlockRef node;
@@ -54,53 +65,49 @@ std::pair<BlockRef, Box> hitWithBox(
   };
   std::vector<Claim> claims;
   detail::AutoCtx::found().clear();
-  // Clip stack parallels the walk: Roll children hit only inside the clip.
-  detail::ClipStack clip;
-  const auto visible = [&]() { return clip.visible(x, y); };
+  detail::PointStack points(x, y);
+  const auto inside = [&](const Box& bx) {
+    const auto [px, py] = points.point();
+    return points.visible() && detail::boxContains(bx, px, py);
+  };
+  const auto take = [&](const Block& n, const Box& bx) {
+    found = {std::cref(n), bx, points.toNode()};
+    detail::noteHit();
+  };
   walk(
     b,
     box,
     e,
     [&](const Block& n, const Box& bx, const Engine&) -> bool {
-      clip.enter(n, bx);
+      points.enter(n, bx);
       if (claimsHit(n)) {
-        if (detail::boxContains(bx, x, y) && visible()) {
-          found = std::cref(n);
-          foundBox = bx;
-          detail::noteHit();
+        if (inside(bx)) {
+          take(n, bx);
           ++matches;
           return false;
         }
         claims.push_back({std::cref(n), matches});
         return true;
       }
-      if (detail::boxContains(bx, x, y) && visible()) {
-        if (hitParticipates(n)) {
-          found = std::cref(n);
-          foundBox = bx;
-          detail::noteHit();
-          ++matches;
-        }
+      if (inside(bx) && hitParticipates(n)) {
+        take(n, bx);
+        ++matches;
       }
       return true;
     },
     [&](const Block& n, const Box& bx, const Engine&) {
-      clip.exit();
       if (!claims.empty() && claims.back().node && &claims.back().node->get() == &n) {
-        if (matches > claims.back().entered && visible()) {
-          found = std::cref(n);
-          foundBox = bx;
-          detail::noteHit();
-        }
+        if (matches > claims.back().entered && points.visible()) take(n, bx);
         claims.pop_back();
       }
+      points.exit();
     }
   );
-  return {found, foundBox};
+  return found;
 }
 
 BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e) {
-  return hitWithBox(b, box, x, y, e).first;
+  return hitWithBox(b, box, x, y, e).node;
 }
 
 void dumpIn(std::ostream& os, const Block& b, const Box& box, const Engine& e, int indent) {

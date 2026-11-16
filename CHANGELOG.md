@@ -31,6 +31,7 @@ First versioned release of the public packages.
 - Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
 - Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
 - iOS: the app exits when a drive finishes.
+- Hit testing follows `translate()` and `rotate()`: pointer, focus capture and wheel routing map the window point into each node's paint space, and handlers receive pointer and wheel events in that space. Before, transformed children were hit where they sat before the transform. `hitWithBox` now returns `HitAt` (node, box, `toNode`).
 - Tracing: `glim/trace.h` spans and counters go to os_signpost (Apple), ATrace (Android), `performance.measure` (web, opt-in) and a Chrome trace JSON file when `GLIM_TRACE=<path>` is set. The host loop traces its frame phases and per-frame counters.
 - `paint::Stats` reports renderer GPU memory: `textureBytes`, `importedBytes`, `targetBytes`. Vulkan now measures GPU time with timestamp queries (`gpuMs`); `Renderer::stats()` returns by value.
 - Polyline flattening is memoized on world points, width and pitch: infotainment's full-redraw CPU time drops from 9.5 to 7.9 ms with identical output.

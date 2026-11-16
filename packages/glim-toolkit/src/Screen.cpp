@@ -70,23 +70,21 @@ bool Screen::wheel(
     Box box;
   };
   std::vector<Candidate> found;
-  detail::ClipStack clip;
+  detail::PointStack points(x, y);
   walk(
     tree,
     box,
     engine,
     [&](const Block& n, const Box& bx, const Engine&) -> bool {
-      // Only ancestor-visible points are candidates (own clip pushed below).
-      bool parentVisible = clip.visible(x, y);
-      clip.enter(n, bx);
-      if (parentVisible) {
-        if (const Roll* r = rollOf(n)) {
-          if (r->scrollOff && detail::boxContains(bx, x, y)) found.push_back({std::cref(*r), bx});
-        }
+      points.enter(n, bx);
+      const Roll* r = rollOf(n);
+      const auto [px, py] = points.point();
+      if (r && r->scrollOff && points.visible() && detail::boxContains(bx, px, py)) {
+        found.push_back({std::cref(*r), bx});
       }
       return true;
     },
-    [&](const Block&, const Box&, const Engine&) { clip.exit(); }
+    [&](const Block&, const Box&, const Engine&) { points.exit(); }
   );
   // Innermost first; edge-clamped inner rolls chain outward.
   for (auto it = found.rbegin(); it != found.rend(); ++it) {

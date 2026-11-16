@@ -1,3 +1,4 @@
+#include <tuple>
 #include <type_traits>
 #include <variant>
 
@@ -39,11 +40,34 @@ bool handleAt(const Block& b, const Box& box, const Event& ev) {
 bool dispatchPointer(
   const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e
 ) {
-  auto [t, hitBox] = hitWithBox(b, box, x, y, e);
-  if (!t) return false;
+  const HitAt at = hitWithBox(b, box, x, y, e);
+  if (!at.node) return false;
   detail::AutoHandle h(e.store ? &e.store->get() : nullptr, detail::AutoCtx::found());
-  return handleAt(*t, hitBox, ev);
+  return detail::handleIn(*at.node, at.box, at.toNode, ev);
 }
+
+namespace detail {
+
+namespace {
+
+template <class E>
+bool handleMoved(const Block& b, const Box& box, const Affine& toNode, const E& ev) {
+  E local = ev;
+  std::tie(local.x, local.y) = toNode.apply(ev.x, ev.y);
+  return handleAt(b, box, Event::borrow(local));
+}
+
+}  // namespace
+
+bool handleIn(const Block& b, const Box& box, const Affine& toNode, const Event& ev) {
+  if (auto p = ev.as<PointerDown>()) return handleMoved(b, box, toNode, p->get());
+  if (auto p = ev.as<PointerUp>()) return handleMoved(b, box, toNode, p->get());
+  if (auto p = ev.as<PointerMove>()) return handleMoved(b, box, toNode, p->get());
+  if (auto p = ev.as<Wheel>()) return handleMoved(b, box, toNode, p->get());
+  return handleAt(b, box, ev);
+}
+
+}  // namespace detail
 
 bool broadcastEvent(const Block& b, const Box& box, const Event& ev, const Engine& e) {
   bool consumed = false;

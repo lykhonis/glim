@@ -49,10 +49,29 @@ struct Engine {
 void record(const Block& b, const Box& box, Rec& r, const Engine& e = Engine{});
 // Lifetime: pointer borrows from `b`; never store past the tree or call on a temporary.
 BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
-// Hit plus laid-out box in one walk. Null block + zero box on miss.
-std::pair<BlockRef, Box> hitWithBox(
-  const Block& b, const Box& box, float x, float y, const Engine& e = Engine{}
-);
+namespace detail {
+
+// x' = a x + c y + tx, y' = b x + d y + ty.
+struct Affine {
+  float a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
+  std::pair<float, float> apply(float x, float y) const {
+    return {a * x + c * y + tx, b * x + d * y + ty};
+  }
+  // This map, then `next`.
+  Affine then(const Affine& next) const;
+};
+
+}  // namespace detail
+
+// Hit target, its laid-out box, and window -> its paint space (translate
+// and rotate tags of its ancestors undone). Null node + zero box on miss.
+struct HitAt {
+  BlockRef node;
+  Box box{0, 0, 0, 0};
+  detail::Affine toNode;
+};
+
+HitAt hitWithBox(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
 
 bool dispatchPointer(
   const Block& b, const Box& box, float x, float y, const Event& ev, const Engine& e = Engine{}
@@ -69,15 +88,34 @@ namespace detail {
 float clampF(float v, float lo, float hi);
 // One home for hit/scroll geometry (Hit.cpp, Screen::wheel share it).
 bool boxContains(const Box& b, float x, float y);
-Box intersectBox(const Box& a, const Box& b);
-// Clip stack parallels the walk: Roll children hit only inside the clip.
-struct ClipStack {
-  std::vector<Box> clips;
-  std::vector<bool> pushed;
+// Window -> the space a node's children paint in: inverse of its translate
+// and rotate tags (Emit pushes them after the node paints itself).
+Affine childSpace(const Block& n);
+// Pointer at (x, y) carried down the walk into each node's paint space, with
+// ancestor clips applied: Roll children hit only inside the clip.
+class PointStack {
+ public:
+  PointStack(float x, float y) : x_(x), y_(y) {}
   void enter(const Block& n, const Box& bx);
-  void exit();
-  bool visible(float x, float y) const;
+  void exit() { frames_.pop_back(); }
+  const Affine& toNode() const { return frames_.back().toNode; }
+  std::pair<float, float> point() const { return toNode().apply(x_, y_); }
+  // Inside every ancestor clip (the node's own clip bounds only its children).
+  bool visible() const { return frames_.back().visible; }
+
+ private:
+  struct Frame {
+    Affine toNode;
+    Affine toChildren;
+    bool visible;
+    bool childrenVisible;
+  };
+  float x_;
+  float y_;
+  std::vector<Frame> frames_;
 };
+// handleAt with the event's point mapped by toNode.
+bool handleIn(const Block& b, const Box& box, const Affine& toNode, const Event& ev);
 // 0.5 logical snaps 1px chrome at 2x; layout boxes stay untouched.
 inline float snapHalf(float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; }
 // Tight proposal forces exact size; loose max never truncates.
