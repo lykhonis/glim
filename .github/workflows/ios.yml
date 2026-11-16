@@ -1,4 +1,4 @@
-name: iOS
+name: iOS and tvOS
 
 on:
   workflow_call:
@@ -7,8 +7,10 @@ jobs:
   build:
     uses: ./.github/workflows/native.yml
     with:
-      name: ios
+      name: ios-tvos
       runs-on: macos-15
       nx: |
         pnpm exec nx run examples:build-ios-sim
         pnpm exec nx run-many -t run-ios --projects=tag:example --parallel=1 --smoke=15
+        pnpm exec nx run examples:build-tvos-sim
+        pnpm exec nx run-many -t run-tvos --projects=tag:example --parallel=1 --smoke=15

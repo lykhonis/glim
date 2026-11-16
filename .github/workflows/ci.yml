@@ -27,13 +27,11 @@ jobs:
     needs: [gate]
     uses: ./.github/workflows/linux.yml
 
+  # Two macOS runners, balanced: macOS runners are scarce and each job
+  # pays checkout, install and toolchain setup once.
   macos:
     needs: [gate]
     uses: ./.github/workflows/macos.yml
-
-  tvos:
-    needs: [gate]
-    uses: ./.github/workflows/tvos.yml
 
   web:
     needs: [gate]
