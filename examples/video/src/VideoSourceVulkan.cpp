@@ -1,6 +1,7 @@
 #include <dlfcn.h>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdio>
@@ -228,16 +229,18 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     return reached_;
   }
 
-  // Fences on one queue signal in order, so the first unsignaled one
-  // ends the scan.
+  // Fence status can read out of order (lavapipe), so every signaled
+  // entry goes, and all fences below the oldest unsignaled one are
+  // done. A slot is never reset while its entry is still queued.
   void drainLocked() {
-    while (!pending_.empty() &&
-           vk_.vkGetFenceStatus(
-             device_, frames_[pending_.front().slot].done
-           ) == VK_SUCCESS) {
-      reached_ = pending_.front().fence;
-      pending_.pop_front();
-    }
+    std::erase_if(pending_, [&](const Pending& p) {
+      return vk_.vkGetFenceStatus(device_, frames_[p.slot].done) ==
+             VK_SUCCESS;
+    });
+    reached_ = std::max(
+      reached_,
+      pending_.empty() ? submitted_ : pending_.front().fence - 1
+    );
   }
 
   bool loadInstance() {
@@ -764,6 +767,7 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
       std::lock_guard lock(mutex_);
       vk_.vkQueueSubmit(queue_, 1, &si, f.done);
       pending_.push_back({fence_, slot});
+      submitted_ = fence_;
     }
     feed_.publish({ids_[slot], fence_});
   }
@@ -799,6 +803,7 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
   std::mutex mutex_;
   std::deque<Pending> pending_;
   std::uint64_t reached_ = 0;
+  std::uint64_t submitted_ = 0;
   std::uint64_t fence_ = 0;
   std::thread thread_;
   std::atomic<bool> playing_{true};
