@@ -11,6 +11,8 @@ jobs:
       runs-on: ubuntu-24.04
       packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
       nx: |
+        # Lavapipe exports dmabufs through udmabuf (glim-video-vulkan-test).
+        ls -l /dev/udmabuf && sudo chmod a+rw /dev/udmabuf
         # Full build + every registered ctest (units, CPU goldens, GPU goldens).
         pnpm -s test:host
         pnpm -s package-test
@@ -24,6 +26,7 @@ jobs:
       runs-on: ubuntu-24.04
       packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
       nx: |
+        sudo chmod a+rw /dev/udmabuf
         pipx install gcovr
         node tools/coverage.mjs
 
