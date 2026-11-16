@@ -126,5 +126,41 @@ int main() {
     "each ring buffer imported once"
   );
   source.reset();
+
+  expect(
+    !device
+       .importSurface(
+         nullptr, 4, 4, glim::gpu::SampleFormat::Rgba8Unorm
+       )
+       .ok(),
+    "null surface rejected"
+  );
+  glim::gpu::DmaBuf closed;
+  expect(
+    !device
+       .importSurface(
+         &closed, 4, 4, glim::gpu::SampleFormat::Rgba8Unorm
+       )
+       .ok(),
+    "dmabuf without an fd rejected"
+  );
+
+  const std::uint64_t imported = renderer.stats().importedBytes;
+  const std::vector<std::uint8_t> red(4 * 4 * 4, 0xff);
+  const std::uint32_t uploaded = ctx.addImage(4, 4, red.data());
+  draw(device, renderer, ctx, uploaded);
+  expect(
+    renderer.stats().textureBytes == red.size(), "uploaded image held"
+  );
+  ctx.releaseImage(uploaded);
+  for (int i = 0; i < 3; ++i) draw(device, renderer, ctx, 0);
+  expect(
+    renderer.stats().textureBytes == 0,
+    "released image freed after its frames"
+  );
+  expect(
+    renderer.stats().importedBytes == imported,
+    "imports untouched by the release"
+  );
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
