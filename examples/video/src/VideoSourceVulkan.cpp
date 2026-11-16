@@ -721,7 +721,11 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     if (!claimed) return;
     const std::size_t slot = *claimed;
     Frame& f = frames_[slot];
-    vk_.vkWaitForFences(device_, 1, &f.done, VK_TRUE, UINT64_MAX);
+    if (!live(
+          vk_.vkWaitForFences(device_, 1, &f.done, VK_TRUE, UINT64_MAX),
+          "fence wait"
+        ))
+      return;
     {
       std::lock_guard lock(mutex_);
       drainLocked();
@@ -762,14 +766,26 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
     si.pCommandBuffers = &f.cmd;
-    ++fence_;
     {
       std::lock_guard lock(mutex_);
-      vk_.vkQueueSubmit(queue_, 1, &si, f.done);
+      if (!live(vk_.vkQueueSubmit(queue_, 1, &si, f.done), "submit"))
+        return;
+      ++fence_;
       pending_.push_back({fence_, slot});
       submitted_ = fence_;
     }
     feed_.publish({ids_[slot], fence_});
+  }
+
+  // A failed wait or submit (device lost) stops the producer for good
+  // rather than publishing frames that never land.
+  bool live(VkResult r, const char* what) {
+    if (r == VK_SUCCESS) return true;
+    std::fprintf(
+      stderr, "video producer: %s returned %d; stopping\n", what, r
+    );
+    stop_ = true;
+    return false;
   }
 
   void produceLoop() {
