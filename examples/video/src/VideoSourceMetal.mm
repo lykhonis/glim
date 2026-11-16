@@ -101,8 +101,9 @@ DISPATCH_SOURCE_TYPE_TIMER, 0, 0, serial_);
  private:
   void produce() {
     if (!playing_.load(std::memory_order_relaxed)) return;
-    const std::size_t slot = fence_ % kClipRing;
-    if (!feed_.tryReuse(ids_[slot])) return;
+    const std::optional<std::size_t> claimed = feed_.claim(ids_);
+    if (!claimed) return;
+    const std::size_t slot = *claimed;
     const float t = static_cast<float>(static_cast<double>(fence_) / kClipFps);
     id<MTLCommandBuffer> cb = [queue_ commandBuffer];
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];

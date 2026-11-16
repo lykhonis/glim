@@ -47,15 +47,18 @@ int main() {
   const glim::toolkit::host::FeedStats s = feed.stats();
   expect(s.published == 4 && s.acquired == 4, "published 4, acquired 4 frames");
 
-  expect(!feed.tryReuse(10), "current is held");
-  expect(!feed.tryReuse(9), "recently shown may still be on the GPU");
-  expect(feed.tryReuse(8), "never shown, not pending: free");
-  feed.publish({8, 5});
-  expect(!feed.tryReuse(8), "pending is held");
-  signaled = 5;
+  const std::uint32_t ring[] = {8, 9, 10, 11, 12};
+  expect(feed.claim(ring) == 0u, "8 is neither shown nor pending");
+  expect(!feed.claim(std::span(ring + 1, 2)).has_value(), "9 and 10 shown recently: held");
+  expect(feed.stats().reuseWaits == 1, "the wait is counted");
+  feed.publish({11, 5});
+  feed.publish({12, 6});
+  expect(feed.claim(std::span(ring + 3, 2)) == 0u, "oldest pending (11) is superseded");
+  expect(feed.stats().dropped == 2, "the superseded frame counts as dropped");
+  signaled = 6;
+  expect(feed.acquire() == 12, "11 never shows");
   for (std::size_t i = 0; i < glim::toolkit::host::Feed::kHeld; ++i) feed.acquire();
-  expect(feed.tryReuse(9) && feed.tryReuse(10), "free once out of the held window");
-  expect(feed.stats().reuseWaits == 3, "three held answers counted");
+  expect(feed.claim(std::span(ring + 1, 2)) == 0u, "9 free once out of the held window");
 
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

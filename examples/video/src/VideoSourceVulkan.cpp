@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdio>
 #include <cstring>
 #include <chrono>
 #include <deque>
@@ -312,7 +313,11 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     };
     std::vector<const char*> exts;
     for (const char* e : wanted) {
-      if (hasExtension(available, e)) exts.push_back(e);
+      if (hasExtension(available, e)) {
+        exts.push_back(e);
+      } else {
+        std::fprintf(stderr, "video producer: %s missing\n", e);
+      }
     }
     if (exts.empty() || exts.back() != kBufferExtension) return false;
     if (hasExtension(
@@ -690,8 +695,9 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
   }
 
   void produce() {
-    const std::size_t slot = fence_ % kClipRing;
-    if (!feed_.tryReuse(ids_[slot])) return;
+    const std::optional<std::size_t> claimed = feed_.claim(ids_);
+    if (!claimed) return;
+    const std::size_t slot = *claimed;
     Frame& f = frames_[slot];
     vk_.vkWaitForFences(device_, 1, &f.done, VK_TRUE, UINT64_MAX);
     {

@@ -57,11 +57,12 @@ bool WebClip::attach(
 }
 
 void WebClip::produce(double timeSeconds) {
-  const std::size_t slot = fence_ % textures_.size();
-  if (!device_ || !feed_.tryReuse(ids_[slot])) return;
+  if (!device_) return;
+  const std::optional<std::size_t> slot = feed_.claim(ids_);
+  if (!slot) return;
   if (!glimClipDraw(
         device_,
-        textures_[slot],
+        textures_[*slot],
         glim::toolkit::kClipScene,
         kClipWidth,
         kClipHeight,
@@ -70,5 +71,5 @@ void WebClip::produce(double timeSeconds) {
     return;
   }
   ++fence_;
-  feed_.publish({ids_[slot], fence_});
+  feed_.publish({ids_[*slot], fence_});
 }

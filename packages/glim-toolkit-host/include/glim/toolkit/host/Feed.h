@@ -6,6 +6,8 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <optional>
+#include <span>
 
 namespace glim::toolkit::host {
 
@@ -24,7 +26,7 @@ struct FeedStats {
   // Ready buffers never shown because a newer one was ready too.
   std::uint64_t dropped = 0;
   // Published but not yet ready, at the last acquire.
-  // Producer writes skipped because the frame could still sample the buffer.
+  // Producer writes skipped because the frame could still sample every buffer.
   std::uint64_t reuseWaits = 0;
   std::uint32_t lag = 0;
   std::uint32_t maxLag = 0;
@@ -43,9 +45,11 @@ class Feed {
   bool publish(FeedBuffer buffer);
   // Image id to sample this frame; 0 until the first buffer is ready.
   std::uint32_t acquire();
-  // Whether the producer may overwrite this buffer now: false while it is
-  // pending, current, or shown by a frame that may still be on the GPU.
-  bool tryReuse(std::uint32_t imageId);
+  // Index into `ring` the producer may write next: a buffer the frame
+  // will not sample, preferring one neither shown nor pending, else the
+  // oldest pending one (dropped: a newer frame supersedes it). nullopt
+  // while every buffer was shown by a frame that may still be on the GPU.
+  std::optional<std::size_t> claim(std::span<const std::uint32_t> ring);
   FeedStats stats() const;
 
   // Frame being encoded plus up to three on the GPU (Metal's drawable cap).

@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "VideoClip.h"

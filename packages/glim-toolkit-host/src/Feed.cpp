@@ -41,13 +41,26 @@ std::uint32_t Feed::acquire() {
   return current_;
 }
 
-bool Feed::tryReuse(std::uint32_t imageId) {
+std::optional<std::size_t> Feed::claim(std::span<const std::uint32_t> ring) {
   std::lock_guard lock(mutex_);
-  const bool held =
-    std::ranges::find(shown_, imageId) != shown_.end() ||
-    std::ranges::any_of(pending_, [&](const FeedBuffer& b) { return b.imageId == imageId; });
-  if (held) ++stats_.reuseWaits;
-  return !held;
+  const auto shown = [&](std::uint32_t id) {
+    return std::ranges::find(shown_, id) != shown_.end();
+  };
+  const auto pending = [&](std::uint32_t id) {
+    return std::ranges::find(pending_, id, &FeedBuffer::imageId);
+  };
+  for (std::size_t i = 0; i < ring.size(); ++i) {
+    if (!shown(ring[i]) && pending(ring[i]) == pending_.end()) return i;
+  }
+  for (auto it = pending_.begin(); it != pending_.end(); ++it) {
+    const auto slot = std::ranges::find(ring, it->imageId);
+    if (slot == ring.end() || shown(it->imageId)) continue;
+    pending_.erase(it);
+    ++stats_.dropped;
+    return static_cast<std::size_t>(slot - ring.begin());
+  }
+  ++stats_.reuseWaits;
+  return std::nullopt;
 }
 
 FeedStats Feed::stats() const {
