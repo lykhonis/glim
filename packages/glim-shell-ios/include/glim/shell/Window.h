@@ -6,11 +6,13 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 #if GLIM_SOFTWARE
 #include <cstdint>
 #endif
 
 #include <glim/math.h>
+#include <glim/shell/A11y.h>
 #include <glim/shell/Event.h>
 #include <glim/shell/Present.h>
 #include <glim/shell/Slot.h>
@@ -48,6 +50,11 @@ class Window final {
   // Shows system UI; done fires once on the main thread.
   void present(const PresentRequest&, PresentDone done);
   void dismissPresented();
+  // OS accessibility tree. a11yActive turns true once the OS asks for it,
+  // so hosts build the tree only while a screen reader may be listening.
+  void setA11y(std::vector<A11yElement> elements);
+  void setA11yActivate(A11yActivate);
+  bool a11yActive() const;
 #if GLIM_SOFTWARE
   std::uint8_t* mapSoftware(int width, int height);
   void presentSoftware();
@@ -61,6 +68,7 @@ class Window final {
   void* controller_ = nullptr;
   bool shown_ = false;
   void* present_ = nullptr;
+  void* a11y_ = nullptr;
   SlotTable slots_{};
 };
 

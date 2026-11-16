@@ -120,6 +120,45 @@ void test_basics() {
     assert(top.states.with(A11yState::Checked, false) == A11yStates{A11yState::Selected});
     assert(top.actions == A11yActions{A11yAction::Activate});
   }
+  {
+    // N5: an embedded component's subtree grafts under its host, boxes
+    // mapped from component space, parents shifted past the host.
+    Block at = column(
+      pad(10),
+      layer(
+        {.a11ySubtree =
+           [] {
+             return A11yExport{
+               .width = 64,
+               .height = 36,
+               .nodes =
+                 {{.kind = "Map", .label = "Map", .box = {0, 0, 64, 36}},
+                  {
+                    .kind = "Pin",
+                    .label = "Cafe",
+                    .box = {32, 18, 4, 4},
+                    .traits = {.role = A11yRole::Button},
+                    .parent = 0,
+                  }},
+             };
+           }}
+      ),
+      lines("After")
+    );
+    Box ab = place(at, {0, 720, 0, 480});
+    std::vector<A11yNode> nodes = a11yNodes(at, ab);
+    std::ostringstream ad;
+    dumpA11y(ad, nodes);
+    assert(
+      ad.str() ==
+      "none Layer [10,10 320x180] * actions=activate\n"
+      "none Map [10,10 320x180] Map ^0\n"
+      "button Pin [170,100 20x20] Cafe ^1\n"
+      "text Lines [10,190 40x14] After\n"
+    );
+    Block bare = layer({.a11ySubtree = [] { return A11yExport{}; }});
+    assert(a11yNodes(bare, place(bare, {0, 720, 0, 480})).size() == 1);
+  }
   Block f = seat({.id = 7, .width = 688, .height = 40}, semantic("field"));
   auto fs = f.get<Seat>();
   assert(fs && fs->get().id == 7 && fs->get().semantic == "field");

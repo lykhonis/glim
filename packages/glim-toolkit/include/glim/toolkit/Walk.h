@@ -35,6 +35,18 @@ inline A11yTraits a11yOf(const Block& b) {
   );
 }
 
+inline A11yExport a11yExportOf(const Block& b) {
+  if (auto c = b.get<Custom>()) return c->get().a11yExport();
+  return std::visit(
+    [](const auto& x) {
+      using T = std::decay_t<decltype(x)>;
+      if constexpr (has_a11y_export<T>::value) return x.a11yExport();
+      return A11yExport{};
+    },
+    b.v
+  );
+}
+
 // Unmarked entries borrow the node's id; explicit marks are preserved.
 inline void describeSelf(const Block& b, const Box& box, Rec& r) {
   std::size_t base = r.entries.size();

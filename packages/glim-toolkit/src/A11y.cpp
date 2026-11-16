@@ -8,6 +8,23 @@
 namespace glim {
 namespace toolkit {
 
+namespace {
+
+// Component space to the host's box; exported parents shift past the host.
+void graftA11y(std::vector<A11yNode>& out, A11yExport graft, const Box& host) {
+  if (graft.nodes.empty() || graft.width <= 0 || graft.height <= 0) return;
+  const int hostIndex = static_cast<int>(out.size()) - 1;
+  const float sx = host.w / graft.width;
+  const float sy = host.h / graft.height;
+  for (A11yNode& n : graft.nodes) {
+    n.box = {host.x + n.box.x * sx, host.y + n.box.y * sy, n.box.w * sx, n.box.h * sy};
+    n.parent = n.parent < 0 ? hostIndex : hostIndex + 1 + n.parent;
+    out.push_back(std::move(n));
+  }
+}
+
+}  // namespace
+
 std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine& e) {
   std::vector<A11yNode> out;
   walk(root, box, e, [&](const Block& n, const Box& bx) {
@@ -23,7 +40,9 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
     auto mark = semanticOf(n);
     bool focusable = canHandle(n);
     A11yTraits traits = a11yOf(n);
-    if (!mark && label.empty() && !focusable && traits.live == A11yLive::Off) return;
+    A11yExport graft = a11yExportOf(n);
+    if (!mark && label.empty() && !focusable && traits.live == A11yLive::Off && graft.nodes.empty())
+      return;
     if (focusable && traits.actions.empty()) traits.actions = {A11yAction::Activate};
     std::string kind = "Custom";
     if (!tmp.entries.empty()) kind = tmp.entries.front().kind;
@@ -35,6 +54,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
        focusable,
        std::move(traits)}
     );
+    graftA11y(out, std::move(graft), bx);
   });
   return out;
 }
@@ -124,6 +144,7 @@ void dumpA11y(std::ostream& os, const std::vector<A11yNode>& nodes) {
     if (!n.label.empty()) os << " " << n.label;
     if (!n.id.empty()) os << " " << n.id;
     if (n.focusable) os << " *";
+    if (n.parent >= 0) os << " ^" << n.parent;
     dumpTraits(os, n.traits);
     os << "\n";
   }

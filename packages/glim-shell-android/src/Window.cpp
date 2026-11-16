@@ -116,4 +116,10 @@ void Window::present(const PresentRequest&, PresentDone done) {
 
 void Window::dismissPresented() {}
 
+void Window::setA11y(std::vector<A11yElement>) {}
+
+void Window::setA11yActivate(A11yActivate) {}
+
+bool Window::a11yActive() const { return false; }
+
 }  // namespace glim::shell

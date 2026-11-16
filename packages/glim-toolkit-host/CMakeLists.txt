@@ -3,7 +3,7 @@ if(APPLE)
 else()
   set(_glim_host_seat src/SeatViewStub.cpp)
 endif()
-set(_glim_host_sources src/Host.cpp src/Crash.cpp src/Drive.cpp src/Feed.cpp src/Power.cpp src/Probe.cpp src/Startup.cpp
+set(_glim_host_sources src/A11y.cpp src/Host.cpp src/Crash.cpp src/Drive.cpp src/Feed.cpp src/Power.cpp src/Probe.cpp src/Startup.cpp
     src/TestApp.cpp ${_glim_host_seat})
 
 add_library(glim-toolkit-host STATIC ${_glim_host_sources})

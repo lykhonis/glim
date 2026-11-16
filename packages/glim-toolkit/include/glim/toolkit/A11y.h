@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "glim/toolkit/A11yNode.h"
 #include "glim/toolkit/A11yTraits.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
@@ -16,17 +17,8 @@ namespace toolkit {
 struct Block;
 struct Engine;
 
-// Toolkit-side semantics for Host OS bridges; strings owned.
-struct A11yNode {
-  std::string id;
-  std::string kind;
-  std::string label;
-  Box box;
-  bool focusable = false;
-  A11yTraits traits;
-};
-
-// Pre-order map; layout-only wrappers stay out.
+// Pre-order map; layout-only wrappers stay out. Elements with a11yExport()
+// get their subtree grafted after them, boxes mapped onto theirs.
 std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine& e = Engine{});
 
 // First node with id, or nullptr. Duplicate ids resolve pre-order.

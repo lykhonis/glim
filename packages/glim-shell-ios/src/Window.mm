@@ -1,6 +1,7 @@
 #include <glim/shell/Window.h>
 
 #include "WindowRegistry.h"
+#import "A11yBridge.h"
 
 #import <QuartzCore/CAMetalLayer.h>
 #import <QuartzCore/CATransaction.h>
@@ -122,6 +123,7 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
 }  // namespace
 
 @interface GlimView : UIView
+@property(nonatomic, strong) GlimA11yBridge* a11yBridge;
 - (void)setEventCallback:(Window::EventCallback)callback;
 - (void)dispatchEvent:(const Event&)event;
 - (void)syncMetalDrawableSize;
@@ -136,6 +138,14 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
 
 + (Class)layerClass {
     return [CAMetalLayer class];
+}
+
+- (BOOL)isAccessibilityElement {
+    return NO;
+}
+
+- (NSArray*)accessibilityElements {
+    return [self.a11yBridge elements];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -441,11 +451,16 @@ Window::Window() {
         [vc loadViewIfNeeded];
         controller_ = (__bridge_retained void*)vc;
         view_ = (__bridge_retained void*)vc.view;
+        GlimView* view = (GlimView*)vc.view;
+        view.a11yBridge = [[GlimA11yBridge alloc] initWithView:view];
+        a11y_ = (__bridge void*)view.a11yBridge;
     }
 }
 
 Window::~Window() {
     dismissPresented();
+    setA11yActivate(nullptr);
+    setA11y({});
     detail::unregisterShownWindow(this);
     slots_.forEach([](std::uint32_t, void* view) {
         UIView* child = (__bridge UIView*)view;

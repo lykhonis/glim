@@ -1,5 +1,6 @@
 #include <glim/paint/Software.h>
 #include <glim/toolkit.h>
+#include <glim/toolkit/host/A11y.h>
 #include <glim/toolkit/host/Codec.h>
 #include <glim/toolkit/host/Crash.h>
 #include <glim/toolkit/host/Drive.h>
@@ -89,6 +90,34 @@ int main() {
   assert(mapKey(Key::DpadCenter) == glim::toolkit::Key::Activate);
   assert(!mapKey(Key::Escape));
   assert(!mapKey(Key::Unknown));
+
+  // A11y bridge mapping: roles, id fallback for labels, range values, flags, parents.
+  {
+    using glim::toolkit::A11yNode;
+    using glim::toolkit::A11yRange;
+    using glim::toolkit::A11yRole;
+    using glim::toolkit::A11yState;
+    std::vector<A11yNode> nodes{
+      {.id = "plate", .kind = "Layer", .box = {10, 20, 30, 40}},
+      {.kind = "Clip", .label = "Sun", .box = {12, 22, 4, 4}, .parent = 0},
+      {.id = "dim",
+       .kind = "Slider",
+       .traits = {.role = A11yRole::Slider, .range = A11yRange{3, 0, 10}}},
+      {.label = "Wi-Fi",
+       .traits = {.role = A11yRole::Switch, .states = {A11yState::Checked, A11yState::Disabled}}},
+    };
+    const std::vector<glim::shell::A11yElement> el = glim::toolkit::host::shellA11y(nodes);
+    using Out = glim::shell::A11yRole;
+    assert(el.size() == 4);
+    assert(el[0].role == Out::Group && el[0].label == "plate" && el[0].parent == -1);
+    assert(el[0].frame.origin.x == 10 && el[0].frame.size.y == 40);
+    assert(el[1].role == Out::Text && el[1].label == "Sun" && el[1].parent == 0);
+    assert(el[2].role == Out::Slider && el[2].value == "3");
+    assert(el[3].role == Out::Switch && el[3].checked && el[3].disabled);
+    assert(el[3] == el[3] && !(el[2] == el[3]));
+    nodes[0].id.clear();
+    assert(glim::toolkit::host::shellA11y(nodes)[0].label.empty());
+  }
 
   // Present seam: the Engine's Presenter answers; without one, Unsupported.
   {

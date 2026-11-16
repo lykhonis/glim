@@ -37,6 +37,8 @@ struct LayerProps {
   // 0 uses the ambient layer the host binds for the pass.
   std::uint32_t image = 0;
   LayerInputFn onInput;
+  // The component's own a11y subtree, in its space; grafted under the layer.
+  std::function<A11yExport()> a11ySubtree;
 };
 
 // Foreign-pixel plate: fixed 16:9 box; ids stay embedder-owned.
@@ -52,6 +54,7 @@ struct Layer {
       sink.image(box, sink.layer.id, sink.layer.foreign);
     }
   }
+  A11yExport a11yExport() const { return props.a11ySubtree ? props.a11ySubtree() : A11yExport{}; }
   bool handleAt(const Box& box, const Event& ev) const {
     if (!props.onInput) return false;
     const std::optional<LayerInput> in = layerInput(box, ev);

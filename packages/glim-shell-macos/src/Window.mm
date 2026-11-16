@@ -1,6 +1,7 @@
 #include <glim/shell/Window.h>
 
 #include "WindowRegistry.h"
+#import "A11yBridge.h"
 
 #include <algorithm>
 #include <cmath>
@@ -15,6 +16,7 @@ using glim::shell::Key;
 using glim::shell::Window;
 
 @interface GlimView : NSView <NSWindowDelegate>
+@property(nonatomic, strong) GlimA11yBridge* a11yBridge;
 - (void)setEventCallback:(Window::EventCallback)callback;
 - (void)dispatchEvent:(const Event&)event;
 @end
@@ -35,6 +37,19 @@ using glim::shell::Window;
 
 - (BOOL)isFlipped {
   return YES;
+}
+
+- (BOOL)isAccessibilityElement {
+  return NO;
+}
+
+- (NSArray*)accessibilityChildren {
+  return [self.a11yBridge roots];
+}
+
+- (id)accessibilityHitTest:(NSPoint)point {
+  id hit = [self.a11yBridge hitTest:point];
+  return hit ? hit : self;
 }
 
 - (BOOL)isOpaque {
@@ -221,11 +236,15 @@ Window::Window() {
   [window.contentView addSubview:view];
   [window makeFirstResponder:view];
   window_ = (__bridge_retained void*)window;
+  view.a11yBridge = [[GlimA11yBridge alloc] initWithView:view];
+  a11y_ = (__bridge void*)view.a11yBridge;
   view_ = (__bridge_retained void*)view;
 }
 
 Window::~Window() {
   dismissPresented();
+  setA11yActivate(nullptr);
+  setA11y({});
   detail::unregisterShownWindow(this);
   slots_.forEach([](std::uint32_t, void* view) {
     NSView* child = (__bridge NSView*)view;

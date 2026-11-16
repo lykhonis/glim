@@ -22,6 +22,7 @@ packages/glim-paint/include/glim/paint/Reuse.h
 packages/glim-paint/include/glim/paint/Scene.h
 packages/glim-paint/include/glim/paint/Software.h
 packages/glim-runtime-wamr/include/glim/runtime_wamr/Wamr.h
+packages/glim-shell/include/glim/shell/A11y.h
 packages/glim-shell/include/glim/shell/Event.h
 packages/glim-shell/include/glim/shell/Present.h
 packages/glim-shell/include/glim/shell/Slot.h
@@ -50,6 +51,7 @@ packages/glim-shell-web/include/glim/shell/RunLoop.h
 packages/glim-shell-web/include/glim/shell/Surface.h
 packages/glim-shell-web/include/glim/shell/Window.h
 packages/glim-toolkit/include/glim/toolkit/A11y.h
+packages/glim-toolkit/include/glim/toolkit/A11yNode.h
 packages/glim-toolkit/include/glim/toolkit/A11ySet.h
 packages/glim-toolkit/include/glim/toolkit/A11yTraits.h
 packages/glim-toolkit/include/glim/toolkit/Action.h
@@ -109,6 +111,7 @@ packages/glim-toolkit/include/glim/toolkit/text/Text.h
 packages/glim-toolkit/include/glim/toolkit/theme/Keys.h
 packages/glim-toolkit/include/glim/toolkit/theme/Themed.h
 packages/glim-toolkit/include/glim/toolkit.h
+packages/glim-toolkit-host/include/glim/toolkit/host/A11y.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Codec.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Crash.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Drive.h

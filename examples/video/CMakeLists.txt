@@ -52,4 +52,12 @@ if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     target_link_libraries(glim-share-test PRIVATE glim::toolkit-host "-framework AppKit")
     glim_test_defaults(glim-share-test)
     add_test(NAME glim-share-test COMMAND glim-share-test)
+
+    # N5 gate: the clip's own a11y subtree reaches AppKit under the plate.
+    add_executable(glim-video-a11y-test tests/a11y_test.mm)
+    set_source_files_properties(tests/a11y_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_include_directories(glim-video-a11y-test PRIVATE src)
+    target_link_libraries(glim-video-a11y-test PRIVATE glim::toolkit-host "-framework AppKit")
+    glim_test_defaults(glim-video-a11y-test)
+    add_test(NAME glim-video-a11y-test COMMAND glim-video-a11y-test)
 endif()

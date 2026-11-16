@@ -41,6 +41,10 @@ struct Tagged {
   bool handleAt(const Box& box, const Event& ev) const {
     return inner_.handleAt(box, ev);
   }
+  template <class I = Inner, std::enable_if_t<has_a11y_export<I>::value, int> = 0>
+  A11yExport a11yExport() const {
+    return inner_.a11yExport();
+  }
   template <class I = Inner, std::enable_if_t<has_paint<I>::value, int> = 0>
   void paint(const Box& box, AnySink& sink, const Engine& e) const {
     inner_.paint(box, sink, e);

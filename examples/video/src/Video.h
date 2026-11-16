@@ -17,6 +17,41 @@ struct VideoView {
   std::string shared;
 };
 
+// What the clip shows, in its own 640x360 space; grafted under the
+// plate.
+inline A11yExport clipA11y() {
+  return {
+    .width = 640,
+    .height = 360,
+    .nodes =
+      {
+        {
+          .kind = "Clip",
+          .label = "Sunset over a lake",
+          .box = {0, 0, 640, 360},
+        },
+        {
+          .kind = "Clip",
+          .label = "Sun",
+          .box = {420, 125, 30, 30},
+          .parent = 0,
+        },
+        {
+          .kind = "Clip",
+          .label = "Hills",
+          .box = {0, 195, 640, 75},
+          .parent = 0,
+        },
+        {
+          .kind = "Clip",
+          .label = "Lake",
+          .box = {0, 270, 640, 90},
+          .parent = 0,
+        },
+      },
+  };
+}
+
 struct VideoPlate {
   static constexpr const char* kKind = "VideoPlate";
   std::uint32_t image = 0;
@@ -26,6 +61,9 @@ struct VideoPlate {
     return detail::resolveSize(w, w * 9.0f / 16.0f, c);
   }
   void record(const Box& box, Rec& rec) const { rec.push(kKind, box); }
+  A11yExport a11yExport() const {
+    return image == 0 ? A11yExport{} : clipA11y();
+  }
   void paint(const Box& box, AnySink& sink, const Engine&) const {
     if (image == 0) {
       sink.fill(box, 0x101418ffu);

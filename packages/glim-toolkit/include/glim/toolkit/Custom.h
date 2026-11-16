@@ -7,6 +7,7 @@
 #include <typeinfo>
 #include <utility>
 
+#include "glim/toolkit/A11yNode.h"
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
@@ -37,6 +38,13 @@ struct has_handle_at<
         decltype(std::declval<const T&>()
                    .handleAt(std::declval<const Box&>(), std::declval<const Event&>())),
         bool> {};
+
+// Embedded components export their own a11y subtree (see A11yExport).
+template <class T, class = void>
+struct has_a11y_export : std::false_type {};
+template <class T>
+struct has_a11y_export<T, std::void_t<decltype(std::declval<const T&>().a11yExport())>>
+    : std::is_same<decltype(std::declval<const T&>().a11yExport()), A11yExport> {};
 
 template <class T, class = void>
 struct has_record : std::false_type {};
@@ -476,6 +484,7 @@ struct Custom {
     bool (*clips)(const void* s, bool heap);
     std::optional<std::reference_wrapper<const std::string>> (*semantic)(const void* s, bool heap);
     A11yTraits (*a11y)(const void* s, bool heap);
+    A11yExport (*a11yExport)(const void* s, bool heap);
     ThemeScope (*themeScope)(const void* s, bool heap);
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
@@ -619,6 +628,9 @@ struct Custom {
     return std::nullopt;
   }
   A11yTraits a11y() const { return vt && vt->a11y ? vt->a11y(buf, onHeap) : A11yTraits{}; }
+  A11yExport a11yExport() const {
+    return vt && vt->a11yExport ? vt->a11yExport(buf, onHeap) : A11yExport{};
+  }
   // Borrowed view; tree must outlive it.
   ThemeScope themeScope() const {
     if (vt && vt->themeScope) return vt->themeScope(buf, onHeap);
@@ -773,6 +785,17 @@ struct Custom {
   }
 
   template <class U>
+  static A11yExport (*a11yExportFor())(const void*, bool) {
+    if constexpr (has_a11y_export<U>::value) {
+      return [](const void* s, bool heap) {
+        return static_cast<const U*>(addr<U>(s, heap))->a11yExport();
+      };
+    } else {
+      return nullptr;
+    }
+  }
+
+  template <class U>
   static ThemeScope (*themeScopeFor())(const void*, bool) {
     return [](const void* s, bool heap) -> ThemeScope {
       if constexpr (has_theme_entries<U>::value) {
@@ -806,6 +829,7 @@ struct Custom {
       clipsFor<U>(),
       semanticFor<U>(),
       a11yFor<U>(),
+      a11yExportFor<U>(),
       themeScopeFor<U>(),
       childCountFn<U>(),
       childAtFn<U>(),

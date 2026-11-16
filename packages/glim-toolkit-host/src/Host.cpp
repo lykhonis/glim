@@ -15,6 +15,7 @@
 #include <glim/paint/Renderer.h>
 #include <glim/shell/Application.h>
 #include <glim/shell/RunLoop.h>
+#include <glim/toolkit/host/A11y.h>
 #include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Present.h>
@@ -182,6 +183,21 @@ int run(
     return now;
   };
 
+  // Built only once the OS asked (see Window::a11yActive); kept so a
+  // screen-reader activation can tap the node it names.
+  std::optional<std::vector<A11yNode>> a11yPublished;
+  window.setA11yActivate([&](int index) {
+    if (!a11yPublished || index < 0 || index >= static_cast<int>(a11yPublished->size())) return;
+    const Box b = (*a11yPublished)[static_cast<std::size_t>(index)].box;
+    const float x = b.x + b.w * 0.5f;
+    const float y = b.y + b.h * 0.5f;
+    auto [down, downBox] = buildFresh(window.size());
+    bool hit = screen.pointerDown(down, downBox, x, y, 0, active);
+    auto [up, upBox] = buildFresh(window.size());
+    hit = screen.pointerUp(up, upBox, x, y, active) || hit;
+    if (hit) screen.dirty.invalidate();
+  });
+
   // Single choke point for every layer: shell frameMs in, toolkit
   // build/record around user paint, paint/gpu stats after draw, one
   // snapshot fanned out to pull (hub) and push (sink).
@@ -199,8 +215,14 @@ int run(
     startupMark("build");
     const auto b1 =
       wantTm ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-    if (a11ySink) {
-      a11ySink(a11yNodes(tree, box, active), screen.focus);
+    const bool a11yBridge = window.a11yActive();
+    if (a11ySink || a11yBridge) {
+      std::vector<A11yNode> nodes = a11yNodes(tree, box, active);
+      if (a11ySink) a11ySink(nodes, screen.focus);
+      if (a11yBridge) {
+        window.setA11y(shellA11y(nodes));
+        a11yPublished = std::move(nodes);
+      }
     }
     context.setSize(size);
     context.beginFrame();
@@ -380,6 +402,7 @@ int run(
       return;
     }
     if (e.type() == T::Frame) {
+      if (!a11yPublished && window.a11yActive()) invalidate();
       if (startup && *presentedAt > 0.0) {
         startup->markAt("presented", presentedAt->exchange(-1.0));
         shell::RunLoop().stop();
