@@ -237,14 +237,15 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
       const VkResult r =
         vk_.vkGetFenceStatus(device_, frames_[p.slot].done);
       static int probes = 0;
-      if (probes < 6) {
-        ++probes;
+      if (++probes % 40 == 0) {
         std::fprintf(
           stderr,
-          "PROBE fence %llu slot %zu status %d reached %llu\n",
+          "PROBE drain fence %llu slot %zu status %d size %zu reached "
+          "%llu\n",
           static_cast<unsigned long long>(p.fence),
           p.slot,
           r,
+          pending_.size(),
           static_cast<unsigned long long>(reached_)
         );
       }
@@ -739,6 +740,12 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
           "fence wait"
         ))
       return;
+    std::fprintf(
+      stderr,
+      "PROBE waited slot %zu status %d\n",
+      slot,
+      vk_.vkGetFenceStatus(device_, f.done)
+    );
     {
       std::lock_guard lock(mutex_);
       drainLocked();
