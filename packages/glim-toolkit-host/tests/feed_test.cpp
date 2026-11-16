@@ -53,9 +53,12 @@ int main() {
   expect(feed.stats().reuseWaits == 1, "the wait is counted");
   feed.publish({11, 5});
   feed.publish({12, 6});
-  expect(feed.claim(std::span(ring + 3, 2)) == 0u, "oldest pending (11) is superseded");
-  expect(feed.stats().dropped == 2, "the superseded frame counts as dropped");
+  expect(!feed.claim(std::span(ring + 3, 2)).has_value(), "pending, not ready: the producer waits");
+  signaled = 5;
+  expect(!feed.claim(std::span(ring + 3, 2)).has_value(), "only 11 ready: kept for the frame");
   signaled = 6;
+  expect(feed.claim(std::span(ring + 3, 2)) == 0u, "11 and 12 ready: 11 is superseded");
+  expect(feed.stats().dropped == 2, "the superseded frame counts as dropped");
   expect(feed.acquire() == 12, "11 never shows");
   for (std::size_t i = 0; i < glim::toolkit::host::Feed::kHeld; ++i) feed.acquire();
   expect(feed.claim(std::span(ring + 1, 2)) == 0u, "9 free once out of the held window");

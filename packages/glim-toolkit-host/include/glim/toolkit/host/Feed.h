@@ -26,7 +26,7 @@ struct FeedStats {
   // Ready buffers never shown because a newer one was ready too.
   std::uint64_t dropped = 0;
   // Published but not yet ready, at the last acquire.
-  // Producer writes skipped because the frame could still sample every buffer.
+  // Claims that found no buffer to write (producer ahead of the GPU or the frame).
   std::uint64_t reuseWaits = 0;
   std::uint32_t lag = 0;
   std::uint32_t maxLag = 0;
@@ -45,10 +45,10 @@ class Feed {
   bool publish(FeedBuffer buffer);
   // Image id to sample this frame; 0 until the first buffer is ready.
   std::uint32_t acquire();
-  // Index into `ring` the producer may write next: a buffer the frame
-  // will not sample, preferring one neither shown nor pending, else the
-  // oldest pending one (dropped: a newer frame supersedes it). nullopt
-  // while every buffer was shown by a frame that may still be on the GPU.
+  // Index into `ring` the producer may write next: a buffer neither shown
+  // by a frame that may still be on the GPU nor pending, else the oldest
+  // pending one when a newer one is ready too (dropped, as acquire would).
+  // nullopt means wait: the producer is ahead of its own GPU or of the frame.
   std::optional<std::size_t> claim(std::span<const std::uint32_t> ring);
   FeedStats stats() const;
 

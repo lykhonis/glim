@@ -42,22 +42,26 @@ std::uint32_t Feed::acquire() {
 }
 
 std::optional<std::size_t> Feed::claim(std::span<const std::uint32_t> ring) {
+  const std::uint64_t reached = signaled_ ? signaled_() : 0;
   std::lock_guard lock(mutex_);
   const auto shown = [&](std::uint32_t id) {
     return std::ranges::find(shown_, id) != shown_.end();
   };
-  const auto pending = [&](std::uint32_t id) {
-    return std::ranges::find(pending_, id, &FeedBuffer::imageId);
-  };
   for (std::size_t i = 0; i < ring.size(); ++i) {
-    if (!shown(ring[i]) && pending(ring[i]) == pending_.end()) return i;
+    if (!shown(ring[i]) &&
+        std::ranges::find(pending_, ring[i], &FeedBuffer::imageId) == pending_.end()) {
+      return i;
+    }
   }
-  for (auto it = pending_.begin(); it != pending_.end(); ++it) {
-    const auto slot = std::ranges::find(ring, it->imageId);
-    if (slot == ring.end() || shown(it->imageId)) continue;
-    pending_.erase(it);
-    ++stats_.dropped;
-    return static_cast<std::size_t>(slot - ring.begin());
+  // Pending fences are in order, so with two ready the front is ready too,
+  // and the next acquire would drop it anyway.
+  if (pending_.size() >= 2 && pending_[1].fence <= reached) {
+    const auto slot = std::ranges::find(ring, pending_.front().imageId);
+    if (slot != ring.end()) {
+      pending_.pop_front();
+      ++stats_.dropped;
+      return static_cast<std::size_t>(slot - ring.begin());
+    }
   }
   ++stats_.reuseWaits;
   return std::nullopt;
