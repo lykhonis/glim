@@ -79,4 +79,10 @@ void Window::setCanvasSelector(const std::string& selector) {
   }
 }
 
+void Window::present(const PresentRequest&, PresentDone done) {
+  done({PresentStatus::Unsupported, {}});
+}
+
+void Window::dismissPresented() {}
+
 }  // namespace glim::shell

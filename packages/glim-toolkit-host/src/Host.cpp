@@ -17,6 +17,7 @@
 #include <glim/shell/RunLoop.h>
 #include <glim/toolkit/host/Drive.h>
 #include <glim/toolkit/host/Paint.h>
+#include <glim/toolkit/host/Present.h>
 #include <glim/toolkit/host/Seats.h>
 #include <glim/toolkit/host/Startup.h>
 #include <glim/toolkit/host/Telemetry.h>
@@ -147,7 +148,10 @@ int run(
   // Build engine: measuring env plus this run's Store, so scoped state
   // allocates where it renders. No retained tree cache — the compositor
   // owns idle-skip, so trees rebuild per event/paint.
+  const Presenter presenter = windowPresenter(window, [&screen] { screen.dirty.invalidate(); });
+  const Env presentEnv{&presenter, &typeid(Presenter), engine.env};
   Engine active = engine;
+  active.env = presentEnv;
   active.store = store;
   const auto buildFresh = [&](const Vec2& size) {
     Block tree = build(active);

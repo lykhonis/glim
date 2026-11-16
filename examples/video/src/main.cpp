@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 
+#include "Share.h"
 #include "Video.h"
 #include "VideoSource.h"
 #include "glim/toolkit.h"
@@ -24,8 +25,13 @@ int main(int argc, char** argv) {
     t.w = 960;
     t.h = 640;
     t.build = [](const Engine& e) {
-      return videoTree({.playing = rootScope(e).state("playing", true)}
-      );
+      Scope app = rootScope(e);
+      State<std::string> shared = app.state("shared", std::string());
+      return videoTree({
+        .playing = app.state("playing", true),
+        .share = shareAction(e, shared),
+        .shared = *shared,
+      });
     };
     return host::runE2e(t, flags);
   }
@@ -47,7 +53,12 @@ int main(int argc, char** argv) {
     },
     [](const Engine& e) {
       Scope app = rootScope(e);
-      VideoView view{.playing = app.state("playing", true)};
+      State<std::string> shared = app.state("shared", std::string());
+      VideoView view{
+        .playing = app.state("playing", true),
+        .share = shareAction(e, shared),
+        .shared = *shared,
+      };
       if (source) {
         source->setPlaying(*view.playing);
         view.image = source->acquire();

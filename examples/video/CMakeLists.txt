@@ -44,4 +44,12 @@ if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         "-framework Metal" "-framework IOSurface")
     glim_test_defaults(glim-video-test)
     add_test(NAME glim-video-test COMMAND glim-video-test)
+
+    # N6 gate: the Share button presents the system sheet and returns its result.
+    add_executable(glim-share-test tests/share_test.mm)
+    set_source_files_properties(tests/share_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_include_directories(glim-share-test PRIVATE src)
+    target_link_libraries(glim-share-test PRIVATE glim::toolkit-host "-framework AppKit")
+    glim_test_defaults(glim-share-test)
+    add_test(NAME glim-share-test COMMAND glim-share-test)
 endif()

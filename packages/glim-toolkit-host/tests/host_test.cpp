@@ -7,6 +7,7 @@
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Power.h>
+#include <glim/toolkit/host/Present.h>
 #include <glim/toolkit/host/Probe.h>
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/host/Startup.h>
@@ -88,6 +89,27 @@ int main() {
   assert(mapKey(Key::DpadCenter) == glim::toolkit::Key::Activate);
   assert(!mapKey(Key::Escape));
   assert(!mapKey(Key::Unknown));
+
+  // Present seam: the Engine's Presenter answers; without one, Unsupported.
+  {
+    using namespace glim::shell;
+    using glim::toolkit::host::Presenter;
+    std::string asked;
+    const Presenter fake{[&asked](const PresentRequest& r, PresentDone done) {
+      asked = r.text;
+      done({PresentStatus::Done, "copy"});
+    }};
+    const glim::toolkit::Env env{&fake, &typeid(Presenter), std::nullopt};
+    glim::toolkit::Engine e;
+    e.env = env;
+    PresentResult got;
+    glim::toolkit::host::present(e, {.text = "hi"}, [&got](const PresentResult& r) { got = r; });
+    assert(asked == "hi" && got.status == PresentStatus::Done && got.detail == "copy");
+    glim::toolkit::host::present(glim::toolkit::Engine{}, {}, [&got](const PresentResult& r) {
+      got = r;
+    });
+    assert(got.status == PresentStatus::Unsupported);
+  }
 
   // Seat factory: id 0 never creates a view.
   using glim::toolkit::host::makeDefaultSeatView;

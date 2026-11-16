@@ -12,6 +12,7 @@
 
 #include <glim/math.h>
 #include <glim/shell/Event.h>
+#include <glim/shell/Present.h>
 #include <glim/shell/Slot.h>
 
 namespace glim::shell {
@@ -49,6 +50,9 @@ class Window final {
   void attachSlot(std::uint32_t id, SlotNative);
   void positionSlot(std::uint32_t id, Rect windowLogical);
   void detachSlot(std::uint32_t id);
+  // Shows system UI; done fires once on the main thread.
+  void present(const PresentRequest&, PresentDone done);
+  void dismissPresented();
 #if GLIM_SOFTWARE
   std::uint8_t* mapSoftware(int width, int height);
   void presentSoftware();
@@ -61,6 +65,7 @@ class Window final {
   void* view_ = nullptr;
   bool shown_ = false;
   void* software_ = nullptr;
+  void* present_ = nullptr;
   SlotTable slots_{};
 };
 

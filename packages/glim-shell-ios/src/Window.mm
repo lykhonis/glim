@@ -445,6 +445,7 @@ Window::Window() {
 }
 
 Window::~Window() {
+    dismissPresented();
     detail::unregisterShownWindow(this);
     slots_.forEach([](std::uint32_t, void* view) {
         UIView* child = (__bridge UIView*)view;

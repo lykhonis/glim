@@ -12,6 +12,7 @@
 
 #include <glim/math.h>
 #include <glim/shell/Event.h>
+#include <glim/shell/Present.h>
 #include <glim/shell/Slot.h>
 
 #include <cstdint>
@@ -49,6 +50,9 @@ class Window final {
   void attachSlot(std::uint32_t id, SlotNative);
   void positionSlot(std::uint32_t id, Rect windowLogical);
   void detachSlot(std::uint32_t id);
+  // Shows system UI; done fires once on the main thread.
+  void present(const PresentRequest&, PresentDone done);
+  void dismissPresented();
   std::size_t slotCount() const { return slotRects_.size(); }
   template <typename Fn>
   void forEachSlot(Fn&& fn) const {

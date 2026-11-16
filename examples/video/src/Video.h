@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <utility>
 
 #include "glim/toolkit.h"
@@ -11,6 +13,8 @@ namespace toolkit {
 struct VideoView {
   std::uint32_t image = 0;
   State<bool> playing;
+  std::function<void()> share;
+  std::string shared;
 };
 
 struct VideoPlate {
@@ -58,7 +62,20 @@ inline Block videoTree(VideoView view) {
       semantic("Video"),
       a11y({.value = on ? "Playing" : "Paused"})
     ),
-    lines("Tap the video to play or pause.")
+    row(
+      gap(16),
+      tap(
+        row(pad(14, 8), glass({.radius = 14}), lines("Share")),
+        [share = view.share] {
+          if (share) share();
+        },
+        semantic("Share")
+      ),
+      lines(
+        view.shared.empty() ? "Tap the video to play or pause."
+                            : view.shared
+      )
+    )
   );
 }
 

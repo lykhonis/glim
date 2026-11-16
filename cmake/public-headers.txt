@@ -23,6 +23,7 @@ packages/glim-paint/include/glim/paint/Scene.h
 packages/glim-paint/include/glim/paint/Software.h
 packages/glim-runtime-wamr/include/glim/runtime_wamr/Wamr.h
 packages/glim-shell/include/glim/shell/Event.h
+packages/glim-shell/include/glim/shell/Present.h
 packages/glim-shell/include/glim/shell/Slot.h
 packages/glim-shell-android/include/glim/shell/Application.h
 packages/glim-shell-android/include/glim/shell/RunLoop.h
@@ -116,6 +117,7 @@ packages/glim-toolkit-host/include/glim/toolkit/host/Feed.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Host.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Paint.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Power.h
+packages/glim-toolkit-host/include/glim/toolkit/host/Present.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Probe.h
 packages/glim-toolkit-host/include/glim/toolkit/host/SeatView.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Seats.h

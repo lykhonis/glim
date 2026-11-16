@@ -87,4 +87,10 @@ void Window::dispatch(const Event& event) {
 
 void Window::injectFrame() { dispatch(Event(EventType::Frame)); }
 
+void Window::present(const PresentRequest&, PresentDone done) {
+  done({PresentStatus::Unsupported, {}});
+}
+
+void Window::dismissPresented() {}
+
 }  // namespace glim::shell
