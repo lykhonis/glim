@@ -15,6 +15,9 @@
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
 #include <wayland-client.h>
 #endif
+#if defined(__linux__) && !defined(__ANDROID__)
+#define GLIM_VK_DMABUF 1
+#endif
 
 namespace glim::gpu {
 namespace vulkan {
@@ -169,7 +172,9 @@ struct Device::Impl {
   uint32_t queueFamily = 0;
   Queue queueWrapper;
   bool vsync = true;
-  bool haveAhb = false;
+  // Foreign buffers import: AHardwareBuffer on Android, dmabuf on Linux.
+  bool haveImport = false;
+  bool haveModifiers = false;
   uint32_t foreignFamily = VK_QUEUE_FAMILY_EXTERNAL;
   void foreignOwnership(VkCommandBuffer cmd, bool acquire) const {
     for (const vulkan::GpuImage& img : sampled) {

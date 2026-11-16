@@ -1,25 +1,31 @@
 set(_gen "${CMAKE_CURRENT_BINARY_DIR}/gen")
+# Metal and WebGL compile the shared scene at runtime from this string.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/clip.scene)
+file(READ src/clip.scene GLIM_CLIP_SCENE)
+file(CONFIGURE OUTPUT "${_gen}/ClipScene.h" CONTENT
+    "#pragma once\nnamespace glim::toolkit {\ninline constexpr const char* kClipScene = R\"glim(@GLIM_CLIP_SCENE@)glim\";\n}\n"
+    @ONLY)
 if(APPLE)
     set(_source src/VideoSourceMetal.mm)
     set_source_files_properties(${_source} PROPERTIES COMPILE_FLAGS "-fobjc-arc")
-    # Metal compiles the shared scene at runtime from this string.
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/clip.scene)
-    file(READ src/clip.scene GLIM_CLIP_SCENE)
-    file(CONFIGURE OUTPUT "${_gen}/ClipScene.h" CONTENT
-        "#pragma once\nnamespace glim::toolkit {\ninline constexpr const char* kClipScene = R\"glim(@GLIM_CLIP_SCENE@)glim\";\n}\n"
-        @ONLY)
-elseif(ANDROID)
+elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(_source src/VideoSourceVulkan.cpp "${_gen}/clip.vert.inc" "${_gen}/clip.frag.inc")
-    # minSdk 24; AHardwareBuffer is API 26, guarded at runtime.
-    set_source_files_properties(src/VideoSourceVulkan.cpp PROPERTIES
-        COMPILE_DEFINITIONS __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
-    file(GLOB _glslc "${ANDROID_NDK}/shader-tools/*/glslc")
-    if(NOT _glslc)
-        message(FATAL_ERROR "glslc not found under ${ANDROID_NDK}/shader-tools")
+    if(ANDROID)
+        # minSdk 24; AHardwareBuffer is API 26, guarded at runtime.
+        set_source_files_properties(src/VideoSourceVulkan.cpp PROPERTIES
+            COMPILE_DEFINITIONS __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
+        file(GLOB _glslc "${ANDROID_NDK}/shader-tools/*/glslc")
+        if(NOT _glslc)
+            message(FATAL_ERROR "glslc not found under ${ANDROID_NDK}/shader-tools")
+        endif()
+        set(_spirv ${_glslc} -mfmt=num)
+    else()
+        find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
+        set(_spirv ${GLSLANG_VALIDATOR} -V -x)
     endif()
     foreach(_stage vert frag)
         add_custom_command(OUTPUT "${_gen}/clip.${_stage}.inc"
-            COMMAND ${_glslc} -I "${CMAKE_CURRENT_SOURCE_DIR}/src" -mfmt=num
+            COMMAND ${_spirv} -I${CMAKE_CURRENT_SOURCE_DIR}/src
                 "${CMAKE_CURRENT_SOURCE_DIR}/shaders/clip.${_stage}" -o "${_gen}/clip.${_stage}.inc"
             DEPENDS shaders/clip.${_stage} src/clip.scene
             VERBATIM)
@@ -33,6 +39,8 @@ if(APPLE)
     target_link_libraries(glim-video PRIVATE "-framework Metal" "-framework IOSurface")
 elseif(ANDROID)
     target_link_libraries(glim-video PRIVATE android dl)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(glim-video PRIVATE dl)
 endif()
 
 if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -60,4 +68,13 @@ if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     target_link_libraries(glim-video-a11y-test PRIVATE glim::toolkit-host "-framework AppKit")
     glim_test_defaults(glim-video-a11y-test)
     add_test(NAME glim-video-a11y-test COMMAND glim-video-a11y-test)
+endif()
+
+if(GLIM_HOST_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    # N7b gate: the Vulkan producer's dmabufs import and sample on Linux.
+    add_executable(glim-video-vulkan-test tests/video_vulkan_test.cpp ${_source})
+    target_include_directories(glim-video-vulkan-test PRIVATE src "${_gen}")
+    target_link_libraries(glim-video-vulkan-test PRIVATE glim::toolkit-host dl)
+    glim_test_defaults(glim-video-vulkan-test)
+    add_test(NAME glim-video-vulkan-test COMMAND glim-video-vulkan-test)
 endif()

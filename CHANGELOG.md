@@ -28,6 +28,10 @@ First versioned release of the public packages.
 - Video example (`examples/video`): GPU video in Texture mode under a glass label, with tap to play or pause. A Metal producer on its own queue publishes IOSurface frames through `host::Feed`.
 - iOS: run-loop tasks and timers now run under `UIApplicationMain` (they were never drained), so `--drive` works on iOS, and the drive report prints when the drive closes the window.
 - Video example on Android: a Vulkan producer on its own device renders the same scene into AHardwareBuffers. The scene source (`clip.scene`) is shared with the Metal producer.
+- Linux import seam: `importSurface` takes a `gpu::DmaBuf` plane and imports it on Vulkan (`VK_EXT_external_memory_dma_buf`, explicit DRM modifiers when available). The video example's Vulkan producer runs on Linux with exported dmabufs.
+- Web import seam: `importSurface` takes a `WGPUTexture` on Glim's device. The web bundle's `video.html` copies WebGL2-rendered `VideoFrame`s into a ring through `copyExternalImageToTexture` and shows them under glass.
+- `gpu::Device::destroyTexture`. The renderer frees textures of released images, so `Stats::textureBytes` and `importedBytes` shrink again.
+- `host::Feed::tryReuse`: producers skip a buffer the frame may still sample; `FeedStats::reuseWaits` counts the skips.
 - Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
 - Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
 - iOS: the app exits when a drive finishes.

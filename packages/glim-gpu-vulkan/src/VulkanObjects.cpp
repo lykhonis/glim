@@ -1,5 +1,9 @@
 #include "VulkanImpl.h"
 
+#if defined(GLIM_VK_DMABUF)
+#include <unistd.h>
+#endif
+
 namespace glim::gpu {
 
 using namespace vulkan;
@@ -225,8 +229,18 @@ void Device::destroyTexture(Texture& texture) {
   img = {};
 }
 
+#if defined(GLIM_VK_DMABUF)
+namespace {
+
+VkFormat dmabufFormat(SampleFormat format) {
+  return format == SampleFormat::Bgra8Unorm ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
+}
+
+}  // namespace
+#endif
+
 Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat format) {
-#if !defined(VK_USE_PLATFORM_ANDROID_KHR)
+#if !defined(VK_USE_PLATFORM_ANDROID_KHR) && !defined(GLIM_VK_DMABUF)
   (void)surface;
   (void)width;
   (void)height;
@@ -236,9 +250,30 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
   if (!impl_ || !surface || width <= 0 || height <= 0) {
     return Result<Texture>::fail("importSurface: null or empty");
   }
-  if (!impl_->haveAhb) {
-    return Result<Texture>::fail("VK_ANDROID_external_memory_android_hardware_buffer missing");
+  if (!impl_->haveImport) {
+    return Result<Texture>::fail("importSurface: external memory extensions missing");
   }
+  VkExternalMemoryImageCreateInfo extImg{};
+  extImg.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+  VkImageCreateInfo ici{};
+  ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  ici.pNext = &extImg;
+  ici.imageType = VK_IMAGE_TYPE_2D;
+  ici.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+  ici.mipLevels = 1;
+  ici.arrayLayers = 1;
+  ici.samples = VK_SAMPLE_COUNT_1_BIT;
+  ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+  ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+  ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  VkMemoryDedicatedAllocateInfo dedicated{};
+  dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
+  VkMemoryAllocateInfo mai{};
+  mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  mai.pNext = &dedicated;
+  uint32_t typeBits = 0;
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
   auto* ahb = static_cast<AHardwareBuffer*>(surface);
   VkAndroidHardwareBufferFormatPropertiesANDROID fmtProps{};
   fmtProps.sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID;
@@ -251,54 +286,86 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
   if (fmtProps.format == VK_FORMAT_UNDEFINED) {
     return Result<Texture>::fail("YUV / external-format AHardwareBuffer is not in v1");
   }
-
-  VkExternalMemoryImageCreateInfo extImg{};
-  extImg.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
   extImg.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
-
-  VkImageCreateInfo ici{};
-  ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  ici.pNext = &extImg;
-  ici.imageType = VK_IMAGE_TYPE_2D;
   ici.format = fmtProps.format;
-  ici.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-  ici.mipLevels = 1;
-  ici.arrayLayers = 1;
-  ici.samples = VK_SAMPLE_COUNT_1_BIT;
-  ici.tiling = VK_IMAGE_TILING_OPTIMAL;
-  ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-  ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  VkImportAndroidHardwareBufferInfoANDROID importInfo{};
+  importInfo.sType = VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID;
+  importInfo.buffer = ahb;
+  dedicated.pNext = &importInfo;
+  mai.allocationSize = props.allocationSize;
+  typeBits = props.memoryTypeBits;
+#else
+  const auto& plane = *static_cast<const DmaBuf*>(surface);
+  if (plane.fd < 0) {
+    return Result<Texture>::fail("importSurface: dmabuf fd missing");
+  }
+  extImg.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+  ici.format = dmabufFormat(format);
+  const VkSubresourceLayout layout{plane.offset, 0, plane.stride, 0, 0};
+  VkImageDrmFormatModifierExplicitCreateInfoEXT explicitMod{};
+  explicitMod.sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT;
+  explicitMod.drmFormatModifier = plane.modifier;
+  explicitMod.drmFormatModifierPlaneCount = 1;
+  explicitMod.pPlaneLayouts = &layout;
+  if (impl_->haveModifiers) {
+    extImg.pNext = &explicitMod;
+    ici.tiling = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
+  } else if (plane.modifier == 0 && plane.offset == 0) {
+    ici.tiling = VK_IMAGE_TILING_LINEAR;
+  } else {
+    return Result<Texture>::fail(
+      "importSurface: tiled dmabuf needs VK_EXT_image_drm_format_modifier"
+    );
+  }
+  VkMemoryFdPropertiesKHR fdProps{};
+  fdProps.sType = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR;
+  if (vkGetMemoryFdPropertiesKHR(
+        impl_->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT, plane.fd, &fdProps
+      ) != VK_SUCCESS) {
+    return Result<Texture>::fail("vkGetMemoryFdPropertiesKHR failed");
+  }
+  VkImportMemoryFdInfoKHR importInfo{};
+  importInfo.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR;
+  importInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+  dedicated.pNext = &importInfo;
+  typeBits = fdProps.memoryTypeBits;
+#endif
 
   GpuImage img{};
   img.width = width;
   img.height = height;
   if (vkCreateImage(impl_->device, &ici, nullptr, &img.image) != VK_SUCCESS) {
-    return Result<Texture>::fail("AHB vkCreateImage failed");
+    return Result<Texture>::fail("importSurface: vkCreateImage failed");
   }
-
-  VkImportAndroidHardwareBufferInfoANDROID importInfo{};
-  importInfo.sType = VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID;
-  importInfo.buffer = ahb;
-
-  VkMemoryDedicatedAllocateInfo dedicated{};
-  dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
-  dedicated.pNext = &importInfo;
   dedicated.image = img.image;
-
-  VkMemoryAllocateInfo mai{};
-  mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  mai.pNext = &dedicated;
-  mai.allocationSize = props.allocationSize;
-  mai.memoryTypeIndex = findMemoryType(impl_->physical, props.memoryTypeBits, 0);
+#if defined(GLIM_VK_DMABUF)
+  if (!impl_->haveModifiers) {
+    const VkImageSubresource sub{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
+    VkSubresourceLayout linear{};
+    vkGetImageSubresourceLayout(impl_->device, img.image, &sub, &linear);
+    if (linear.rowPitch != plane.stride) {
+      impl_->destroyImage(img);
+      return Result<Texture>::fail("importSurface: linear dmabuf stride mismatch");
+    }
+  }
+  VkMemoryRequirements req{};
+  vkGetImageMemoryRequirements(impl_->device, img.image, &req);
+  mai.allocationSize = req.size;
+  typeBits &= req.memoryTypeBits;
+  importInfo.fd = dup(plane.fd);
+#endif
+  mai.memoryTypeIndex = findMemoryType(impl_->physical, typeBits, 0);
   if (mai.memoryTypeIndex == UINT32_MAX ||
       vkAllocateMemory(impl_->device, &mai, nullptr, &img.memory) != VK_SUCCESS) {
+#if defined(GLIM_VK_DMABUF)
+    if (importInfo.fd >= 0) close(importInfo.fd);
+#endif
     impl_->destroyImage(img);
-    return Result<Texture>::fail("AHB vkAllocateMemory failed");
+    return Result<Texture>::fail("importSurface: vkAllocateMemory failed");
   }
   if (vkBindImageMemory(impl_->device, img.image, img.memory, 0) != VK_SUCCESS) {
     impl_->destroyImage(img);
-    return Result<Texture>::fail("AHB vkBindImageMemory failed");
+    return Result<Texture>::fail("importSurface: vkBindImageMemory failed");
   }
 
   VkImageViewCreateInfo vci{};
@@ -315,7 +382,7 @@ Result<Texture> Device::importSurface(void* surface, int width, int height, Samp
   }
   if (vkCreateImageView(impl_->device, &vci, nullptr, &img.view) != VK_SUCCESS) {
     impl_->destroyImage(img);
-    return Result<Texture>::fail("AHB vkCreateImageView failed");
+    return Result<Texture>::fail("importSurface: vkCreateImageView failed");
   }
   VkCommandPool pool = impl_->uploadPool ? impl_->uploadPool : impl_->cmdPool;
   if (pool) {

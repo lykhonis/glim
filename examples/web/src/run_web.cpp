@@ -1,4 +1,5 @@
 #include "Glass.h"
+#include "WebClip.h"
 
 #include <glim/gpu/Device.h>
 #include <glim/paint/Context.h>
@@ -24,6 +25,38 @@ bool gReduceTransparency = false;
 float gTime = 0.f;
 int gZeroStreak = 0;
 std::vector<glim::paint::SlotPlacement> gSlots;
+enum class Sample { Glass, Video };
+Sample gSample = Sample::Glass;
+WebClip gClip;
+
+// The clip under a frosted label: the browser producer's frames
+// composite with Glim's glass in one pass.
+void recordVideo(
+  glim::paint::Context& ctx, glim::Vec2 size, double timeSeconds
+) {
+  ctx.setFillColor(0x0c1014ffu);
+  ctx.fill(glim::Rect::fromSize(size));
+  if (!gClip.attach(*gDevice, ctx)) return;
+  gClip.produce(timeSeconds);
+  const float w = std::min(size.x - 48.f, (size.y - 48.f) * 16.f / 9.f);
+  const glim::Rect plate{
+    {(size.x - w) * 0.5f, (size.y - w * 9.f / 16.f) * 0.5f},
+    {w, w * 9.f / 16.f}
+  };
+  if (const std::uint32_t id = gClip.acquire()) {
+    ctx.blit(plate, glim::paint::Matter::foreign(id));
+  }
+  glim::paint::GroupParams label;
+  label.bounds = {
+    {plate.origin.x + 16.f, plate.origin.y + 16.f},
+    {plate.size.x * 0.4f, 40.f}
+  };
+  label.clip = label.bounds;
+  label.clipRadius = glim::Radius{20.f};
+  label.lens = glim::paint::Lens{};
+  ctx.pushGroup(label);
+  ctx.popGroup();
+}
 
 void syncSlots() {
   if (gWindow == nullptr || gContext == nullptr) {
@@ -85,9 +118,13 @@ void paintOnce() {
   const glim::Vec2 size = gWindow->size();
   gContext->setSize(size);
   gContext->beginFrame();
-  recordGlass(
-    *gContext, size, gTime, gWindow->safeArea(), gReduceTransparency
-  );
+  if (gSample == Sample::Video) {
+    recordVideo(*gContext, size, gTime);
+  } else {
+    recordGlass(
+      *gContext, size, gTime, gWindow->safeArea(), gReduceTransparency
+    );
+  }
   gContext->finish();
   const glim::Vec2 drawable = gWindow->drawableSize();
   gDevice->setDrawableSize(
@@ -108,6 +145,10 @@ void paintOnce() {
 }
 
 }  // namespace
+
+extern "C" void glimWebSelect(int example) {
+  gSample = example == 1 ? Sample::Video : Sample::Glass;
+}
 
 extern "C" void glimWebResize(int w, int h, float pixelRatio) {
   if (gWindow != nullptr) {

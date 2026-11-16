@@ -202,25 +202,33 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   if (!headless) {
     devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   }
-#if defined(VK_USE_PLATFORM_ANDROID_KHR)
-  const char* ahbExts[] = {
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(GLIM_VK_DMABUF)
+  const char* importExts[] = {
     VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
     VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
-    VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME,
+#else
+    VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+    VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME,
+#endif
   };
-  d.haveAhb = true;
-  for (const char* e : ahbExts) {
-    if (!hasExtension(dext, e)) {
-      d.haveAhb = false;
-      break;
+  d.haveImport =
+    std::ranges::all_of(importExts, [&](const char* e) { return hasExtension(dext, e); });
+  if (d.haveImport) {
+    devExts.insert(devExts.end(), std::begin(importExts), std::end(importExts));
+    if (hasExtension(dext, VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME)) {
+      devExts.push_back(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
+      d.foreignFamily = VK_QUEUE_FAMILY_FOREIGN_EXT;
     }
-    devExts.push_back(e);
-  }
-  if (!d.haveAhb) {
-    devExts.resize(headless ? 0 : 1);
-  } else if (hasExtension(dext, VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME)) {
-    devExts.push_back(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
-    d.foreignFamily = VK_QUEUE_FAMILY_FOREIGN_EXT;
+#if defined(GLIM_VK_DMABUF)
+    d.haveModifiers = hasExtension(dext, VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME) &&
+                      hasExtension(dext, VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
+    if (d.haveModifiers) {
+      devExts.push_back(VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME);
+      devExts.push_back(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
+    }
+#endif
   }
 #else
   (void)dext;

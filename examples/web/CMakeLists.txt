@@ -1,12 +1,14 @@
 if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
     add_executable(glim-web
         src/run_web.cpp
-        src/select.cpp
+        src/WebClip.cpp
         "${CMAKE_SOURCE_DIR}/examples/glass/src/Glass.cpp")
     target_include_directories(glim-web PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_SOURCE_DIR}/examples/glass/src")
-    target_link_libraries(glim-web PRIVATE glim::glim)
+        "${CMAKE_SOURCE_DIR}/examples/glass/src"
+        "${CMAKE_SOURCE_DIR}/examples/video/src"
+        "${CMAKE_BINARY_DIR}/examples/video/gen")
+    target_link_libraries(glim-web PRIVATE glim::glim glim::toolkit-host)
     glim_target_defaults(glim-web)
     if(EMSCRIPTEN)
         target_link_options(glim-web PRIVATE
@@ -15,7 +17,10 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
             "-sEXPORT_ES6=1"
             "-sEXPORT_NAME=createGlimModule"
             "-sEXPORTED_FUNCTIONS=['_main','_glimWebSelect','_glimWebResize','_glimWebFrame','_glimWebEvent','_glimWebStats','_glimWebSlotCount','_glimWebSlotId','_glimWebSlotX','_glimWebSlotY','_glimWebSlotW','_glimWebSlotH']"
-            "-sEXPORTED_RUNTIME_METHODS=['ccall']")
+            "-sEXPORTED_RUNTIME_METHODS=['ccall']"
+            "--js-library=${CMAKE_CURRENT_SOURCE_DIR}/src/clip.lib.js")
+        set_property(TARGET glim-web APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/clip.lib.js")
         set_target_properties(glim-web PROPERTIES OUTPUT_NAME "glim-app" SUFFIX ".js")
     endif()
     set(_glim_web_serve "${CMAKE_CURRENT_BINARY_DIR}/serve")
@@ -24,6 +29,7 @@ if(GLIM_SHELL STREQUAL "web" OR GLIM_GPU STREQUAL "webgpu")
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_glim_web_serve}/lib"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/web/index.html"
+            "${CMAKE_CURRENT_SOURCE_DIR}/web/video.html"
             "${CMAKE_CURRENT_SOURCE_DIR}/web/main.js"
             "${_glim_web_serve}/"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

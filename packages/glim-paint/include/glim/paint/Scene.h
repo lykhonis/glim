@@ -26,7 +26,8 @@ constexpr int kMaxGradientStops = 8;
 
 enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
 // Texture: a backend texture on Glim's device. Surface: a shareable buffer
-// (IOSurface) the renderer imports once per image id.
+// the renderer imports once per image id: IOSurfaceRef (Apple),
+// AHardwareBuffer* (Android), gpu::DmaBuf* (Linux), WGPUTexture (web).
 enum class NativeKind { Texture, Surface };
 
 constexpr int kMaxImageSide = 4096;

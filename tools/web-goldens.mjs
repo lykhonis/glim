@@ -1,7 +1,9 @@
 // @ts-check
 // WebGPU screenshots vs the CPU goldens. Serves the built web bundle,
 // screenshots each page in headless Chrome, and hands the pixel work to
-// the glim-golden CLI.
+// the glim-golden CLI. Live pages (no golden) only have to draw inside
+// their crop: web-video's crop is the plate, dark unless browser frames
+// reach Glim's device (N7b).
 //
 //   node tools/web-goldens.mjs
 //
@@ -27,11 +29,12 @@ const shotTimeoutMs = Number(budgetMs) + 30000;
 // Fresh profile: a shared one can hand off to a running Chrome and hang.
 const profile = mkdtempSync(path.join(os.tmpdir(), "glim-chrome-"));
 
-/** @type {{name: string, page: string, golden: string, maxOver: number, maxDelta: number}[]} */
+/** @type {{name: string, page: string, crop?: string, golden?: string, maxOver?: number, maxDelta?: number}[]} */
 const cases = [
   { name: "web-glass", page: "index.html", golden: "examples/glass/golden/glass.png", maxOver: 280000, maxDelta: 224 },
+  { name: "web-video", page: "video.html", crop: "400,250,200,100" },
 ];
-const required = ["index.html", "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
+const required = ["index.html", "video.html", "glim-app.js", "glim-app.wasm", "main.js", "lib/glim.js"];
 
 /** @param {string} message @returns {never} */
 function fail(message) {
@@ -95,15 +98,15 @@ function shot(/** @type {string} */ name, /** @type {string} */ page) {
   });
 }
 
-function drawn(/** @type {string} */ name) {
-  return glimGolden(["blank", path.join(gotDir, `${name}.png`), "--crop", canvas]) === 0;
+function drawn(/** @type {{name: string, crop?: string}} */ c) {
+  return glimGolden(["blank", path.join(gotDir, `${c.name}.png`), "--crop", c.crop ?? canvas]) === 0;
 }
 
 for (const c of cases) {
   let ready = false;
   for (let i = 0; i < attempts && !ready; i++) {
     await shot(c.name, c.page);
-    ready = drawn(c.name);
+    ready = drawn(c);
   }
   if (!ready) console.error(`${c.name} still blank after ${attempts} shots`);
 }
@@ -111,7 +114,7 @@ for (const c of cases) {
 server.close();
 rmSync(profile, { recursive: true, force: true });
 
-const blanks = cases.filter((c) => !drawn(c.name)).length;
+const blanks = cases.filter((c) => !drawn(c)).length;
 // A canvas that never drew is a failure, never a skip: SwiftShader cannot
 // present WebGPU, so CI runs this with WEBGPU_ANGLE=metal on macOS.
 if (blanks > 0) {
@@ -121,6 +124,7 @@ if (blanks > 0) {
 
 let failed = false;
 for (const c of cases) {
+  if (!c.golden) continue;
   const code = glimGolden([
     "compare", path.join(gotDir, `${c.name}.png`), path.join(root, c.golden),
     "--crop", canvas, "--save", path.join(gotDir, `${c.name}-canvas.png`),

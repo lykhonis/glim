@@ -108,6 +108,8 @@ struct Device::Impl {
     WGPUTextureView view = nullptr;
     int w = 0;
     int h = 0;
+    // Imported from a producer on this device; it owns the storage.
+    bool borrowed = false;
   };
   std::vector<Tex> textures{1};
   WGPUSampler sampler = nullptr;

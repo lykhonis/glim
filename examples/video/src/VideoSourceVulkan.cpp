@@ -1,4 +1,3 @@
-#include <android/hardware_buffer.h>
 #include <dlfcn.h>
 #include <vulkan/vulkan.h>
 
@@ -10,6 +9,13 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#if defined(__ANDROID__)
+#include <android/hardware_buffer.h>
+#else
+#include <unistd.h>
+
+#include "glim/gpu/Types.h"
+#endif
 
 #include "VideoClip.h"
 #include "VideoSource.h"
@@ -34,44 +40,54 @@ constexpr std::uint32_t kFragmentSpirv[] = {
   X(vkCreateDevice)                           \
   X(vkGetDeviceProcAddr)
 
-#define GLIM_VK_DEVICE_FNS(X)                    \
-  X(vkDestroyDevice)                             \
-  X(vkGetDeviceQueue)                            \
-  X(vkGetAndroidHardwareBufferPropertiesANDROID) \
-  X(vkCreateImage)                               \
-  X(vkDestroyImage)                              \
-  X(vkAllocateMemory)                            \
-  X(vkFreeMemory)                                \
-  X(vkBindImageMemory)                           \
-  X(vkCreateImageView)                           \
-  X(vkDestroyImageView)                          \
-  X(vkCreateRenderPass)                          \
-  X(vkDestroyRenderPass)                         \
-  X(vkCreateFramebuffer)                         \
-  X(vkDestroyFramebuffer)                        \
-  X(vkCreateShaderModule)                        \
-  X(vkDestroyShaderModule)                       \
-  X(vkCreatePipelineLayout)                      \
-  X(vkDestroyPipelineLayout)                     \
-  X(vkCreateGraphicsPipelines)                   \
-  X(vkDestroyPipeline)                           \
-  X(vkCreateCommandPool)                         \
-  X(vkDestroyCommandPool)                        \
-  X(vkAllocateCommandBuffers)                    \
-  X(vkCreateFence)                               \
-  X(vkDestroyFence)                              \
-  X(vkWaitForFences)                             \
-  X(vkResetFences)                               \
-  X(vkGetFenceStatus)                            \
-  X(vkBeginCommandBuffer)                        \
-  X(vkEndCommandBuffer)                          \
-  X(vkCmdPipelineBarrier)                        \
-  X(vkCmdBeginRenderPass)                        \
-  X(vkCmdEndRenderPass)                          \
-  X(vkCmdBindPipeline)                           \
-  X(vkCmdPushConstants)                          \
-  X(vkCmdDraw)                                   \
-  X(vkQueueSubmit)                               \
+#if defined(__ANDROID__)
+#define GLIM_VK_BUFFER_FNS(X) \
+  X(vkGetAndroidHardwareBufferPropertiesANDROID)
+#else
+#define GLIM_VK_BUFFER_FNS(X)     \
+  X(vkGetMemoryFdKHR)             \
+  X(vkGetImageMemoryRequirements) \
+  X(vkGetImageSubresourceLayout)
+#endif
+
+#define GLIM_VK_DEVICE_FNS(X)  \
+  GLIM_VK_BUFFER_FNS(X)        \
+  X(vkDestroyDevice)           \
+  X(vkGetDeviceQueue)          \
+  X(vkCreateImage)             \
+  X(vkDestroyImage)            \
+  X(vkAllocateMemory)          \
+  X(vkFreeMemory)              \
+  X(vkBindImageMemory)         \
+  X(vkCreateImageView)         \
+  X(vkDestroyImageView)        \
+  X(vkCreateRenderPass)        \
+  X(vkDestroyRenderPass)       \
+  X(vkCreateFramebuffer)       \
+  X(vkDestroyFramebuffer)      \
+  X(vkCreateShaderModule)      \
+  X(vkDestroyShaderModule)     \
+  X(vkCreatePipelineLayout)    \
+  X(vkDestroyPipelineLayout)   \
+  X(vkCreateGraphicsPipelines) \
+  X(vkDestroyPipeline)         \
+  X(vkCreateCommandPool)       \
+  X(vkDestroyCommandPool)      \
+  X(vkAllocateCommandBuffers)  \
+  X(vkCreateFence)             \
+  X(vkDestroyFence)            \
+  X(vkWaitForFences)           \
+  X(vkResetFences)             \
+  X(vkGetFenceStatus)          \
+  X(vkBeginCommandBuffer)      \
+  X(vkEndCommandBuffer)        \
+  X(vkCmdPipelineBarrier)      \
+  X(vkCmdBeginRenderPass)      \
+  X(vkCmdEndRenderPass)        \
+  X(vkCmdBindPipeline)         \
+  X(vkCmdPushConstants)        \
+  X(vkCmdDraw)                 \
+  X(vkQueueSubmit)             \
   X(vkDeviceWaitIdle)
 
 #define GLIM_VK_DECLARE(name) PFN_##name name = nullptr;
@@ -93,7 +109,13 @@ struct Push {
 };
 
 struct Frame {
+#if defined(__ANDROID__)
   AHardwareBuffer* buffer = nullptr;
+  void* surface() { return buffer; }
+#else
+  gpu::DmaBuf buffer;
+  void* surface() { return &buffer; }
+#endif
   VkImage image = VK_NULL_HANDLE;
   VkDeviceMemory memory = VK_NULL_HANDLE;
   VkImageView view = VK_NULL_HANDLE;
@@ -116,14 +138,28 @@ bool hasExtension(
   return false;
 }
 
+#if defined(__ANDROID__)
+#define GLIM_VIDEO_AVAILABILITY \
+  __attribute__((availability(android, introduced = 26)))
+constexpr const char* kVulkanLibrary = "libvulkan.so";
+constexpr const char* kBufferExtension =
+  VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME;
+#else
+#define GLIM_VIDEO_AVAILABILITY
+constexpr const char* kVulkanLibrary = "libvulkan.so.1";
+constexpr const char* kBufferExtension =
+  VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME;
+#endif
+
 // Like a decoder or camera pipeline: its own device and queue writing
-// into AHardwareBuffers that the renderer imports. Each frame's VkFence
-// is the feed fence; buffers go back to the foreign queue after every
-// write.
-class __attribute__((availability(android, introduced = 26))
-) VulkanVideoSource final : public VideoSource {
+// into buffers the renderer imports (AHardwareBuffers on Android,
+// dmabufs on Linux). Each frame's VkFence is the feed fence; buffers go
+// back to the foreign queue after every write.
+class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
+    : public VideoSource {
  public:
   VulkanVideoSource() : feed_([this] { return signaled(); }) {
+#if defined(__ANDROID__)
     const AHardwareBuffer_Desc desc{
       .width = kClipWidth,
       .height = kClipHeight,
@@ -136,6 +172,7 @@ class __attribute__((availability(android, introduced = 26))
       if (AHardwareBuffer_allocate(&desc, &f.buffer) != 0)
         f.buffer = nullptr;
     }
+#endif
   }
 
   ~VulkanVideoSource() override {
@@ -143,15 +180,21 @@ class __attribute__((availability(android, introduced = 26))
     if (thread_.joinable()) thread_.join();
     tearDown();
     for (Frame& f : frames_) {
+#if defined(__ANDROID__)
       if (f.buffer) AHardwareBuffer_release(f.buffer);
+#else
+      if (f.buffer.fd >= 0) close(f.buffer.fd);
+#endif
     }
     if (library_) dlclose(library_);
   }
 
   bool ok() {
+#if defined(__ANDROID__)
     for (const Frame& f : frames_) {
       if (!f.buffer) return false;
     }
+#endif
     return setUp();
   }
 
@@ -160,7 +203,7 @@ class __attribute__((availability(android, introduced = 26))
     attached_ = true;
     for (std::size_t i = 0; i < kClipRing; ++i) {
       ids_[i] = ctx.wrapSurface(
-        frames_[i].buffer,
+        frames_[i].surface(),
         kClipWidth,
         kClipHeight,
         paint::SampleFormat::Rgba8Unorm
@@ -197,7 +240,7 @@ class __attribute__((availability(android, introduced = 26))
   }
 
   bool loadInstance() {
-    library_ = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+    library_ = dlopen(kVulkanLibrary, RTLD_NOW | RTLD_LOCAL);
     if (!library_) return false;
     vk_.vkGetInstanceProcAddr =
       reinterpret_cast<PFN_vkGetInstanceProcAddr>(
@@ -262,14 +305,16 @@ class __attribute__((availability(android, introduced = 26))
       VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
       VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
       VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME,
-      VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME,
+#if !defined(__ANDROID__)
+      VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+#endif
+      kBufferExtension,
     };
     std::vector<const char*> exts;
     for (const char* e : wanted) {
       if (hasExtension(available, e)) exts.push_back(e);
     }
-    if (exts.empty() || std::strcmp(exts.back(), wanted[4]) != 0)
-      return false;
+    if (exts.empty() || exts.back() != kBufferExtension) return false;
     if (hasExtension(
           available, VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME
         )) {
@@ -309,7 +354,8 @@ class __attribute__((availability(android, introduced = 26))
     return UINT32_MAX;
   }
 
-  bool importFrame(Frame& f) {
+#if defined(__ANDROID__)
+  bool bindMemory(Frame& f) {
     VkAndroidHardwareBufferFormatPropertiesANDROID format{};
     format.sType =
       VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID;
@@ -356,6 +402,51 @@ class __attribute__((availability(android, introduced = 26))
     mai.pNext = &dedicated;
     mai.allocationSize = props.allocationSize;
     mai.memoryTypeIndex = memoryType(props.memoryTypeBits);
+    return mai.memoryTypeIndex != UINT32_MAX &&
+           vk_.vkAllocateMemory(device_, &mai, nullptr, &f.memory) ==
+             VK_SUCCESS &&
+           vk_.vkBindImageMemory(device_, f.image, f.memory, 0) ==
+             VK_SUCCESS;
+  }
+#else
+  // Linear and exportable, like a decoder handing frames to a
+  // compositor.
+  bool bindMemory(Frame& f) {
+    VkExternalMemoryImageCreateInfo external{};
+    external.sType =
+      VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+    external.handleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+    VkImageCreateInfo ici{};
+    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.pNext = &external;
+    ici.imageType = VK_IMAGE_TYPE_2D;
+    ici.format = VK_FORMAT_R8G8B8A8_UNORM;
+    ici.extent = {kClipWidth, kClipHeight, 1};
+    ici.mipLevels = 1;
+    ici.arrayLayers = 1;
+    ici.samples = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling = VK_IMAGE_TILING_LINEAR;
+    ici.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vk_.vkCreateImage(device_, &ici, nullptr, &f.image) !=
+        VK_SUCCESS)
+      return false;
+    VkMemoryRequirements req{};
+    vk_.vkGetImageMemoryRequirements(device_, f.image, &req);
+    VkExportMemoryAllocateInfo exportInfo{};
+    exportInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+    exportInfo.handleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+    VkMemoryDedicatedAllocateInfo dedicated{};
+    dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
+    dedicated.pNext = &exportInfo;
+    dedicated.image = f.image;
+    VkMemoryAllocateInfo mai{};
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.pNext = &dedicated;
+    mai.allocationSize = req.size;
+    mai.memoryTypeIndex = memoryType(req.memoryTypeBits);
     if (mai.memoryTypeIndex == UINT32_MAX ||
         vk_.vkAllocateMemory(device_, &mai, nullptr, &f.memory) !=
           VK_SUCCESS ||
@@ -363,11 +454,28 @@ class __attribute__((availability(android, introduced = 26))
           VK_SUCCESS) {
       return false;
     }
+    VkMemoryGetFdInfoKHR get{};
+    get.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
+    get.memory = f.memory;
+    get.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+    if (vk_.vkGetMemoryFdKHR(device_, &get, &f.buffer.fd) != VK_SUCCESS)
+      return false;
+    const VkImageSubresource sub{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
+    VkSubresourceLayout layout{};
+    vk_.vkGetImageSubresourceLayout(device_, f.image, &sub, &layout);
+    f.buffer.stride = static_cast<std::uint32_t>(layout.rowPitch);
+    f.buffer.offset = static_cast<std::uint32_t>(layout.offset);
+    return true;
+  }
+#endif
+
+  bool createFrame(Frame& f) {
+    if (!bindMemory(f)) return false;
     VkImageViewCreateInfo vci{};
     vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vci.image = f.image;
     vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vci.format = ici.format;
+    vci.format = VK_FORMAT_R8G8B8A8_UNORM;
     vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     if (vk_.vkCreateImageView(device_, &vci, nullptr, &f.view) !=
         VK_SUCCESS)
@@ -524,7 +632,7 @@ class __attribute__((availability(android, introduced = 26))
         VK_SUCCESS)
       return false;
     for (Frame& f : frames_) {
-      if (!importFrame(f)) return false;
+      if (!createFrame(f)) return false;
     }
     return true;
   }
@@ -676,7 +784,11 @@ class __attribute__((availability(android, introduced = 26))
 }  // namespace
 
 std::unique_ptr<VideoSource> makeVideoSource() {
+#if defined(__ANDROID__)
   if (__builtin_available(android 26, *)) {
+#else
+  {
+#endif
     auto source = std::make_unique<VulkanVideoSource>();
     if (source->ok()) return source;
   }

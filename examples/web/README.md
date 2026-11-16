@@ -4,6 +4,10 @@ Vanilla HTML + canvas. No frameworks, no bundler. The wasm runs the glass
 example (`index.html`); its record function is reused from
 `examples/glass/src/main.cpp`, never copied.
 
+`video.html` is the web import seam: `WebClip` renders the video
+example's `clip.scene` in WebGL2, copies each `VideoFrame` into a ring
+texture on Glim's device and samples it under a glass label.
+
 ## Build (Emscripten)
 
 ```sh

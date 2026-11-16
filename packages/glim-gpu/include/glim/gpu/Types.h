@@ -28,6 +28,15 @@ enum class IndexType { U16, U32 };
 
 enum class SampleFormat { Bgra8Unorm, Rgba8Unorm };
 
+// One Linux dmabuf plane for importSurface. The producer keeps the fd
+// (the import dups it); stride and offset in bytes; modifier 0 is linear.
+struct DmaBuf {
+  int fd = -1;
+  std::uint32_t stride = 0;
+  std::uint32_t offset = 0;
+  std::uint64_t modifier = 0;
+};
+
 struct ColorClear {
   float rgba[4]{0, 0, 0, 0};
 };

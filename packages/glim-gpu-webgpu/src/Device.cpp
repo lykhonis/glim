@@ -297,13 +297,34 @@ void Device::destroyTexture(Texture& texture) {
   }
   auto& t = impl_->textures[h];
   wgpuTextureViewRelease(t.view);
-  wgpuTextureDestroy(t.tex);
+  if (!t.borrowed) wgpuTextureDestroy(t.tex);
   wgpuTextureRelease(t.tex);
   t = {};
 }
 
-Result<Texture> Device::importSurface(void*, int, int, SampleFormat) {
-  return Result<Texture>::fail("webgpu importSurface unsupported");
+// A producer's WGPUTexture on this device (filled from a VideoFrame, a
+// canvas or a camera via copyExternalImageToTexture). One queue orders the
+// copy before the frame that samples it, so no fence is needed.
+Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat) {
+  if (!impl_ || !surface || width <= 0 || height <= 0) {
+    return Result<Texture>::fail("importSurface: null or empty");
+  }
+  auto tex = static_cast<WGPUTexture>(surface);
+  WGPUTextureView view = wgpuTextureCreateView(tex, nullptr);
+  if (view == nullptr) {
+    return Result<Texture>::fail("importSurface: texture view failed");
+  }
+  wgpuTextureAddRef(tex);
+  Texture t;
+  t.handle_ = impl_->next++;
+  t.width_ = width;
+  t.height_ = height;
+  t.native_ = static_cast<void*>(view);
+  if (t.handle_ >= impl_->textures.size()) {
+    impl_->textures.resize(t.handle_ + 1);
+  }
+  impl_->textures[t.handle_] = {tex, view, width, height, true};
+  return Result<Texture>::ok(t);
 }
 
 Result<Shader> Device::createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size) {
