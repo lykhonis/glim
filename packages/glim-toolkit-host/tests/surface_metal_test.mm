@@ -111,6 +111,10 @@ int main() {
     const glim::toolkit::host::FeedStats s = feed.stats();
     expect(s.published == 2 && s.fenceMisses == 2 && s.maxLag == 1, "feed stats");
 
+    ctx.releaseImage(redId);
+    expect(near(draw(device, renderer, ctx, greenId), 0, 255, 0), "green after red released");
+    expect(renderer.stats().importedBytes == kSide * kSide * 4u, "released surface freed");
+
     CFRelease(red);
     CFRelease(green);
   }

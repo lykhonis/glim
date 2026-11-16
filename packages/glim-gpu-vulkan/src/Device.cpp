@@ -86,12 +86,7 @@ Result<Drawable> Device::nextDrawable() {
       }
     }
   }
-  impl_->frameIndex = (impl_->frameIndex + 1) % kFrames;
-  Frame& frame = impl_->frames[impl_->frameIndex];
-  vkWaitForFences(impl_->device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
-  vkResetFences(impl_->device, 1, &frame.inFlight);
-  vkResetDescriptorPool(impl_->device, frame.descriptors, 0);
-  frame.ringOffset = static_cast<VkDeviceSize>(impl_->frameIndex) * kRingBytes;
+  Frame& frame = impl_->advanceFrame();
 
   uint32_t index = 0;
   VkResult r = vkAcquireNextImageKHR(
@@ -120,12 +115,7 @@ Result<Drawable> Device::nextDrawable() {
 CommandEncoder Device::encoder() {
   CommandEncoder enc;
   if (impl_->isHeadless) {
-    impl_->frameIndex = (impl_->frameIndex + 1) % kFrames;
-    Frame& hframe = impl_->frames[impl_->frameIndex];
-    vkWaitForFences(impl_->device, 1, &hframe.inFlight, VK_TRUE, UINT64_MAX);
-    vkResetFences(impl_->device, 1, &hframe.inFlight);
-    vkResetDescriptorPool(impl_->device, hframe.descriptors, 0);
-    hframe.ringOffset = static_cast<VkDeviceSize>(impl_->frameIndex) * kRingBytes;
+    impl_->advanceFrame();
   }
   Frame& frame = impl_->frames[impl_->frameIndex];
   impl_->readGpuMs(impl_->frameIndex);

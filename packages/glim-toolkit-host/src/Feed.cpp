@@ -32,11 +32,22 @@ std::uint32_t Feed::acquire() {
   stats_.lag = static_cast<std::uint32_t>(pending_.size());
   stats_.maxLag = std::max(stats_.maxLag, stats_.lag);
   if (current_ != 0) ++stats_.acquired;
+  shown_[shownAt_] = current_;
+  shownAt_ = (shownAt_ + 1) % kHeld;
   if (trace::enabled()) {
     trace::counter("feed_lag", stats_.lag);
     trace::counter("feed_fence_misses", static_cast<double>(stats_.fenceMisses));
   }
   return current_;
+}
+
+bool Feed::tryReuse(std::uint32_t imageId) {
+  std::lock_guard lock(mutex_);
+  const bool held =
+    std::ranges::find(shown_, imageId) != shown_.end() ||
+    std::ranges::any_of(pending_, [&](const FeedBuffer& b) { return b.imageId == imageId; });
+  if (held) ++stats_.reuseWaits;
+  return !held;
 }
 
 FeedStats Feed::stats() const {

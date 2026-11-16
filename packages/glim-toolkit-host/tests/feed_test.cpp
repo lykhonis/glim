@@ -47,5 +47,15 @@ int main() {
   const glim::toolkit::host::FeedStats s = feed.stats();
   expect(s.published == 4 && s.acquired == 4, "published 4, acquired 4 frames");
 
+  expect(!feed.tryReuse(10), "current is held");
+  expect(!feed.tryReuse(9), "recently shown may still be on the GPU");
+  expect(feed.tryReuse(8), "never shown, not pending: free");
+  feed.publish({8, 5});
+  expect(!feed.tryReuse(8), "pending is held");
+  signaled = 5;
+  for (std::size_t i = 0; i < glim::toolkit::host::Feed::kHeld; ++i) feed.acquire();
+  expect(feed.tryReuse(9) && feed.tryReuse(10), "free once out of the held window");
+  expect(feed.stats().reuseWaits == 3, "three held answers counted");
+
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

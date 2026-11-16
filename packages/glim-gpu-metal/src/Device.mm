@@ -472,6 +472,15 @@ Result<Texture> Device::wrapNativeTexture(void* native, int width, int height) {
   return Result<Texture>::ok(t);
 }
 
+// Command buffers retain what they sample, so dropping ours is enough.
+void Device::destroyTexture(Texture& texture) {
+  const Handle h = texture.handle();
+  texture = {};
+  if (impl_ && h != 0 && h < impl_->textures.size()) {
+    impl_->textures[h] = nil;
+  }
+}
+
 Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat format) {
   if (!impl_ || !surface || width <= 0 || height <= 0) {
     return Result<Texture>::fail("importSurface: null or empty");

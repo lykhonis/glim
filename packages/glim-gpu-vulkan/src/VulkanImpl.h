@@ -146,6 +146,7 @@ struct Frame {
   VkCommandBuffer cmd = VK_NULL_HANDLE;
   VkDescriptorPool descriptors = VK_NULL_HANDLE;
   VkDeviceSize ringOffset = 0;
+  std::vector<GpuImage> retired;
 };
 
 }  // namespace vulkan
@@ -228,6 +229,7 @@ struct Device::Impl {
   ~Impl() { destroy(); }
 
   void destroyImage(vulkan::GpuImage& img);
+  vulkan::Frame& advanceFrame();
 
   void destroyBuffer(vulkan::GpuBuffer& buf);
 

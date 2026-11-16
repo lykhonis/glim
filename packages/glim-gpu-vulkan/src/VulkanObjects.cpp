@@ -211,6 +211,20 @@ Result<Texture> Device::wrapNativeTexture(void* native, int width, int height) {
   return Result<Texture>::ok(t);
 }
 
+void Device::destroyTexture(Texture& texture) {
+  const Handle h = texture.handle();
+  texture = {};
+  if (!impl_ || h == 0 || h >= impl_->sampled.size()) {
+    return;
+  }
+  GpuImage& img = impl_->sampled[h];
+  if (!img.image && !img.view) {
+    return;
+  }
+  impl_->frames[impl_->frameIndex].retired.push_back(img);
+  img = {};
+}
+
 Result<Texture> Device::importSurface(void* surface, int width, int height, SampleFormat format) {
 #if !defined(VK_USE_PLATFORM_ANDROID_KHR)
   (void)surface;

@@ -40,6 +40,22 @@ void Device::Impl::destroyBuffer(GpuBuffer& buf) {
   buf = {};
 }
 
+// Released textures wait in the slot that last sampled them until its
+// fence passes, then free here.
+Frame& Device::Impl::advanceFrame() {
+  frameIndex = (frameIndex + 1) % kFrames;
+  Frame& frame = frames[frameIndex];
+  vkWaitForFences(device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+  vkResetFences(device, 1, &frame.inFlight);
+  vkResetDescriptorPool(device, frame.descriptors, 0);
+  frame.ringOffset = static_cast<VkDeviceSize>(frameIndex) * kRingBytes;
+  for (GpuImage& t : frame.retired) {
+    destroyImage(t);
+  }
+  frame.retired.clear();
+  return frame;
+}
+
 void Device::Impl::destroy() {
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
   androidUnregisterDevice(this);
@@ -56,6 +72,12 @@ void Device::Impl::destroy() {
     destroyImage(t);
   }
   sampled.clear();
+  for (Frame& f : frames) {
+    for (GpuImage& t : f.retired) {
+      destroyImage(t);
+    }
+    f.retired.clear();
+  }
   for (GpuBuffer& b : buffers) {
     destroyBuffer(b);
   }

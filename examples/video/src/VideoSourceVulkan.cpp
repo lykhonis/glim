@@ -583,6 +583,7 @@ class __attribute__((availability(android, introduced = 26))
 
   void produce() {
     const std::size_t slot = fence_ % kClipRing;
+    if (!feed_.tryReuse(ids_[slot])) return;
     Frame& f = frames_[slot];
     vk_.vkWaitForFences(device_, 1, &f.done, VK_TRUE, UINT64_MAX);
     {

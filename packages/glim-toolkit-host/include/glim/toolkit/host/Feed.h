@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -22,6 +24,8 @@ struct FeedStats {
   // Ready buffers never shown because a newer one was ready too.
   std::uint64_t dropped = 0;
   // Published but not yet ready, at the last acquire.
+  // Producer writes skipped because the frame could still sample the buffer.
+  std::uint64_t reuseWaits = 0;
   std::uint32_t lag = 0;
   std::uint32_t maxLag = 0;
 };
@@ -39,13 +43,21 @@ class Feed {
   bool publish(FeedBuffer buffer);
   // Image id to sample this frame; 0 until the first buffer is ready.
   std::uint32_t acquire();
+  // Whether the producer may overwrite this buffer now: false while it is
+  // pending, current, or shown by a frame that may still be on the GPU.
+  bool tryReuse(std::uint32_t imageId);
   FeedStats stats() const;
+
+  // Frame being encoded plus up to three on the GPU (Metal's drawable cap).
+  static constexpr std::size_t kHeld = 4;
 
  private:
   Signaled signaled_;
   mutable std::mutex mutex_;
   std::deque<FeedBuffer> pending_;
   std::uint32_t current_ = 0;
+  std::array<std::uint32_t, kHeld> shown_{};
+  std::size_t shownAt_ = 0;
   std::uint64_t lastFence_ = 0;
   FeedStats stats_;
 };

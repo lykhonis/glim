@@ -117,6 +117,7 @@ void Device::writeTexture(Texture&, const void*, std::uint64_t) {}
 Result<Texture> Device::wrapNativeTexture(void*, int, int) {
   return Result<Texture>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }
+void Device::destroyTexture(Texture& texture) { texture = {}; }
 Result<Texture> Device::importSurface(void*, int, int, SampleFormat) {
   return Result<Texture>::fail("glim-gpu-webgpu: browser target requires Emscripten");
 }

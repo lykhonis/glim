@@ -202,6 +202,9 @@ class Device {
   void writeTexture(Texture&, const void* rgba8, std::uint64_t bytes);
   Result<Texture> wrapNativeTexture(void* native, int width, int height);
   Result<Texture> importSurface(void* surface, int width, int height, SampleFormat);
+  // Frees once frames already submitted with it complete; the handle is
+  // cleared either way.
+  void destroyTexture(Texture&);
   Result<Shader> createShader(ShaderStage, const char* sourceUtf8, std::uint64_t size);
   std::vector<Result<Shader>> createShaders(std::span<const ShaderSource> sources);
   Result<Pipeline> createPipeline(const PipelineDesc&);

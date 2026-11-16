@@ -288,6 +288,20 @@ Result<Texture> Device::wrapNativeTexture(void* native, int width, int height) {
   return Result<Texture>::ok(t);
 }
 
+// WebGPU defers the free until queued work using the texture finishes.
+void Device::destroyTexture(Texture& texture) {
+  const Handle h = texture.handle();
+  texture = {};
+  if (!impl_ || h == 0 || h >= impl_->textures.size() || impl_->textures[h].tex == nullptr) {
+    return;
+  }
+  auto& t = impl_->textures[h];
+  wgpuTextureViewRelease(t.view);
+  wgpuTextureDestroy(t.tex);
+  wgpuTextureRelease(t.tex);
+  t = {};
+}
+
 Result<Texture> Device::importSurface(void*, int, int, SampleFormat) {
   return Result<Texture>::fail("webgpu importSurface unsupported");
 }

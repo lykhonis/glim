@@ -93,11 +93,12 @@ class Renderer {
   };
   struct TextureCache {
     explicit TextureCache(gpu::Device& device) : device_(device) {}
-    void setImages(const ImageStore& images) { images_ = std::cref(images); }
+    void setImages(const ImageStore& images);
     void* get(std::uint32_t imageId);
     gpu::Device& device_;
     std::optional<std::reference_wrapper<const ImageStore>> images_;
     std::vector<gpu::Texture> textures_;
+    std::vector<bool> imported_;
     std::uint64_t uploadedBytes = 0;
     std::uint64_t importedBytes = 0;
   };

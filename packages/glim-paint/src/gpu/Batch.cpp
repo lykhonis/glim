@@ -19,12 +19,26 @@ std::uint64_t rgbaBytes(int width, int height) {
   return static_cast<std::uint64_t>(width) * static_cast<std::uint64_t>(height) * 4ull;
 }
 
+// Released ids never come back, so their textures free here.
+void Renderer::TextureCache::setImages(const ImageStore& images) {
+  images_ = std::cref(images);
+  for (std::size_t id = 1; id < textures_.size(); ++id) {
+    gpu::Texture& tex = textures_[id];
+    if (!tex.native() || images.get(static_cast<std::uint32_t>(id))) {
+      continue;
+    }
+    (imported_[id] ? importedBytes : uploadedBytes) -= rgbaBytes(tex.width(), tex.height());
+    device_.destroyTexture(tex);
+  }
+}
+
 void* Renderer::TextureCache::get(std::uint32_t imageId) {
   if (!images_ || imageId == 0) {
     return nullptr;
   }
   if (imageId >= textures_.size()) {
     textures_.resize(imageId + 1);
+    imported_.resize(imageId + 1);
   }
   gpu::Texture& tex = textures_[imageId];
   if (tex.native()) {
@@ -44,6 +58,7 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
       return nullptr;
     }
     tex = std::move(imported.value());
+    imported_[imageId] = true;
     importedBytes += rgbaBytes(im.width, im.height);
     return tex.native();
   }
