@@ -234,8 +234,15 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
   // done. A slot is never reset while its entry is still queued.
   void drainLocked() {
     std::erase_if(pending_, [&](const Pending& p) {
-      return vk_.vkGetFenceStatus(device_, frames_[p.slot].done) ==
-             VK_SUCCESS;
+      const VkResult r = vk_.vkGetFenceStatus(device_, frames_[p.slot].done);
+      static int probes = 0;
+      if (probes < 6) {
+        ++probes;
+        std::fprintf(stderr, "PROBE fence %llu slot %zu status %d reached %llu\n",
+          static_cast<unsigned long long>(p.fence), p.slot, r,
+          static_cast<unsigned long long>(reached_));
+      }
+      return r == VK_SUCCESS;
     });
     reached_ = std::max(
       reached_,
