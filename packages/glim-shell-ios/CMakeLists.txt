@@ -24,3 +24,11 @@ target_link_libraries(glim-shell PUBLIC
     "-framework CoreGraphics" "-framework CoreFoundation")
 # ObjC classes (GlimAppDelegate) live in this static lib; pull them into the app.
 target_link_options(glim-shell PUBLIC "LINKER:-ObjC")
+
+# Runs on the simulator, not under ctest: xcrun simctl spawn <device> <binary>.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    add_executable(glim-ios-a11y-bridge-test tests/a11y_bridge_test.mm)
+    set_source_files_properties(tests/a11y_bridge_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_link_libraries(glim-ios-a11y-bridge-test PRIVATE glim::shell)
+    glim_test_defaults(glim-ios-a11y-bridge-test)
+endif()

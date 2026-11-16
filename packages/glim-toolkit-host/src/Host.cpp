@@ -188,7 +188,16 @@ int run(
   std::optional<std::vector<A11yNode>> a11yPublished;
   window.setA11yPerform([&](int index, shell::A11yCommand command) {
     if (!a11yPublished || index < 0 || index >= static_cast<int>(a11yPublished->size())) return;
-    const Box b = (*a11yPublished)[static_cast<std::size_t>(index)].box;
+    const A11yNode& node = (*a11yPublished)[static_cast<std::size_t>(index)];
+    if (command == shell::A11yCommand::Focus) {
+      if (node.focusIndex >= 0 && node.focusIndex != screen.focus) {
+        screen.focus = node.focusIndex;
+        screen.focusVisible = true;
+        screen.dirty.invalidate();
+      }
+      return;
+    }
+    const Box b = node.box;
     const float x = b.x + b.w * 0.5f;
     const float y = b.y + b.h * 0.5f;
     if (command != shell::A11yCommand::Activate) {
@@ -227,7 +236,7 @@ int run(
       std::vector<A11yNode> nodes = a11yNodes(tree, box, active);
       if (a11ySink) a11ySink(nodes, screen.focus);
       if (a11yBridge) {
-        window.setA11y(shellA11y(nodes));
+        window.setA11y(shellA11y(nodes, screen.focus));
         a11yPublished = std::move(nodes);
       }
     }

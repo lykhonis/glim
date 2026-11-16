@@ -37,7 +37,7 @@ std::string valueOf(const A11yTraits& t) {
 
 }  // namespace
 
-std::vector<shell::A11yElement> shellA11y(const std::vector<A11yNode>& nodes) {
+std::vector<shell::A11yElement> shellA11y(const std::vector<A11yNode>& nodes, int focus) {
   std::vector<shell::A11yElement> out;
   out.reserve(nodes.size());
   for (const A11yNode& n : nodes) {
@@ -51,6 +51,7 @@ std::vector<shell::A11yElement> shellA11y(const std::vector<A11yNode>& nodes) {
       .disabled = n.traits.states.has(A11yState::Disabled),
       .adjustable =
         n.traits.actions.has(A11yAction::Increment) || n.traits.actions.has(A11yAction::Decrement),
+      .focused = focus >= 0 && n.focusIndex == focus,
     });
   }
   return out;

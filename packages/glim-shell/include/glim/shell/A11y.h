@@ -22,6 +22,8 @@ struct A11yElement {
   bool disabled = false;
   // Takes increment / decrement (a slider, a stepper).
   bool adjustable = false;
+  // Holds the app's keyboard focus; the OS cursor follows it.
+  bool focused = false;
 };
 
 inline bool operator==(const A11yElement& a, const A11yElement& b) {
@@ -29,10 +31,19 @@ inline bool operator==(const A11yElement& a, const A11yElement& b) {
          a.frame.origin.x == b.frame.origin.x && a.frame.origin.y == b.frame.origin.y &&
          a.frame.size.x == b.frame.size.x && a.frame.size.y == b.frame.size.y &&
          a.parent == b.parent && a.checked == b.checked && a.disabled == b.disabled &&
-         a.adjustable == b.adjustable;
+         a.adjustable == b.adjustable && a.focused == b.focused;
 }
 
-enum class A11yCommand { Activate, Increment, Decrement };
+// Index of the focused element; -1 when none is.
+inline int focusedIndex(const std::vector<A11yElement>& elements) {
+  for (std::size_t i = 0; i < elements.size(); ++i) {
+    if (elements[i].focused) return static_cast<int>(i);
+  }
+  return -1;
+}
+
+// Focus: the OS cursor (VoiceOver) moved onto the element.
+enum class A11yCommand { Activate, Increment, Decrement, Focus };
 
 // A screen reader acted on the element at this index of the last list.
 using A11yPerform = std::function<void(int index, A11yCommand)>;

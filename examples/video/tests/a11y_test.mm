@@ -114,6 +114,16 @@ int main() {
     expect(commands == std::vector{glim::shell::A11yCommand::Increment,
                                    glim::shell::A11yCommand::Decrement},
            "both reach the host in order");
+
+    window.setA11y({{.role = glim::shell::A11yRole::Button, .label = "Play"},
+                    {.role = glim::shell::A11yRole::Slider, .label = "Volume", .focused = true}});
+    roots = [view accessibilityChildren];
+    expect([find(roots, @"Volume") isAccessibilityFocused] &&
+             ![find(roots, @"Play") isAccessibilityFocused],
+           "app focus shows as AX focus");
+    commands.clear();
+    [find(roots, @"Play") setAccessibilityFocused:YES];
+    expect(commands == std::vector{glim::shell::A11yCommand::Focus}, "AX focus reaches the host");
   }
   // The live host: once the OS asks, run() publishes the tree, and a
   // screen-reader press taps the node it names.

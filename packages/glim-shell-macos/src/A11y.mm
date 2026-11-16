@@ -15,6 +15,7 @@ using glim::shell::A11yRole;
 @property(nonatomic) NSRect logical;
 @property(nonatomic) int index;
 @property(nonatomic) BOOL adjustable;
+@property(nonatomic) BOOL focused;
 @property(nonatomic, strong) NSMutableArray* kids;
 @end
 
@@ -36,6 +37,12 @@ using glim::shell::A11yRole;
 - (BOOL)accessibilityPerformPress {
   [self.bridge perform:self.index command:glim::shell::A11yCommand::Activate];
   return YES;
+}
+- (BOOL)isAccessibilityFocused {
+  return self.focused;
+}
+- (void)setAccessibilityFocused:(BOOL)focused {
+  if (focused) [self.bridge perform:self.index command:glim::shell::A11yCommand::Focus];
 }
 - (BOOL)accessibilityPerformIncrement {
   if (!self.adjustable) return NO;
@@ -85,11 +92,13 @@ NSString* text(const std::string& s) {
   NSMutableArray<GlimA11yNode*>* nodes_;
   NSMutableArray* roots_;
   glim::shell::A11yPerform perform_;
+  int focused_;
 }
 
 - (instancetype)initWithView:(NSView*)view {
   if ((self = [super init])) {
     view_ = view;
+    focused_ = -1;
     nodes_ = [NSMutableArray array];
     roots_ = [NSMutableArray array];
   }
@@ -116,6 +125,8 @@ NSString* text(const std::string& s) {
 }
 
 - (void)perform:(int)index command:(glim::shell::A11yCommand)command {
+  // The OS already holds this focus; the next publish must not echo it.
+  if (command == glim::shell::A11yCommand::Focus) focused_ = index;
   if (perform_) {
     perform_(index, command);
   }
@@ -157,12 +168,21 @@ NSString* text(const std::string& s) {
     }
     n.accessibilityEnabled = !e.disabled;
     n.adjustable = e.adjustable;
+    n.focused = e.focused;
     const bool nested = e.parent >= 0 && static_cast<std::size_t>(e.parent) < i;
     n.accessibilityParent = nested ? nodes_[static_cast<std::size_t>(e.parent)] : view;
     [(nested ? nodes_[static_cast<std::size_t>(e.parent)].kids : roots_) addObject:n];
   }
   if (view) {
     NSAccessibilityPostNotification(view, NSAccessibilityLayoutChangedNotification);
+  }
+  const int focused = glim::shell::focusedIndex(published_);
+  if (focused != focused_) {
+    focused_ = focused;
+    if (focused >= 0) {
+      NSAccessibilityPostNotification(
+          nodes_[static_cast<std::size_t>(focused)], NSAccessibilityFocusedUIElementChangedNotification);
+    }
   }
 }
 

@@ -21,6 +21,9 @@ using glim::shell::A11yRole;
   [self.bridge perform:self.index command:glim::shell::A11yCommand::Activate];
   return YES;
 }
+- (void)accessibilityElementDidBecomeFocused {
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Focus];
+}
 - (void)accessibilityIncrement {
   [self.bridge perform:self.index command:glim::shell::A11yCommand::Increment];
 }
@@ -72,11 +75,13 @@ NSString* text(const std::string& s) {
   std::vector<A11yElement> published_;
   NSMutableArray<GlimA11yNode*>* nodes_;
   glim::shell::A11yPerform perform_;
+  int focused_;
 }
 
 - (instancetype)initWithView:(UIView*)view {
   if ((self = [super init])) {
     view_ = view;
+    focused_ = -1;
     nodes_ = [NSMutableArray array];
   }
   return self;
@@ -92,6 +97,8 @@ NSString* text(const std::string& s) {
 }
 
 - (void)perform:(int)index command:(glim::shell::A11yCommand)command {
+  // The OS already holds this focus; the next publish must not echo it.
+  if (command == glim::shell::A11yCommand::Focus) focused_ = index;
   if (perform_) {
     perform_(index, command);
   }
@@ -122,7 +129,13 @@ NSString* text(const std::string& s) {
     n.accessibilityValue = e.value.empty() ? nil : text(e.value);
     n.accessibilityTraits = traitsOf(e);
   }
-  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+  const int focused = glim::shell::focusedIndex(published_);
+  // Layout changed with an element moves VoiceOver's cursor onto it.
+  const bool moved = focused != focused_ && focused >= 0;
+  focused_ = focused;
+  UIAccessibilityPostNotification(
+      UIAccessibilityLayoutChangedNotification,
+      moved ? nodes_[static_cast<std::size_t>(focused)] : nil);
 }
 
 @end

@@ -118,6 +118,10 @@ int main() {
     assert(!el[2].adjustable);
     nodes[2].traits.actions = {glim::toolkit::A11yAction::Increment};
     assert(glim::toolkit::host::shellA11y(nodes)[2].adjustable);
+    nodes[2].focusIndex = 4;
+    assert(!glim::toolkit::host::shellA11y(nodes)[2].focused);
+    assert(glim::toolkit::host::shellA11y(nodes, 4)[2].focused);
+    assert(glim::shell::focusedIndex(glim::toolkit::host::shellA11y(nodes, 4)) == 2);
     nodes[0].id.clear();
     assert(glim::toolkit::host::shellA11y(nodes)[0].label.empty());
   }

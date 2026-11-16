@@ -122,6 +122,24 @@ void test_hit() {
     assert(dispatchPointer(stepper, sb, cx, cy, Event::borrow(Adjust{-1})));
     assert(value == 1);
   }
+  // Each focusable a11y node knows its focus index, the one focusAt and
+  // Screen::focus use; the shell maps OS focus back through it.
+  {
+    Seen seen;
+    Block tree =
+      column(lines("Title"), toBlock(Probe{&seen}), translate(0, 30), toBlock(Probe{&seen}));
+    Box tb = place(tree, {0, 720, 0, 480});
+    int checked = 0;
+    for (const A11yNode& n : a11yNodes(tree, tb)) {
+      if (!n.focusable) {
+        assert(n.focusIndex == -1);
+        continue;
+      }
+      assert(focusAt(tree, tb, n.box.x + n.box.w * 0.5f, n.box.y + n.box.h * 0.5f) == n.focusIndex);
+      ++checked;
+    }
+    assert(checked == 2);
+  }
   // Scroll is layout: the box moves, the point stays in window space.
   {
     Seen seen;

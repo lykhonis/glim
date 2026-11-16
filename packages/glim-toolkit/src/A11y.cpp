@@ -34,6 +34,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
   std::vector<A11yNode> out;
   // Window -> each node's paint space, as hit testing maps the pointer.
   std::vector<detail::Affine> toNode{{}};
+  int focusCount = 0;
   const auto exit = [&](const Block&, const Box&, const Engine&) { toNode.pop_back(); };
   walk(
     root,
@@ -69,6 +70,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
          focusable,
          std::move(traits)}
       );
+      if (focusable) out.back().focusIndex = focusCount++;
       graftA11y(out, std::move(graft), bx, toWindow);
       return true;
     },

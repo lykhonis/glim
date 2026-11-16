@@ -19,6 +19,8 @@ struct A11yNode {
   A11yTraits traits;
   // Index of the enclosing node in the same list; -1 at the top.
   int parent = -1;
+  // Its index in the focus order (Screen::focus); -1 when not focusable.
+  int focusIndex = -1;
 };
 
 // An embedded component's own subtree: boxes in its space (0..width,
