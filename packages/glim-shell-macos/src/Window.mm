@@ -243,7 +243,7 @@ Window::Window() {
 
 Window::~Window() {
   dismissPresented();
-  setA11yActivate(nullptr);
+  setA11yPerform(nullptr);
   setA11y({});
   detail::unregisterShownWindow(this);
   slots_.forEach([](std::uint32_t, void* view) {

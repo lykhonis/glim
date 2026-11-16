@@ -115,6 +115,9 @@ int main() {
     assert(el[2].role == Out::Slider && el[2].value == "3");
     assert(el[3].role == Out::Switch && el[3].checked && el[3].disabled);
     assert(el[3] == el[3] && !(el[2] == el[3]));
+    assert(!el[2].adjustable);
+    nodes[2].traits.actions = {glim::toolkit::A11yAction::Increment};
+    assert(glim::toolkit::host::shellA11y(nodes)[2].adjustable);
     nodes[0].id.clear();
     assert(glim::toolkit::host::shellA11y(nodes)[0].label.empty());
   }

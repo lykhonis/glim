@@ -13,5 +13,5 @@
 - (instancetype)initWithView:(UIView*)view;
 - (NSArray*)elements;
 - (void)publish:(std::vector<glim::shell::A11yElement>)elements;
-- (void)setActivate:(glim::shell::A11yActivate)activate;
+- (void)setPerform:(glim::shell::A11yPerform)perform;
 @end

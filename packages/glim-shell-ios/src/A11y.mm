@@ -8,7 +8,7 @@ using glim::shell::A11yElement;
 using glim::shell::A11yRole;
 
 @interface GlimA11yBridge ()
-- (void)activate:(int)index;
+- (void)perform:(int)index command:(glim::shell::A11yCommand)command;
 @end
 
 @interface GlimA11yNode : UIAccessibilityElement
@@ -18,8 +18,14 @@ using glim::shell::A11yRole;
 
 @implementation GlimA11yNode
 - (BOOL)accessibilityActivate {
-  [self.bridge activate:self.index];
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Activate];
   return YES;
+}
+- (void)accessibilityIncrement {
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Increment];
+}
+- (void)accessibilityDecrement {
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Decrement];
 }
 @end
 
@@ -48,6 +54,7 @@ UIAccessibilityTraits traitsOf(const A11yElement& e) {
       t = UIAccessibilityTraitImage;
       break;
   }
+  if (e.adjustable) t |= UIAccessibilityTraitAdjustable;
   if (e.checked) t |= UIAccessibilityTraitSelected;
   if (e.disabled) t |= UIAccessibilityTraitNotEnabled;
   return t;
@@ -64,7 +71,7 @@ NSString* text(const std::string& s) {
   __weak UIView* view_;
   std::vector<A11yElement> published_;
   NSMutableArray<GlimA11yNode*>* nodes_;
-  glim::shell::A11yActivate activate_;
+  glim::shell::A11yPerform perform_;
 }
 
 - (instancetype)initWithView:(UIView*)view {
@@ -80,13 +87,13 @@ NSString* text(const std::string& s) {
   return nodes_;
 }
 
-- (void)setActivate:(glim::shell::A11yActivate)activate {
-  activate_ = std::move(activate);
+- (void)setPerform:(glim::shell::A11yPerform)perform {
+  perform_ = std::move(perform);
 }
 
-- (void)activate:(int)index {
-  if (activate_) {
-    activate_(index);
+- (void)perform:(int)index command:(glim::shell::A11yCommand)command {
+  if (perform_) {
+    perform_(index, command);
   }
 }
 
@@ -126,8 +133,8 @@ void Window::setA11y(std::vector<A11yElement> elements) {
   [(__bridge GlimA11yBridge*)a11y_ publish:std::move(elements)];
 }
 
-void Window::setA11yActivate(A11yActivate activate) {
-  [(__bridge GlimA11yBridge*)a11y_ setActivate:std::move(activate)];
+void Window::setA11yPerform(A11yPerform perform) {
+  [(__bridge GlimA11yBridge*)a11y_ setPerform:std::move(perform)];
 }
 
 bool Window::a11yActive() const { return ((__bridge GlimA11yBridge*)a11y_).active; }

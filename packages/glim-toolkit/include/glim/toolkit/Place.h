@@ -59,7 +59,10 @@ struct Affine {
   }
   // This map, then `next`.
   Affine then(const Affine& next) const;
+  Affine inverse() const;
 };
+// Axis-aligned bounds of `b` under `m` (a rotated box's enclosing rect).
+Box mapBox(const Affine& m, const Box& b);
 
 }  // namespace detail
 

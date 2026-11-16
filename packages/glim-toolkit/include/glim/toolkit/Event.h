@@ -39,6 +39,11 @@ struct KeyPress {
   Key key = Key::Activate;
 };
 struct Activate {};
+// A screen reader's increment (+1) or decrement (-1), delivered to the node
+// under its a11y frame like a tap.
+struct Adjust {
+  int step = 1;
+};
 
 class Event {
  public:

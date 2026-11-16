@@ -14,11 +14,12 @@ using glim::shell::A11yRole;
 @property(nonatomic, weak) GlimA11yBridge* bridge;
 @property(nonatomic) NSRect logical;
 @property(nonatomic) int index;
+@property(nonatomic) BOOL adjustable;
 @property(nonatomic, strong) NSMutableArray* kids;
 @end
 
 @interface GlimA11yBridge ()
-- (void)activate:(int)index;
+- (void)perform:(int)index command:(glim::shell::A11yCommand)command;
 @end
 
 @implementation GlimA11yNode
@@ -33,7 +34,17 @@ using glim::shell::A11yRole;
   return self.kids;
 }
 - (BOOL)accessibilityPerformPress {
-  [self.bridge activate:self.index];
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Activate];
+  return YES;
+}
+- (BOOL)accessibilityPerformIncrement {
+  if (!self.adjustable) return NO;
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Increment];
+  return YES;
+}
+- (BOOL)accessibilityPerformDecrement {
+  if (!self.adjustable) return NO;
+  [self.bridge perform:self.index command:glim::shell::A11yCommand::Decrement];
   return YES;
 }
 @end
@@ -73,7 +84,7 @@ NSString* text(const std::string& s) {
   std::vector<A11yElement> published_;
   NSMutableArray<GlimA11yNode*>* nodes_;
   NSMutableArray* roots_;
-  glim::shell::A11yActivate activate_;
+  glim::shell::A11yPerform perform_;
 }
 
 - (instancetype)initWithView:(NSView*)view {
@@ -100,13 +111,13 @@ NSString* text(const std::string& s) {
   return nil;
 }
 
-- (void)setActivate:(glim::shell::A11yActivate)activate {
-  activate_ = std::move(activate);
+- (void)setPerform:(glim::shell::A11yPerform)perform {
+  perform_ = std::move(perform);
 }
 
-- (void)activate:(int)index {
-  if (activate_) {
-    activate_(index);
+- (void)perform:(int)index command:(glim::shell::A11yCommand)command {
+  if (perform_) {
+    perform_(index, command);
   }
 }
 
@@ -145,6 +156,7 @@ NSString* text(const std::string& s) {
       n.accessibilityValue = nil;
     }
     n.accessibilityEnabled = !e.disabled;
+    n.adjustable = e.adjustable;
     const bool nested = e.parent >= 0 && static_cast<std::size_t>(e.parent) < i;
     n.accessibilityParent = nested ? nodes_[static_cast<std::size_t>(e.parent)] : view;
     [(nested ? nodes_[static_cast<std::size_t>(e.parent)].kids : roots_) addObject:n];
@@ -162,8 +174,8 @@ void Window::setA11y(std::vector<A11yElement> elements) {
   [(__bridge GlimA11yBridge*)a11y_ publish:std::move(elements)];
 }
 
-void Window::setA11yActivate(A11yActivate activate) {
-  [(__bridge GlimA11yBridge*)a11y_ setActivate:std::move(activate)];
+void Window::setA11yPerform(A11yPerform perform) {
+  [(__bridge GlimA11yBridge*)a11y_ setPerform:std::move(perform)];
 }
 
 bool Window::a11yActive() const { return ((__bridge GlimA11yBridge*)a11y_).active; }

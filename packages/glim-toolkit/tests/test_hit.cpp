@@ -27,6 +27,19 @@ struct Probe {
   }
 };
 
+// Sums the screen reader's increment / decrement steps it receives.
+struct Stepper {
+  int* value;
+  const char* kind() const { return "Stepper"; }
+  Box place(Constraints c, const Engine&) const { return detail::resolveSize(50.0f, 20.0f, c); }
+  bool handleAt(const Box&, const Event& ev) const {
+    auto a = ev.as<Adjust>();
+    if (!a) return false;
+    *value += a->get().step;
+    return true;
+  }
+};
+
 bool near(float a, float b) { return std::fabs(a - b) < 1e-3f; }
 
 struct Inputs {
@@ -80,6 +93,34 @@ void test_hit() {
     Box tb = place(tree, {0, 720, 0, 480});
     assert(press(tree, tb, 225, 15));
     assert(near(seen.x, 30) && near(seen.y, 10));
+  }
+  // A11y frames follow the same transforms: a screen reader's tap at the
+  // centre of each frame lands on the node, and a translate moves the frame.
+  {
+    Seen seen;
+    Block plain = toBlock(Probe{&seen});
+    const Box own = a11yNodes(plain, place(plain, {0, 720, 0, 480})).back().box;
+    Block moved = column(translate(100, 50), toBlock(Probe{&seen}));
+    const Box mb = a11yNodes(moved, place(moved, {0, 720, 0, 480})).back().box;
+    assert(near(mb.x, own.x + 100) && near(mb.y, own.y + 50) && near(mb.w, own.w));
+    Block tree = column(
+      translate(200, 0), column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Probe{&seen}))
+    );
+    Box tb = place(tree, {0, 720, 0, 480});
+    const Box rb = a11yNodes(tree, tb).back().box;
+    assert(near(rb.w, own.h) && near(rb.h, own.w));
+    assert(press(tree, tb, rb.x + rb.w * 0.5f, rb.y + rb.h * 0.5f));
+
+    int value = 0;
+    Block stepper = column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Stepper{&value}));
+    Box sb = place(stepper, {0, 720, 0, 480});
+    const Box fb = a11yNodes(stepper, sb).back().box;
+    const float cx = fb.x + fb.w * 0.5f;
+    const float cy = fb.y + fb.h * 0.5f;
+    assert(dispatchPointer(stepper, sb, cx, cy, Event::borrow(Adjust{1})));
+    assert(dispatchPointer(stepper, sb, cx, cy, Event::borrow(Adjust{1})));
+    assert(dispatchPointer(stepper, sb, cx, cy, Event::borrow(Adjust{-1})));
+    assert(value == 1);
   }
   // Scroll is layout: the box moves, the point stays in window space.
   {

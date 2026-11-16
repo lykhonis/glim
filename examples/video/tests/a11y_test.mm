@@ -97,12 +97,23 @@ int main() {
            "pointing at the sun finds it");
 
     int activated = -1;
-    window.setA11yActivate([&](int index) { activated = index; });
+    window.setA11yPerform([&](int index, glim::shell::A11yCommand) { activated = index; });
     expect([video accessibilityPerformPress], "the video accepts press");
     expect(activated >= 0 && nodes[static_cast<std::size_t>(activated)].id == "Video",
            "press names the video node");
     window.setA11y(host::shellA11y(nodes));
     expect(find([view accessibilityChildren], @"Sun") == sun, "an unchanged tree keeps its elements");
+
+    std::vector<glim::shell::A11yCommand> commands;
+    window.setA11yPerform([&](int, glim::shell::A11yCommand c) { commands.push_back(c); });
+    expect(![video accessibilityPerformIncrement], "a plain button refuses increment");
+    window.setA11y({{.role = glim::shell::A11yRole::Slider, .label = "Volume", .adjustable = true}});
+    id volume = find([view accessibilityChildren], @"Volume");
+    expect([volume accessibilityPerformIncrement] && [volume accessibilityPerformDecrement],
+           "an adjustable slider takes increment and decrement");
+    expect(commands == std::vector{glim::shell::A11yCommand::Increment,
+                                   glim::shell::A11yCommand::Decrement},
+           "both reach the host in order");
   }
   // The live host: once the OS asks, run() publishes the tree, and a
   // screen-reader press taps the node it names.

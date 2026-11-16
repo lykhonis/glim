@@ -26,6 +26,24 @@ Affine Affine::then(const Affine& n) const {
   };
 }
 
+Affine Affine::inverse() const {
+  const float det = a * d - b * c;
+  if (det == 0.0f) return {};
+  const float ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+  return {ia, ib, ic, id, -(ia * tx + ic * ty), -(ib * tx + id * ty)};
+}
+
+Box mapBox(const Affine& m, const Box& b) {
+  const auto [x0, y0] = m.apply(b.x, b.y);
+  float lx = x0, hx = x0, ly = y0, hy = y0;
+  for (const auto& [px, py] :
+       {m.apply(b.x + b.w, b.y), m.apply(b.x, b.y + b.h), m.apply(b.x + b.w, b.y + b.h)}) {
+    lx = std::min(lx, px), hx = std::max(hx, px);
+    ly = std::min(ly, py), hy = std::max(hy, py);
+  }
+  return {lx, ly, hx - lx, hy - ly};
+}
+
 Affine childSpace(const Block& n) {
   Affine m;
   if (auto t = n.tag<TransformTag>()) m.tx = -t->get().dx, m.ty = -t->get().dy;

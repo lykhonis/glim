@@ -49,6 +49,8 @@ std::vector<shell::A11yElement> shellA11y(const std::vector<A11yNode>& nodes) {
       .parent = n.parent,
       .checked = n.traits.states.has(A11yState::Checked),
       .disabled = n.traits.states.has(A11yState::Disabled),
+      .adjustable =
+        n.traits.actions.has(A11yAction::Increment) || n.traits.actions.has(A11yAction::Decrement),
     });
   }
   return out;

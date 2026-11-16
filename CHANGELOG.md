@@ -32,6 +32,8 @@ First versioned release of the public packages.
 - Web import seam: `importSurface` takes a `WGPUTexture` on Glim's device. The web bundle's `video.html` copies WebGL2-rendered `VideoFrame`s into a ring through `copyExternalImageToTexture` and shows them under glass.
 - `gpu::Device::destroyTexture`. The renderer frees textures of released images, so `Stats::textureBytes` and `importedBytes` shrink again.
 - `host::Feed::claim(ring)`: picks the buffer a producer writes next, never one a frame may still sample, and supersedes a pending frame only when a newer one is ready. `FeedStats::reuseWaits` counts claims that told the producer to wait.
+- Accessibility frames follow `translate()` and `rotate()`, as hit testing does.
+- Accessibility increment and decrement: `shell::A11yElement::adjustable`, `Window::setA11yPerform` (replaces `setA11yActivate`, now with an `A11yCommand`), and a toolkit `Adjust{step}` event delivered to the node under the frame. macOS and iOS bridges forward the OS actions.
 - Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
 - Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
 - iOS: the app exits when a drive finishes.

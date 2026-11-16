@@ -453,7 +453,7 @@ void Window::dismissPresented() {}
 
 void Window::setA11y(std::vector<A11yElement>) {}
 
-void Window::setA11yActivate(A11yActivate) {}
+void Window::setA11yPerform(A11yPerform) {}
 
 bool Window::a11yActive() const { return false; }
 

@@ -10,14 +10,19 @@ namespace toolkit {
 
 namespace {
 
-// Component space to the host's box; exported parents shift past the host.
-void graftA11y(std::vector<A11yNode>& out, A11yExport graft, const Box& host) {
+// Component space to the host's box, then to the window; exported parents
+// shift past the host.
+void graftA11y(
+  std::vector<A11yNode>& out, A11yExport graft, const Box& host, const detail::Affine& toWindow
+) {
   if (graft.nodes.empty() || graft.width <= 0 || graft.height <= 0) return;
   const int hostIndex = static_cast<int>(out.size()) - 1;
   const float sx = host.w / graft.width;
   const float sy = host.h / graft.height;
   for (A11yNode& n : graft.nodes) {
-    n.box = {host.x + n.box.x * sx, host.y + n.box.y * sy, n.box.w * sx, n.box.h * sy};
+    n.box = detail::mapBox(
+      toWindow, {host.x + n.box.x * sx, host.y + n.box.y * sy, n.box.w * sx, n.box.h * sy}
+    );
     n.parent = n.parent < 0 ? hostIndex : hostIndex + 1 + n.parent;
     out.push_back(std::move(n));
   }
@@ -27,35 +32,48 @@ void graftA11y(std::vector<A11yNode>& out, A11yExport graft, const Box& host) {
 
 std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine& e) {
   std::vector<A11yNode> out;
-  walk(root, box, e, [&](const Block& n, const Box& bx) {
-    Rec tmp;
-    describeSelf(n, bx, tmp);
-    std::string label;
-    for (const auto& en : tmp.entries) {
-      if (!en.text.empty()) {
-        label = en.text;
-        break;
+  // Window -> each node's paint space, as hit testing maps the pointer.
+  std::vector<detail::Affine> toNode{{}};
+  const auto exit = [&](const Block&, const Box&, const Engine&) { toNode.pop_back(); };
+  walk(
+    root,
+    box,
+    e,
+    [&](const Block& n, const Box& bx, const Engine&) {
+      const detail::Affine toWindow = toNode.back().inverse();
+      toNode.push_back(toNode.back().then(detail::childSpace(n)));
+      Rec tmp;
+      describeSelf(n, bx, tmp);
+      std::string label;
+      for (const auto& en : tmp.entries) {
+        if (!en.text.empty()) {
+          label = en.text;
+          break;
+        }
       }
-    }
-    auto mark = semanticOf(n);
-    bool focusable = canHandle(n);
-    A11yTraits traits = a11yOf(n);
-    A11yExport graft = a11yExportOf(n);
-    if (!mark && label.empty() && !focusable && traits.live == A11yLive::Off && graft.nodes.empty())
-      return;
-    if (focusable && traits.actions.empty()) traits.actions = {A11yAction::Activate};
-    std::string kind = "Custom";
-    if (!tmp.entries.empty()) kind = tmp.entries.front().kind;
-    out.push_back(
-      {mark ? mark->get() : std::string{},
-       std::move(kind),
-       std::move(label),
-       bx,
-       focusable,
-       std::move(traits)}
-    );
-    graftA11y(out, std::move(graft), bx);
-  });
+      auto mark = semanticOf(n);
+      bool focusable = canHandle(n);
+      A11yTraits traits = a11yOf(n);
+      A11yExport graft = a11yExportOf(n);
+      if (!mark && label.empty() && !focusable && traits.live == A11yLive::Off &&
+          graft.nodes.empty())
+        return true;
+      if (focusable && traits.actions.empty()) traits.actions = {A11yAction::Activate};
+      std::string kind = "Custom";
+      if (!tmp.entries.empty()) kind = tmp.entries.front().kind;
+      out.push_back(
+        {mark ? mark->get() : std::string{},
+         std::move(kind),
+         std::move(label),
+         detail::mapBox(toWindow, bx),
+         focusable,
+         std::move(traits)}
+      );
+      graftA11y(out, std::move(graft), bx, toWindow);
+      return true;
+    },
+    exit
+  );
   return out;
 }
 

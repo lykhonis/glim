@@ -20,16 +20,21 @@ struct A11yElement {
   int parent = -1;
   bool checked = false;
   bool disabled = false;
+  // Takes increment / decrement (a slider, a stepper).
+  bool adjustable = false;
 };
 
 inline bool operator==(const A11yElement& a, const A11yElement& b) {
   return a.role == b.role && a.label == b.label && a.value == b.value &&
          a.frame.origin.x == b.frame.origin.x && a.frame.origin.y == b.frame.origin.y &&
          a.frame.size.x == b.frame.size.x && a.frame.size.y == b.frame.size.y &&
-         a.parent == b.parent && a.checked == b.checked && a.disabled == b.disabled;
+         a.parent == b.parent && a.checked == b.checked && a.disabled == b.disabled &&
+         a.adjustable == b.adjustable;
 }
 
-// A screen reader activated the element at this index of the last list.
-using A11yActivate = std::function<void(int index)>;
+enum class A11yCommand { Activate, Increment, Decrement };
+
+// A screen reader acted on the element at this index of the last list.
+using A11yPerform = std::function<void(int index, A11yCommand)>;
 
 }  // namespace glim::shell
