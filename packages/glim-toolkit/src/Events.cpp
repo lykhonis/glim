@@ -4,6 +4,7 @@
 
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit/elements/Layer.h"
 
 namespace glim {
 namespace toolkit {
@@ -44,6 +45,27 @@ bool dispatchPointer(
   if (!at.node) return false;
   detail::AutoHandle h(e.store ? &e.store->get() : nullptr, detail::AutoCtx::found());
   return detail::handleIn(*at.node, at.box, at.toNode, ev);
+}
+
+std::optional<LayerInput> layerInput(const Box& box, const Event& ev) {
+  const auto at = [&](LayerInput::Phase phase, float x, float y) {
+    return LayerInput{
+      .phase = phase, .x = x - box.x, .y = y - box.y, .width = box.w, .height = box.h
+    };
+  };
+  if (auto p = ev.as<PointerDown>()) return at(LayerInput::Phase::Down, p->get().x, p->get().y);
+  if (auto p = ev.as<PointerUp>()) return at(LayerInput::Phase::Up, p->get().x, p->get().y);
+  if (auto p = ev.as<PointerMove>()) {
+    if (!p->get().pressed) return std::nullopt;
+    return at(LayerInput::Phase::Move, p->get().x, p->get().y);
+  }
+  if (auto p = ev.as<Wheel>()) {
+    LayerInput in = at(LayerInput::Phase::Wheel, p->get().x, p->get().y);
+    in.dx = p->get().dx;
+    in.dy = p->get().dy;
+    return in;
+  }
+  return std::nullopt;
 }
 
 namespace detail {

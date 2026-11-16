@@ -65,6 +65,9 @@ bool Screen::wheel(
   const Block& tree, const Box& box, float x, float y, float dx, float dy, const Engine& engine
 ) {
   if (dx == 0 && dy == 0) return false;
+  // A handler under the pointer (an embedded component) takes the wheel first.
+  const Wheel turned{x, y, dx, dy};
+  if (dispatchPointer(tree, box, x, y, Event::borrow(turned), engine)) return true;
   struct Candidate {
     std::optional<std::reference_wrapper<const Roll>> roll;
     Box box;

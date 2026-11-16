@@ -1,4 +1,5 @@
 #include <cmath>
+#include <vector>
 
 #include "test_helpers.h"
 
@@ -27,6 +28,16 @@ struct Probe {
 };
 
 bool near(float a, float b) { return std::fabs(a - b) < 1e-3f; }
+
+struct Inputs {
+  std::vector<LayerInput> seen;
+  LayerInputFn fn() {
+    return [this](const LayerInput& in) {
+      seen.push_back(in);
+      return true;
+    };
+  }
+};
 
 bool press(const Block& tree, const Box& box, float x, float y) {
   return dispatchPointer(tree, box, x, y, Event::borrow(PointerDown{x, y}));
@@ -91,5 +102,52 @@ void test_hit() {
     assert(!scr.wheel(tree, tb, 4, 300, 0, 10, Engine{}));
     assert(scr.wheel(tree, tb, 4, 250, 0, 10, Engine{}));
     assert(*off == 10.0f);
+  }
+  // Layer input arrives in component space under a translated host.
+  {
+    Inputs in;
+    Block tree = column(translate(40, 30), pad(10), layer({.onInput = in.fn()}));
+    Box tb = place(tree, {0, 720, 0, 480});
+    assert(press(tree, tb, 60, 50));
+    assert(in.seen.size() == 1 && in.seen[0].phase == LayerInput::Phase::Down);
+    assert(near(in.seen[0].x, 10) && near(in.seen[0].y, 10));
+    assert(in.seen[0].width == 320 && in.seen[0].height == 180);
+    assert(dispatchPointer(tree, tb, 70, 60, Event::borrow(PointerMove{70, 60, true})));
+    assert(!dispatchPointer(tree, tb, 70, 60, Event::borrow(PointerMove{70, 60, false})));
+    assert(dispatchPointer(tree, tb, 70, 60, Event::borrow(PointerUp{70, 60})));
+    assert(in.seen.size() == 3 && in.seen[2].phase == LayerInput::Phase::Up);
+    assert(near(in.seen[2].x, 20) && near(in.seen[2].y, 20));
+  }
+  // Rotated host: (0, 0) of a layer rotated 90 degrees about its corner paints at (0, 0)
+  // and its local (10, 0) at (0, 10).
+  {
+    Inputs in;
+    Block tree = column(rotate({.angleDeg = 90}), layer({.onInput = in.fn()}));
+    Box tb = place(tree, {0, 720, 0, 480});
+    assert(!press(tree, tb, 10, 1));
+    assert(press(tree, tb, -1, 10));
+    assert(near(in.seen[0].x, 10) && near(in.seen[0].y, 1));
+  }
+  // Scrolled host: the wheel over a layer goes to the layer, elsewhere to the roll.
+  {
+    Inputs in;
+    Screen scr;
+    State<float> off = store.make<float>(0.0f);
+    Block tree = roll(vertical(), scrollOffset(off), layer({.onInput = in.fn()}), layer(), layer());
+    Box tb = place(tree, {0, 720, 0, 200});
+    assert(scr.wheel(tree, tb, 5, 190, 0, 50, Engine{}));
+    assert(*off == 50.0f && in.seen.empty());
+    assert(scr.wheel(tree, tb, 20, 100, 0, 7, Engine{}));
+    assert(*off == 50.0f && in.seen.size() == 1);
+    assert(in.seen[0].phase == LayerInput::Phase::Wheel && in.seen[0].dy == 7);
+    assert(near(in.seen[0].x, 20) && near(in.seen[0].y, 150));
+    assert(scr.pointerDown(tree, tb, 30, 10, 1, Engine{}));
+    assert(in.seen.size() == 2 && near(in.seen[1].y, 60));
+  }
+  // A layer without onInput lets events through.
+  {
+    Block tree = layer();
+    Box tb = place(tree, {0, 720, 0, 480});
+    assert(!press(tree, tb, 5, 5));
   }
 }
