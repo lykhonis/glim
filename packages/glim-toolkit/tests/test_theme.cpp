@@ -46,10 +46,7 @@ void test_theme() {
     }
     {
       OpsRecorder rec;
-      struct Feed {
-        std::uint32_t id = 0;
-        bool foreign = false;
-      } feed;
+      TestFeed feed;
       Block t = themed(inkOnLight(0x123456ff), lines("hi"));
       Box tb = place(t, {0, 720, 0, 480});
       paintTree(t, tb, Engine{}, rec, feed);

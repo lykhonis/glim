@@ -156,10 +156,7 @@ void test_hit() {
   }
   // An explicit image wins over the ambient layer.
   {
-    struct Feed {
-      std::uint32_t id = 9;
-      bool foreign = false;
-    } feed;
+    TestFeed feed{.id = 9};
     for (std::uint32_t image : {0u, 4u}) {
       OpsRecorder rec;
       Block tree = layer({.image = image});

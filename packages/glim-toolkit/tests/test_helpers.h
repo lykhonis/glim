@@ -63,6 +63,12 @@ struct Radial : WithGap, WithRadius {
   }
 };
 
+// One feed type for every paintTree test, so they share instantiations.
+struct TestFeed {
+  std::uint32_t id = 0;
+  bool foreign = false;
+};
+
 struct Pin {};
 
 template <>

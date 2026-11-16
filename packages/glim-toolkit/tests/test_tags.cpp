@@ -116,10 +116,7 @@ void test_tags() {
   // its subtree, in a fixed order: shadow, effect, then transforms.
   {
     OpsRecorder rec;
-    struct Feed {
-      std::uint32_t id = 0;
-      bool foreign = false;
-    } feed;
+    TestFeed feed;
     Block t = column(
       shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
       effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
