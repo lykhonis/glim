@@ -144,6 +144,34 @@ void test_hit() {
     assert(scr.pointerDown(tree, tb, 30, 10, 1, Engine{}));
     assert(in.seen.size() == 2 && near(in.seen[1].y, 60));
   }
+  // Non-pointer events reach a layer unmapped and are not input.
+  {
+    Inputs in;
+    Block tree = layer({.onInput = in.fn()});
+    Box tb = place(tree, {0, 720, 0, 480});
+    assert(focusAt(tree, tb, 5, 5) == 0);
+    assert(dispatchCaptured(tree, tb, 0, Event::borrow(Activate{})));
+    assert(in.seen.empty());
+    assert(!layerInput(tb, Event::borrow(KeyPress{})));
+  }
+  // An explicit image wins over the ambient layer.
+  {
+    struct Feed {
+      std::uint32_t id = 9;
+      bool foreign = false;
+    } feed;
+    for (std::uint32_t image : {0u, 4u}) {
+      OpsRecorder rec;
+      Block tree = layer({.image = image});
+      Box tb = place(tree, {0, 720, 0, 480});
+      paintTree(tree, tb, Engine{}, rec, feed);
+      std::uint32_t drawn = 0;
+      for (const auto& o : rec.ops) {
+        if (o.kind == Op::Kind::Image) drawn = o.image;
+      }
+      assert(drawn == (image != 0 ? image : feed.id));
+    }
+  }
   // A layer without onInput lets events through.
   {
     Block tree = layer();
