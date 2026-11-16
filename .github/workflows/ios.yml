@@ -12,5 +12,8 @@ jobs:
       nx: |
         pnpm exec nx run examples:build-ios-sim
         pnpm exec nx run-many -t run-ios --projects=tag:example --parallel=1 --smoke=15
+        # The UIKit a11y bridge on the simulator run-ios left booted.
+        cmake --build build/ios-sim-metal-debug --target glim-ios-a11y-bridge-test
+        xcrun simctl spawn booted build/ios-sim-metal-debug/packages/glim-shell-ios/glim-ios-a11y-bridge-test.app/glim-ios-a11y-bridge-test
         pnpm exec nx run examples:build-tvos-sim
         pnpm exec nx run-many -t run-tvos --projects=tag:example --parallel=1 --smoke=15
