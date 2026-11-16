@@ -434,8 +434,11 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     ici.tiling = VK_IMAGE_TILING_LINEAR;
     ici.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (vk_.vkCreateImage(device_, &ici, nullptr, &f.image) !=
-        VK_SUCCESS)
+    if (!step(
+          vk_.vkCreateImage(device_, &ici, nullptr, &f.image) ==
+            VK_SUCCESS,
+          "linear dmabuf image"
+        ))
       return false;
     VkMemoryRequirements req{};
     vk_.vkGetImageMemoryRequirements(device_, f.image, &req);
@@ -452,18 +455,24 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     mai.pNext = &dedicated;
     mai.allocationSize = req.size;
     mai.memoryTypeIndex = memoryType(req.memoryTypeBits);
-    if (mai.memoryTypeIndex == UINT32_MAX ||
-        vk_.vkAllocateMemory(device_, &mai, nullptr, &f.memory) !=
-          VK_SUCCESS ||
-        vk_.vkBindImageMemory(device_, f.image, f.memory, 0) !=
-          VK_SUCCESS) {
+    if (!step(
+          mai.memoryTypeIndex != UINT32_MAX &&
+            vk_.vkAllocateMemory(device_, &mai, nullptr, &f.memory) ==
+              VK_SUCCESS &&
+            vk_.vkBindImageMemory(device_, f.image, f.memory, 0) ==
+              VK_SUCCESS,
+          "exportable memory"
+        ))
       return false;
-    }
     VkMemoryGetFdInfoKHR get{};
     get.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
     get.memory = f.memory;
     get.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
-    if (vk_.vkGetMemoryFdKHR(device_, &get, &f.buffer.fd) != VK_SUCCESS)
+    if (!step(
+          vk_.vkGetMemoryFdKHR(device_, &get, &f.buffer.fd) ==
+            VK_SUCCESS,
+          "dmabuf export"
+        ))
       return false;
     const VkImageSubresource sub{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
     VkSubresourceLayout layout{};
@@ -626,18 +635,28 @@ class GLIM_VIDEO_AVAILABILITY VulkanVideoSource final
     return ok;
   }
 
-  bool setUp() {
-    if (!loadInstance() || !createDevice() || !createPipeline())
-      return false;
+  static bool step(bool ok, const char* what) {
+    if (!ok) std::fprintf(stderr, "video producer: %s failed\n", what);
+    return ok;
+  }
+
+  bool createPool() {
     VkCommandPoolCreateInfo pci{};
     pci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pci.queueFamilyIndex = family_;
-    if (vk_.vkCreateCommandPool(device_, &pci, nullptr, &pool_) !=
-        VK_SUCCESS)
+    return vk_.vkCreateCommandPool(device_, &pci, nullptr, &pool_) ==
+           VK_SUCCESS;
+  }
+
+  bool setUp() {
+    if (!step(loadInstance(), "instance") ||
+        !step(createDevice(), "device") ||
+        !step(createPipeline(), "pipeline") ||
+        !step(createPool(), "pool"))
       return false;
     for (Frame& f : frames_) {
-      if (!createFrame(f)) return false;
+      if (!step(createFrame(f), "frame")) return false;
     }
     return true;
   }

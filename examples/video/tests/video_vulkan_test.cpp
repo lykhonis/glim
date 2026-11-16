@@ -84,8 +84,11 @@ int main() {
   glim::gpu::Device device = std::move(created.value());
   auto source = glim::toolkit::makeVideoSource();
   if (!source) {
-    std::cerr
-      << "FAIL: Vulkan dmabuf producer unavailable on this device\n";
+    std::cerr << "FAIL: Vulkan dmabuf producer unavailable on this "
+                 "device (/dev/udmabuf "
+              << (access("/dev/udmabuf", F_OK) == 0 ? "present"
+                                                    : "absent")
+              << ")\n";
     return EXIT_FAILURE;
   }
   glim::paint::Context ctx;
