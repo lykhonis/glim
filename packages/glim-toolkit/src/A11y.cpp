@@ -13,7 +13,7 @@ namespace {
 // Component space to the host's box, then to the window; exported parents
 // shift past the host.
 void graftA11y(
-  std::vector<A11yNode>& out, A11yExport graft, const Box& host, const detail::Affine& toWindow
+  std::vector<A11yNode>& out, A11yExport graft, const Box& host, const detail::PlaneMap& toWindow
 ) {
   if (graft.nodes.empty() || graft.width <= 0 || graft.height <= 0) return;
   const int hostIndex = static_cast<int>(out.size()) - 1;
@@ -33,7 +33,7 @@ void graftA11y(
 std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine& e) {
   std::vector<A11yNode> out;
   // Window -> each node's paint space, as hit testing maps the pointer.
-  std::vector<detail::Affine> toNode{{}};
+  std::vector<detail::PlaneMap> toNode{{}};
   int focusCount = 0;
   const auto exit = [&](const Block&, const Box&, const Engine&) { toNode.pop_back(); };
   walk(
@@ -41,7 +41,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
     box,
     e,
     [&](const Block& n, const Box& bx, const Engine&) {
-      const detail::Affine toWindow = toNode.back().inverse();
+      const detail::PlaneMap toWindow = toNode.back().inverse();
       toNode.push_back(toNode.back().then(detail::childSpace(n)));
       Rec tmp;
       describeSelf(n, bx, tmp);

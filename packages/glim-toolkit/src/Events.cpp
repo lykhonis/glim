@@ -73,7 +73,7 @@ namespace detail {
 namespace {
 
 template <class E>
-bool handleMoved(const Block& b, const Box& box, const Affine& toNode, const E& ev) {
+bool handleMoved(const Block& b, const Box& box, const PlaneMap& toNode, const E& ev) {
   E local = ev;
   std::tie(local.x, local.y) = toNode.apply(ev.x, ev.y);
   return handleAt(b, box, Event::borrow(local));
@@ -81,7 +81,7 @@ bool handleMoved(const Block& b, const Box& box, const Affine& toNode, const E& 
 
 }  // namespace
 
-bool handleIn(const Block& b, const Box& box, const Affine& toNode, const Event& ev) {
+bool handleIn(const Block& b, const Box& box, const PlaneMap& toNode, const Event& ev) {
   if (auto p = ev.as<PointerDown>()) return handleMoved(b, box, toNode, p->get());
   if (auto p = ev.as<PointerUp>()) return handleMoved(b, box, toNode, p->get());
   if (auto p = ev.as<PointerMove>()) return handleMoved(b, box, toNode, p->get());

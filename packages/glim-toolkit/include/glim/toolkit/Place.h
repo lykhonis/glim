@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "glim/math.h"
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/State.h"
@@ -52,17 +53,19 @@ BlockRef hit(const Block& b, const Box& box, float x, float y, const Engine& e =
 namespace detail {
 
 // x' = a x + c y + tx, y' = b x + d y + ty.
-struct Affine {
-  float a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
-  std::pair<float, float> apply(float x, float y) const {
-    return {a * x + c * y + tx, b * x + d * y + ty};
-  }
+// A projective map of the plane: translate, rotate and perspective tilt
+// all compose here, so points hit what paint drew.
+struct PlaneMap {
+  Mat3 m = Mat3::identity();
+  static PlaneMap affine(float a, float b, float c, float d, float tx, float ty);
+  std::pair<float, float> apply(float x, float y) const;
   // This map, then `next`.
-  Affine then(const Affine& next) const;
-  Affine inverse() const;
+  PlaneMap then(const PlaneMap& next) const { return {next.m * m}; }
+  // Identity when singular (an edge-on tilt hits nothing behind it anyway).
+  PlaneMap inverse() const { return {m.inverse().value_or(Mat3::identity())}; }
 };
 // Axis-aligned bounds of `b` under `m` (a rotated box's enclosing rect).
-Box mapBox(const Affine& m, const Box& b);
+Box mapBox(const PlaneMap& m, const Box& b);
 
 }  // namespace detail
 
@@ -71,7 +74,7 @@ Box mapBox(const Affine& m, const Box& b);
 struct HitAt {
   BlockRef node;
   Box box{0, 0, 0, 0};
-  detail::Affine toNode;
+  detail::PlaneMap toNode;
 };
 
 HitAt hitWithBox(const Block& b, const Box& box, float x, float y, const Engine& e = Engine{});
@@ -93,7 +96,7 @@ float clampF(float v, float lo, float hi);
 bool boxContains(const Box& b, float x, float y);
 // Window -> the space a node's children paint in: inverse of its translate
 // and rotate tags (Emit pushes them after the node paints itself).
-Affine childSpace(const Block& n);
+PlaneMap childSpace(const Block& n);
 // Pointer at (x, y) carried down the walk into each node's paint space, with
 // ancestor clips applied: Roll children hit only inside the clip.
 class PointStack {
@@ -101,15 +104,15 @@ class PointStack {
   PointStack(float x, float y) : x_(x), y_(y) {}
   void enter(const Block& n, const Box& bx);
   void exit() { frames_.pop_back(); }
-  const Affine& toNode() const { return frames_.back().toNode; }
+  const PlaneMap& toNode() const { return frames_.back().toNode; }
   std::pair<float, float> point() const { return toNode().apply(x_, y_); }
   // Inside every ancestor clip (the node's own clip bounds only its children).
   bool visible() const { return frames_.back().visible; }
 
  private:
   struct Frame {
-    Affine toNode;
-    Affine toChildren;
+    PlaneMap toNode;
+    PlaneMap toChildren;
     bool visible;
     bool childrenVisible;
   };
@@ -118,7 +121,7 @@ class PointStack {
   std::vector<Frame> frames_;
 };
 // handleAt with the event's point mapped by toNode.
-bool handleIn(const Block& b, const Box& box, const Affine& toNode, const Event& ev);
+bool handleIn(const Block& b, const Box& box, const PlaneMap& toNode, const Event& ev);
 // 0.5 logical snaps 1px chrome at 2x; layout boxes stay untouched.
 inline float snapHalf(float v) { return std::floor(v * 2.0f + 0.5f) / 2.0f; }
 // Tight proposal forces exact size; loose max never truncates.

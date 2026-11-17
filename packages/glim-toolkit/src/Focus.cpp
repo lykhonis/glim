@@ -15,7 +15,7 @@ struct FocusedBox {
   const Block* block;
   Box box;
   std::vector<int> path;
-  detail::Affine toNode;
+  detail::PlaneMap toNode;
 };
 
 void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<FocusedBox>& out) {

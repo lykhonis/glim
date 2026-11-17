@@ -15,25 +15,21 @@ bool boxContains(const Box& b, float x, float y) {
   return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 }
 
-Affine Affine::then(const Affine& n) const {
-  return {
-    n.a * a + n.c * b,
-    n.b * a + n.d * b,
-    n.a * c + n.c * d,
-    n.b * c + n.d * d,
-    n.a * tx + n.c * ty + n.tx,
-    n.b * tx + n.d * ty + n.ty,
-  };
+PlaneMap PlaneMap::affine(float a, float b, float c, float d, float tx, float ty) {
+  PlaneMap p;
+  p.m.m[0] = a, p.m.m[1] = b;
+  p.m.m[3] = c, p.m.m[4] = d;
+  p.m.m[6] = tx, p.m.m[7] = ty;
+  return p;
 }
 
-Affine Affine::inverse() const {
-  const float det = a * d - b * c;
-  if (det == 0.0f) return {};
-  const float ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
-  return {ia, ib, ic, id, -(ia * tx + ic * ty), -(ib * tx + id * ty)};
+std::pair<float, float> PlaneMap::apply(float x, float y) const {
+  const Vec3 q = m * Vec3{x, y, 1.0f};
+  if (q.z == 0.0f) return {q.x, q.y};
+  return {q.x / q.z, q.y / q.z};
 }
 
-Box mapBox(const Affine& m, const Box& b) {
+Box mapBox(const PlaneMap& m, const Box& b) {
   const auto [x0, y0] = m.apply(b.x, b.y);
   float lx = x0, hx = x0, ly = y0, hy = y0;
   for (const auto& [px, py] :
@@ -44,17 +40,17 @@ Box mapBox(const Affine& m, const Box& b) {
   return {lx, ly, hx - lx, hy - ly};
 }
 
-Affine childSpace(const Block& n) {
-  Affine m;
-  if (auto t = n.tag<TransformTag>()) m.tx = -t->get().dx, m.ty = -t->get().dy;
+PlaneMap childSpace(const Block& n) {
+  PlaneMap m;
+  if (auto t = n.tag<TransformTag>()) m = PlaneMap::affine(1, 0, 0, 1, -t->get().dx, -t->get().dy);
   if (auto r = n.tag<RotateTag>()) {
     const RotateTag& rt = r->get();
     const float rad = rt.angleDeg * 3.14159265f / 180.0f;
     const float cs = std::cos(rad);
     const float sn = std::sin(rad);
-    const Affine undo{
+    const PlaneMap undo = PlaneMap::affine(
       cs, -sn, sn, cs, rt.cx - (cs * rt.cx + sn * rt.cy), rt.cy - (cs * rt.cy - sn * rt.cx)
-    };
+    );
     m = m.then(undo);
   }
   return m;
@@ -62,7 +58,7 @@ Affine childSpace(const Block& n) {
 
 void PointStack::enter(const Block& n, const Box& bx) {
   const bool root = frames_.empty();
-  const Affine base = root ? Affine{} : frames_.back().toChildren;
+  const PlaneMap base = root ? PlaneMap{} : frames_.back().toChildren;
   const bool visible = root || frames_.back().childrenVisible;
   Frame f{base, base.then(childSpace(n)), visible, visible};
   if (visible && clipsChildren(n)) {

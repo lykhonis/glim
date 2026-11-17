@@ -14,6 +14,8 @@ add_library(glim-toolkit STATIC
 )
 add_library(glim::toolkit ALIAS glim-toolkit)
 target_include_directories(glim-toolkit PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+# Plane maps (hit testing under perspective) share glim-core's Mat3.
+target_link_libraries(glim-toolkit PUBLIC glim::core)
 glim_target_defaults(glim-toolkit)
 
 if(GLIM_HOST_TESTS)
