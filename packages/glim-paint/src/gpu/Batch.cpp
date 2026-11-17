@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
 
 namespace glim::paint {
 namespace {
@@ -39,6 +40,10 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
   if (imageId >= textures_.size()) {
     textures_.resize(imageId + 1);
     imported_.resize(imageId + 1);
+    failed_.resize(imageId + 1);
+  }
+  if (failed_[imageId]) {
+    return nullptr;
   }
   gpu::Texture& tex = textures_[imageId];
   if (tex.native()) {
@@ -55,6 +60,9 @@ void* Renderer::TextureCache::get(std::uint32_t imageId) {
   if (im.native) {
     auto imported = device_.importSurface(im.native, im.width, im.height, toGpu(im.format));
     if (!imported.ok()) {
+      failed_[imageId] = true;
+      std::cerr << "glim: image " << imageId << " import failed: " << imported.message()
+                << std::endl;
       return nullptr;
     }
     tex = std::move(imported.value());

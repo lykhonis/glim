@@ -99,6 +99,7 @@ class Renderer {
     std::optional<std::reference_wrapper<const ImageStore>> images_;
     std::vector<gpu::Texture> textures_;
     std::vector<bool> imported_;
+    std::vector<bool> failed_;
     std::uint64_t uploadedBytes = 0;
     std::uint64_t importedBytes = 0;
   };
