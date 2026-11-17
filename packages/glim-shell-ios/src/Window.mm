@@ -637,4 +637,9 @@ void Window::dispatch(const Event& event) {
     [view dispatchEvent:event];
 }
 
+// Owned text input lands per shell after macOS (N8).
+void Window::setTextInput(TextInputState) {}
+
+void Window::setTextInputCallback(TextInputCallback) {}
+
 }  // namespace glim::shell

@@ -16,6 +16,7 @@
 #include <glim/shell/Event.h>
 #include <glim/shell/Present.h>
 #include <glim/shell/Slot.h>
+#include <glim/shell/TextInput.h>
 
 #include <cstdint>
 #include <unordered_map>
@@ -58,6 +59,9 @@ class Window final {
   // OS accessibility tree. a11yActive turns true once the OS asks for it,
   // so hosts build the tree only while a screen reader may be listening.
   void setA11y(std::vector<A11yElement> elements);
+  // The focused field for the platform's text input client; changes come back on the callback.
+  void setTextInput(TextInputState state);
+  void setTextInputCallback(TextInputCallback callback);
   void setA11yPerform(A11yPerform);
   bool a11yActive() const;
   std::size_t slotCount() const { return slotRects_.size(); }

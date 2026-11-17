@@ -114,6 +114,18 @@ bool Screen::key(const Block& tree, const Box& box, Key key, const Engine& engin
   return true;
 }
 
+bool Screen::text(
+  const Block& tree, const Box& box, const TextChange& change, const Engine& engine
+) {
+  return deliverText(tree, box, focus, change, engine);
+}
+
+std::optional<TextFocus> Screen::textFocus(const Block& tree, const Box& box, const Engine& engine)
+  const {
+  if (focus < 0) return std::nullopt;
+  return textFocusAt(tree, box, focus, engine);
+}
+
 namespace {
 
 // Release-coast tuning: gesture gap (s), stream blend, velocity cap, fling floor.

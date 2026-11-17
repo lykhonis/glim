@@ -1,7 +1,7 @@
 #include <glim/shell/Window.h>
 
 #include "WindowRegistry.h"
-#import "A11yBridge.h"
+#import "GlimView.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,12 +14,6 @@ using glim::shell::Event;
 using glim::shell::EventType;
 using glim::shell::Key;
 using glim::shell::Window;
-
-@interface GlimView : NSView <NSWindowDelegate>
-@property(nonatomic, strong) GlimA11yBridge* a11yBridge;
-- (void)setEventCallback:(Window::EventCallback)callback;
-- (void)dispatchEvent:(const Event&)event;
-@end
 
 @implementation GlimView {
   Window::EventCallback eventCallback_;
@@ -66,6 +60,11 @@ using glim::shell::Window;
 }
 
 - (void)keyDown:(NSEvent*)event {
+  // A focused field takes every key through the IME and key bindings.
+  if (self.textInput.active) {
+    [self interpretKeyEvents:@[ event ]];
+    return;
+  }
   if (event.keyCode == 53) {
     Event e(EventType::KeyDown);
     e.setKey(Key::Escape);
@@ -237,6 +236,7 @@ Window::Window() {
   [window makeFirstResponder:view];
   window_ = (__bridge_retained void*)window;
   view.a11yBridge = [[GlimA11yBridge alloc] initWithView:view];
+  view.textInput = [GlimTextInput new];
   a11y_ = (__bridge void*)view.a11yBridge;
   view_ = (__bridge_retained void*)view;
 }

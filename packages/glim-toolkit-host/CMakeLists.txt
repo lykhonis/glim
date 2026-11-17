@@ -3,7 +3,7 @@ if(APPLE)
 else()
   set(_glim_host_seat src/SeatViewStub.cpp)
 endif()
-set(_glim_host_sources src/A11y.cpp src/Host.cpp src/Crash.cpp src/Drive.cpp src/Feed.cpp src/Power.cpp src/Probe.cpp src/Startup.cpp
+set(_glim_host_sources src/A11y.cpp src/TextInput.cpp src/Host.cpp src/Crash.cpp src/Drive.cpp src/Feed.cpp src/Power.cpp src/Probe.cpp src/Startup.cpp
     src/TestApp.cpp ${_glim_host_seat})
 
 add_library(glim-toolkit-host STATIC ${_glim_host_sources})
@@ -57,5 +57,12 @@ if(GLIM_HOST_TESTS)
         target_link_libraries(glim-surface-metal-test PRIVATE glim::toolkit-host)
         glim_test_defaults(glim-surface-metal-test)
         add_test(NAME glim-surface-metal-test COMMAND glim-surface-metal-test)
+
+        # N8 gate: the view is the NSTextInputClient of the focused owned field.
+        add_executable(glim-text-input-macos-test tests/text_input_macos_test.mm)
+        set_source_files_properties(tests/text_input_macos_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+        target_link_libraries(glim-text-input-macos-test PRIVATE glim::toolkit-host "-framework AppKit")
+        glim_test_defaults(glim-text-input-macos-test)
+        add_test(NAME glim-text-input-macos-test COMMAND glim-text-input-macos-test)
     endif()
 endif()

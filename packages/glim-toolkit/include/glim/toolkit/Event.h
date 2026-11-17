@@ -44,6 +44,16 @@ struct Activate {};
 struct Adjust {
   int step = 1;
 };
+struct TextChange;
+// A shell's text input change, routed to the focused field.
+struct TextInput {
+  const TextChange* change = nullptr;
+};
+struct TextFocus;
+// Asks the focused node whether it edits text; a field fills out.
+struct TextProbe {
+  TextFocus* out = nullptr;
+};
 
 class Event {
  public:

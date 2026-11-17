@@ -4,6 +4,7 @@
 
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Toolkit.h"
+#include "glim/toolkit/elements/TextField.h"
 
 namespace glim {
 namespace toolkit {
@@ -109,6 +110,43 @@ int deliverKey(const Block& root, const Box& box, int current, Key key, const En
     default:
       return i;
   }
+}
+
+namespace {
+
+// Probes one focusable for a text field; the caret comes from its geometry.
+std::optional<TextFocus> probeText(const FocusedBox& f, const Engine& e) {
+  TextFocus found;
+  found.field = {0, 0, 0, 0};
+  detail::AutoHandle h(e.store ? &e.store->get() : nullptr, f.path);
+  detail::handleIn(*f.block, f.box, f.toNode, Event::borrow(TextProbe{&found}));
+  if (found.field.w <= 0) return std::nullopt;
+  found.caret = FieldGeometry::caret(found.field, found.edit, e);
+  return found;
+}
+
+}  // namespace
+
+std::optional<TextFocus> textFocusAt(
+  const Block& root, const Box& box, int index, const Engine& e
+) {
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return std::nullopt;
+  return probeText(found[static_cast<std::size_t>(index)], e);
+}
+
+bool deliverText(
+  const Block& root, const Box& box, int index, const TextChange& change, const Engine& e
+) {
+  std::vector<FocusedBox> found;
+  collectFocus(root, box, e, found);
+  if (index < 0 || static_cast<std::size_t>(index) >= found.size()) return false;
+  const FocusedBox& f = found[static_cast<std::size_t>(index)];
+  if (!probeText(f, e)) return false;
+  detail::AutoHandle h(e.store ? &e.store->get() : nullptr, f.path);
+  detail::handleIn(*f.block, f.box, f.toNode, Event::borrow(TextInput{&change}));
+  return true;
 }
 
 Box focusRingBox(const Block& root, const Box& box, int index, float pad, const Engine& e) {

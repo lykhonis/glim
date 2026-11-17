@@ -13,6 +13,7 @@
 #include <glim/toolkit/host/SeatView.h>
 #include <glim/toolkit/host/Startup.h>
 #include <glim/toolkit/host/Telemetry.h>
+#include <glim/toolkit/host/TextInput.h>
 #include <glim/trace.h>
 
 #include <signal.h>
@@ -97,6 +98,28 @@ struct Knob {
 int main() {
   using glim::shell::Key;
   using glim::toolkit::host::mapKey;
+
+  // Text input maps both ways: the focused field out, platform changes in.
+  {
+    using glim::shell::TextInputOp;
+    using glim::toolkit::TextOp;
+    assert(!glim::toolkit::host::shellTextInput(std::nullopt).active);
+    const glim::toolkit::TextFocus focus{
+      .edit = {.text = "ab", .selection = {1, 0}, .marked = glim::toolkit::TextRange{0, 1}},
+      .field = {10, 20, 200, 26},
+      .caret = {18, 26, 2, 14},
+    };
+    const glim::shell::TextInputState s = glim::toolkit::host::shellTextInput(focus);
+    assert(s.active && s.text == "ab" && s.selection.start == 1 && s.marked->length == 1);
+    assert(s.caret.origin.x == 18 && s.caret.origin.y == 26 && s.caret.size.y == 14);
+    const glim::toolkit::TextChange c =
+      glim::toolkit::host::toolkitText({.op = TextInputOp::Mark, .text = "ni", .selection = {2, 0}}
+      );
+    assert(c.op == TextOp::Mark && c.text == "ni" && c.selection.start == 2);
+    assert(
+      glim::toolkit::host::toolkitText({.op = TextInputOp::MoveRight}).op == TextOp::MoveRight
+    );
+  }
 
   assert(mapKey(Key::DpadLeft) == glim::toolkit::Key::Left);
   assert(mapKey(Key::DpadRight) == glim::toolkit::Key::Right);

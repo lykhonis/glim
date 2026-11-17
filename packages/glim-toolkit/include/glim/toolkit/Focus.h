@@ -1,10 +1,12 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Layout.h"
 #include "glim/toolkit/Place.h"
+#include "glim/toolkit/TextEdit.h"
 
 namespace glim {
 namespace toolkit {
@@ -37,6 +39,21 @@ int focusAt(const Block& root, const Box& box, float x, float y, const Engine& e
 // Returns false only when i is out of range (caller falls back to dispatchPointer).
 bool dispatchCaptured(
   const Block& root, const Box& box, int index, const Event& ev, const Engine& e = Engine{}
+);
+
+// The focused field's edit state, its box, and its caret; nullopt when the
+// focused node does not edit text.
+struct TextFocus {
+  TextEdit edit;
+  Box field;
+  Box caret;
+};
+std::optional<TextFocus> textFocusAt(
+  const Block& root, const Box& box, int index, const Engine& e = Engine{}
+);
+// Applies change to the index-th focusable if it edits text, in one walk.
+bool deliverText(
+  const Block& root, const Box& box, int index, const TextChange& change, const Engine& e = Engine{}
 );
 
 // Focus-ring overlay, painted last (on top).

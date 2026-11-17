@@ -32,5 +32,6 @@
 #include "glim/toolkit/Tokens.h"
 #include "glim/toolkit/Walk.h"
 #include "glim/toolkit/elements/Layer.h"
+#include "glim/toolkit/elements/TextField.h"
 #include "glim/toolkit/text/Text.h"
 #include "glim/toolkit/theme/Themed.h"

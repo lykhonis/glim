@@ -38,6 +38,8 @@ First versioned release of the public packages.
 - Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
 - Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
 - iOS: the app exits when a drive finishes.
+- Owned text input (N8.1): `textField({.value = State<TextEdit>})` with IME composition. `TextEdit` and its pure edit functions live in `glim/toolkit/TextEdit.h`. `Screen::text` and `Screen::textFocus` route changes to the focused field. `Window::setTextInput` and `setTextInputCallback` are the shell contract (`glim/shell/TextInput.h`). macOS implements `NSTextInputClient`; the other shells are no-ops for now.
+- Toolkit walks are linear: containers give every child box from one flow (`childBoxes`). Before, a focus, hit, a11y or paint walk re-flowed all siblings per child; a 400-row list walk took 171 ms in Debug, now 3.1 ms.
 - WebView example (`examples/webview`): Slot on Apple (`WKWebView` through the seat factory) and Texture on Android (WebView in a `VirtualDisplay`, read through an `AImageReader` of `AHardwareBuffer`s into `host::Feed`, with touches forwarded as `MotionEvent`s).
 - Android: `shell::androidActivity()` returns the JavaVM and activity, for app-owned Java glue. `glim_add_example(... JAVA dir)` compiles the dir to `classes.dex` with `javac` and `d8`.
 - `seat(...)` with tags (`expand()`, `semantic()`) now emits its slot. Before, the wrapper hid it and no native view attached.

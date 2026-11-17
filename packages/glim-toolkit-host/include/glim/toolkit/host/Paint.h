@@ -384,6 +384,7 @@ inline void paintScreen(
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);
   paintFocusRing(tree, box, focus, sink, engine, focusVisible);
+  paintCaret(tree, box, focus, sink, engine);
   paintScrollbars(ctx, tree, box, engine);
 }
 

@@ -22,6 +22,7 @@
 #include <glim/toolkit/host/Seats.h>
 #include <glim/toolkit/host/Startup.h>
 #include <glim/toolkit/host/Telemetry.h>
+#include <glim/toolkit/host/TextInput.h>
 
 namespace glim {
 namespace toolkit {
@@ -186,6 +187,7 @@ int run(
   // Built only once the OS asked (see Window::a11yActive); kept so a
   // screen-reader activation can tap the node it names.
   std::optional<std::vector<A11yNode>> a11yPublished;
+  bool textInputActive = false;
   window.setA11yPerform([&](int index, shell::A11yCommand command) {
     if (!a11yPublished || index < 0 || index >= static_cast<int>(a11yPublished->size())) return;
     const auto build = [&] { return buildFresh(window.size()); };
@@ -220,6 +222,12 @@ int run(
         window.setA11y(shellA11y(nodes, screen.focus));
         a11yPublished = std::move(nodes);
       }
+    }
+    // Owned text (N8): the shell's text input client follows focus.
+    if (screen.focus >= 0 || textInputActive) {
+      shell::TextInputState text = shellTextInput(screen.textFocus(tree, box, active));
+      textInputActive = text.active;
+      window.setTextInput(std::move(text));
     }
     context.setSize(size);
     context.beginFrame();
@@ -328,6 +336,10 @@ int run(
     std::cout << std::flush;
   };
 
+  window.setTextInputCallback([&](const shell::TextInputChange& change) {
+    auto [tree, box] = buildFresh(window.size());
+    if (screen.text(tree, box, toolkitText(change), active)) invalidate();
+  });
   window.setEventCallback([&](const shell::Event& e) {
     using T = shell::EventType;
     if (e.type() == T::WindowClosed) {

@@ -5,6 +5,7 @@
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/DirtyGate.h"
 #include "glim/toolkit/Event.h"
+#include "glim/toolkit/Focus.h"
 #include "glim/toolkit/Motion.h"
 #include "glim/toolkit/Place.h"
 
@@ -53,6 +54,13 @@ struct Screen {
     const Engine& engine = Engine{}
   );
   bool key(const Block& tree, const Box& box, Key key, const Engine& engine = Engine{});
+  // A shell's text change for the focused field; false when focus edits no text.
+  bool text(
+    const Block& tree, const Box& box, const TextChange& change, const Engine& engine = Engine{}
+  );
+  std::optional<TextFocus> textFocus(
+    const Block& tree, const Box& box, const Engine& engine = Engine{}
+  ) const;
   // Fling integrate at clock.now; walk-clamped so a mid-coast resize still settles inside.
   bool tick(const Block& tree, const Box& box, const Engine& engine = Engine{});
   // True while a fling coast is live; host skips rebuild when false.

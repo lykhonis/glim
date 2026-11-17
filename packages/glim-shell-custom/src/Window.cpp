@@ -95,6 +95,11 @@ void Window::dismissPresented() {}
 
 void Window::setA11y(std::vector<A11yElement>) {}
 
+// Owned text input lands per shell after macOS (N8).
+void Window::setTextInput(TextInputState) {}
+
+void Window::setTextInputCallback(TextInputCallback) {}
+
 void Window::setA11yPerform(A11yPerform) {}
 
 bool Window::a11yActive() const { return false; }

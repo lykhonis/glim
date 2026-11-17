@@ -106,5 +106,13 @@ void paintFocusRing(
   sink.stroke(rb, 4, 2.0f, themeColor(e, kThemeFocusRing));
 }
 
+// Caret of the focused text field, drawn whether or not the ring shows.
+template <class S>
+void paintCaret(const Block& root, const Box& box, int index, S& sink, const Engine& e = Engine{}) {
+  if (index < 0) return;
+  if (auto f = textFocusAt(root, box, index, e))
+    sink.fill(f->caret, themeColor(e, kThemeFocusRing));
+}
+
 }  // namespace toolkit
 }  // namespace glim

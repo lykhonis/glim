@@ -9,6 +9,8 @@ add_library(glim-toolkit STATIC
     src/Events.cpp
     src/Focus.cpp
     src/Screen.cpp
+    src/TextEdit.cpp
+    src/TextField.cpp
 )
 add_library(glim::toolkit ALIAS glim-toolkit)
 target_include_directories(glim-toolkit PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -29,8 +31,14 @@ if(GLIM_HOST_TESTS)
         tests/test_tags.cpp
         tests/test_scoped.cpp
         tests/test_theme.cpp
+        tests/test_text_edit.cpp
     )
     target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)
     glim_test_defaults(glim-toolkit-test)
     add_test(NAME glim-toolkit-test COMMAND glim-toolkit-test)
+
+    add_executable(glim-text-perf-test tests/text_perf_test.cpp)
+    target_link_libraries(glim-text-perf-test PRIVATE glim::toolkit)
+    glim_test_defaults(glim-text-perf-test)
+    add_test(NAME glim-text-perf-test COMMAND glim-text-perf-test)
 endif()
