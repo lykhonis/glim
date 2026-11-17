@@ -37,7 +37,8 @@ jobs:
         mkdir -p "$ANDROID_AVD_HOME"
         echo no | "$sdk/avdmanager" create avd -n e2e -k "$image" -d pixel_6
         "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx e2e
-        "$ANDROID_HOME/emulator/emulator" -avd e2e -no-window -no-audio -no-boot-anim \
+        # 4 GB: a WebView binds GMS providers, and LMK killing GMS takes the app with it.
+        "$ANDROID_HOME/emulator/emulator" -avd e2e -no-window -no-audio -no-boot-anim -memory 4096 \
           -gpu swiftshader_indirect -no-snapshot &
         adb="$ANDROID_HOME/platform-tools/adb"
         timeout 600 "$adb" wait-for-device
