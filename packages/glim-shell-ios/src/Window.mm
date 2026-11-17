@@ -1,4 +1,5 @@
 #include <glim/shell/Window.h>
+#include <glim/shell/SlotLayer.h>
 
 #include "WindowRegistry.h"
 #import "A11yBridge.h"
@@ -622,6 +623,25 @@ void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
     }
     child.frame = CGRectMake(windowLogical.origin.x, windowLogical.origin.y, windowLogical.size.x,
                              windowLogical.size.y);
+}
+
+// UIKit hit-tests through layer transforms, so a projected seat keeps its
+// own touches; only its geometry changes (K88).
+void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect local, const Mat4& transform) {
+    UIView* child = (__bridge UIView*)slots_.get(id);
+    if (!child) {
+        return;
+    }
+    child.layer.transform = CATransform3DIdentity;
+    if (!transform.is3D()) {
+        child.layer.anchorPoint = CGPointMake(0.5, 0.5);
+        positionSlot(id, windowLogical);
+        return;
+    }
+    child.bounds = CGRectMake(0, 0, local.size.x, local.size.y);
+    child.layer.anchorPoint = CGPointZero;
+    child.layer.position = CGPointMake(local.origin.x, local.origin.y);
+    child.layer.transform = toCoreAnimation<CATransform3D>(slotLayerTransform(local, transform));
 }
 
 void Window::detachSlot(std::uint32_t id) {

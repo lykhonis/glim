@@ -355,7 +355,8 @@ struct GlyphRun {
   std::vector<GlyphQuad> glyphs;
 };
 
-// Hosted native hole. Illegal under needsIsolate.
+// Hosted native hole. Illegal under needsIsolate, except an isolate that
+// exists only for a 3D transform: the native view composites as a layer (K88).
 struct SlotHole {
   Rect rect{};
   std::uint32_t id = 0;
@@ -394,7 +395,12 @@ inline const char* shapeKindName(std::size_t index) {
 
 struct SlotPlacement {
   std::uint32_t id = 0;
+  // Bounds on screen, clipped: where a flat native view goes.
   Rect windowLogical{};
+  // The seat's own rect and its full transform, for shells that composite
+  // the native view as a layer under perspective (K88).
+  Rect local{};
+  Mat4 transform = Mat4::identity();
 };
 
 struct Hit {
@@ -540,6 +546,10 @@ void dropLensPills(Group&);
 void clearLensParams(GroupParams&);
 void stripGlassForIsolate(Group&);
 bool needsIsolate(const Group&);
+// needsIsolate for every reason but a 3D transform.
+bool needsIsolateBesidesTransform(const Group&);
+// Screen bounds of rect under t, perspective divided.
+Rect projectedBounds(const Mat4& t, const Rect& rect);
 bool canMerge(const Group&);
 bool blendCompatible(Blend parent, Blend child);
 

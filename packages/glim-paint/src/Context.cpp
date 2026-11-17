@@ -249,9 +249,9 @@ void Context::slot(const Rect& rect, std::uint32_t id) {
     return;
   }
   sawSlots_ = true;
-  GLIM_ASSERT(!needsIsolate(*current()), "SlotHole illegal under needsIsolate");
+  GLIM_ASSERT(!needsIsolateBesidesTransform(*current()), "SlotHole illegal under needsIsolate");
   for (const Group* g : groupStack_) {
-    GLIM_ASSERT(g && !needsIsolate(*g), "SlotHole illegal under needsIsolate");
+    GLIM_ASSERT(g && !needsIsolateBesidesTransform(*g), "SlotHole illegal under needsIsolate");
   }
   recordShape(current(), transformSlot(state_.model, SlotHole{rect, id}));
 }

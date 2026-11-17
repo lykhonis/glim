@@ -4,6 +4,7 @@ add_library(glim-shell STATIC
     src/Present.mm
     src/A11y.mm
     src/TextInput.mm
+    src/SlotLayers.mm
     src/Surface.mm
     src/RunLoop.cpp
     src/WindowRegistry.cpp)
@@ -18,6 +19,7 @@ set_source_files_properties(
     src/Present.mm
     src/A11y.mm
     src/TextInput.mm
+    src/SlotLayers.mm
     src/Surface.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 set_source_files_properties(src/Window.mm PROPERTIES COMPILE_DEFINITIONS GLIM_SOFTWARE=1)

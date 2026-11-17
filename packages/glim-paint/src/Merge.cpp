@@ -255,6 +255,31 @@ std::optional<Mat3> isolateWarp(const Mat4& world, const Rect& surface) {
   return warp;
 }
 
+Rect projectedBounds(const Mat4& t, const Rect& rect) {
+  if (!t.is3D()) {
+    return transformRect(t, rect);
+  }
+  float x0 = 0.f, y0 = 0.f, x1 = 0.f, y1 = 0.f;
+  bool first = true;
+  for (const Vec2 c :
+       {rect.origin,
+        Vec2{rect.origin.x + rect.size.x, rect.origin.y},
+        Vec2{rect.origin.x, rect.origin.y + rect.size.y},
+        Vec2{rect.origin.x + rect.size.x, rect.origin.y + rect.size.y}}) {
+    const Vec3 q = projectPlane(t, c);
+    if (q.z <= 1e-4f) {
+      return {};
+    }
+    const float x = q.x / q.z, y = q.y / q.z;
+    x0 = first ? x : std::min(x0, x);
+    y0 = first ? y : std::min(y0, y);
+    x1 = first ? x : std::max(x1, x);
+    y1 = first ? y : std::max(y1, y);
+    first = false;
+  }
+  return {{x0, y0}, {x1 - x0, y1 - y0}};
+}
+
 SlotHole transformSlot(const Mat4& t, const SlotHole& src) {
   SlotHole out = src;
   out.rect = transformRect(t, src.rect);
@@ -472,13 +497,14 @@ bool hasGlassWork(const Group& g) noexcept {
 }
 
 bool needsIsolate(const Group& g) {
+  return g.params.transform.is3D() || needsIsolateBesidesTransform(g);
+}
+
+bool needsIsolateBesidesTransform(const Group& g) {
   if (g.params.isolate) {
     return true;
   }
   if (g.params.opacity < 1.0f - 1e-5f) {
-    return true;
-  }
-  if (g.params.transform.is3D()) {
     return true;
   }
   if (hasBackdrop(g)) {
@@ -804,7 +830,7 @@ void collectSlotsIn(
   std::vector<SlotPlacement>* out
 ) {
   const Mat4 world = extra;
-  const bool isolate = underIsolate || needsIsolate(g);
+  const bool isolate = underIsolate || needsIsolateBesidesTransform(g);
   Rect nextClip = clip;
   bool nextActive = clipActive;
   if (hasClip(g.params)) {
@@ -822,14 +848,14 @@ void collectSlotsIn(
       if (!hole || hole->id == 0) {
         continue;
       }
-      Rect r = transformRect(world, hole->rect);
+      Rect r = projectedBounds(world, hole->rect);
       if (nextActive) {
         r = intersectAabb(r, nextClip);
       }
       if (r.size.x <= 0.f || r.size.y <= 0.f) {
         continue;
       }
-      out->push_back(SlotPlacement{hole->id, r});
+      out->push_back(SlotPlacement{hole->id, r, hole->rect, world});
     }
   }
   for (const auto& child : g.children) {

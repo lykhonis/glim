@@ -85,6 +85,13 @@ using glim::shell::Window;
 }
 
 - (void)mouseDown:(NSEvent*)event {
+  if ([self.slotLayers route:event]) {
+    return;
+  }
+  // A press on Glim's own content takes keys back from a native seat.
+  if (self.window.firstResponder != self) {
+    [self.window makeFirstResponder:self];
+  }
   if (!eventCallback_) {
     return;
   }
@@ -96,6 +103,9 @@ using glim::shell::Window;
 }
 
 - (void)mouseDragged:(NSEvent*)event {
+  if ([self.slotLayers route:event]) {
+    return;
+  }
   if (!eventCallback_) {
     return;
   }
@@ -107,6 +117,9 @@ using glim::shell::Window;
 }
 
 - (void)mouseUp:(NSEvent*)event {
+  if ([self.slotLayers route:event]) {
+    return;
+  }
   if (!eventCallback_) {
     return;
   }
@@ -118,6 +131,9 @@ using glim::shell::Window;
 }
 
 - (void)scrollWheel:(NSEvent*)event {
+  if ([self.slotLayers route:event]) {
+    return;
+  }
   if (!eventCallback_) {
     return;
   }
@@ -237,6 +253,7 @@ Window::Window() {
   window_ = (__bridge_retained void*)window;
   view.a11yBridge = [[GlimA11yBridge alloc] initWithView:view];
   view.textInput = [GlimTextInput new];
+  view.slotLayers = [[GlimSlotLayers alloc] initWithRoot:view];
   a11y_ = (__bridge void*)view.a11yBridge;
   view_ = (__bridge_retained void*)view;
 }
@@ -403,7 +420,22 @@ void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
                   )];
 }
 
+void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect local, const Mat4& transform) {
+  GlimView* view = (__bridge GlimView*)view_;
+  NSView* child = (__bridge NSView*)slots_.get(id);
+  if (!child) {
+    return;
+  }
+  if (transform.is3D()) {
+    [view.slotLayers project:id native:child local:local transform:transform];
+    return;
+  }
+  [view.slotLayers flatten:id native:child];
+  positionSlot(id, windowLogical);
+}
+
 void Window::detachSlot(std::uint32_t id) {
+  [((__bridge GlimView*)view_).slotLayers remove:id];
   NSView* child = (__bridge NSView*)slots_.detach(id);
   [child removeFromSuperview];
 }

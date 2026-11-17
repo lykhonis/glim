@@ -4,6 +4,7 @@
 #include <glim/paint/Scene.h>
 
 #include <cstdint>
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -124,6 +125,49 @@ int main() {
   placed.clear();
   glim::paint::collectSlots(isolated, &placed);
   expect(placed.empty(), "SlotHole under isolate is not collected");
+
+  // A seat under a perspective tilt is a native compositor layer (K88): it
+  // keeps its local rect and the full transform; its frame is the
+  // projected quad's bounds.
+  {
+    glim::paint::Context tilted;
+    tilted.setSize({400, 300});
+    tilted.beginFrame();
+    glim::paint::GroupParams tp;
+    tp.transform = glim::Mat4::translate(200, 150) * glim::Mat4::perspective(400) *
+                   glim::Mat4::rotateY(0.5f) * glim::Mat4::translate(-200, -150);
+    tilted.pushGroup(tp);
+    tilted.slot(glim::Rect{{100, 100}, {200, 100}}, 4);
+    tilted.popGroup();
+    tilted.finish();
+    placed.clear();
+    glim::paint::collectSlots(tilted.scene(), &placed);
+    expect(placed.size() == 1 && placed[0].id == 4, "tilted seat is collected");
+    if (placed.size() == 1) {
+      const glim::paint::SlotPlacement& s = placed[0];
+      expect(s.transform.is3D(), "tilted seat carries its transform");
+      expect(s.local.origin.x == 100 && s.local.size.x == 200, "tilted seat keeps its local rect");
+      for (const glim::Vec2 c : {glim::Vec2{100, 100}, glim::Vec2{300, 200}}) {
+        const glim::Vec3 q = glim::projectPlane(s.transform, c);
+        const float x = q.x / q.z, y = q.y / q.z;
+        const glim::Rect& f = s.windowLogical;
+        expect(
+          x >= f.origin.x - 0.5f && x <= f.origin.x + f.size.x + 0.5f && y >= f.origin.y - 0.5f &&
+            y <= f.origin.y + f.size.y + 0.5f,
+          "frame bounds the projected quad"
+        );
+      }
+    }
+    glim::paint::Context flat;
+    flat.setSize({400, 300});
+    flat.beginFrame();
+    flat.translate({5, 6});
+    flat.slot(glim::Rect{{10, 10}, {20, 20}}, 2);
+    flat.finish();
+    placed.clear();
+    glim::paint::collectSlots(flat.scene(), &placed);
+    expect(placed.size() == 1 && !placed[0].transform.is3D(), "flat seat has no 3D transform");
+  }
 
   ctx.beginFrame();
   ctx.setFillColor(0xff0000ff);
