@@ -56,7 +56,8 @@ int main(int argc, char** argv) {
     };
     return host::runE2e(t, flags);
   }
-  // Texture pages draw on their own clock, so frames keep coming.
+  // Texture pages draw on their own clock; a frame rebuilds only when
+  // the page has a newer one, so a still page costs no repaints.
   static Store::Watch watch;
   WebPage* p = page().get();
   return host::run(
@@ -77,8 +78,8 @@ int main(int argc, char** argv) {
       WebScreen s = screenFor(p);
       if (!s.slot && p && !watch.live()) {
         State<float> tick = rootScope(e).state("tick", 0.0f);
-        watch = e.store->get().watchFrame([tick](float now) mutable {
-          tick = now;
+        watch = e.store->get().watchFrame([tick, p](float now) mutable {
+          if (p->advance()) tick = now;
           return true;
         });
       }

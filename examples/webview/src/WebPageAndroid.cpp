@@ -109,20 +109,19 @@ class AndroidWebPage final : public WebPage {
     }
   }
 
-  std::uint32_t acquire() override {
-    if (!reader_) return 0;
+  bool advance() override {
+    if (!reader_) return false;
     if (__builtin_available(android 26, *)) {
       reclaim();
       take();
     }
+    return published_ > shown_;
+  }
+
+  std::uint32_t acquire() override {
     const std::uint32_t id = feed_.acquire();
-    if (++frames_ % 150 == 0) {
-      const host::FeedStats s = feed_.stats();
-      std::cerr << "webview feed published=" << s.published
-                << " acquired=" << s.acquired
-                << " fence_misses=" << s.fenceMisses
-                << " dropped=" << s.dropped
-                << " reuse_waits=" << s.reuseWaits << std::endl;
+    for (const Held& h : held_) {
+      if (h.id == id) shown_ = h.seq;
     }
     return id;
   }
@@ -245,6 +244,14 @@ class AndroidWebPage final : public WebPage {
     h.seq = ++published_;
     held_.push_back(h);
     feed_.publish({h.id, h.seq});
+    if (published_ % 30 == 1) {
+      const host::FeedStats st = feed_.stats();
+      std::cerr << "webview feed published=" << st.published
+                << " acquired=" << st.acquired
+                << " fence_misses=" << st.fenceMisses
+                << " dropped=" << st.dropped
+                << " reuse_waits=" << st.reuseWaits << std::endl;
+    }
   }
 
   // The newest sequence whose reader fence, and every older one, has
@@ -281,7 +288,7 @@ class AndroidWebPage final : public WebPage {
   std::deque<Held> held_;
   std::unordered_map<AHardwareBuffer*, std::uint32_t> ids_;
   std::uint64_t published_ = 0;
-  std::uint64_t frames_ = 0;
+  std::uint64_t shown_ = 0;
 };
 
 }  // namespace

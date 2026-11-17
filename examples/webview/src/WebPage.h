@@ -18,6 +18,9 @@ class WebPage {
  public:
   virtual ~WebPage() = default;
   virtual void attach(paint::Context&) {}
+  // Texture: takes what the page drew; true while a newer frame waits
+  // to show.
+  virtual bool advance() { return false; }
   // Texture: image id to sample this frame, 0 until the page has drawn.
   virtual std::uint32_t acquire() { return 0; }
   virtual bool input(const LayerInput&) { return false; }
