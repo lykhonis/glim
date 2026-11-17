@@ -206,6 +206,9 @@ function runOnSimulator(options, app) {
   if (ready.status !== 0) {
     return fail(`simulator ${device.name} did not finish booting`);
   }
+  if (device.state !== "Booted" && kind === "ios" && !launchesApps(device)) {
+    return fail(`simulator ${device.name} booted but never launched an app`);
+  }
 
   const sign = spawnSync("codesign", ["--force", "--sign", "-", "--timestamp=none", app], {
     encoding: "utf8",
@@ -276,6 +279,21 @@ function runOnSimulator(options, app) {
   }
   console.log(`smoke: ${bundleId} alive after ${smoke}s on ${device.name}`);
   return { success: true };
+}
+
+// bootstatus can finish minutes before SpringBoard launches apps after a
+// cold boot; Settings launching proves the simulator is usable.
+function launchesApps(device) {
+  const probe = "com.apple.Preferences";
+  for (let i = 0; i < 20; i++) {
+    const r = xcrun(["simctl", "launch", device.udid, probe], { stdio: "ignore", timeout: 60000 });
+    if (r.status === 0) {
+      xcrun(["simctl", "terminate", device.udid, probe], { stdio: "ignore", timeout: 10000 });
+      return true;
+    }
+    hold(15);
+  }
+  return false;
 }
 
 function which(cmd) {
