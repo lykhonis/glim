@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "glim/toolkit/ConfigureFwd.h"
+#include "glim/toolkit/Custom.h"
 #include "glim/toolkit/Event.h"
 #include "glim/toolkit/Place.h"
 #include "glim/toolkit/Tags.h"
@@ -20,6 +21,8 @@ struct Seat : WithSemantic, WithA11y {
   float width = 0;
   float height = 0;
   Box place(Constraints c, const Engine&) const { return detail::resolveSize(width, height, c); }
+  // The hole paints itself, so tag wrappers (expand, semantic) keep it.
+  void paint(const Box& box, AnySink& sink, const Engine&) const { sink.slot(box, id); }
   A11yTraits a11yTraits() const { return {.role = A11yRole::TextField}; }
   // Focusable anchor; key handling lives in the native view.
   bool handle(const Event& ev) const { return ev.is<PointerDown>() || ev.is<Activate>(); }

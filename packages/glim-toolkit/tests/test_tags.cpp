@@ -112,6 +112,22 @@ void test_tags() {
     assert(!handle(actionable, Event::borrow(PointerMove{1, 1})));
   }
 
+  // A tagged seat still reserves its hole: tags wrap it, and the wrapper paints through.
+  {
+    OpsRecorder rec;
+    TestFeed feed;
+    Block t = column(seat({.id = 9, .width = 200}, expand(), semantic("page")));
+    Box tb = place(t, {0, 720, 0, 480});
+    paintTree(t, tb, Engine{}, rec, feed);
+    int slots = 0;
+    for (const auto& o : rec.ops) {
+      if (o.kind != Op::Kind::Slot) continue;
+      assert(o.slot == 9 && o.box.w == 200 && o.box.h == 480);
+      ++slots;
+    }
+    assert(slots == 1);
+  }
+
   // Scope tags emit their push before the node paints and one pop after
   // its subtree, in a fixed order: shadow, effect, then transforms.
   {

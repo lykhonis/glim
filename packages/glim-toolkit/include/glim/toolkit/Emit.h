@@ -28,11 +28,6 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
     box,
     e,
     [&](const Block& n, const Box& bx, const Engine& en) -> bool {
-      // Seat reserves a host native: structural slot, never an entry; Seats are leaves.
-      if (auto seat = n.get<Seat>()) {
-        sink.slot(bx, seat->get().id);
-        return false;
-      }
       // Shadow wraps self + children: push before paintSelf so the
       // card fill itself lands in the shadow group.
       if (auto sh = n.tag<ShadowTag>()) {

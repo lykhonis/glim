@@ -39,14 +39,18 @@ struct LayerProps {
   LayerInputFn onInput;
   // The component's own a11y subtree, in its space; grafted under the layer.
   std::function<A11yExport()> a11ySubtree;
+  float width = 320.0f;
+  float height = 180.0f;
 };
 
-// Foreign-pixel plate: fixed 16:9 box; ids stay embedder-owned.
+// Foreign-pixel plate at its props size; ids stay embedder-owned.
 struct Layer {
   static constexpr const char* kKind = "Layer";
   LayerProps props;
   const char* kind() const { return kKind; }
-  Box place(Constraints c, const Engine&) const { return detail::resolveSize(320.0f, 180.0f, c); }
+  Box place(Constraints c, const Engine&) const {
+    return detail::resolveSize(props.width, props.height, c);
+  }
   void paint(const Box& box, AnySink& sink, const Engine&) const {
     if (props.image != 0) {
       sink.image(box, props.image, true);
