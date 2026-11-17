@@ -102,6 +102,21 @@ void test_tags() {
     assert(ring.w == fbox.w + 4 && ring.h == fbox.h + 4);
     assert(focusRingBox(grid, gridBox, 99).w == 0);
   }
+  // A tagged tap still claims the press over its label.
+  {
+    int taps = 0;
+    for (Block b :
+         {tap(
+            lines("go"), [&taps] { ++taps; }, rotate({})
+          ),
+          column(pad(10), tap(lines("go"), [&taps] { ++taps; }, translate(0, 0)))}) {
+      Box bb = place(b, {0, 720, 0, 480});
+      const Box tb = focusBox(b, bb, 0);
+      const float x = tb.x + tb.w / 2, y = tb.y + tb.h / 2;
+      assert(dispatchPointer(b, bb, x, y, Event::borrow(PointerDown{x, y})));
+    }
+    assert(taps == 2);
+  }
   {
     State<int> tapped = store.make<int>(0);
     Block actionable = tap(lines("go"), [tapped] { tapped = 1; });
@@ -169,4 +184,54 @@ void test_tags() {
     );
     assert(pops == 4);
   }
+}
+
+void test_tilt() {
+  // Like rotate, a tilt moves a node's children (the node paints first):
+  // a column tilted 45 degrees about Y around its center, holding a
+  // 200x100 tap (32x14 label padded). Pointers hit what paint drew.
+  int taps = 0;
+  Block plate = tap(lines("page"), [&taps] { ++taps; }, pad(84, 43));
+  Block tree = column(pad(100), tilt({.y = 45, .perspective = 400}), std::move(plate));
+  Box tb = place(tree, {0, 400, 0, 300});
+  const Box pb = focusBox(tree, tb, 0);
+  assert(pb.w == 200 && pb.h == 100);
+  const float cx = pb.x + pb.w / 2, cy = pb.y + pb.h / 2;
+
+  OpsRecorder rec;
+  TestFeed feed;
+  paintTree(tree, tb, Engine{}, rec, feed);
+  int tilts = 0, pops = 0;
+  for (const auto& o : rec.ops) {
+    if (o.kind == Op::Kind::PushTilt) {
+      assert(o.tiltY == 45.f && o.tiltX == 0.f && o.tiltD == 400.f);
+      assert(o.rcx == cx && o.rcy == cy);
+      ++tilts;
+    }
+    pops += o.kind == Op::Kind::Pop;
+  }
+  assert(tilts == 1 && pops >= 1);
+
+  // The pivot projects onto itself; the far (right) edge pulls in, so a
+  // point inside the flat box near that edge now misses.
+  assert(dispatchPointer(tree, tb, cx, cy, Event::borrow(PointerDown{cx, cy})));
+  assert(taps == 1);
+  const float farX = pb.x + pb.w - 4;
+  assert(!dispatchPointer(tree, tb, farX, cy, Event::borrow(PointerDown{farX, cy})));
+  assert(taps == 1);
+  // Near (left) edge grows: just above the flat top, by the left edge, hits.
+  const glim::Mat4 m = tiltMatrix({.y = 45, .perspective = 400}, pb);
+  const glim::Vec3 corner = glim::projectPlane(m, {pb.x + 4, pb.y + 4});
+  const float nx = corner.x / corner.z, ny = corner.y / corner.z;
+  assert(ny < pb.y);
+  assert(dispatchPointer(tree, tb, nx, ny + 1, Event::borrow(PointerDown{nx, ny + 1})));
+  assert(taps == 2);
+
+  // Focus and a11y report the node in its own space; a tilt at 0 is no tilt.
+  assert(focusAt(tree, tb, cx, cy) == 0);
+  Block flat = column(tilt({}), tap(lines("page"), [] {}));
+  OpsRecorder none;
+  Box fb = place(flat, {0, 400, 0, 300});
+  paintTree(flat, fb, Engine{}, none, feed);
+  for (const auto& o : none.ops) assert(o.kind != Op::Kind::PushTilt);
 }

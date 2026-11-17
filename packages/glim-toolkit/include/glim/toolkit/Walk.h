@@ -201,6 +201,9 @@ struct MarkFrame {
   void pushOpacity(float opacity) { inner->pushOpacity(opacity); }
   void pushTransform(float dx, float dy) { inner->pushTransform(dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { inner->pushRotate(angleDeg, cx, cy); }
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+    inner->pushTilt(xDeg, yDeg, perspective, cx, cy);
+  }
   void pushShadow(
     float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
   ) {
@@ -276,7 +279,7 @@ void paintSelf(const Block& b, const Box& box, S& sink, F& feed, const Engine& e
 }
 // Tap-like builtins own their region, even spilled; Customs never claim.
 inline bool claimsHit(const Block& b) {
-  if (b.get<Custom>()) return false;
+  if (auto c = b.get<Custom>()) return c->get().claimsHit();
   bool found = false;
   std::visit(
     [&](const auto& el) {

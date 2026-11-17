@@ -97,6 +97,7 @@ struct AnySink {
   void (*pushOpacityFn)(void*, float) = nullptr;
   void (*pushTransformFn)(void*, float, float) = nullptr;
   void (*pushRotateFn)(void*, float, float, float) = nullptr;
+  void (*pushTiltFn)(void*, float, float, float, float, float) = nullptr;
   void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
     nullptr;
   void (*fillChamferFn)(void*, const Box&, float, std::uint32_t, const std::string&) = nullptr;
@@ -214,6 +215,9 @@ struct AnySink {
   void pushOpacity(float opacity) { pushOpacityFn(sink, opacity); }
   void pushTransform(float dx, float dy) { pushTransformFn(sink, dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { pushRotateFn(sink, angleDeg, cx, cy); }
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+    pushTiltFn(sink, xDeg, yDeg, perspective, cx, cy);
+  }
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
   void stroke(
@@ -283,6 +287,9 @@ void bindOps(AnySink& a) {
   };
   a.pushRotateFn = [](void* s, float angleDeg, float cx, float cy) {
     static_cast<S*>(s)->pushRotate(angleDeg, cx, cy);
+  };
+  a.pushTiltFn = [](void* s, float xDeg, float yDeg, float perspective, float cx, float cy) {
+    static_cast<S*>(s)->pushTilt(xDeg, yDeg, perspective, cx, cy);
   };
   a.fillRadialFn = [](
                      void* s,
@@ -494,6 +501,24 @@ struct has_inner_box<
   std::void_t<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>()))>>
     : std::is_same<decltype(std::declval<const T&>().innerBox(std::declval<const Box&>())), Box> {};
 
+namespace detail {
+template <class T, class = void>
+struct has_inner_type : std::false_type {};
+template <class T>
+struct has_inner_type<T, std::void_t<typename T::inner_type>> : std::true_type {};
+}  // namespace detail
+
+// A container that owns presses inside it and acts on them (Tap), seen
+// through tag wrappers. Layout-only insets (cards) leave presses to children.
+template <class T, class = void>
+struct claims_hit : std::false_type {};
+template <class T>
+struct claims_hit<T, std::enable_if_t<!detail::has_inner_type<T>::value>>
+    : std::bool_constant<has_inner_box<T>::value && has_handle<T>::value> {};
+template <class T>
+struct claims_hit<T, std::enable_if_t<detail::has_inner_type<T>::value>>
+    : claims_hit<typename T::inner_type> {};
+
 struct Custom {
   static constexpr const char* kKind = "Custom";
   const char* kind() const { return kKind; }
@@ -505,6 +530,7 @@ struct Custom {
     bool (*handleAt)(const void* s, bool heap, const Box& b, const Event& ev);
     void (*paint)(const void* s, bool heap, const Box& b, AnySink& sink, const Engine& e);
     bool (*clips)(const void* s, bool heap);
+    bool (*claims)(const void* s, bool heap);
     std::optional<std::reference_wrapper<const std::string>> (*semantic)(const void* s, bool heap);
     A11yTraits (*a11y)(const void* s, bool heap);
     A11yExport (*a11yExport)(const void* s, bool heap);
@@ -646,6 +672,7 @@ struct Custom {
     if (vt && vt->paint) vt->paint(buf, onHeap, b, sink, e);
   }
   bool clipsChildren() const { return vt && vt->clips ? vt->clips(buf, onHeap) : false; }
+  bool claimsHit() const { return vt && vt->claims ? vt->claims(buf, onHeap) : false; }
   // Borrowed id; tree must outlive the pointer.
   std::optional<std::reference_wrapper<const std::string>> semanticPtr() const {
     if (vt && vt->semantic) return vt->semantic(buf, onHeap);
@@ -800,6 +827,11 @@ struct Custom {
   }
 
   template <class U>
+  static bool (*claimsFor())(const void*, bool) {
+    return [](const void*, bool) -> bool { return claims_hit<U>::value; };
+  }
+
+  template <class U>
   static std::optional<std::reference_wrapper<const std::string>> (*semanticFor())(
     const void*, bool
   ) {
@@ -862,6 +894,7 @@ struct Custom {
       handleAtFor<U>(),
       paintFor<U>(),
       clipsFor<U>(),
+      claimsFor<U>(),
       semanticFor<U>(),
       a11yFor<U>(),
       a11yExportFor<U>(),

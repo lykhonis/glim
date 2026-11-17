@@ -205,6 +205,11 @@ struct ContextSink {
     p.transform = ::glim::Mat4::translate(dx, dy);
     ctx.pushGroup(p);
   }
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+    ::glim::paint::GroupParams p;
+    p.transform = tiltMatrix(xDeg, yDeg, perspective, cx, cy);
+    ctx.pushGroup(p);
+  }
   void pushRotate(float angleDeg, float cx, float cy) {
     const float rad = angleDeg * 3.14159265f / 180.0f;
     ::glim::Mat4 m = ::glim::Mat4::translate(cx, cy) * ::glim::Mat4::rotateZ(rad) *

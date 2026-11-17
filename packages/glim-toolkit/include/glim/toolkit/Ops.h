@@ -37,6 +37,7 @@ struct Op {
     PushShadow,
     PushEffect,
     PushOpacity,
+    PushTilt,
   };
   Kind kind = Kind::Pop;
   Rec::Entry entry;  // valid when kind == Entry
@@ -75,6 +76,9 @@ struct Op {
   std::uint32_t effect = 0;       // PushEffect kind (EffectKind bits)
   float e0 = 0.f;                 // PushEffect intensity (Glow alpha mul)
   float opacity = 1.f;            // PushOpacity group fade
+  float tiltX = 0.f;              // PushTilt degrees about X (pivot rcx, rcy)
+  float tiltY = 0.f;              // PushTilt degrees about Y
+  float tiltD = 0.f;              // PushTilt perspective distance px
   std::vector<float> pts;         // Polyline flat points
   std::string text;               // Text variant
   std::string mark;               // semantic mark for every op
@@ -92,8 +96,8 @@ struct Op {
            thickness == o.thickness && startDeg == o.startDeg && sweepDeg == o.sweepDeg &&
            dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox && soy == o.soy &&
            expand == o.expand && shadowColor == o.shadowColor && casterOpacity == o.casterOpacity &&
-           effect == o.effect && e0 == o.e0 && opacity == o.opacity && pts == o.pts &&
-           text == o.text && mark == o.mark;
+           effect == o.effect && e0 == o.e0 && opacity == o.opacity && tiltX == o.tiltX &&
+           tiltY == o.tiltY && tiltD == o.tiltD && pts == o.pts && text == o.text && mark == o.mark;
   }
   bool operator!=(const Op& o) const { return !(*this == o); }
 };
@@ -103,9 +107,9 @@ inline const char* opKindName(Op::Kind k) {
     "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
     "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
     "Slot",     "PushRotate", "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
-    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",
+    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",  "PushTilt",
   };
-  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushOpacity) + 1);
+  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushTilt) + 1);
   return kNames[static_cast<int>(k)];
 }
 
@@ -248,6 +252,16 @@ struct OpsRecorder {
     o.kind = Op::Kind::PushTransform;
     o.dx = dx;
     o.dy = dy;
+    ops.push_back(o);
+  }
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+    Op o;
+    o.kind = Op::Kind::PushTilt;
+    o.tiltX = xDeg;
+    o.tiltY = yDeg;
+    o.tiltD = perspective;
+    o.rcx = cx;
+    o.rcy = cy;
     ops.push_back(o);
   }
   void pushRotate(float angleDeg, float cx, float cy) {

@@ -42,7 +42,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
     e,
     [&](const Block& n, const Box& bx, const Engine&) {
       const detail::PlaneMap toWindow = toNode.back().inverse();
-      toNode.push_back(toNode.back().then(detail::childSpace(n)));
+      toNode.push_back(toNode.back().then(detail::childSpace(n, bx)));
       Rec tmp;
       describeSelf(n, bx, tmp);
       std::string label;

@@ -109,6 +109,7 @@ packages/glim-toolkit/include/glim/toolkit/tags/Semantic.h
 packages/glim-toolkit/include/glim/toolkit/tags/Shadow.h
 packages/glim-toolkit/include/glim/toolkit/tags/Shape.h
 packages/glim-toolkit/include/glim/toolkit/tags/Spacing.h
+packages/glim-toolkit/include/glim/toolkit/tags/Tilt.h
 packages/glim-toolkit/include/glim/toolkit/tags/Transform.h
 packages/glim-toolkit/include/glim/toolkit/tags/Wrap.h
 packages/glim-toolkit/include/glim/toolkit/text/Text.h

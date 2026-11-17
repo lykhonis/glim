@@ -25,6 +25,7 @@ struct is_slot_tag : std::false_type {};
 #include "glim/toolkit/tags/Pad.h"
 #include "glim/toolkit/tags/Role.h"
 #include "glim/toolkit/tags/Rotate.h"
+#include "glim/toolkit/tags/Tilt.h"
 #include "glim/toolkit/tags/Scroll.h"
 #include "glim/toolkit/tags/Semantic.h"
 #include "glim/toolkit/tags/Shadow.h"

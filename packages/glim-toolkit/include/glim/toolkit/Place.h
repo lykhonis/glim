@@ -96,7 +96,7 @@ float clampF(float v, float lo, float hi);
 bool boxContains(const Box& b, float x, float y);
 // Window -> the space a node's children paint in: inverse of its translate
 // and rotate tags (Emit pushes them after the node paints itself).
-PlaneMap childSpace(const Block& n);
+PlaneMap childSpace(const Block& n, const Box& box);
 // Pointer at (x, y) carried down the walk into each node's paint space, with
 // ancestor clips applied: Roll children hit only inside the clip.
 class PointStack {

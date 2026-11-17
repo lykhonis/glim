@@ -62,6 +62,11 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         sink.pushRotate(rt->get().angleDeg, rt->get().cx, rt->get().cy);
         transforms.push_back(std::cref(n));
       }
+      if (auto tt = n.tag<TiltTag>(); tt && tt->get().active()) {
+        const TiltTag& t = tt->get();
+        sink.pushTilt(t.x, t.y, t.perspective, bx.x + bx.w / 2, bx.y + bx.h / 2);
+        transforms.push_back(std::cref(n));
+      }
       if (clipsChildren(n)) {
         sink.pushClip(bx);
         clips.push_back(std::cref(n));

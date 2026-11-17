@@ -96,7 +96,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 6);  // version 6: PushOpacity
+  detail::putU16(out, 7);  // version 7: PushTilt
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -126,6 +126,12 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
     } else if (o.kind == K::PushTransform) {
       detail::putF32(out, o.dx);
       detail::putF32(out, o.dy);
+    } else if (o.kind == K::PushTilt) {
+      detail::putF32(out, o.tiltX);
+      detail::putF32(out, o.tiltY);
+      detail::putF32(out, o.tiltD);
+      detail::putF32(out, o.rcx);
+      detail::putF32(out, o.rcy);
     } else if (o.kind == K::PushRotate) {
       detail::putF32(out, o.angleDeg);
       detail::putF32(out, o.rcx);
@@ -199,7 +205,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
   const std::uint16_t ver = r.u16();
-  if (ver < 1 || ver > 6) return false;
+  if (ver < 1 || ver > 7) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -241,6 +247,13 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
     } else if (o.kind == K::PushTransform) {
       o.dx = r.f32();
       o.dy = r.f32();
+    } else if (o.kind == K::PushTilt) {
+      if (ver < 7) return false;
+      o.tiltX = r.f32();
+      o.tiltY = r.f32();
+      o.tiltD = r.f32();
+      o.rcx = r.f32();
+      o.rcy = r.f32();
     } else if (o.kind == K::PushRotate) {
       o.angleDeg = r.f32();
       o.rcx = r.f32();

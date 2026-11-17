@@ -40,7 +40,7 @@ Box mapBox(const PlaneMap& m, const Box& b) {
   return {lx, ly, hx - lx, hy - ly};
 }
 
-PlaneMap childSpace(const Block& n) {
+PlaneMap childSpace(const Block& n, const Box& box) {
   PlaneMap m;
   if (auto t = n.tag<TransformTag>()) m = PlaneMap::affine(1, 0, 0, 1, -t->get().dx, -t->get().dy);
   if (auto r = n.tag<RotateTag>()) {
@@ -53,6 +53,9 @@ PlaneMap childSpace(const Block& n) {
     );
     m = m.then(undo);
   }
+  if (auto t = n.tag<TiltTag>(); t && t->get().active()) {
+    m = m.then(PlaneMap{Mat3::planeOf(tiltMatrix(t->get(), box))}.inverse());
+  }
   return m;
 }
 
@@ -60,7 +63,7 @@ void PointStack::enter(const Block& n, const Box& bx) {
   const bool root = frames_.empty();
   const PlaneMap base = root ? PlaneMap{} : frames_.back().toChildren;
   const bool visible = root || frames_.back().childrenVisible;
-  Frame f{base, base.then(childSpace(n)), visible, visible};
+  Frame f{base, base.then(childSpace(n, bx)), visible, visible};
   if (visible && clipsChildren(n)) {
     const auto [cx, cy] = f.toChildren.apply(x_, y_);
     f.childrenVisible = boxContains(bx, cx, cy);

@@ -9,6 +9,7 @@ void test_chrome();
 void test_state();
 void test_text();
 void test_tags();
+void test_tilt();
 void test_scoped();
 void test_theme();
 void test_hit();
@@ -25,6 +26,7 @@ int main() {
   test_state();
   test_text();
   test_tags();
+  test_tilt();
   test_scoped();
   test_theme();
   test_hit();
