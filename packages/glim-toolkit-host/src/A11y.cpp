@@ -57,6 +57,32 @@ std::vector<shell::A11yElement> shellA11y(const std::vector<A11yNode>& nodes, in
   return out;
 }
 
+bool performA11y(
+  Screen& screen,
+  const A11yNode& node,
+  shell::A11yCommand command,
+  const A11yBuild& build,
+  const Engine& e
+) {
+  if (command == shell::A11yCommand::Focus) {
+    if (node.focusIndex < 0 || node.focusIndex == screen.focus) return false;
+    screen.focus = node.focusIndex;
+    screen.focusVisible = true;
+    return true;
+  }
+  const float x = node.box.x + node.box.w * 0.5f;
+  const float y = node.box.y + node.box.h * 0.5f;
+  if (command != shell::A11yCommand::Activate) {
+    const Adjust adjust{command == shell::A11yCommand::Increment ? 1 : -1};
+    const auto [tree, box] = build();
+    return dispatchPointer(tree, box, x, y, Event::borrow(adjust), e);
+  }
+  const auto [down, downBox] = build();
+  const bool pressed = screen.pointerDown(down, downBox, x, y, 0, e);
+  const auto [up, upBox] = build();
+  return screen.pointerUp(up, upBox, x, y, e) || pressed;
+}
+
 }  // namespace host
 }  // namespace toolkit
 }  // namespace glim

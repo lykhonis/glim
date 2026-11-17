@@ -188,30 +188,11 @@ int run(
   std::optional<std::vector<A11yNode>> a11yPublished;
   window.setA11yPerform([&](int index, shell::A11yCommand command) {
     if (!a11yPublished || index < 0 || index >= static_cast<int>(a11yPublished->size())) return;
-    const A11yNode& node = (*a11yPublished)[static_cast<std::size_t>(index)];
-    if (command == shell::A11yCommand::Focus) {
-      if (node.focusIndex >= 0 && node.focusIndex != screen.focus) {
-        screen.focus = node.focusIndex;
-        screen.focusVisible = true;
-        screen.dirty.invalidate();
-      }
-      return;
-    }
-    const Box b = node.box;
-    const float x = b.x + b.w * 0.5f;
-    const float y = b.y + b.h * 0.5f;
-    if (command != shell::A11yCommand::Activate) {
-      const Adjust adjust{command == shell::A11yCommand::Increment ? 1 : -1};
-      auto [tree, box] = buildFresh(window.size());
-      if (dispatchPointer(tree, box, x, y, Event::borrow(adjust), active))
-        screen.dirty.invalidate();
-      return;
-    }
-    auto [down, downBox] = buildFresh(window.size());
-    bool hit = screen.pointerDown(down, downBox, x, y, 0, active);
-    auto [up, upBox] = buildFresh(window.size());
-    hit = screen.pointerUp(up, upBox, x, y, active) || hit;
-    if (hit) screen.dirty.invalidate();
+    const auto build = [&] { return buildFresh(window.size()); };
+    if (performA11y(
+          screen, (*a11yPublished)[static_cast<std::size_t>(index)], command, build, active
+        ))
+      screen.dirty.invalidate();
   });
 
   // Single choke point for every layer: shell frameMs in, toolkit

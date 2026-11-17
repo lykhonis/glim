@@ -76,6 +76,22 @@ glim::toolkit::Block fxScene() {
   );
 }
 
+// Counts taps and screen-reader steps, the input performA11y stands for.
+struct Knob {
+  int* taps;
+  int* value;
+  const char* kind() const { return "Knob"; }
+  glim::toolkit::Box place(glim::toolkit::Constraints c, const glim::toolkit::Engine&) const {
+    return glim::toolkit::detail::resolveSize(60.0f, 20.0f, c);
+  }
+  bool handleAt(const glim::toolkit::Box&, const glim::toolkit::Event& ev) const {
+    if (ev.is<glim::toolkit::PointerUp>()) ++*taps;
+    if (auto a = ev.as<glim::toolkit::Adjust>()) *value += a->get().step;
+    return ev.is<glim::toolkit::PointerDown>() || ev.is<glim::toolkit::PointerUp>() ||
+           ev.is<glim::toolkit::Adjust>();
+  }
+};
+
 }  // namespace
 
 int main() {
@@ -124,6 +140,38 @@ int main() {
     assert(glim::shell::focusedIndex(glim::toolkit::host::shellA11y(nodes, 4)) == 2);
     nodes[0].id.clear();
     assert(glim::toolkit::host::shellA11y(nodes)[0].label.empty());
+  }
+
+  // performA11y: each OS command becomes the toolkit input it stands for.
+  {
+    using namespace glim::toolkit;
+    using glim::shell::A11yCommand;
+    using glim::toolkit::host::performA11y;
+    int taps = 0;
+    int value = 0;
+    const auto tree = [&] {
+      return column(toBlock(Knob{&taps, &value}), toBlock(Knob{&taps, &value}));
+    };
+    const auto build = [&] {
+      Block t = tree();
+      const Box b = place(t, {0, 320, 0, 200});
+      return std::pair<Block, Box>(std::move(t), b);
+    };
+    const auto [t, b] = build();
+    const std::vector<A11yNode> nodes = a11yNodes(t, b);
+    const A11yNode& second = nodes[1];
+    Screen screen;
+    assert(performA11y(screen, second, A11yCommand::Activate, build) && taps == 1);
+    assert(performA11y(screen, second, A11yCommand::Increment, build));
+    assert(performA11y(screen, second, A11yCommand::Decrement, build));
+    assert(performA11y(screen, second, A11yCommand::Increment, build) && value == 1);
+    screen.focus = 0;
+    assert(performA11y(screen, second, A11yCommand::Focus, build));
+    assert(screen.focus == 1 && screen.focusVisible);
+    assert(!performA11y(screen, second, A11yCommand::Focus, build));
+    A11yNode label = second;
+    label.focusIndex = -1;
+    assert(!performA11y(screen, label, A11yCommand::Focus, build) && screen.focus == 1);
   }
 
   // Present seam: the Engine's Presenter answers; without one, Unsupported.
