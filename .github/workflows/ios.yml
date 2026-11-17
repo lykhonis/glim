@@ -9,6 +9,8 @@ jobs:
     with:
       name: ios-tvos
       runs-on: macos-15
+      # Two cold simulator boots (iOS, tvOS) alone take 10-12 minutes.
+      timeout-minutes: 40
       nx: |
         pnpm exec nx run examples:build-ios-sim
         pnpm exec nx run-many -t run-ios --projects=tag:example --parallel=1 --smoke=15
