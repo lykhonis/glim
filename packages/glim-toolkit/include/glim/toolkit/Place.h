@@ -131,6 +131,14 @@ struct Flow {
   std::vector<Box> children;
 };
 
+inline std::vector<Box> offsetBoxes(std::vector<Box> boxes, float dx, float dy) {
+  for (Box& b : boxes) {
+    b.x += dx;
+    b.y += dy;
+  }
+  return boxes;
+}
+
 // Opt-in cross-axis centering; place and childBox agree from one call each.
 inline void centerRow(Flow& f) {
   for (auto& b : f.children) b.y += (f.size.h - b.h) * 0.5f;

@@ -345,10 +345,11 @@ void walk(const Block& b, const Box& box, const Engine& e, Enter&& enter, Exit&&
         [&](const auto& el) {
           using T = std::decay_t<decltype(el)>;
           if constexpr (has_children<T>::value) {
+            const std::vector<Box> boxes = childBoxesOf(el, box, de);
             std::size_t i = 0;
             eachChildOf(el, [&](const Block& child) {
               detail::PathPush p(static_cast<int>(i));
-              walk(child, el.childBox(i, box, de), de, enter, exit);
+              walk(child, boxes[i], de, enter, exit);
               ++i;
             });
           }

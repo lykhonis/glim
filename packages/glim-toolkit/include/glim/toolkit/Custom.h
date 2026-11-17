@@ -464,6 +464,29 @@ void eachChildOf(const T& el, F&& f) {
 }
 
 template <class T, class = void>
+struct has_childBoxes : std::false_type {};
+template <class T>
+struct has_childBoxes<
+  T,
+  std::void_t<decltype(std::declval<const T&>()
+                         .childBoxes(std::declval<const Box&>(), std::declval<const Engine&>()))>>
+    : std::true_type {};
+
+// Every child's box in one pass: containers that flow their children give
+// them all from one layout, so a walk stays linear in the child count.
+template <class T>
+std::vector<Box> childBoxesOf(const T& el, const Box& box, const Engine& e) {
+  if constexpr (has_childBoxes<T>::value) {
+    return el.childBoxes(box, e);
+  } else {
+    std::vector<Box> out;
+    std::size_t i = 0;
+    eachChildOf(el, [&](const Block&) { out.push_back(el.childBox(i++, box, e)); });
+    return out;
+  }
+}
+
+template <class T, class = void>
 struct has_inner_box : std::false_type {};
 template <class T>
 struct has_inner_box<
@@ -489,6 +512,7 @@ struct Custom {
     std::size_t (*childCount)(const void* s, bool heap);
     const Block* (*childAt)(const void* s, bool heap, std::size_t i);
     Box (*childBox)(const void* s, bool heap, std::size_t i, const Box& b, const Engine& e);
+    std::vector<Box> (*childBoxes)(const void* s, bool heap, const Box& b, const Engine& e);
     void (*destroy)(void* s, bool heap);
     void (*moveTo)(void* d, void* s, bool& dheap, bool& sheap);
     void (*cloneTo)(const void* s, bool heap, void* d, bool& dheap);
@@ -595,12 +619,12 @@ struct Custom {
   // Single-walk transparency; child refs valid only during cb.
   template <class F>
   void visit(const Box& b, const Engine& e, F&& cb) const {
-    if (!vt || !vt->childCount || !vt->childAt || !vt->childBox) return;
-    std::size_t n = vt->childCount(buf, onHeap);
-    for (std::size_t i = 0; i < n; ++i) {
+    if (!vt || !vt->childCount || !vt->childAt || !vt->childBoxes) return;
+    const std::vector<Box> boxes = vt->childBoxes(buf, onHeap, b, e);
+    for (std::size_t i = 0; i < boxes.size(); ++i) {
       const Block* c = vt->childAt(buf, onHeap, i);
       if (!c) continue;
-      cb(*c, vt->childBox(buf, onHeap, i, b, e));
+      cb(*c, boxes[i]);
     }
   }
   template <class U>
@@ -710,6 +734,17 @@ struct Custom {
           });
           return found;
         }
+      };
+    } else {
+      return nullptr;
+    }
+  }
+
+  template <class U>
+  static std::vector<Box> (*childBoxesFn())(const void*, bool, const Box&, const Engine&) {
+    if constexpr (has_children<U>::value) {
+      return [](const void* s, bool heap, const Box& b, const Engine& e) -> std::vector<Box> {
+        return childBoxesOf(*static_cast<const U*>(addr<U>(s, heap)), b, e);
       };
     } else {
       return nullptr;
@@ -834,6 +869,7 @@ struct Custom {
       childCountFn<U>(),
       childAtFn<U>(),
       childBoxFn<U>(),
+      childBoxesFn<U>(),
       [](void* s, bool heap) {
         if (heap) {
           delete *static_cast<U**>(s);

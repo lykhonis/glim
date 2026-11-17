@@ -22,12 +22,12 @@ struct Stack {
   Stack(Stack&&);
   Stack& operator=(Stack&&);
   Box place(Constraints c, const Engine& e) const { return detail::flowStack(children, c, e).size; }
-  Box childBox(std::size_t i, const Box& box, const Engine& e) const {
+  std::vector<Box> childBoxes(const Box& box, const Engine& e) const {
     detail::Flow f = detail::flowStack(children, {0, box.w, 0, box.h}, e);
-    Box b = f.children[i];
-    b.x += box.x;
-    b.y += box.y;
-    return b;
+    return detail::offsetBoxes(std::move(f.children), box.x, box.y);
+  }
+  Box childBox(std::size_t i, const Box& box, const Engine& e) const {
+    return childBoxes(box, e)[i];
   }
 };
 

@@ -53,6 +53,12 @@ struct Tagged {
   void eachChild(F&& f) const {
     if constexpr (has_children<Inner>::value) eachChildOf(inner_, std::forward<F>(f));
   }
+  template <class I = Inner, std::enable_if_t<has_children<I>::value, int> = 0>
+  std::vector<Box> childBoxes(const Box& box, const Engine& e) const {
+    Env node{&tag_, &typeid(Tag), e.env};
+    Engine ce{node, e.store};
+    return childBoxesOf(inner_, box, ce);
+  }
   Box childBox(std::size_t i, const Box& box, const Engine& e) const {
     if constexpr (has_children<Inner>::value) {
       Env node{&tag_, &typeid(Tag), e.env};

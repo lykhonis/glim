@@ -30,7 +30,8 @@ struct Column : WithGap, WithCenter, WithPad {
     f.size.h = detail::clampF(f.size.h + static_cast<float>(2 * padV), c.minH, c.maxH);
     return f.size;
   }
-  Box childBox(std::size_t i, const Box& box, const Engine& e) const {
+  // All child boxes from one flow; walks take these instead of childBox per child.
+  std::vector<Box> childBoxes(const Box& box, const Engine& e) const {
     Box inner{
       box.x + static_cast<float>(padH),
       box.y + static_cast<float>(padV),
@@ -41,10 +42,10 @@ struct Column : WithGap, WithCenter, WithPad {
     if (inner.h < 0) inner.h = 0;
     detail::Flow f = detail::flowColumn(children, gap, {0, inner.w, 0, inner.h}, e);
     if (centered) detail::centerColumn(f);
-    Box b = f.children[i];
-    b.x += inner.x;
-    b.y += inner.y;
-    return b;
+    return detail::offsetBoxes(std::move(f.children), inner.x, inner.y);
+  }
+  Box childBox(std::size_t i, const Box& box, const Engine& e) const {
+    return childBoxes(box, e)[i];
   }
 };
 
