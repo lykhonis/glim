@@ -38,6 +38,12 @@ First versioned release of the public packages.
 - Vulkan: imported AHardwareBuffers are acquired from the foreign queue before each frame and released after it, so another producer's writes become visible.
 - Android: `glim_app_main(int argc, char** argv)` receives the `args` intent extra (`am start ... --es args "--drive /path"`); stdout and stderr go to logcat (tag `glim`). When the app returns, the activity finishes instead of hanging until an ANR.
 - iOS: the app exits when a drive finishes.
+- WebView example (`examples/webview`): Slot on Apple (`WKWebView` through the seat factory) and Texture on Android (WebView in a `VirtualDisplay`, read through an `AImageReader` of `AHardwareBuffer`s into `host::Feed`, with touches forwarded as `MotionEvent`s).
+- Android: `shell::androidActivity()` returns the JavaVM and activity, for app-owned Java glue. `glim_add_example(... JAVA dir)` compiles the dir to `classes.dex` with `javac` and `d8`.
+- `seat(...)` with tags (`expand()`, `semantic()`) now emits its slot. Before, the wrapper hid it and no native view attached.
+- `LayerProps::width` and `height` set the layer's size (default 320×180).
+- The GPU renderer logs a failed surface import once per image and stops retrying it.
+- `@glim/native:run`: `smokeTap` taps the screen center halfway through an Android smoke, and `smokeLog` lists logcat patterns that must appear.
 - `layer({.image, .onInput})` forwards pointer and wheel input in component space (`LayerInput`, `layerInput(box, ev)`); the wheel reaches a handler under the pointer before scroll views.
 - Accessibility reaches the OS: `Window::setA11y` takes `shell::A11yElement`s (role, label, value, window-logical frame, parent, checked, disabled). macOS builds `NSAccessibilityElement`s under the view, with hit testing and press; iOS and tvOS build flat `UIAccessibilityElement`s with traits and activate. `Window::a11yActive()` turns true once the OS asks, and only then does `host::run` walk the tree, map it with `host::shellA11y` and publish it; a screen-reader activation taps the node's centre. Android, Linux and web keep no-op bridges.
 - A11y graft for embedded components: an element's `a11yExport()` returns an `A11yExport` (nodes in its own space plus that space's size). `a11yNodes` grafts the nodes after the host node with boxes mapped onto it, and `A11yNode::parent` links them. `layer({.a11ySubtree})` exports from a Layer. The video example exports what the clip shows.

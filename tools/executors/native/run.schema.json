@@ -49,6 +49,15 @@
       "type": "number",
       "description": "Smoke run: fail unless the app is still running this many seconds after launch, then stop it"
     },
+    "smokeTap": {
+      "type": "boolean",
+      "description": "Android smoke: tap the screen center halfway through the run"
+    },
+    "smokeLog": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Android smoke: regexes that must each match a logcat line before the app stops"
+    },
     "open": {
       "type": "boolean",
       "description": "Open the browser automatically (default true)"

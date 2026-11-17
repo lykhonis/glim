@@ -1,0 +1,293 @@
+#include <android/hardware_buffer.h>
+#include <android/input.h>
+#include <android/native_window_jni.h>
+#include <glim/shell/AndroidActivity.h>
+#include <media/NdkImageReader.h>
+#include <poll.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#include <cmath>
+#include <deque>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+
+#include "PageHtml.h"
+#include "WebPage.h"
+#include "glim/toolkit/host/Feed.h"
+
+namespace glim::toolkit {
+
+namespace {
+
+// ART aborts when an attached native thread exits, so detach on exit.
+JNIEnv* jniEnv(JavaVM* vm) {
+  static pthread_key_t key;
+  static pthread_once_t once = PTHREAD_ONCE_INIT;
+  pthread_once(&once, [] {
+    pthread_key_create(&key, [](void* v) {
+      static_cast<JavaVM*>(v)->DetachCurrentThread();
+    });
+  });
+  JNIEnv* env = nullptr;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) ==
+      JNI_OK)
+    return env;
+  if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return nullptr;
+  pthread_setspecific(key, vm);
+  return env;
+}
+
+bool failed(JNIEnv* env, const char* what) {
+  if (!env->ExceptionCheck()) return false;
+  env->ExceptionDescribe();
+  env->ExceptionClear();
+  std::cerr << "webview: " << what << " threw\n";
+  return true;
+}
+
+// Native threads see only the boot class loader; app classes come from
+// the activity's.
+jclass appClass(JNIEnv* env, jobject activity, const char* name) {
+  jclass activityClass = env->GetObjectClass(activity);
+  jmethodID getLoader = env->GetMethodID(
+    activityClass, "getClassLoader", "()Ljava/lang/ClassLoader;"
+  );
+  jobject loader = env->CallObjectMethod(activity, getLoader);
+  jclass loaderClass = env->FindClass("java/lang/ClassLoader");
+  jmethodID load = env->GetMethodID(
+    loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;"
+  );
+  auto found = static_cast<jclass>(
+    env->CallObjectMethod(loader, load, env->NewStringUTF(name))
+  );
+  return failed(env, name) ? nullptr : found;
+}
+
+int motionAction(LayerInput::Phase phase) {
+  switch (phase) {
+    case LayerInput::Phase::Down:
+      return AMOTION_EVENT_ACTION_DOWN;
+    case LayerInput::Phase::Move:
+      return AMOTION_EVENT_ACTION_MOVE;
+    case LayerInput::Phase::Up:
+      return AMOTION_EVENT_ACTION_UP;
+    case LayerInput::Phase::Wheel:
+      break;
+  }
+  return -1;
+}
+
+// An image the frame may sample: open until Feed::claim frees it, so
+// the reader cannot hand its buffer back to the page while the GPU
+// reads it.
+struct Held {
+  AImage* image = nullptr;
+  std::uint32_t id = 0;
+  int fence = -1;
+  std::uint64_t seq = 0;
+};
+
+// Texture (K86): WebView → private VirtualDisplay → AImageReader of
+// GPU-sampled AHardwareBuffers → imported and sampled with no copy.
+class AndroidWebPage final : public WebPage {
+ public:
+  AndroidWebPage() : feed_([this] { return signaled(); }) {}
+
+  ~AndroidWebPage() override {
+    for (Held& h : held_) release(h);
+    if (reader_) AImageReader_delete(reader_);
+  }
+
+  void attach(paint::Context& ctx) override {
+    if (reader_ || broken_ || ctx.size().x <= 0) return;
+    if (__builtin_available(android 26, *)) {
+      broken_ = !open(ctx);
+    } else {
+      broken_ = true;
+    }
+  }
+
+  std::uint32_t acquire() override {
+    if (!reader_) return 0;
+    if (__builtin_available(android 26, *)) {
+      reclaim();
+      take();
+    }
+    const std::uint32_t id = feed_.acquire();
+    if (++frames_ % 150 == 0) {
+      const host::FeedStats s = feed_.stats();
+      std::cerr << "webview feed published=" << s.published
+                << " acquired=" << s.acquired
+                << " fence_misses=" << s.fenceMisses
+                << " dropped=" << s.dropped
+                << " reuse_waits=" << s.reuseWaits << std::endl;
+    }
+    return id;
+  }
+
+  bool input(const LayerInput& in) override {
+    const int action = motionAction(in.phase);
+    if (!page_ || action < 0 || in.width <= 0 || in.height <= 0)
+      return false;
+    JNIEnv* env = jniEnv(vm_);
+    if (!env) return false;
+    const float x = in.x * static_cast<float>(width_) / in.width;
+    const float y = in.y * static_cast<float>(height_) / in.height;
+    env->CallVoidMethod(page_, touch_, action, x, y);
+    return !failed(env, "touch");
+  }
+
+  const char* mode() const override {
+    return "Texture: WebView in a VirtualDisplay";
+  }
+
+ private:
+  static constexpr std::size_t kHeldMax = host::Feed::kHeld + 2;
+  // One more than held, so the page always has a buffer to draw into.
+  static constexpr int kImages = static_cast<int>(kHeldMax) + 1;
+
+  __attribute__((availability(android, introduced = 26))) bool open(
+    paint::Context& ctx
+  ) {
+    const shell::AndroidActivity host = shell::androidActivity();
+    vm_ = host.vm;
+    JNIEnv* env = vm_ ? jniEnv(vm_) : nullptr;
+    if (!env) return false;
+    jclass cls =
+      appClass(env, host.activity, "com.glim.webview.WebTexture");
+    if (!cls) return false;
+    const jint dpi = env->CallStaticIntMethod(
+      cls,
+      env->GetStaticMethodID(
+        cls, "densityDpi", "(Landroid/app/Activity;)I"
+      ),
+      host.activity
+    );
+    if (failed(env, "densityDpi") || dpi <= 0) return false;
+    const float scale = static_cast<float>(dpi) / 160.0f;
+    width_ = static_cast<int>(std::lround(ctx.size().x * scale));
+    height_ = static_cast<int>(std::lround(ctx.size().y * scale));
+    constexpr std::uint64_t usage =
+      AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+      AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+    if (AImageReader_newWithUsage(
+          width_,
+          height_,
+          AIMAGE_FORMAT_RGBA_8888,
+          usage,
+          kImages,
+          &reader_
+        ) != AMEDIA_OK) {
+      reader_ = nullptr;
+      return false;
+    }
+    ANativeWindow* window = nullptr;
+    AImageReader_getWindow(reader_, &window);
+    jobject surface = ANativeWindow_toSurface(env, window);
+    jmethodID make = env->GetMethodID(
+      cls,
+      "<init>",
+      "(Landroid/app/Activity;Landroid/view/Surface;IIILjava/lang/"
+      "String;)V"
+    );
+    jobject page = env->NewObject(
+      cls,
+      make,
+      host.activity,
+      surface,
+      width_,
+      height_,
+      dpi,
+      env->NewStringUTF(kPageHtml)
+    );
+    if (failed(env, "WebTexture") || !page) return false;
+    page_ = env->NewGlobalRef(page);
+    touch_ = env->GetMethodID(cls, "touch", "(IFF)V");
+    ctx_ = &ctx;
+    std::cerr << "webview texture " << width_ << "x" << height_
+              << " dpi " << dpi << std::endl;
+    return true;
+  }
+
+  __attribute__((availability(android, introduced = 26))) void reclaim(
+  ) {
+    while (held_.size() >= kHeldMax) {
+      std::vector<std::uint32_t> ids;
+      for (const Held& h : held_) ids.push_back(h.id);
+      const std::optional<std::size_t> free = feed_.claim(ids);
+      if (!free) return;
+      release(held_[*free]);
+      held_.erase(held_.begin() + static_cast<std::ptrdiff_t>(*free));
+    }
+  }
+
+  __attribute__((availability(android, introduced = 26))) void take() {
+    if (held_.size() >= kHeldMax) return;
+    Held h;
+    if (AImageReader_acquireLatestImageAsync(
+          reader_, &h.image, &h.fence
+        ) != AMEDIA_OK)
+      return;
+    AHardwareBuffer* buffer = nullptr;
+    if (AImage_getHardwareBuffer(h.image, &buffer) != AMEDIA_OK ||
+        !buffer) {
+      release(h);
+      return;
+    }
+    std::uint32_t& id = ids_[buffer];
+    if (id == 0)
+      id = ctx_->wrapSurface(
+        buffer, width_, height_, paint::SampleFormat::Rgba8Unorm
+      );
+    h.id = id;
+    h.seq = ++published_;
+    held_.push_back(h);
+    feed_.publish({h.id, h.seq});
+  }
+
+  // The newest sequence whose reader fence, and every older one, has
+  // passed.
+  std::uint64_t signaled() {
+    for (Held& h : held_) {
+      if (h.fence >= 0) {
+        pollfd p{h.fence, POLLIN, 0};
+        if (poll(&p, 1, 0) <= 0) return h.seq - 1;
+        close(h.fence);
+        h.fence = -1;
+      }
+    }
+    return published_;
+  }
+
+  static void release(Held& h) {
+    if (h.fence >= 0) close(h.fence);
+    if (h.image) {
+      if (__builtin_available(android 26, *)) AImage_delete(h.image);
+    }
+    h = {};
+  }
+
+  host::Feed feed_;
+  AImageReader* reader_ = nullptr;
+  paint::Context* ctx_ = nullptr;
+  JavaVM* vm_ = nullptr;
+  jobject page_ = nullptr;
+  jmethodID touch_ = nullptr;
+  int width_ = 0;
+  int height_ = 0;
+  bool broken_ = false;
+  std::deque<Held> held_;
+  std::unordered_map<AHardwareBuffer*, std::uint32_t> ids_;
+  std::uint64_t published_ = 0;
+  std::uint64_t frames_ = 0;
+};
+
+}  // namespace
+
+std::unique_ptr<WebPage> makeWebPage() {
+  return std::make_unique<AndroidWebPage>();
+}
+
+}  // namespace glim::toolkit

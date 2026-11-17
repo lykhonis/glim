@@ -1,0 +1,36 @@
+set(_gen "${CMAKE_CURRENT_BINARY_DIR}/gen")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/page.html)
+file(READ src/page.html GLIM_PAGE_HTML)
+file(CONFIGURE OUTPUT "${_gen}/PageHtml.h" CONTENT
+    "#pragma once\nnamespace glim::toolkit {\ninline constexpr const char* kPageHtml = R\"glim(@GLIM_PAGE_HTML@)glim\";\n}\n"
+    @ONLY)
+set(_java "")
+if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "tvOS")
+    set(_source src/WebPageApple.mm)
+    set_source_files_properties(${_source} PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+elseif(ANDROID)
+    set(_source src/WebPageAndroid.cpp)
+    # minSdk 24; AImageReader and AHardwareBuffer are API 26, guarded at runtime.
+    set_source_files_properties(${_source} PROPERTIES
+        COMPILE_DEFINITIONS __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
+    set(_java JAVA java)
+else()
+    set(_source src/WebPageNone.cpp)
+endif()
+glim_add_example(webview TITLE "Glim WebView" SOURCES src/main.cpp ${_source} ${_java})
+target_include_directories(glim-webview PRIVATE "${_gen}")
+if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "tvOS")
+    target_link_libraries(glim-webview PRIVATE "-framework WebKit")
+elseif(ANDROID)
+    target_link_libraries(glim-webview PRIVATE mediandk)
+endif()
+
+if(GLIM_HOST_TESTS AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # N7 gate: the page seats as a live WKWebView and takes a real click.
+    add_executable(glim-webview-test tests/webview_test.mm ${_source})
+    set_source_files_properties(tests/webview_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_include_directories(glim-webview-test PRIVATE src "${_gen}")
+    target_link_libraries(glim-webview-test PRIVATE glim::toolkit-host "-framework AppKit" "-framework WebKit")
+    glim_test_defaults(glim-webview-test)
+    add_test(NAME glim-webview-test COMMAND glim-webview-test)
+endif()

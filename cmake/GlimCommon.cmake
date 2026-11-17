@@ -229,7 +229,7 @@ function(glim_apple_mobile_bundle target)
 endfunction()
 
 function(glim_add_example name)
-    cmake_parse_arguments(ARG "SOFTWARE" "TITLE" "SOURCES" ${ARGN})
+    cmake_parse_arguments(ARG "SOFTWARE" "TITLE;JAVA" "SOURCES" ${ARGN})
     if(NOT ARG_TITLE)
         set(ARG_TITLE "Glim ${name}")
     endif()
@@ -259,6 +259,14 @@ function(glim_add_example name)
         set(GLIM_EXAMPLE_PACKAGE "com.glim.${name}")
         set(GLIM_EXAMPLE_LABEL "${ARG_TITLE}")
         set(GLIM_EXAMPLE_LIB "${_target}")
+        set(GLIM_EXAMPLE_HAS_CODE false)
+        set(_java "")
+        if(ARG_JAVA)
+            set(GLIM_EXAMPLE_HAS_CODE true)
+            set(_java "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_JAVA}")
+            file(GLOB_RECURSE _java_sources CONFIGURE_DEPENDS "${_java}/*.java")
+            set_property(TARGET ${_target} APPEND PROPERTY LINK_DEPENDS ${_java_sources})
+        endif()
         configure_file("${CMAKE_SOURCE_DIR}/examples/common/AndroidManifest.xml.in" "${_manifest}" @ONLY)
         if(DEFINED ENV{CI} AND NOT (_glim_sdk AND GLIM_NODE))
             message(FATAL_ERROR "APK packaging needs an Android SDK and node in CI")
@@ -273,6 +281,7 @@ function(glim_add_example name)
                     "${_glim_apk}"
                     "${_glim_sdk}"
                     "${ANDROID_ABI}"
+                    ${_java}
                 COMMENT "Packaging ${_target}.apk"
                 VERBATIM)
         endif()

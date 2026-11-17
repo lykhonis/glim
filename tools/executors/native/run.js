@@ -34,6 +34,18 @@ function hold(seconds) {
   spawnSync("sleep", [String(seconds)]);
 }
 
+function tapCenter(adbPath, serial) {
+  const size = spawnSync(adbPath, ["-s", serial, "shell", "wm", "size"], { encoding: "utf8" });
+  const m = /(\d+)x(\d+)\s*$/.exec((size.stdout || "").trim());
+  if (!m) {
+    console.error(`smoke: no screen size from wm size: ${size.stdout}`);
+    return;
+  }
+  const x = String(Math.floor(Number(m[1]) / 2));
+  const y = String(Math.floor(Number(m[2]) / 2));
+  spawnSync(adbPath, ["-s", serial, "shell", "input", "tap", x, y], { stdio: "inherit" });
+}
+
 function alive(pid) {
   try {
     process.kill(pid, 0);
@@ -553,23 +565,35 @@ function runOnAndroid(options, apk) {
   if (launch.status !== 0 || !smoke) {
     return { success: launch.status === 0 };
   }
-  hold(smoke);
+  if (options.smokeTap) {
+    hold(smoke / 2);
+    tapCenter(adbPath, serial);
+    hold(smoke / 2);
+  } else {
+    hold(smoke);
+  }
   const pid = spawnSync(adbPath, ["-s", serial, "shell", "pidof", pkg], { encoding: "utf8" });
   const survived = (pid.stdout || "").trim() !== "";
   spawnSync(adbPath, ["-s", serial, "shell", "am", "force-stop", pkg], { stdio: "ignore" });
+  const log = spawnSync(adbPath, ["-s", serial, "logcat", "-d", "-v", "brief"], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const lines = (log.stdout || "").split("\n");
+  const relevant = lines
+    .filter((l) => /glim|Glim|FATAL|AndroidRuntime|DEBUG|libc/.test(l))
+    .slice(-60)
+    .join("\n");
   if (!survived) {
-    const log = spawnSync(adbPath, ["-s", serial, "logcat", "-d", "-v", "brief"], {
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    const relevant = (log.stdout || "")
-      .split("\n")
-      .filter((l) => /glim|Glim|FATAL|AndroidRuntime|DEBUG|libc/.test(l))
-      .slice(-60)
-      .join("\n");
     return fail(`smoke: ${pkg} died within ${smoke}s on ${serial}\n${relevant}`);
   }
+  const wanted = Array.isArray(options.smokeLog) ? options.smokeLog : [];
+  const missing = wanted.filter((p) => !lines.some((l) => new RegExp(p).test(l)));
+  if (missing.length) {
+    return fail(`smoke: ${pkg} never logged ${missing.join(", ")} on ${serial}\n${relevant}`);
+  }
   console.log(`smoke: ${pkg} alive after ${smoke}s on ${serial}`);
+  for (const p of wanted) console.log(`smoke: logged ${lines.find((l) => new RegExp(p).test(l))}`);
   return { success: true };
 }
 

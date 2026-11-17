@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glim WebView</title>
+<style>
+html, body { margin: 0; height: 100%; }
+body {
+  box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 16px;
+  font: 18px -apple-system, Roboto, sans-serif; background: #f4efe6; color: #1d2430;
+}
+h1 { margin: 0; font-size: 22px; }
+button { flex: 1; border: 0; border-radius: 16px; background: #2f6fde; color: #fff; font-size: 28px; }
+input { padding: 10px; border: 1px solid #9aa4b2; border-radius: 10px; font-size: 18px; }
+</style>
+</head>
+<body>
+<h1 id="count">Tapped 0 times</h1>
+<button id="tap">Tap me</button>
+<input id="field" placeholder="Type here">
+<script>
+let taps = 0;
+document.getElementById("tap").addEventListener("click", () => {
+  taps += 1;
+  document.getElementById("count").textContent = "Tapped " + taps + " times";
+  if (window.glim) glim.tapped(taps);
+});
+if (window.glim) glim.ready();
+</script>
+</body>
+</html>

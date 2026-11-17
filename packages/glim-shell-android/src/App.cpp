@@ -1,5 +1,7 @@
 #include "App.h"
 
+#include <glim/shell/AndroidActivity.h>
+
 #include <android/configuration.h>
 
 #include <algorithm>
@@ -39,3 +41,13 @@ int drawableHeight() {
 }
 
 }  // namespace glim::shell::detail
+
+namespace glim::shell {
+
+AndroidActivity androidActivity() {
+  android_app* app = detail::androidApp();
+  if (!app || !app->activity) return {};
+  return {app->activity->vm, app->activity->clazz};
+}
+
+}  // namespace glim::shell

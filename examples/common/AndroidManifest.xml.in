@@ -14,7 +14,7 @@
         android:label="@GLIM_EXAMPLE_LABEL@"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/banner"
-        android:hasCode="false"
+        android:hasCode="@GLIM_EXAMPLE_HAS_CODE@"
         android:extractNativeLibs="true"
         android:appCategory="game">
         <activity

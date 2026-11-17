@@ -1,0 +1,120 @@
+{
+  "name": "webview",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/webview",
+  "projectType": "application",
+  "tags": [
+    "example"
+  ],
+  "implicitDependencies": [
+    "core"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-webview",
+        "install": true
+      },
+      "dependsOn": [
+        "gpu-vulkan:shaders"
+      ]
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/webview/glim-webview"
+      }
+    },
+    "test": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-webview-test",
+        "ctestRegex": "glim-webview-test"
+      }
+    },
+    "build-ios-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "target": "glim-webview"
+      }
+    },
+    "run-ios": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-ios-sim"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "ios-sim-metal-debug",
+        "binary": "examples/webview/glim-webview.app",
+        "simulator": "ios",
+        "bundleId": "com.glim.webview"
+      }
+    },
+    "build-tvos-sim": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "target": "glim-webview"
+      }
+    },
+    "run-tvos": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-tvos-sim"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "tvos-sim-metal-debug",
+        "binary": "examples/webview/glim-webview.app",
+        "simulator": "tvos",
+        "bundleId": "com.glim.webview"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-webview"
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-android"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/webview/glim-webview.apk",
+        "android": true,
+        "packageName": "com.glim.webview",
+        "smokeLog": [
+          "webview page ready",
+          "webview feed published=[1-9]",
+          "webview tapped 1"
+        ],
+        "smokeTap": true
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    }
+  }
+}

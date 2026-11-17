@@ -1,7 +1,9 @@
 // @ts-check
 // Package a NativeActivity APK from a built .so with the SDK build-tools.
 //
-//   node tools/package-android-apk.mjs <lib.so> <AndroidManifest.xml> <res dir> <out.apk> <sdk> [abi]
+//   node tools/package-android-apk.mjs <lib.so> <AndroidManifest.xml> <res dir> <out.apk> <sdk> [abi] [java dir]
+//
+// A java dir compiles to classes.dex with javac and d8; the manifest must set hasCode.
 //
 // Missing build-tools or android.jar skip packaging (exit 0) so a bare NDK
 // build still succeeds.
@@ -19,7 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { crc32 } from "node:zlib";
 
-const [lib, manifest, res, out, sdk, abi = "arm64-v8a"] = process.argv.slice(2);
+const [lib, manifest, res, out, sdk, abi = "arm64-v8a", java] = process.argv.slice(2);
 const platforms = ["android-35", "android-34", "android-33", "android-32", "android-31", "android-30"];
 
 /** @param {string} message @returns {never} */
@@ -145,6 +147,20 @@ const androidJar = platforms
   .find(existsSync);
 if (!androidJar) skip(`no android.jar in ${sdk}/platforms`);
 
+/** javac + d8: one classes.dex for the app's own Java glue. */
+function compileDex(/** @type {string} */ dir, /** @type {string} */ jar, /** @type {string} */ scratch) {
+  const sources = filesUnder(dir).filter((f) => f.endsWith(".java"));
+  if (!sources.length) fail(`no .java sources in ${dir}`);
+  const d8 = path.join(bt, "d8");
+  if (!existsSync(d8)) skip(`${bt} lacks d8`);
+  const classes = path.join(scratch, "classes");
+  mkdirSync(classes, { recursive: true });
+  run("javac", ["--release", "11", "-classpath", jar, "-d", classes, ...sources]);
+  const compiled = filesUnder(classes).filter((f) => f.endsWith(".class"));
+  run(d8, ["--release", "--min-api", "24", "--lib", jar, "--output", scratch, ...compiled]);
+  return readFileSync(path.join(scratch, "classes.dex"));
+}
+
 const work = mkdtempSync(path.join(os.tmpdir(), "glim-apk-"));
 try {
   const compiled = path.join(work, "compiled");
@@ -156,6 +172,7 @@ try {
   const unsigned = path.join(work, "unsigned.apk");
   run(aapt2, ["link", "-o", unsigned, "-I", androidJar, "--manifest", manifest, "--auto-add-overlay", ...flats]);
   appendStored(unsigned, `lib/${abi}/${path.basename(lib)}`, readFileSync(lib));
+  if (java) appendStored(unsigned, "classes.dex", compileDex(java, androidJar, path.join(work, "java")));
 
   const aligned = path.join(work, "aligned.apk");
   run(zipalign, ["-f", "-p", "4", unsigned, aligned]);

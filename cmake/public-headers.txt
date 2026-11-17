@@ -26,6 +26,7 @@ packages/glim-shell/include/glim/shell/A11y.h
 packages/glim-shell/include/glim/shell/Event.h
 packages/glim-shell/include/glim/shell/Present.h
 packages/glim-shell/include/glim/shell/Slot.h
+packages/glim-shell-android/include/glim/shell/AndroidActivity.h
 packages/glim-shell-android/include/glim/shell/Application.h
 packages/glim-shell-android/include/glim/shell/RunLoop.h
 packages/glim-shell-android/include/glim/shell/Surface.h
