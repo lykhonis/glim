@@ -148,11 +148,16 @@ const androidJar = platforms
 if (!androidJar) skip(`no android.jar in ${sdk}/platforms`);
 
 /** javac + d8: one classes.dex for the app's own Java glue. */
-function compileDex(/** @type {string} */ dir, /** @type {string} */ jar, /** @type {string} */ scratch) {
+function compileDex(
+  /** @type {string} */ dir,
+  /** @type {string} */ tools,
+  /** @type {string} */ jar,
+  /** @type {string} */ scratch,
+) {
   const sources = filesUnder(dir).filter((f) => f.endsWith(".java"));
   if (!sources.length) fail(`no .java sources in ${dir}`);
-  const d8 = path.join(bt, "d8");
-  if (!existsSync(d8)) skip(`${bt} lacks d8`);
+  const d8 = path.join(tools, "d8");
+  if (!existsSync(d8)) skip(`${tools} lacks d8`);
   const classes = path.join(scratch, "classes");
   mkdirSync(classes, { recursive: true });
   run("javac", ["--release", "11", "-classpath", jar, "-d", classes, ...sources]);
@@ -172,7 +177,7 @@ try {
   const unsigned = path.join(work, "unsigned.apk");
   run(aapt2, ["link", "-o", unsigned, "-I", androidJar, "--manifest", manifest, "--auto-add-overlay", ...flats]);
   appendStored(unsigned, `lib/${abi}/${path.basename(lib)}`, readFileSync(lib));
-  if (java) appendStored(unsigned, "classes.dex", compileDex(java, androidJar, path.join(work, "java")));
+  if (java) appendStored(unsigned, "classes.dex", compileDex(java, bt, androidJar, path.join(work, "java")));
 
   const aligned = path.join(work, "aligned.apk");
   run(zipalign, ["-f", "-p", "4", unsigned, aligned]);
