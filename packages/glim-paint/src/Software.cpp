@@ -216,7 +216,11 @@ void rasterGroup(
     } else {
       paintShapes(tmp, iw, ih, *local, images, localX, localClip, effPr);
     }
-    blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
+    if (const std::optional<Mat3> warp = isolateWarp(world, surface)) {
+      warpBuffer(dest, w, h, tmp, iw, ih, *warp, g.params.opacity);
+    } else {
+      blitBuffer(dest, w, h, tmp, iw, ih, xf, g.params.opacity);
+    }
     return;
   }
   paintShapes(dest, w, h, g, images, world, clip, pixelRatio);
@@ -357,6 +361,10 @@ void rasterIsolate(
       images,
       pixelRatio
     );
+  }
+  if (iso.warp) {
+    warpBuffer(dest, w, h, tmp, iso.contentW, iso.contentH, *iso.warp, iso.opacity);
+    return;
   }
   blitBuffer(
     dest,

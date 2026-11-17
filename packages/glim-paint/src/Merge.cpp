@@ -236,6 +236,25 @@ GlyphRun transformGlyphs(const Mat4& t, const GlyphRun& src) {
   return out;
 }
 
+std::optional<Mat3> isolateWarp(const Mat4& world, const Rect& surface) {
+  if (!world.is3D()) {
+    return std::nullopt;
+  }
+  Mat3 unit;
+  unit.m[0] = surface.size.x;
+  unit.m[4] = surface.size.y;
+  unit.m[6] = surface.origin.x;
+  unit.m[7] = surface.origin.y;
+  unit.m[8] = 1.f;
+  const Mat3 warp = Mat3::planeOf(world) * unit;
+  for (const Vec3 corner : {Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1}, Vec3{1, 1, 1}}) {
+    if ((warp * corner).z <= 1e-4f) {
+      return std::nullopt;
+    }
+  }
+  return warp;
+}
+
 SlotHole transformSlot(const Mat4& t, const SlotHole& src) {
   SlotHole out = src;
   out.rect = transformRect(t, src.rect);

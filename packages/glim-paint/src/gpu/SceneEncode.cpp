@@ -727,13 +727,15 @@ void Renderer::encodeGroup(
           blit.extra[1] = child->params.opacity;
           blit.extra[2] = child->params.opacity;
           blit.extra[3] = child->params.opacity;
-          pass.setPipeline(pipes_.blitLinear);
-          pass.setBytes(0, &blit, sizeof(blit));
-          pass.setFragmentTexture(0, ft->native());
-          pass.setFragmentSampler(0, device_.nativeSampler());
-          pass.draw(6, 1, 0, 0);
-          stats_.draws += 1;
-          stats_.instances += 1;
+          drawIsolate(
+            pass,
+            pipes_,
+            device_.nativeSampler(),
+            stats_,
+            ft->native(),
+            blit,
+            isolateWarp(extra * child->params.transform, surface)
+          );
         } else {
           resumePass();
           scissorFor(clip);

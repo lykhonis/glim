@@ -40,6 +40,18 @@ void blitBuffer(
   float opacity
 );
 
+// Projective composite: warp maps the src unit square to dest pixels.
+void warpBuffer(
+  std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  const std::vector<Pixel>& src,
+  int sw,
+  int sh,
+  const Mat3& warp,
+  float opacity
+);
+
 void blitImage(
   std::vector<Pixel>& dest,
   int w,

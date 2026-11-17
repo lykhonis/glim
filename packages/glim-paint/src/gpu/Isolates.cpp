@@ -307,6 +307,33 @@ gpu::FrameTarget* Renderer::TargetPool::acquire(gpu::Device& device, int w, int 
   return &slots_[used_++].ft;
 }
 
+void drawIsolate(
+  gpu::Pass& pass,
+  const Renderer::Pipelines& pipes,
+  void* sampler,
+  Stats& stats,
+  void* texture,
+  const Renderer::BlitInstance& rect,
+  const std::optional<Mat3>& warp
+) {
+  if (warp && pipes.warp.native()) {
+    Renderer::WarpInstance w{};
+    std::copy(std::begin(warp->m), std::end(warp->m), w.h);
+    std::copy(std::begin(rect.uv), std::end(rect.uv), w.uv);
+    std::copy(std::begin(rect.extra), std::end(rect.extra), w.extra);
+    pass.setPipeline(pipes.warp);
+    pass.setBytes(0, &w, sizeof(w));
+  } else {
+    pass.setPipeline(pipes.blitLinear);
+    pass.setBytes(0, &rect, sizeof(rect));
+  }
+  pass.setFragmentTexture(0, texture);
+  pass.setFragmentSampler(0, sampler);
+  pass.draw(6, 1, 0, 0);
+  stats.draws += 1;
+  stats.instances += 1;
+}
+
 void blitTexture(
   gpu::CommandEncoder& encoder,
   const Renderer::Pipelines& pipes,

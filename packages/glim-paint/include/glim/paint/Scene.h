@@ -581,6 +581,10 @@ Polyline transformPolyline(const Mat4&, const Polyline&);
 Blit transformBlit(const Mat4&, const Blit&);
 GlyphRun transformGlyphs(const Mat4&, const GlyphRun&);
 SlotHole transformSlot(const Mat4&, const SlotHole&);
+// A 3D-transformed isolate's footprint: unit square (u, v) to target (x, y, w).
+// Nullopt for 2D transforms (the rect composite is exact) and when a corner
+// falls behind the eye.
+std::optional<Mat3> isolateWarp(const Mat4& world, const Rect& surface);
 Rect contentBounds(const Group&);
 void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
 Shape transformShape(const Mat4&, const Shape&);

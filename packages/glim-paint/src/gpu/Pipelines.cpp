@@ -41,6 +41,7 @@ constexpr const char* kShaderNames[] = {
   "blur1d",
   "glass",
   "gradient",
+  "warp",
 };
 constexpr std::size_t kShaderCount = sizeof(kShaderNames) / sizeof(kShaderNames[0]);
 
@@ -87,6 +88,7 @@ bool Renderer::Pipelines::ensure(gpu::Device& device) {
     {"blur1d", true, &blur1d},
     {"glass", true, &glass},
     {"gradient", false, &gradient},
+    {"warp", false, &warp},
   };
   struct Cached {
     const char* name;

@@ -66,6 +66,11 @@ class Renderer {
     float uv[4];
     float extra[4];
   };
+  struct WarpInstance {
+    float h[12];
+    float uv[4];
+    float extra[4];
+  };
   struct GradientInstance {
     float rect[4];
     float grad[4];
@@ -84,6 +89,7 @@ class Renderer {
     gpu::Pipeline blur1d{};
     gpu::Pipeline glass{};
     gpu::Pipeline gradient{};
+    gpu::Pipeline warp{};
     gpu::Pipeline solidPlus{};
     gpu::Pipeline roundedPlus{};
     gpu::Pipeline blitPlus{};

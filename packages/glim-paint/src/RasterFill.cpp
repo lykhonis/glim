@@ -226,6 +226,53 @@ void blitBuffer(
   }
 }
 
+void warpBuffer(
+  std::vector<Pixel>& dest,
+  int dw,
+  int dh,
+  const std::vector<Pixel>& src,
+  int sw,
+  int sh,
+  const Mat3& warp,
+  float opacity
+) {
+  const std::optional<Mat3> inv = warp.inverse();
+  if (!inv) {
+    return;
+  }
+  float minX = static_cast<float>(dw), minY = static_cast<float>(dh), maxX = 0.f, maxY = 0.f;
+  for (const Vec3 corner : {Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1}, Vec3{1, 1, 1}}) {
+    const Vec3 q = warp * corner;
+    minX = std::min(minX, q.x / q.z);
+    minY = std::min(minY, q.y / q.z);
+    maxX = std::max(maxX, q.x / q.z);
+    maxY = std::max(maxY, q.y / q.z);
+  }
+  const int x0 = std::max(0, static_cast<int>(std::floor(minX)));
+  const int y0 = std::max(0, static_cast<int>(std::floor(minY)));
+  const int x1 = std::min(dw, static_cast<int>(std::ceil(maxX)));
+  const int y1 = std::min(dh, static_cast<int>(std::ceil(maxY)));
+  for (int y = y0; y < y1; ++y) {
+    for (int x = x0; x < x1; ++x) {
+      const Vec3 q = *inv * Vec3{static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f, 1.f};
+      if (q.z <= 0.f) {
+        continue;
+      }
+      const float u = q.x / q.z;
+      const float v = q.y / q.z;
+      if (u < 0.f || u > 1.f || v < 0.f || v > 1.f) {
+        continue;
+      }
+      Pixel p = samplePixel(src, sw, sh, u * static_cast<float>(sw), v * static_cast<float>(sh));
+      p.r *= opacity;
+      p.g *= opacity;
+      p.b *= opacity;
+      p.a *= opacity;
+      srcOver(dest[static_cast<std::size_t>(y * dw + x)], p);
+    }
+  }
+}
+
 namespace {
 
 float sampleChannel(const StoredImage& img, float u, float v, int channel) {

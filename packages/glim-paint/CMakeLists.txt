@@ -156,6 +156,18 @@ if(GLIM_HOST_TESTS)
     glim_test_defaults(glim-hit-test)
     add_test(NAME glim-hit-test COMMAND glim-hit-test)
 
+    add_executable(glim-warp-test tests/warp_test.cpp)
+    target_link_libraries(glim-warp-test PRIVATE glim::paint-cpu)
+    glim_test_defaults(glim-warp-test)
+    add_test(NAME glim-warp-test COMMAND glim-warp-test)
+
+    if(TARGET glim::paint-gpu AND TARGET glim::gpu-metal AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        add_executable(glim-warp-gpu-test tests/warp_gpu_test.cpp)
+        target_link_libraries(glim-warp-gpu-test PRIVATE glim::paint-gpu glim::gpu-metal)
+        glim_test_defaults(glim-warp-gpu-test)
+        add_test(NAME glim-warp-gpu-test COMMAND glim-warp-gpu-test)
+    endif()
+
     add_executable(glim-perf-test tests/perf_test.cpp)
     target_link_libraries(glim-perf-test PRIVATE glim::paint-cpu)
     glim_test_defaults(glim-perf-test)

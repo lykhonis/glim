@@ -43,6 +43,7 @@ Isolate encodeIsolate(
   iso.contentW = isolatePixelSizeFor(g, surface.size.x, pixelRatio);
   iso.contentH = isolatePixelSizeFor(g, surface.size.y, pixelRatio);
   const Rect dest = transformRect(extra * g.params.transform, surface);
+  iso.warp = isolateWarp(extra * g.params.transform, surface);
   iso.destX = dest.origin.x;
   iso.destY = dest.origin.y;
   iso.destW = dest.size.x;

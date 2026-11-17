@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <optional>
 
 namespace glim {
 
@@ -11,6 +12,16 @@ struct Vec2 {
 
   Vec2() = default;
   constexpr Vec2(float x_, float y_) noexcept : x(x_), y(y_) {}
+};
+
+// Homogeneous 2D point: x and y over the projective weight z.
+struct Vec3 {
+  float x = 0;
+  float y = 0;
+  float z = 0;
+
+  Vec3() = default;
+  constexpr Vec3(float x_, float y_, float z_) noexcept : x(x_), y(y_), z(z_) {}
 };
 
 struct Vec4 {
@@ -34,6 +45,12 @@ struct Mat4 {
   static Mat4 translate(float x, float y, float z = 0) noexcept;
   static Mat4 scale(float x, float y, float z = 1) noexcept;
   static Mat4 rotateZ(float radians) noexcept;
+  // Positive tips the bottom edge away from the viewer.
+  static Mat4 rotateX(float radians) noexcept;
+  // Positive swings the right edge away from the viewer.
+  static Mat4 rotateY(float radians) noexcept;
+  // CSS perspective: the eye sits distance px in front of the z = 0 plane.
+  static Mat4 perspective(float distance) noexcept;
 
   Mat4 operator*(const Mat4& rhs) const noexcept;
   Vec4 operator*(const Vec4& v) const noexcept;
@@ -56,6 +73,25 @@ struct Rect {
   constexpr float width() const noexcept { return size.x; }
   constexpr float height() const noexcept { return size.y; }
 };
+
+// Column-major 3x3, for 2D projective maps (homographies).
+struct Mat3 {
+  float m[9]{};
+
+  static Mat3 identity() noexcept;
+  // Where t sends the z = 0 plane: (x, y, 1) to screen (x, y, w).
+  static Mat3 planeOf(const Mat4& t) noexcept;
+  Vec3 operator*(const Vec3& v) const noexcept;
+  Mat3 operator*(const Mat3& rhs) const noexcept;
+  std::optional<Mat3> inverse() const noexcept;
+};
+
+// A point of the z = 0 plane under t, before the divide: screen is (x/z, y/z),
+// and z <= 0 means behind the eye.
+Vec3 projectPlane(const Mat4& t, Vec2 p) noexcept;
+// The plane point that t projects to screen; nullopt when the plane is edge-on
+// or the point lies behind the eye.
+std::optional<Vec2> unprojectPlane(const Mat4& t, Vec2 screen) noexcept;
 
 struct Color {
   std::uint32_t rgba = 0;

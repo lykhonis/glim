@@ -69,6 +69,34 @@ int main() {
   expect(!glim::Mat4::identity().is3D(), "identity not 3D");
   expect(!glim::Mat4::translate(3, 4).is3D(), "translation not 3D");
 
+  // A tilted plane: CSS-style perspective about the rect's center.
+  {
+    const float pi = 3.14159265f;
+    const glim::Mat4 tilt = glim::Mat4::translate(100, 50) * glim::Mat4::perspective(400) *
+                            glim::Mat4::rotateY(pi / 4) * glim::Mat4::translate(-100, -50);
+    expect(tilt.is3D(), "perspective tilt is 3D");
+    const glim::Vec3 left = glim::projectPlane(tilt, {0, 0});
+    const glim::Vec3 right = glim::projectPlane(tilt, {200, 0});
+    expect(left.z > 0 && right.z > 0, "both edges in front of the eye");
+    // rotateY(+) swings the right edge away: it shrinks toward the center.
+    const float leftY = left.y / left.z, rightY = right.y / right.z;
+    expect(rightY > leftY, "far edge's top is lower (smaller)");
+    expect(left.x / left.z < 30.0f, "near edge stays left");
+    const glim::Vec3 mid = glim::projectPlane(tilt, {100, 50});
+    expectNear(mid.x / mid.z, 100.0f, "pivot stays put x", 1e-3f);
+    expectNear(mid.y / mid.z, 50.0f, "pivot stays put y", 1e-3f);
+    for (const glim::Vec2 p : {glim::Vec2{10, 10}, glim::Vec2{190, 80}, glim::Vec2{55, 33}}) {
+      const glim::Vec3 s = glim::projectPlane(tilt, p);
+      const auto back = glim::unprojectPlane(tilt, {s.x / s.z, s.y / s.z});
+      expect(back.has_value(), "projected points unproject");
+      expectNear(back->x, p.x, "unproject x", 1e-3f);
+      expectNear(back->y, p.y, "unproject y", 1e-3f);
+    }
+    const glim::Mat4 edgeOn = glim::Mat4::rotateY(pi / 2);
+    expect(!glim::unprojectPlane(edgeOn, {0, 0}).has_value(), "edge-on plane has no inverse");
+    expect(glim::Mat4::rotateX(0.3f).is3D(), "rotateX is 3D");
+  }
+
   if (failures != 0) {
     std::cerr << failures << " failure(s)\n";
     return EXIT_FAILURE;
