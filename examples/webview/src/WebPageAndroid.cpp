@@ -10,6 +10,7 @@
 #include <cmath>
 #include <deque>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -115,8 +116,17 @@ class AndroidWebPage final : public WebPage {
       reclaim();
       take();
     }
-    return published_ > shown_;
+    const bool statusMoved = pollStatus();
+    return published_ > shown_ || statusMoved;
   }
+
+  WebStatus status() const override { return status_; }
+
+  void load(const std::string& url) override {
+    call(load_, url.c_str(), "load");
+  }
+
+  void reload() override { call(reload_, nullptr, "reload"); }
 
   std::uint32_t acquire() override {
     const std::uint32_t id = feed_.acquire();
@@ -143,6 +153,53 @@ class AndroidWebPage final : public WebPage {
   }
 
  private:
+  // One int over JNI per frame; strings only when the page changed.
+  bool pollStatus() {
+    JNIEnv* env = page_ ? jniEnv(vm_) : nullptr;
+    if (!env) return false;
+    const jint version = env->CallIntMethod(page_, version_);
+    if (failed(env, "version") || version == version_seen_)
+      return false;
+    version_seen_ = version;
+    const auto text = [&](jmethodID m) {
+      auto s = static_cast<jstring>(env->CallObjectMethod(page_, m));
+      if (failed(env, "status") || !s) return std::string();
+      const char* c = env->GetStringUTFChars(s, nullptr);
+      std::string out(c ? c : "");
+      env->ReleaseStringUTFChars(s, c);
+      env->DeleteLocalRef(s);
+      return out;
+    };
+    WebStatus next{
+      .url = text(url_),
+      .title = text(title_),
+      .progress =
+        static_cast<float>(env->CallIntMethod(page_, progress_)) /
+        100.0f,
+      .loading = env->CallBooleanMethod(page_, loading_) == JNI_TRUE,
+    };
+    if (failed(env, "status") || next == status_) return false;
+    status_ = std::move(next);
+    if (!status_.loading) {
+      std::cerr << "webview status " << status_.url << " \""
+                << status_.title << "\"" << std::endl;
+    }
+    return true;
+  }
+
+  void call(jmethodID method, const char* arg, const char* what) {
+    JNIEnv* env = page_ ? jniEnv(vm_) : nullptr;
+    if (!env) return;
+    if (arg) {
+      jstring s = env->NewStringUTF(arg);
+      env->CallVoidMethod(page_, method, s);
+      env->DeleteLocalRef(s);
+    } else {
+      env->CallVoidMethod(page_, method);
+    }
+    failed(env, what);
+  }
+
   static constexpr std::size_t kHeldMax = host::Feed::kHeld + 2;
   // One more than held, so the page always has a buffer to draw into.
   static constexpr int kImages = static_cast<int>(kHeldMax) + 1;
@@ -204,6 +261,14 @@ class AndroidWebPage final : public WebPage {
     if (failed(env, "WebTexture") || !page) return false;
     page_ = env->NewGlobalRef(page);
     touch_ = env->GetMethodID(cls, "touch", "(IFF)V");
+    load_ = env->GetMethodID(cls, "load", "(Ljava/lang/String;)V");
+    reload_ = env->GetMethodID(cls, "reload", "()V");
+    version_ = env->GetMethodID(cls, "version", "()I");
+    url_ = env->GetMethodID(cls, "url", "()Ljava/lang/String;");
+    title_ = env->GetMethodID(cls, "title", "()Ljava/lang/String;");
+    progress_ = env->GetMethodID(cls, "progress", "()I");
+    loading_ = env->GetMethodID(cls, "loading", "()Z");
+    if (failed(env, "methods")) return false;
     ctx_ = &ctx;
     std::cerr << "webview texture " << width_ << "x" << height_
               << " dpi " << dpi << std::endl;
@@ -282,6 +347,15 @@ class AndroidWebPage final : public WebPage {
   JavaVM* vm_ = nullptr;
   jobject page_ = nullptr;
   jmethodID touch_ = nullptr;
+  jmethodID load_ = nullptr;
+  jmethodID reload_ = nullptr;
+  jmethodID version_ = nullptr;
+  jmethodID url_ = nullptr;
+  jmethodID title_ = nullptr;
+  jmethodID progress_ = nullptr;
+  jmethodID loading_ = nullptr;
+  jint version_seen_ = -1;
+  WebStatus status_;
   int width_ = 0;
   int height_ = 0;
   bool broken_ = false;

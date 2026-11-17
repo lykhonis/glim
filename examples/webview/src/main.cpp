@@ -22,19 +22,6 @@ glim::Vec2& viewport() {
   return size;
 }
 
-WebScreen screenFor(WebPage* p) {
-  if (!p)
-    return {.mode = "No web view on this platform", .size = viewport()};
-  return {
-    .mode = p->mode(),
-    .size = viewport(),
-    .slot = p->seatViews() != nullptr,
-    .seatId = kWebSeat,
-    .image = p->acquire(),
-    .input = [p](const LayerInput& in) { return p->input(in); },
-  };
-}
-
 }  // namespace
 
 #if defined(__ANDROID__)
@@ -51,13 +38,16 @@ int main(int argc, char** argv) {
     host::TestApp t;
     t.w = 960;
     t.h = 640;
-    t.build = [&t](const Engine&) {
-      return webTree({.mode = "Headless", .size = {t.w, t.h}});
+    t.build = [&t](const Engine& e) {
+      WebScreen s = webScreen(nullptr, e, {t.w, t.h});
+      s.mode = "Headless";
+      return webTree(std::move(s));
     };
     return host::runE2e(t, flags);
   }
-  // Texture pages draw on their own clock; a frame rebuilds only when
-  // the page has a newer one, so a still page costs no repaints.
+  // Pages draw and load on their own clock; a frame rebuilds only when
+  // the page has a newer frame or status, so a still page costs
+  // nothing.
   static Store::Watch watch;
   WebPage* p = page().get();
   return host::run(
@@ -75,8 +65,8 @@ int main(int argc, char** argv) {
         },
     },
     [p](const Engine& e) {
-      WebScreen s = screenFor(p);
-      if (!s.slot && p && !watch.live()) {
+      WebScreen s = webScreen(p, e, viewport());
+      if (p && !watch.live()) {
         State<float> tick = rootScope(e).state("tick", 0.0f);
         watch = e.store->get().watchFrame([tick, p](float now) mutable {
           if (p->advance()) tick = now;

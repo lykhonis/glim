@@ -7,24 +7,72 @@ namespace glim::toolkit {
 
 namespace {
 
-// Glim never retains a slot view, so the factory keeps one page alive.
-void* makeWebView(host::SeatRequest request) {
-  if (request.id != kWebSeat) return nullptr;
+WKWebView* webView() {
   static WKWebView* web = nil;
   if (web == nil) {
-    const CGRect frame = CGRectMake(0, 0, request.bounds.size.x, request.bounds.size.y);
-    web = [[WKWebView alloc] initWithFrame:frame configuration:[WKWebViewConfiguration new]];
+    web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:[WKWebViewConfiguration new]];
     [web loadHTMLString:@(kPageHtml) baseURL:nil];
   }
-  return (__bridge void*)web;
+  return web;
 }
 
-// Slot (K86): WKWebView live content cannot be captured fast enough, so it
-// composites as a native sibling and keeps its own input, IME and a11y.
+// Glim never retains a slot view; the page lives for the process.
+void* makeWebView(host::SeatRequest request) {
+  if (request.id != kWebSeat) return nullptr;
+  return (__bridge void*)webView();
+}
+
+std::string str(NSString* s) { return s.UTF8String ? std::string(s.UTF8String) : std::string(); }
+
+// Slot, and Layer when tilted (K88): WKWebView has no public GPU capture, so
+// it stays a live native view. Flat it is a sibling over the surface;
+// under a 3D transform Core Animation composites it projected and the
+// shell routes its input. WebKit keeps its own IME and VoiceOver tree.
 class AppleWebPage final : public WebPage {
  public:
   host::SeatViewFactory seatViews() const override { return &makeWebView; }
-  const char* mode() const override { return "Slot: WKWebView over the surface"; }
+  const char* mode() const override { return "WKWebView: native layer"; }
+
+  bool advance() override {
+    WebStatus next = read();
+    if (next == status_) return false;
+    status_ = std::move(next);
+    return true;
+  }
+
+  WebStatus status() const override { return status_; }
+
+  void load(const std::string& url) override {
+    local_ = url == kLocalUrl;
+    if (local_) {
+      [webView() loadHTMLString:@(kPageHtml) baseURL:nil];
+      return;
+    }
+    NSURL* target = [NSURL URLWithString:@(url.c_str())];
+    if (target) [webView() loadRequest:[NSURLRequest requestWithURL:target]];
+  }
+
+  void reload() override {
+    if (local_) {
+      load(kLocalUrl);
+    } else {
+      [webView() reload];
+    }
+  }
+
+ private:
+  WebStatus read() const {
+    WKWebView* web = webView();
+    return {
+      .url = local_ ? std::string(kLocalUrl) : str(web.URL.absoluteString),
+      .title = str(web.title),
+      .progress = static_cast<float>(web.estimatedProgress),
+      .loading = static_cast<bool>(web.isLoading),
+    };
+  }
+
+  bool local_ = true;
+  WebStatus status_;
 };
 
 }  // namespace

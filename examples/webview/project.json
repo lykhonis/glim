@@ -106,7 +106,8 @@
         "smokeLog": [
           "webview page ready",
           "webview feed published=[1-9]",
-          "webview tapped 1"
+          "webview tapped 1",
+          "webview status about:glim \"Glim WebView\""
         ],
         "smokeTap": true
       },

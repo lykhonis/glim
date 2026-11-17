@@ -111,12 +111,23 @@ int main() {
     host::TestApp app;
     app.w = 960;
     app.h = 640;
-    app.build = [&](const Engine&) {
-      return webTree({
-        .mode = page->mode(),
-        .size = {app.w, app.h},
-        .slot = true,
-        .seatId = kWebSeat,
+    app.build = [&](const Engine& e) { return webTree(webScreen(page.get(), e, {app.w, app.h})); };
+    // The app's own wiring: its state, its chrome, its page.
+    const auto screen = [&] { return webScreen(page.get(), app.engine(), {app.w, app.h}); };
+    // Taps a chrome button by its accessible name, the way a user would.
+    const auto press = [&](const std::string& label) {
+      app.rebuild();
+      for (const A11yNode& n : a11yNodes(app.tree, app.box, app.engine())) {
+        if (n.id == label && n.traits.role == A11yRole::Button) {
+          return app.tap(n.box.x + n.box.w / 2, n.box.y + n.box.h / 2);
+        }
+      }
+      return false;
+    };
+    const auto settle = [&](const auto& done) {
+      return spinUntil([&] {
+        page->advance();
+        return done(page->status());
       });
     };
     glim::paint::Context ctx;
@@ -163,9 +174,86 @@ int main() {
     std::cout << "webview snapshot: " << snapshotMs(web, 10) << " ms per frame at "
               << box.size.x << "x" << box.size.y << "\n";
 
+    // K88 Layer: tilted, the page stays a live native view, composited by
+    // Core Animation under Glim's transform, and Glim routes its clicks.
+    expect(press("Tilt 30"), "the Glim tilt button is there");
+    expect(screen().tilt == 30, "the tilt button sets the app's tilt");
+    glim::paint::Context tiltedCtx;
+    app.rebuild();
+    app.recordScene(tiltedCtx);
+    placed.clear();
+    glim::paint::collectSlots(tiltedCtx.scene(), &placed);
+    expect(placed.size() == 1 && placed[0].transform.is3D(), "the tilted seat carries a 3D transform");
+    if (placed.size() != 1) return EXIT_FAILURE;
+    const glim::paint::SlotPlacement seat = placed[0];
+    host::syncSeats(window, tiltedCtx.scene(), attached, page->seatViews());
+    NSView* layerHost = web.superview;
+    expect(layerHost != nil && layerHost != root, "the tilted page moves into a layer host");
+    const auto projected = [&](glim::Vec2 local) {
+      const glim::Vec3 q = glim::projectPlane(seat.transform, local);
+      return glim::Vec2{q.x / q.z, q.y / q.z};
+    };
+    for (const glim::Vec2 c :
+         {seat.local.origin,
+          glim::Vec2{seat.local.origin.x + seat.local.size.x, seat.local.origin.y},
+          glim::Vec2{seat.local.origin.x, seat.local.origin.y + seat.local.size.y}}) {
+      const CGPoint inHost = CGPointMake(c.x - seat.local.origin.x, c.y - seat.local.origin.y);
+      const CGPoint ca = [root.layer convertPoint:inHost fromLayer:layerHost.layer];
+      // The root layer reads y-up; the flipped root view and Glim read y-down.
+      const CGFloat caY = root.layer.geometryFlipped ? root.layer.bounds.size.height - ca.y : ca.y;
+      const glim::Vec2 want = projected(c);
+      expect(
+        std::fabs(ca.x - want.x) < 1.0 && std::fabs(caY - want.y) < 1.0,
+        "Core Animation draws the corner where Glim projects it"
+      );
+    }
+    const glim::Vec2 button = projected(
+      {seat.local.origin.x + static_cast<float>(inPage.x),
+       seat.local.origin.y + static_cast<float>(inPage.y)}
+    );
+    const NSPoint buttonInWindow = [root convertPoint:NSMakePoint(button.x, button.y) toView:nil];
+    click(root, buttonInWindow);
+    expect(
+      spinUntil([&] { return [evaluate(web, @"taps") intValue] == 2; }),
+      "a click on the projected button reaches the page"
+    );
+    // The far top corner of the flat rect lies outside the projected quad:
+    // that press is Glim's, not the page's.
+    const NSPoint flatCorner = [root
+      convertPoint:NSMakePoint(
+                     seat.local.origin.x + seat.local.size.x - 3, seat.local.origin.y + 3
+                   )
+            toView:nil];
+    click(root, flatCorner);
+    spin(0.3);
+    expect([evaluate(web, @"taps") intValue] == 2, "a press outside the projected page stays Glim's");
+
+    screen().setTilt(0);
+    glim::paint::Context flatCtx;
+    app.rebuild();
+    app.recordScene(flatCtx);
+    host::syncSeats(window, flatCtx.scene(), attached, page->seatViews());
+    expect(web.superview == root, "flat again, the page is a plain sibling");
+
+    // Bridged chrome (K88): Glim's own address field and buttons drive the page.
+    screen().address = TextEdit{.text = "about:blank"};
+    expect(press("Go"), "the Glim Go button is there");
+    expect(
+      settle([](const WebStatus& s) { return !s.loading && s.url == "about:blank"; }),
+      "Go navigates the page to the typed address"
+    );
+    expect(press("Local"), "the Glim Local button is there");
+    expect(
+      settle([](const WebStatus& s) {
+        return !s.loading && s.url == kLocalUrl && s.title == "Glim WebView";
+      }),
+      "Local brings the bundled page back"
+    );
+    expect(screen().address->text == kLocalUrl, "the address field follows");
+
     host::syncSeats(window, glim::paint::Scene{}, attached, page->seatViews());
     expect(web.superview == nil, "the seat leaving detaches the view");
   }
-  if (failures == 0) std::cout << "webview slot: seated, loaded, clicked, detached\n";
+  if (failures == 0) std::cout << "webview: seated, loaded, clicked, tilted as a layer, routed, navigated by Glim chrome, detached\n";
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
