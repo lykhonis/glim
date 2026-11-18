@@ -293,13 +293,18 @@ int main() {
       };
       const float cx = s.local.origin.x + s.local.size.x * 0.3f;
       const float bottom = s.local.origin.y + s.local.size.y;
+      // Relative to the window's own background, light or dark: the copy
+      // stands out from it under the seam and has faded back by its end.
       const double seam = lit({cx, bottom + 6});
+      const double end = lit({cx, bottom + kWebReflect - 4});
       const double past = lit({cx, bottom + kWebReflect + 20});
       const double inside = lit({cx, bottom - 6});
-      expect(seam > past + 0.25, "the reflection shows under the page and fades out");
-      if (seam <= past + 0.25) {
+      const bool shows = std::fabs(seam - past) > 0.25 &&
+                         std::fabs(end - past) < std::fabs(seam - past) / 2;
+      expect(shows, "the reflection shows under the page and fades out");
+      if (!shows) {
         // CI uploads GLIM_GOT_DIR: the capture shows what the window drew.
-        std::cerr << "readback page " << inside << " seam " << seam << " past " << past << " at "
+        std::cerr << "readback page " << inside << " seam " << seam << " end " << end << " past " << past << " at "
                   << px.pixelsWide << "x" << px.pixelsHigh << "\n";
         if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
           static int n = 0;

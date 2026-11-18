@@ -130,7 +130,8 @@ const play = () => {
 };
 // A press plays on release, however slow; click is left to the keyboard,
 // since a slow touch counts as a long press and never clicks.
-for (const control of document.querySelectorAll("#tap, .album")) {
+// The shelf as a whole plays, so a press between albums still counts.
+for (const control of document.querySelectorAll("#tap, .shelf")) {
   control.addEventListener("pointerup", play);
   control.addEventListener("click", (e) => {
     if (e.detail === 0) play();
