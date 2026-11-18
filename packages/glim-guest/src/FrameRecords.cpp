@@ -299,6 +299,21 @@ void isolateFields(Io& io, I& i) {
   io.scalar(i.glassV0);
   io.scalar(i.glassU1);
   io.scalar(i.glassV1);
+  // Appended later: older senders leave them at their defaults.
+  vec2(io, i.surface);
+  vec2(io, i.fade.origin);
+  vec2(io, i.fade.step);
+  io.scalar(i.fade.fromAlpha);
+  io.scalar(i.fade.toAlpha);
+  bool warped = i.warp.has_value();
+  io.boolean(warped);
+  Mat3 warp = i.warp.value_or(Mat3{});
+  for (float& f : warp.m) {
+    io.scalar(f);
+  }
+  if constexpr (!std::is_const_v<I>) {
+    i.warp = warped ? std::optional<Mat3>(warp) : std::nullopt;
+  }
 }
 
 template <class Io, class F>

@@ -286,8 +286,12 @@ void rasterIsolate(
 ) {
   // Content is in logical px here, so paint it at full size: half-res is
   // the GPU's saving, not this rasterizer's.
-  const int cw = std::max(1, static_cast<int>(std::ceil(iso.surface.x * pixelRatio)));
-  const int ch = std::max(1, static_cast<int>(std::ceil(iso.surface.y * pixelRatio)));
+  // Packets without a surface (older guests) keep their content size.
+  const bool sized = iso.surface.x > 0.f && iso.surface.y > 0.f;
+  const int cw =
+    sized ? std::max(1, static_cast<int>(std::ceil(iso.surface.x * pixelRatio))) : iso.contentW;
+  const int ch =
+    sized ? std::max(1, static_cast<int>(std::ceil(iso.surface.y * pixelRatio))) : iso.contentH;
   std::vector<Pixel> tmp(static_cast<std::size_t>(cw * ch), Pixel{0, 0, 0, 0});
   if (iso.hasGlass) {
     if (!iso.lensPills.empty()) {

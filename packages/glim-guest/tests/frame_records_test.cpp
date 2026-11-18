@@ -58,6 +58,25 @@ p::Scene scene() {
   ctx.fillRounded(glim::Rect{{60, 28}, {30, 30}}, glim::Radius{8.f});
   ctx.popGroup();
 
+  // A reflection under a turned plate: a tilted (warped, half-res)
+  // isolate holding a flipped, faded one.
+  p::GroupParams tilt;
+  tilt.transform = glim::Mat4::translate(48, 12) * glim::Mat4::perspective(300) *
+                   glim::Mat4::rotateY(0.4f) * glim::Mat4::translate(-48, -12);
+  ctx.pushGroup(tilt);
+  ctx.setFillColor(0xffd040ff);
+  ctx.fill(glim::Rect{{30, 4}, {36, 12}});
+  p::GroupParams flip;
+  flip.transform = glim::Mat4::translate(0, 32) * glim::Mat4::scale(1, -1);
+  ctx.pushGroup(flip);
+  p::GroupParams faded;
+  faded.fade = glim::Fade{{48, 16}, {48, 8}, 0.6f, 0.f};
+  ctx.pushGroup(faded);
+  ctx.fill(glim::Rect{{30, 4}, {36, 12}});
+  ctx.popGroup();
+  ctx.popGroup();
+  ctx.popGroup();
+
   p::GroupParams glass;
   glass.lens = p::Lens{};
   glass.bounds = glim::Rect{{20, 48}, {56, 20}};
