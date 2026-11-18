@@ -123,14 +123,17 @@ int main() {
   };
   const auto [small, smallBox] = screenOf(400);
   const auto [large, largeBox] = screenOf(800);
-  std::vector<double> smallUs, largeUs;
-  for (int i = 0; i < 40; ++i) {
-    smallUs.push_back(timed([&] { focusables(small, smallBox, e); }));
-    largeUs.push_back(timed([&] { focusables(large, largeBox, e); }));
+  // Each pair runs back to back under the same load, so its ratio cancels
+  // contention; the median ignores pairs split by a preemption either way,
+  // where a ratio of two minimums hinges on one lucky sample.
+  std::vector<double> ratios;
+  for (int i = 0; i < 80; ++i) {
+    const double s = timed([&] { focusables(small, smallBox, e); });
+    ratios.push_back(timed([&] { focusables(large, largeBox, e); }) / s);
   }
   const double walk = p(walkUs, 0.0);
   const double key = p(keyUs, 0.0);
-  const double growth = p(largeUs, 0.0) / p(smallUs, 0.0);
+  const double growth = p(ratios, 0.5);
   std::cout << "text perf: keystroke min " << key << " us p50 " << p(keyUs, 0.5) << " us p95 "
             << p(keyUs, 0.95) << " us (" << kKeys << " keys, 200-row screen; app rebuild p50 "
             << p(buildUs, 0.5) << " us, focus walk min " << walk << " us, x2 rows costs x" << growth
