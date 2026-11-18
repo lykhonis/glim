@@ -74,12 +74,13 @@ void test_hit() {
     assert(dispatchCaptured(tree, tb, 0, Event::borrow(PointerDown{120, 60})));
     assert(near(seen.x, 20) && near(seen.y, 10));
   }
-  // Rotate 90 degrees clockwise about (25, 10): local (30, 10) paints at (25, 15).
+  // Rotate 90 degrees clockwise about the top-left corner: local (30, 10)
+  // paints at (-10, 30).
   {
     Seen seen;
-    Block tree = column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Probe{&seen}));
+    Block tree = column(transform({.rotate = 90, .anchor = {0, 0}}), toBlock(Probe{&seen}));
     Box tb = place(tree, {0, 720, 0, 480});
-    assert(press(tree, tb, 25, 15));
+    assert(press(tree, tb, -10, 30));
     assert(near(seen.x, 30) && near(seen.y, 10));
     assert(!press(tree, tb, 45, 10));
     assert(seen.hits == 1);
@@ -88,10 +89,10 @@ void test_hit() {
   {
     Seen seen;
     Block tree = column(
-      translate(200, 0), column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Probe{&seen}))
+      translate(200, 0), column(transform({.rotate = 90, .anchor = {0, 0}}), toBlock(Probe{&seen}))
     );
     Box tb = place(tree, {0, 720, 0, 480});
-    assert(press(tree, tb, 225, 15));
+    assert(press(tree, tb, 190, 30));
     assert(near(seen.x, 30) && near(seen.y, 10));
   }
   // A11y frames follow the same transforms: a screen reader's tap at the
@@ -104,7 +105,7 @@ void test_hit() {
     const Box mb = a11yNodes(moved, place(moved, {0, 720, 0, 480})).back().box;
     assert(near(mb.x, own.x + 100) && near(mb.y, own.y + 50) && near(mb.w, own.w));
     Block tree = column(
-      translate(200, 0), column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Probe{&seen}))
+      translate(200, 0), column(transform({.rotate = 90, .anchor = {0, 0}}), toBlock(Probe{&seen}))
     );
     Box tb = place(tree, {0, 720, 0, 480});
     const Box rb = a11yNodes(tree, tb).back().box;
@@ -112,7 +113,7 @@ void test_hit() {
     assert(press(tree, tb, rb.x + rb.w * 0.5f, rb.y + rb.h * 0.5f));
 
     int value = 0;
-    Block stepper = column(rotate({.angleDeg = 90, .cx = 25, .cy = 10}), toBlock(Stepper{&value}));
+    Block stepper = column(transform({.rotate = 90, .anchor = {0, 0}}), toBlock(Stepper{&value}));
     Box sb = place(stepper, {0, 720, 0, 480});
     const Box fb = a11yNodes(stepper, sb).back().box;
     const float cx = fb.x + fb.w * 0.5f;
@@ -181,7 +182,7 @@ void test_hit() {
   // and its local (10, 0) at (0, 10).
   {
     Inputs in;
-    Block tree = column(rotate({.angleDeg = 90}), layer({.onInput = in.fn()}));
+    Block tree = column(transform({.rotate = 90, .anchor = {0, 0}}), layer({.onInput = in.fn()}));
     Box tb = place(tree, {0, 720, 0, 480});
     assert(!press(tree, tb, 10, 1));
     assert(press(tree, tb, -1, 10));

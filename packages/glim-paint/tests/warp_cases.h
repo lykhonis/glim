@@ -66,7 +66,7 @@ inline void recordFade(glim::paint::Context& ctx) {
   ctx.setSize({kW, kH});
   ctx.beginFrame();
   glim::paint::GroupParams p;
-  p.fade = glim::paint::Fade{.from = {200, 100}, .to = {200, 200}, .fromAlpha = 1, .toAlpha = 0};
+  p.fade = glim::Fade{.from = {200, 100}, .to = {200, 200}, .fromAlpha = 1, .toAlpha = 0};
   ctx.pushGroup(p);
   ctx.setFillColor(0x2050e0ff);
   ctx.fill(glim::Rect{{100, 100}, {200, 100}});

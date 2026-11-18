@@ -26,6 +26,7 @@ void collectFocus(const Block& b, const Box& box, const Engine& e, std::vector<F
     e,
     [&](const Block& n, const Box& bx, const Engine&) -> bool {
       points.enter(n, bx);
+      if (n.has<InertTag>()) return false;
       if (canHandle(n)) out.push_back({&n, bx, detail::AutoCtx::path(), points.toNode()});
       return walkHasChildren(n);
     },

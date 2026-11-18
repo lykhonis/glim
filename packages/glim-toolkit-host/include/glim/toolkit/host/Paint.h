@@ -202,20 +202,12 @@ struct ContextSink {
     p.opacity = std::clamp(opacity, 0.f, 1.f);
     ctx.pushGroup(p);
   }
-  void pushTransform(float dx, float dy) {
+  void pushFade(const ::glim::Fade& f) {
     ::glim::paint::GroupParams p;
-    p.transform = ::glim::Mat4::translate(dx, dy);
+    p.fade = f;
     ctx.pushGroup(p);
   }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
-    ::glim::paint::GroupParams p;
-    p.transform = tiltMatrix(xDeg, yDeg, perspective, cx, cy, scale);
-    ctx.pushGroup(p);
-  }
-  void pushRotate(float angleDeg, float cx, float cy) {
-    const float rad = angleDeg * 3.14159265f / 180.0f;
-    ::glim::Mat4 m = ::glim::Mat4::translate(cx, cy) * ::glim::Mat4::rotateZ(rad) *
-                     ::glim::Mat4::translate(-cx, -cy);
+  void pushTransform(const ::glim::Mat4& m) {
     ::glim::paint::GroupParams p;
     p.transform = m;
     ctx.pushGroup(p);

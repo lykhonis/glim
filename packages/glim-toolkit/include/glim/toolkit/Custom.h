@@ -96,9 +96,8 @@ struct AnySink {
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*pushOpacityFn)(void*, float) = nullptr;
-  void (*pushTransformFn)(void*, float, float) = nullptr;
-  void (*pushRotateFn)(void*, float, float, float) = nullptr;
-  void (*pushTiltFn)(void*, float, float, float, float, float, float) = nullptr;
+  void (*pushTransformFn)(void*, const Mat4&) = nullptr;
+  void (*pushFadeFn)(void*, const Fade&) = nullptr;
   void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
     nullptr;
   void (*fillChamferFn)(void*, const Box&, float, std::uint32_t, const std::string&) = nullptr;
@@ -215,11 +214,8 @@ struct AnySink {
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
   void pushOpacity(float opacity) { pushOpacityFn(sink, opacity); }
-  void pushTransform(float dx, float dy) { pushTransformFn(sink, dx, dy); }
-  void pushRotate(float angleDeg, float cx, float cy) { pushRotateFn(sink, angleDeg, cx, cy); }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
-    pushTiltFn(sink, xDeg, yDeg, perspective, cx, cy, scale);
-  }
+  void pushTransform(const Mat4& m) { pushTransformFn(sink, m); }
+  void pushFade(const Fade& f) { pushFadeFn(sink, f); }
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
   void stroke(
@@ -287,16 +283,8 @@ void bindOps(AnySink& a) {
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.pushOpacityFn = [](void* s, float opacity) { static_cast<S*>(s)->pushOpacity(opacity); };
-  a.pushTransformFn = [](void* s, float dx, float dy) {
-    static_cast<S*>(s)->pushTransform(dx, dy);
-  };
-  a.pushRotateFn = [](void* s, float angleDeg, float cx, float cy) {
-    static_cast<S*>(s)->pushRotate(angleDeg, cx, cy);
-  };
-  a.pushTiltFn =
-    [](void* s, float xDeg, float yDeg, float perspective, float cx, float cy, float scale) {
-      static_cast<S*>(s)->pushTilt(xDeg, yDeg, perspective, cx, cy, scale);
-    };
+  a.pushTransformFn = [](void* s, const Mat4& m) { static_cast<S*>(s)->pushTransform(m); };
+  a.pushFadeFn = [](void* s, const Fade& f) { static_cast<S*>(s)->pushFade(f); };
   a.fillRadialFn = [](
                      void* s,
                      const Box& b,

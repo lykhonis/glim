@@ -177,7 +177,9 @@ struct SpeedGauge {
       for (int m = 1; m < 5; ++m) {
         const float deg = a0 + (a1 - a0) * static_cast<float>(m) / 5.f;
         const float r = 199.f;
-        sink.pushRotate(deg + 90.f, at.x(tcx), at.y(tcy));
+        sink.pushTransform(
+          transformAt({.rotate = deg + 90.f}, {at.x(tcx), at.y(tcy)})
+        );
         sink.fill(
           {at.x(tcx) - 0.75f, at.y(tcy) - r - 6.f, 1.5f, 12.f},
           0x71625bff
@@ -190,7 +192,9 @@ struct SpeedGauge {
       const float r =
         std::hypot(kTicks[i][0] - tcx, kTicks[i][1] - tcy);
       const float len = (i == 0 || i == 12) ? 18.f : 14.f;
-      sink.pushRotate(deg + 90.f, at.x(tcx), at.y(tcy));
+      sink.pushTransform(
+        transformAt({.rotate = deg + 90.f}, {at.x(tcx), at.y(tcy)})
+      );
       sink.fillRounded(
         {at.x(tcx) - 1.75f, at.y(tcy) - r - len * 0.5f, 3.5f, len},
         1,
@@ -232,7 +236,7 @@ struct SpeedGauge {
       sink.polyline(glow.data(), 2, 7.f, 0.f, 0xfa780820u);
       sink.pop();
     }
-    sink.pushRotate(deg + 90.f, nx, ny);
+    sink.pushTransform(transformAt({.rotate = deg + 90.f}, {nx, ny}));
     constexpr int kSteps = 16;
     for (int s = 0; s < kSteps; ++s) {
       const float r0 =

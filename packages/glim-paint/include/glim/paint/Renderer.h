@@ -70,8 +70,8 @@ class Renderer {
     float h[12];
     float uv[4];
     float extra[4];
-    float fade[4];    // UnitFade origin, step
-    float alphas[4];  // UnitFade fromAlpha, toAlpha
+    float fade[4];    // AlphaRamp origin, step
+    float alphas[4];  // AlphaRamp fromAlpha, toAlpha
   };
   struct GradientInstance {
     float rect[4];

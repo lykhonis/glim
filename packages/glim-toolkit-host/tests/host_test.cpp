@@ -130,31 +130,58 @@ int main() {
     }
   }
 
-  // PushTilt: the archive keeps the fit scale, and the paint sink turns it
-  // into the same perspective group the toolkit hit-tests through.
+  // PushTransform: the archive keeps the matrix, and the paint sink turns
+  // it into the same perspective group the toolkit hit-tests through.
+  // Pre-v9 archives' rotate and tilt kinds decode to the same matrices.
   {
+    using glim::toolkit::TransformTag;
+    const TransformTag tilted{.scale = {0.8f, 0.8f}, .tilt = {10, 30}, .perspective = 700};
+    const glim::Mat4 want = glim::toolkit::transformAt(tilted, {50, 40});
     glim::toolkit::OpsRecorder rec;
-    rec.pushTilt(10, 30, 700, 50, 40, 0.8f);
+    rec.pushTransform(want);
     rec.pop();
     std::vector<std::uint8_t> bytes;
     glim::toolkit::host::encodeOps(rec.ops, bytes);
     std::vector<glim::toolkit::Op> back;
     assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back) && back == rec.ops);
-    assert(
-      back[0].tiltX == 10 && back[0].tiltY == 30 && back[0].tiltD == 700 && back[0].tiltS == 0.8f
-    );
 
     glim::paint::Context ctx;
     ctx.setSize({100, 100});
     ctx.beginFrame();
     glim::toolkit::host::ContextSink sink{ctx};
-    sink.pushTilt(10, 30, 700, 50, 40, 0.8f);
+    sink.pushTransform(want);
     sink.pop();
     ctx.finish();
     const glim::Mat4& m = ctx.scene().root.children[0]->params.transform;
-    const glim::Mat4 want = glim::toolkit::tiltMatrix(10, 30, 700, 50, 40, 0.8f);
     assert(m.is3D());
     for (int i = 0; i < 16; ++i) assert(std::fabs(m.m[i] - want.m[i]) < 1e-5f);
+
+    const auto legacy = [](std::uint16_t ver, std::uint8_t kind, std::vector<float> fields) {
+      std::vector<std::uint8_t> v;
+      for (const char c : std::string("GLIMUI02")) v.push_back(static_cast<std::uint8_t>(c));
+      v.push_back(static_cast<std::uint8_t>(ver));
+      v.push_back(0);
+      for (const std::uint8_t b : {1, 0, 0, 0, static_cast<int>(kind)}) v.push_back(b);
+      for (int i = 0; i < 4; ++i) fields.insert(fields.begin(), 0.f);  // box
+      for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (i == 4) v.insert(v.end(), {0, 0});  // empty mark
+        std::uint32_t u = 0;
+        std::memcpy(&u, &fields[i], sizeof(u));
+        for (int k = 0; k < 4; ++k) v.push_back(static_cast<std::uint8_t>((u >> (8 * k)) & 0xff));
+      }
+      std::vector<glim::toolkit::Op> ops;
+      assert(glim::toolkit::host::decodeOps(v.data(), v.size(), ops) && ops.size() == 1);
+      assert(ops[0].kind == glim::toolkit::Op::Kind::PushTransform);
+      return ops[0].matrix;
+    };
+    const auto same = [](const glim::Mat4& a, const glim::Mat4& b) {
+      for (int i = 0; i < 16; ++i)
+        if (std::fabs(a.m[i] - b.m[i]) > 1e-5f) return false;
+      return true;
+    };
+    assert(same(legacy(8, 22, {10, 30, 700, 0.8f, 50, 40}), want));
+    assert(same(legacy(8, 13, {30, 5, 6}), glim::toolkit::transformAt({.rotate = 30}, {5, 6})));
+    assert(same(legacy(8, 10, {3, -4}), glim::Mat4::translate(3, -4)));
   }
 
   assert(mapKey(Key::DpadLeft) == glim::toolkit::Key::Left);
@@ -332,8 +359,7 @@ int main() {
     using glim::toolkit::OpsRecorder;
     OpsRecorder rec;
     const float pts[6] = {0, 0, 5, 5, 10, 0};
-    rec.pushTransform(3.0f, -4.0f);
-    rec.pushRotate(30.0f, 5.0f, 6.0f);
+    rec.pushTransform(glim::toolkit::transformAt({.rotate = 30.0f, .skew = {10, 0}}, {5, 6}));
     rec.fillRadial({0, 0, 10, 10}, 2, 0xff0000ff, 0xff000000, "r");
     rec.fillChamfer({0, 0, 10, 10}, 3.0f, 0x00ff00ff);
     rec.strokeChamfer({0, 0, 10, 10}, 3.0f, 1.5f, 0x0000ffff, "c");
@@ -342,6 +368,7 @@ int main() {
     rec.pushShadow(12.0f, 1.0f, 4.0f, 0x000000a6, 2.0f, 0.25f);
     rec.pushEffect({0, 0, 10, 10}, 5, 0, 0xff6a00ff, 0.3f);
     rec.pushOpacity(0.4f);
+    rec.pushFade({{1, 2}, {3, 4}, 0.5f, 0.25f});
     for (int i = 0; i < 5; ++i) rec.pop();
     std::vector<std::uint8_t> bytes;
     glim::toolkit::host::encodeOps(rec.ops, bytes);

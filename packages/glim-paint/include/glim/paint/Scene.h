@@ -273,25 +273,6 @@ struct ShadowBlur {
   float expandPx = 0.f;
 };
 
-// A linear alpha ramp across a group, in its local px: fromAlpha at from,
-// toAlpha at to, held beyond both.
-struct Fade {
-  Vec2 from{};
-  Vec2 to{};
-  float fromAlpha = 1.f;
-  float toAlpha = 0.f;
-};
-
-// A Fade over an isolate's unit square, as renderers apply it: the ramp
-// parameter is dot(p - origin, step), clamped to [0, 1].
-struct UnitFade {
-  Vec2 origin{};
-  Vec2 step{};
-  float fromAlpha = 1.f;
-  float toAlpha = 1.f;
-  float at(Vec2 p) const;
-};
-
 struct GroupParams {
   float opacity = 1.0f;
   Mat4 transform = Mat4::identity();
@@ -615,8 +596,8 @@ SlotHole transformSlot(const Mat4&, const SlotHole&);
 // Nullopt when the rect composite is exact (2D transform, no fade) and when
 // a corner falls behind the eye.
 std::optional<Mat3> isolateWarp(const GroupParams&, const Mat4& world, const Rect& surface);
-// Identity (alpha 1) without a fade.
-UnitFade unitFade(const std::optional<Fade>&, const Rect& surface);
+// A group's fade over its surface's unit square; opaque without one.
+AlphaRamp unitFade(const std::optional<Fade>&, const Rect& surface);
 Rect contentBounds(const Group&);
 void appendTransformed(std::vector<Shape>& dst, const Mat4&, const Shape&);
 Shape transformShape(const Mat4&, const Shape&);

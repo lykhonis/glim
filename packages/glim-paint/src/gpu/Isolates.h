@@ -113,7 +113,7 @@ void drawIsolate(
   void* texture,
   const Renderer::BlitInstance& rect,
   const std::optional<Mat3>& warp,
-  const UnitFade& fade
+  const AlphaRamp& fade
 );
 void blitTexture(
   gpu::CommandEncoder& encoder,

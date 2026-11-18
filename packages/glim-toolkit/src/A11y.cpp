@@ -43,6 +43,7 @@ std::vector<A11yNode> a11yNodes(const Block& root, const Box& box, const Engine&
     [&](const Block& n, const Box& bx, const Engine&) {
       const detail::PlaneMap toWindow = toNode.back().inverse();
       toNode.push_back(toNode.back().then(detail::childSpace(n, bx)));
+      if (n.has<InertTag>()) return false;
       Rec tmp;
       describeSelf(n, bx, tmp);
       std::string label;

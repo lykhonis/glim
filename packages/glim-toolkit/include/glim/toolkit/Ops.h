@@ -1,13 +1,16 @@
 #pragma once
 
 // Serializable UI recording. Elements paint compositor primitives;
-// PushRotate/FillRadial are first-class ops so custom elements get
-// GPU rotation + radial light without side-channel drawing.
+// PushTransform/FillRadial are first-class ops so custom elements get
+// GPU transforms + radial light without side-channel drawing.
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <vector>
 
+#include "glim/math.h"
 #include "glim/toolkit/Layout.h"
 
 namespace glim {
@@ -28,8 +31,10 @@ struct Op {
     PushTransform,
     Pop,
     Slot,
-    PushRotate,
-    FillRadial,
+    // 13 was PushRotate, and 22 PushTilt before PushFade, until
+    // PushTransform carried a matrix (archive v9); the codec still reads
+    // them from older archives.
+    FillRadial = 14,
     FillChamfer,
     StrokeChamfer,
     Arc,
@@ -37,7 +42,7 @@ struct Op {
     PushShadow,
     PushEffect,
     PushOpacity,
-    PushTilt,
+    PushFade,
   };
   Kind kind = Kind::Pop;
   Rec::Entry entry;  // valid when kind == Entry
@@ -54,36 +59,29 @@ struct Op {
   std::uint32_t rgba2 = 0;  // FillGradient bottom
   std::uint32_t image = 0;  // Image variant
   std::uint32_t slot = 0;
-  float width = 0;                // Stroke width / Polyline width / Arc thickness
-  float size = 0;                 // Text size
-  float condense = 1.f;           // Text x-squeeze (1 = normal)
-  float textWeight = 0.f;         // Text double-strike px (0 = regular)
-  float dx = 0.f;                 // PushTransform translate
-  float dy = 0.f;                 // PushTransform translate
-  float angleDeg = 0.f;           // PushRotate clockwise-on-screen
-  float rcx = 0.f;                // PushRotate pivot logical px
-  float rcy = 0.f;                // PushRotate pivot logical px
-  float cut = 0.f;                // FillChamfer / StrokeChamfer diagonal cut / Arc radius
-  float thickness = 0.f;          // Arc ring thickness
-  float startDeg = 0.f;           // Arc start (clockwise from +x)
-  float sweepDeg = 0.f;           // Arc sweep
-  float dotPitch = 0.f;           // Polyline dotted pitch (0 = solid)
-  float sigma = 0.f;              // PushShadow blur sigma
-  float sox = 0.f;                // PushShadow offset x
-  float soy = 0.f;                // PushShadow offset y
-  float expand = 0.f;             // PushShadow expand px
-  std::uint32_t shadowColor = 0;  // PushShadow color
-  float casterOpacity = 1.f;      // PushShadow caster fade; the shadow stays
-  std::uint32_t effect = 0;       // PushEffect kind (EffectKind bits)
-  float e0 = 0.f;                 // PushEffect intensity (Glow alpha mul)
-  float opacity = 1.f;            // PushOpacity group fade
-  float tiltX = 0.f;              // PushTilt degrees about X (pivot rcx, rcy)
-  float tiltY = 0.f;              // PushTilt degrees about Y
-  float tiltD = 0.f;              // PushTilt perspective distance px
-  float tiltS = 1.f;              // PushTilt content scale (fit)
-  std::vector<float> pts;         // Polyline flat points
-  std::string text;               // Text variant
-  std::string mark;               // semantic mark for every op
+  float width = 0;                 // Stroke width / Polyline width / Arc thickness
+  float size = 0;                  // Text size
+  float condense = 1.f;            // Text x-squeeze (1 = normal)
+  float textWeight = 0.f;          // Text double-strike px (0 = regular)
+  Mat4 matrix = Mat4::identity();  // PushTransform
+  float cut = 0.f;                 // FillChamfer / StrokeChamfer diagonal cut / Arc radius
+  float thickness = 0.f;           // Arc ring thickness
+  float startDeg = 0.f;            // Arc start (clockwise from +x)
+  float sweepDeg = 0.f;            // Arc sweep
+  float dotPitch = 0.f;            // Polyline dotted pitch (0 = solid)
+  float sigma = 0.f;               // PushShadow blur sigma
+  float sox = 0.f;                 // PushShadow offset x
+  float soy = 0.f;                 // PushShadow offset y
+  float expand = 0.f;              // PushShadow expand px
+  std::uint32_t shadowColor = 0;   // PushShadow color
+  float casterOpacity = 1.f;       // PushShadow caster fade; the shadow stays
+  std::uint32_t effect = 0;        // PushEffect kind (EffectKind bits)
+  float e0 = 0.f;                  // PushEffect intensity (Glow alpha mul)
+  float opacity = 1.f;             // PushOpacity group fade
+  Fade fade{};                     // PushFade alpha ramp, logical px
+  std::vector<float> pts;          // Polyline flat points
+  std::string text;                // Text variant
+  std::string mark;                // semantic mark for every op
   bool operator==(const Op& o) const {
     return kind == o.kind && entry.kind == o.entry.kind && entry.box.x == o.entry.box.x &&
            entry.box.y == o.entry.box.y && entry.box.w == o.entry.box.w &&
@@ -94,13 +92,16 @@ struct Op {
            tint == o.tint && material == o.material && glassMerge == o.glassMerge &&
            rgba == o.rgba && rgba2 == o.rgba2 && image == o.image && slot == o.slot &&
            width == o.width && size == o.size && condense == o.condense &&
-           textWeight == o.textWeight && dx == o.dx && dy == o.dy && angleDeg == o.angleDeg &&
-           rcx == o.rcx && rcy == o.rcy && cut == o.cut && thickness == o.thickness &&
-           startDeg == o.startDeg && sweepDeg == o.sweepDeg && dotPitch == o.dotPitch &&
-           sigma == o.sigma && sox == o.sox && soy == o.soy && expand == o.expand &&
-           shadowColor == o.shadowColor && casterOpacity == o.casterOpacity && effect == o.effect &&
-           e0 == o.e0 && opacity == o.opacity && tiltX == o.tiltX && tiltY == o.tiltY &&
-           tiltD == o.tiltD && tiltS == o.tiltS && pts == o.pts && text == o.text && mark == o.mark;
+           textWeight == o.textWeight &&
+           std::equal(std::begin(matrix.m), std::end(matrix.m), std::begin(o.matrix.m)) &&
+           cut == o.cut && thickness == o.thickness && startDeg == o.startDeg &&
+           sweepDeg == o.sweepDeg && dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox &&
+           soy == o.soy && expand == o.expand && shadowColor == o.shadowColor &&
+           casterOpacity == o.casterOpacity && effect == o.effect && e0 == o.e0 &&
+           opacity == o.opacity && fade.from.x == o.fade.from.x && fade.from.y == o.fade.from.y &&
+           fade.to.x == o.fade.to.x && fade.to.y == o.fade.to.y &&
+           fade.fromAlpha == o.fade.fromAlpha && fade.toAlpha == o.fade.toAlpha && pts == o.pts &&
+           text == o.text && mark == o.mark;
   }
   bool operator!=(const Op& o) const { return !(*this == o); }
 };
@@ -109,10 +110,10 @@ inline const char* opKindName(Op::Kind k) {
   static constexpr const char* kNames[] = {
     "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
     "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
-    "Slot",     "PushRotate", "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
-    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",  "PushTilt",
+    "Slot",     "Retired",    "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
+    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",  "PushFade",
   };
-  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushTilt) + 1);
+  static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushFade) + 1);
   return kNames[static_cast<int>(k)];
 }
 
@@ -252,30 +253,16 @@ struct OpsRecorder {
     o.opacity = opacity;
     ops.push_back(o);
   }
-  void pushTransform(float dx, float dy) {
+  void pushFade(const Fade& f) {
+    Op o;
+    o.kind = Op::Kind::PushFade;
+    o.fade = f;
+    ops.push_back(o);
+  }
+  void pushTransform(const Mat4& m) {
     Op o;
     o.kind = Op::Kind::PushTransform;
-    o.dx = dx;
-    o.dy = dy;
-    ops.push_back(o);
-  }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
-    Op o;
-    o.kind = Op::Kind::PushTilt;
-    o.tiltS = scale;
-    o.tiltX = xDeg;
-    o.tiltY = yDeg;
-    o.tiltD = perspective;
-    o.rcx = cx;
-    o.rcy = cy;
-    ops.push_back(o);
-  }
-  void pushRotate(float angleDeg, float cx, float cy) {
-    Op o;
-    o.kind = Op::Kind::PushRotate;
-    o.angleDeg = angleDeg;
-    o.rcx = cx;
-    o.rcy = cy;
+    o.matrix = m;
     ops.push_back(o);
   }
   void fillRadial(

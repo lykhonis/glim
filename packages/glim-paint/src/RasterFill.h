@@ -50,7 +50,7 @@ void warpBuffer(
   int sh,
   const Mat3& warp,
   float opacity,
-  const UnitFade& fade
+  const AlphaRamp& fade
 );
 
 void blitImage(

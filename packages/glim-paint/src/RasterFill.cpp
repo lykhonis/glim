@@ -235,7 +235,7 @@ void warpBuffer(
   int sh,
   const Mat3& warp,
   float opacity,
-  const UnitFade& fade
+  const AlphaRamp& fade
 ) {
   const std::optional<Mat3> inv = warp.inverse();
   if (!inv) {

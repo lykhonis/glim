@@ -63,7 +63,7 @@ struct GradientQuad {
 struct Isolate {
   // Set for perspective transforms: the content's projected quad, replacing the dest rect.
   std::optional<Mat3> warp;
-  UnitFade fade{};
+  AlphaRamp fade{};
   float destX = 0;
   float destY = 0;
   float destW = 0;

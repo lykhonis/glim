@@ -1,5 +1,9 @@
 #include <glim/math.h>
 
+#include <algorithm>
+#include <cmath>
+#include <iterator>
+
 namespace glim {
 
 Mat4 Mat4::identity() noexcept {
@@ -22,6 +26,39 @@ Mat4 Mat4::orthoYDown(
   r.m[12] = -(right + left) / rl;
   r.m[13] = -(top + bottom) / tb;
   r.m[14] = -(zFar + zNear) / fn;
+  return r;
+}
+
+float AlphaRamp::at(Vec2 p) const noexcept {
+  const float t = std::clamp((p.x - origin.x) * step.x + (p.y - origin.y) * step.y, 0.f, 1.f);
+  return fromAlpha + (toAlpha - fromAlpha) * t;
+}
+
+AlphaRamp rampOver(const Fade& fade, const Rect& rect) noexcept {
+  const Vec2 d{fade.to.x - fade.from.x, fade.to.y - fade.from.y};
+  const float len2 = d.x * d.x + d.y * d.y;
+  if (len2 <= 1e-12f || rect.size.x <= 0.f || rect.size.y <= 0.f) {
+    return {.fromAlpha = fade.toAlpha, .toAlpha = fade.toAlpha};
+  }
+  // t = dot(local - from, d) / |d|^2 with local = origin + size * p.
+  return {
+    .origin =
+      {(fade.from.x - rect.origin.x) / rect.size.x, (fade.from.y - rect.origin.y) / rect.size.y},
+    .step = {rect.size.x * d.x / len2, rect.size.y * d.y / len2},
+    .fromAlpha = fade.fromAlpha,
+    .toAlpha = fade.toAlpha,
+  };
+}
+
+bool isIdentity(const Mat4& m) noexcept {
+  const Mat4 i = Mat4::identity();
+  return std::equal(std::begin(m.m), std::end(m.m), std::begin(i.m));
+}
+
+Mat4 Mat4::skew(float xRadians, float yRadians) noexcept {
+  Mat4 r = identity();
+  r.m[4] = std::tan(xRadians);
+  r.m[1] = std::tan(yRadians);
   return r;
 }
 

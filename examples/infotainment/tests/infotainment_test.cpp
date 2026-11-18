@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
     Store cs;
     auto [cscreen, cdbox, crec] = paintRec(cs);
     assert(findOp(crec.ops, Op::Kind::PushBlend, 0) >= 0);
-    assert(findOp(crec.ops, Op::Kind::PushRotate, 0) >= 0);
+    assert(findOp(crec.ops, Op::Kind::PushTransform, 0) >= 0);
     assert(findOp(crec.ops, Op::Kind::FillChamfer, 0) >= 0);
     assert(findOp(crec.ops, Op::Kind::Arc, 0) >= 0);
     assert(findOp(crec.ops, Op::Kind::Polyline, 0) >= 0);
@@ -254,15 +254,12 @@ int main(int argc, char** argv) {
   }
 
   // Native GPU-effect plumbing for custom elements (backend-
-  // independent: op + archive level). PushRotate carries pivot +
-  // degrees through Emit -> Ops -> Codec; FillRadial carries a
-  // compositor radial gradient. NOTE: encoder rasterization of
-  // rotated quads is still AABB-baked (Merge::transformRect), so
-  // widgets keep dot-tessellated needles until encoders catch up.
+  // independent: op + archive level). A rotation reaches Ops and the
+  // Codec as the matrix hit testing uses; FillRadial carries a
+  // compositor radial gradient.
   {
-    Block tree = row(
-      rotate({.angleDeg = 30.f, .cx = 10.f, .cy = 20.f}), lines("Rotor")
-    );
+    const TransformTag turn{.rotate = 30.f, .anchor = {0, 0}};
+    Block tree = row(transform(turn), lines("Rotor"));
     Engine e;
     Box b = place(tree, {0, 720, 0, 480});
     OpsRecorder rec;
@@ -270,13 +267,14 @@ int main(int argc, char** argv) {
     paintTree(tree, b, e, rec, feed);
     int ri = -1, pops = 0;
     for (std::size_t i = 0; i < rec.ops.size(); ++i) {
-      if (rec.ops[i].kind == Op::Kind::PushRotate) ri = (int)i;
+      if (rec.ops[i].kind == Op::Kind::PushTransform) ri = (int)i;
       if (rec.ops[i].kind == Op::Kind::Pop) ++pops;
     }
     assert(ri >= 0);
-    assert(rec.ops[ri].angleDeg == 30.f);
-    assert(rec.ops[ri].rcx == 10.f && rec.ops[ri].rcy == 20.f);
-    assert(pops >= 1);  // rotate scope balanced
+    const glim::Mat4 want = transformMatrix(turn, b);
+    for (int k = 0; k < 16; ++k)
+      assert(rec.ops[ri].matrix.m[k] == want.m[k]);
+    assert(pops >= 1);  // transform scope balanced
     std::vector<std::uint8_t> bytes;
     host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;

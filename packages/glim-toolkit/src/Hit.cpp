@@ -41,22 +41,10 @@ Box mapBox(const PlaneMap& m, const Box& b) {
 }
 
 PlaneMap childSpace(const Block& n, const Box& box) {
-  PlaneMap m;
-  if (auto t = n.tag<TransformTag>()) m = PlaneMap::affine(1, 0, 0, 1, -t->get().dx, -t->get().dy);
-  if (auto r = n.tag<RotateTag>()) {
-    const RotateTag& rt = r->get();
-    const float rad = rt.angleDeg * 3.14159265f / 180.0f;
-    const float cs = std::cos(rad);
-    const float sn = std::sin(rad);
-    const PlaneMap undo = PlaneMap::affine(
-      cs, -sn, sn, cs, rt.cx - (cs * rt.cx + sn * rt.cy), rt.cy - (cs * rt.cy - sn * rt.cx)
-    );
-    m = m.then(undo);
+  if (auto t = n.tag<TransformTag>()) {
+    return PlaneMap{Mat3::planeOf(transformMatrix(t->get(), box))}.inverse();
   }
-  if (auto t = n.tag<TiltTag>(); t && t->get().active()) {
-    m = m.then(PlaneMap{Mat3::planeOf(tiltMatrix(t->get(), box))}.inverse());
-  }
-  return m;
+  return {};
 }
 
 void PointStack::enter(const Block& n, const Box& bx) {
@@ -97,6 +85,7 @@ HitAt hitWithBox(const Block& b, const Box& box, float x, float y, const Engine&
     e,
     [&](const Block& n, const Box& bx, const Engine&) -> bool {
       points.enter(n, bx);
+      if (n.has<InertTag>()) return false;
       if (claimsHit(n)) {
         if (inside(bx)) {
           take(n, bx);

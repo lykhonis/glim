@@ -25,14 +25,16 @@ class SlotOverlay final : public Embedder {
         window_.attachSlot(p.id, glim::shell::SlotNative{view});
       }
     }
-    window_.positionSlot(p.id, {p.windowLogical, p.local, p.transform});
+    window_.positionSlot(p.id, frameOf(p));
   }
-  void place(const paint::SlotPlacement& p) override {
-    window_.positionSlot(p.id, {p.windowLogical, p.local, p.transform});
-  }
+  void place(const paint::SlotPlacement& p) override { window_.positionSlot(p.id, frameOf(p)); }
   void detach(std::uint32_t id) override { window_.detachSlot(id); }
 
  private:
+  static glim::shell::SlotFrame frameOf(const paint::SlotPlacement& p) {
+    return {p.windowLogical, p.local, p.transform};
+  }
+
   glim::shell::Window& window_;
   SeatViewFactory makeView_;
 };

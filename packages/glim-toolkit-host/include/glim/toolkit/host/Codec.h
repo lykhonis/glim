@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "glim/toolkit/Ops.h"
+#include "glim/toolkit/Tags.h"
 
 namespace glim {
 namespace toolkit {
@@ -96,7 +97,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 8);  // version 8: PushGlass merge, PushTilt fit scale
+  detail::putU16(out, 9);  // version 9: PushTransform carries a matrix; PushFade
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -125,19 +126,12 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
     } else if (o.kind == K::PushOpacity) {
       detail::putF32(out, o.opacity);
     } else if (o.kind == K::PushTransform) {
-      detail::putF32(out, o.dx);
-      detail::putF32(out, o.dy);
-    } else if (o.kind == K::PushTilt) {
-      detail::putF32(out, o.tiltX);
-      detail::putF32(out, o.tiltY);
-      detail::putF32(out, o.tiltD);
-      detail::putF32(out, o.tiltS);
-      detail::putF32(out, o.rcx);
-      detail::putF32(out, o.rcy);
-    } else if (o.kind == K::PushRotate) {
-      detail::putF32(out, o.angleDeg);
-      detail::putF32(out, o.rcx);
-      detail::putF32(out, o.rcy);
+      for (const float f : o.matrix.m) detail::putF32(out, f);
+    } else if (o.kind == K::PushFade) {
+      for (const float f :
+           {o.fade.from.x, o.fade.from.y, o.fade.to.x, o.fade.to.y, o.fade.fromAlpha, o.fade.toAlpha
+           })
+        detail::putF32(out, f);
     } else if (o.kind == K::FillRadial) {
       detail::putI32(out, o.radius);
       detail::putU32(out, o.rgba);
@@ -207,7 +201,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
   const std::uint16_t ver = r.u16();
-  if (ver < 1 || ver > 8) return false;
+  if (ver < 1 || ver > 9) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -215,7 +209,12 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   using K = Op::Kind;
   for (std::uint32_t i = 0; i < count; ++i) {
     Op o;
-    o.kind = static_cast<K>(r.u8());
+    const std::uint8_t kind = r.u8();
+    o.kind = static_cast<K>(kind);
+    // Before v9 rotate (13) and tilt (22) had their own kinds.
+    const bool legacyRotate = ver < 9 && kind == 13;
+    const bool legacyTilt = ver < 9 && kind == 22;
+    if (legacyRotate || legacyTilt) o.kind = K::PushTransform;
     if (o.kind == K::Pop) {
       if (!r.ok) return false;
       out.push_back(o);
@@ -247,21 +246,36 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
     } else if (o.kind == K::PushOpacity) {
       if (ver < 6) return false;
       o.opacity = r.f32();
-    } else if (o.kind == K::PushTransform) {
-      o.dx = r.f32();
-      o.dy = r.f32();
-    } else if (o.kind == K::PushTilt) {
+    } else if (legacyRotate) {
+      TransformTag t{.rotate = r.f32()};
+      const float cx = r.f32();
+      o.matrix = transformAt(t, {cx, r.f32()}, 1.f);
+    } else if (legacyTilt) {
       if (ver < 7) return false;
-      o.tiltX = r.f32();
-      o.tiltY = r.f32();
-      o.tiltD = r.f32();
-      o.tiltS = ver >= 8 ? r.f32() : 1.f;
-      o.rcx = r.f32();
-      o.rcy = r.f32();
-    } else if (o.kind == K::PushRotate) {
-      o.angleDeg = r.f32();
-      o.rcx = r.f32();
-      o.rcy = r.f32();
+      TransformTag t;
+      t.tilt.x = r.f32();
+      t.tilt.y = r.f32();
+      t.perspective = r.f32();
+      const float s = ver >= 8 ? r.f32() : 1.f;
+      t.scale = {s, s};
+      const float cx = r.f32();
+      o.matrix = transformAt(t, {cx, r.f32()}, 1.f);
+    } else if (o.kind == K::PushFade) {
+      for (float* f :
+           {&o.fade.from.x,
+            &o.fade.from.y,
+            &o.fade.to.x,
+            &o.fade.to.y,
+            &o.fade.fromAlpha,
+            &o.fade.toAlpha})
+        *f = r.f32();
+    } else if (o.kind == K::PushTransform) {
+      if (ver >= 9) {
+        for (float& f : o.matrix.m) f = r.f32();
+      } else {
+        const float dx = r.f32();
+        o.matrix = Mat4::translate(dx, r.f32());
+      }
     } else if (o.kind == K::FillRadial) {
       o.radius = r.i32();
       o.rgba = r.u32();

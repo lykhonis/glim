@@ -138,7 +138,7 @@ inline void paintSubtleMap(
     float len = 16.f + hl * 30.f;
     float deg = (i % 2 == 0) ? (18.f + mapHash01(i * 5 + 131) * 22.f)
                              : -(20.f + mapHash01(i * 5 + 137) * 24.f);
-    sink.pushRotate(deg, x, y);
+    sink.pushTransform(transformAt({.rotate = deg}, {x, y}));
     sink.fill(
       {x - len * 0.5f, y - 0.5f, len, 1.f}, withAlpha(street, 0.28f)
     );

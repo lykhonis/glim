@@ -107,7 +107,7 @@ void test_tags() {
     int taps = 0;
     for (Block b :
          {tap(
-            lines("go"), [&taps] { ++taps; }, rotate({})
+            lines("go"), [&taps] { ++taps; }, transform({})
           ),
           column(pad(10), tap(lines("go"), [&taps] { ++taps; }, translate(0, 0)))}) {
       Box bb = place(b, {0, 720, 0, 480});
@@ -144,15 +144,16 @@ void test_tags() {
   }
 
   // Scope tags emit their push before the node paints and one pop after
-  // its subtree, in a fixed order: shadow, effect, then transforms.
+  // its subtree, in a fixed order: shadow, effect, then the transform,
+  // whose parts compose into one matrix.
   {
     OpsRecorder rec;
     TestFeed feed;
+    const TransformTag moved{.translate = {3.f, -4.f}, .rotate = 30.f, .anchor = {0, 0}};
     Block t = column(
       shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
       effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
-      translate(3.f, -4.f),
-      rotate({.angleDeg = 30.f, .cx = 5.f, .cy = 6.f}),
+      transform(moved),
       lines("x")
     );
     Box tb = place(t, {0, 720, 0, 480});
@@ -169,30 +170,111 @@ void test_tags() {
         assert(o.effect == static_cast<std::uint32_t>(EffectKind::Glow));
         assert(o.rgba == 0xff6a00ffu && o.e0 == 0.3f && o.radius == 5);
       }
-      if (o.kind == Op::Kind::PushTransform) assert(o.dx == 3.f && o.dy == -4.f);
-      if (o.kind == Op::Kind::PushRotate)
-        assert(o.angleDeg == 30.f && o.rcx == 5.f && o.rcy == 6.f);
+      if (o.kind == Op::Kind::PushTransform) {
+        // The corner (0, 0) of the box turns in place, then moves by (3, -4).
+        const glim::Vec3 q = glim::projectPlane(o.matrix, {tb.x, tb.y});
+        assert(std::fabs(q.x - (tb.x + 3)) < 1e-4f && std::fabs(q.y - (tb.y - 4)) < 1e-4f);
+        const glim::Mat4 want = transformMatrix(moved, tb);
+        for (int i = 0; i < 16; ++i) assert(o.matrix.m[i] == want.m[i]);
+      }
       if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushEffect ||
-          o.kind == Op::Kind::PushTransform || o.kind == Op::Kind::PushRotate)
+          o.kind == Op::Kind::PushTransform)
         pushes.push_back(o.kind);
     }
     assert(
       (pushes ==
-       std::vector<Op::Kind>{
-         Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushTransform, Op::Kind::PushRotate
-       })
+       std::vector<Op::Kind>{Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushTransform})
     );
-    assert(pops == 4);
+    assert(pops == 3);
+  }
+
+  // A fade ramps alpha from its edge inward in the node's own space, inside
+  // its transform; an inert copy paints but takes no pointer, focus or a11y.
+  {
+    int taps = 0;
+    const auto page = [&taps] { return tap(lines("page"), [&taps] { ++taps; }, pad(40, 20)); };
+    Block tree = stack(
+      page(),
+      column(
+        transform({.scale = {1, -1}, .anchor = {0.5f, 1}}),
+        fade({.edge = FadeEdge::Bottom, .length = 30, .fromAlpha = 0.4f, .toAlpha = 0}),
+        inert(),
+        page()
+      )
+    );
+    Box tb = place(tree, {0, 720, 0, 480});
+    OpsRecorder rec;
+    TestFeed feed;
+    paintTree(tree, tb, Engine{}, rec, feed);
+    int fades = 0, transforms = 0;
+    for (const auto& o : rec.ops) {
+      transforms += o.kind == Op::Kind::PushTransform;
+      if (o.kind != Op::Kind::PushFade) continue;
+      ++fades;
+      // Transform first, then the fade inside it.
+      assert(transforms == 1);
+      const float bottom = tb.y + focusBox(tree, tb, 0).h;
+      assert(o.fade.from.y == bottom && o.fade.to.y == bottom - 30);
+      assert(o.fade.fromAlpha == 0.4f && o.fade.toAlpha == 0);
+    }
+    assert(fades == 1);
+    // One focusable and one a11y button: the copy is inert.
+    assert(focusables(tree, tb, Engine{}).size() == 1);
+    int buttons = 0;
+    for (const auto& n : a11yNodes(tree, tb)) buttons += n.focusable;
+    assert(buttons == 1);
+    // A press on the mirror below the page reaches nothing.
+    const Box pb = focusBox(tree, tb, 0);
+    const float below = pb.y + pb.h + 4;
+    assert(!dispatchPointer(tree, tb, pb.x + 4, below, Event::borrow(PointerDown{pb.x + 4, below}))
+    );
+    assert(
+      dispatchPointer(tree, tb, pb.x + 4, pb.y + 4, Event::borrow(PointerDown{pb.x + 4, pb.y + 4}))
+    );
+    assert(taps == 1);
+  }
+
+  // Skew and a mirror are transforms too: hit testing follows them.
+  {
+    int taps = 0;
+    Block skewed = column(
+      transform({.skew = {20, 0}, .anchor = {0, 1}}),
+      tap(
+        lines("go"), [&taps] { ++taps; }, pad(40, 20)
+      )
+    );
+    Box sb = place(skewed, {0, 720, 0, 480});
+    const Box tb = focusBox(skewed, sb, 0);
+    // As CSS skewX, about the bottom edge the top leans left: the top-right
+    // corner is uncovered and the space left of the top-left is covered.
+    const float lean = tb.h * std::tan(20.f * 3.14159265f / 180.f);
+    const float rx = tb.x + tb.w - 2, lx = tb.x - lean + 2, ty = tb.y + 2;
+    assert(!dispatchPointer(skewed, sb, rx, ty, Event::borrow(PointerDown{rx, ty})));
+    assert(dispatchPointer(skewed, sb, lx, ty, Event::borrow(PointerDown{lx, ty})));
+    Block mirrored = column(
+      transform({.scale = {1, -1}, .anchor = {0.5f, 1}}),
+      tap(
+        lines("go"), [&taps] { ++taps; }, pad(40, 20)
+      )
+    );
+    Box mb = place(mirrored, {0, 720, 0, 480});
+    const Box fb = focusBox(mirrored, mb, 0);
+    // Flipped about its bottom edge, the tap sits just below where it was.
+    const float below = fb.y + fb.h + 4;
+    assert(
+      dispatchPointer(mirrored, mb, fb.x + 4, below, Event::borrow(PointerDown{fb.x + 4, below}))
+    );
+    assert(taps == 2);
   }
 }
 
 void test_tilt() {
-  // Like rotate, a tilt moves a node's children (the node paints first):
+  // Like a rotation, a tilt moves a node's children (the node paints first):
   // a column tilted 45 degrees about Y around its center, holding a
   // 200x100 tap (32x14 label padded). Pointers hit what paint drew.
   int taps = 0;
   Block plate = tap(lines("page"), [&taps] { ++taps; }, pad(84, 43));
-  Block tree = column(pad(100), tilt({.y = 45, .perspective = 400}), std::move(plate));
+  Block tree = column(pad(100), transform({.tilt = {0, 45}, .perspective = 400}), std::move(plate));
   Box tb = place(tree, {0, 400, 0, 300});
   const Box pb = focusBox(tree, tb, 0);
   assert(pb.w == 200 && pb.h == 100);
@@ -203,9 +285,9 @@ void test_tilt() {
   paintTree(tree, tb, Engine{}, rec, feed);
   int tilts = 0, pops = 0;
   for (const auto& o : rec.ops) {
-    if (o.kind == Op::Kind::PushTilt) {
-      assert(o.tiltY == 45.f && o.tiltX == 0.f && o.tiltD == 400.f);
-      assert(o.rcx == cx && o.rcy == cy);
+    if (o.kind == Op::Kind::PushTransform) {
+      const glim::Vec3 pivot = glim::projectPlane(o.matrix, {cx, cy});
+      assert(o.matrix.is3D() && std::fabs(pivot.x / pivot.z - cx) < 1e-3f);
       ++tilts;
     }
     pops += o.kind == Op::Kind::Pop;
@@ -220,7 +302,7 @@ void test_tilt() {
   assert(!dispatchPointer(tree, tb, farX, cy, Event::borrow(PointerDown{farX, cy})));
   assert(taps == 1);
   // Near (left) edge grows: just above the flat top, by the left edge, hits.
-  const glim::Mat4 m = tiltMatrix({.y = 45, .perspective = 400}, pb);
+  const glim::Mat4 m = transformMatrix({.tilt = {0, 45}, .perspective = 400}, pb);
   const glim::Vec3 corner = glim::projectPlane(m, {pb.x + 4, pb.y + 4});
   const float nx = corner.x / corner.z, ny = corner.y / corner.z;
   assert(ny < pb.y);
@@ -242,9 +324,10 @@ void test_tilt() {
       }
       return Box{x0, y0, x1 - x0, y1 - y0};
     };
-    const Box loose = bounds(tiltMatrix({.y = deg, .perspective = 600}, b));
+    const Box loose = bounds(transformMatrix({.tilt = {0, deg}, .perspective = 600}, b));
     assert(loose.y < b.y - 1);
-    const Box fitted = bounds(tiltMatrix({.y = deg, .perspective = 600, .fit = true}, b));
+    const Box fitted =
+      bounds(transformMatrix({.tilt = {0, deg}, .perspective = 600, .fit = true}, b));
     assert(fitted.x >= b.x - 0.5f && fitted.y >= b.y - 0.5f);
     assert(fitted.x + fitted.w <= b.x + b.w + 0.5f && fitted.y + fitted.h <= b.y + b.h + 0.5f);
     assert(fitted.h > b.h * 0.6f);
@@ -252,26 +335,28 @@ void test_tilt() {
 
   // Paint gets the same fit scale hit testing uses.
   {
-    const TiltTag fitTilt{.y = 60, .perspective = 600, .fit = true};
-    Block fitted = column(pad(50), tilt(fitTilt), tap(lines("page"), [] {}, pad(100, 80)));
+    const TransformTag fitTilt{.tilt = {0, 60}, .perspective = 600, .fit = true};
+    Block fitted = column(pad(50), transform(fitTilt), tap(lines("page"), [] {}, pad(100, 80)));
     Box fb = place(fitted, {0, 600, 0, 400});
     OpsRecorder r;
     TestFeed f;
     paintTree(fitted, fb, Engine{}, r, f);
     int seen = 0;
     for (const auto& o : r.ops) {
-      if (o.kind != Op::Kind::PushTilt) continue;
-      assert(o.tiltS < 1.f && o.tiltS == tiltScale(fitTilt, fb));
+      if (o.kind != Op::Kind::PushTransform) continue;
+      const glim::Mat4 want = transformMatrix(fitTilt, fb);
+      for (int i = 0; i < 16; ++i) assert(o.matrix.m[i] == want.m[i]);
       ++seen;
     }
     assert(seen == 1);
   }
 
-  // Focus and a11y report the node in its own space; a tilt at 0 is no tilt.
+  // Focus and a11y report the node in its own space; a transform that
+  // changes nothing adds no group.
   assert(focusAt(tree, tb, cx, cy) == 0);
-  Block flat = column(tilt({}), tap(lines("page"), [] {}));
+  Block flat = column(transform({}), tap(lines("page"), [] {}));
   OpsRecorder none;
   Box fb = place(flat, {0, 400, 0, 300});
   paintTree(flat, fb, Engine{}, none, feed);
-  for (const auto& o : none.ops) assert(o.kind != Op::Kind::PushTilt);
+  for (const auto& o : none.ops) assert(o.kind != Op::Kind::PushTransform);
 }

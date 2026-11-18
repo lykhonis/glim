@@ -49,6 +49,8 @@ struct Mat4 {
   static Mat4 rotateX(float radians) noexcept;
   // Positive swings the right edge away from the viewer.
   static Mat4 rotateY(float radians) noexcept;
+  // Shears x by tan(x) per unit y and y by tan(y) per unit x.
+  static Mat4 skew(float xRadians, float yRadians) noexcept;
   // CSS perspective: the eye sits distance px in front of the z = 0 plane.
   static Mat4 perspective(float distance) noexcept;
 
@@ -57,6 +59,8 @@ struct Mat4 {
 
   bool is3D(float eps = 1e-5f) const noexcept;
 };
+
+bool isIdentity(const Mat4& m) noexcept;
 
 struct Rect {
   Vec2 origin;
@@ -92,6 +96,28 @@ Vec3 projectPlane(const Mat4& t, Vec2 p) noexcept;
 // The plane point that t projects to screen; nullopt when the plane is edge-on
 // or the point lies behind the eye.
 std::optional<Vec2> unprojectPlane(const Mat4& t, Vec2 screen) noexcept;
+
+// A linear alpha ramp between two points: fromAlpha at from, toAlpha at
+// to, held beyond both.
+struct Fade {
+  Vec2 from{};
+  Vec2 to{};
+  float fromAlpha = 1.f;
+  float toAlpha = 0.f;
+};
+
+// A Fade over a rect's unit square, as renderers and compositors apply it:
+// the ramp parameter is dot(p - origin, step), clamped to [0, 1].
+struct AlphaRamp {
+  Vec2 origin{};
+  Vec2 step{};
+  float fromAlpha = 1.f;
+  float toAlpha = 1.f;
+  float at(Vec2 p) const noexcept;
+  bool opaque() const noexcept { return fromAlpha >= 1.f && toAlpha >= 1.f; }
+};
+
+AlphaRamp rampOver(const Fade& fade, const Rect& rect) noexcept;
 
 struct Color {
   std::uint32_t rgba = 0;

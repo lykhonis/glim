@@ -56,16 +56,14 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         sink.pop();
       }
       if (auto t = n.tag<TransformTag>()) {
-        sink.pushTransform(t->get().dx, t->get().dy);
-        transforms.push_back(std::cref(n));
+        const Mat4 m = transformMatrix(t->get(), bx);
+        if (!isIdentity(m)) {
+          sink.pushTransform(m);
+          transforms.push_back(std::cref(n));
+        }
       }
-      if (auto rt = n.tag<RotateTag>()) {
-        sink.pushRotate(rt->get().angleDeg, rt->get().cx, rt->get().cy);
-        transforms.push_back(std::cref(n));
-      }
-      if (auto tt = n.tag<TiltTag>(); tt && tt->get().active()) {
-        const TiltTag& t = tt->get();
-        sink.pushTilt(t.x, t.y, t.perspective, bx.x + bx.w / 2, bx.y + bx.h / 2, tiltScale(t, bx));
+      if (auto f = n.tag<FadeTag>()) {
+        sink.pushFade(fadeIn(f->get(), bx));
         transforms.push_back(std::cref(n));
       }
       if (clipsChildren(n)) {
@@ -79,8 +77,8 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         clips.pop_back();
         sink.pop();
       }
-      // A node may hold both TransformTag and RotateTag (two groups);
-      // drain all of them so scopes never leak across siblings.
+      // Drain every transform scope this node opened so none leaks
+      // across siblings.
       while (!transforms.empty() && transforms.back() && &transforms.back()->get() == &n) {
         transforms.pop_back();
         sink.pop();
