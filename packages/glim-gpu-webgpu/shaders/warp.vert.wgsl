@@ -5,6 +5,8 @@ struct Instance {
     h2_: vec4<f32>,
     uv: vec4<f32>,
     extra: vec4<f32>,
+    fade: vec4<f32>,
+    alphas: vec4<f32>,
 }
 
 struct Instances {
@@ -26,6 +28,9 @@ struct VertexOutput {
     @builtin(position) gl_Position: vec4<f32>,
     @location(0) member: vec2<f32>,
     @location(1) member_1: vec4<f32>,
+    @location(2) member_2: vec2<f32>,
+    @location(3) @interpolate(flat) member_3: vec4<f32>,
+    @location(4) @interpolate(flat) member_4: vec2<f32>,
 }
 
 var<private> gl_VertexIndex_1: i32;
@@ -37,6 +42,9 @@ var<private> unnamed_1: gl_PerVertex = gl_PerVertex(vec4<f32>(0f, 0f, 0f, 1f), 1
 var<storage> unnamed_2: Uniforms;
 var<private> v_uv: vec2<f32>;
 var<private> v_tint: vec4<f32>;
+var<private> v_unit: vec2<f32>;
+var<private> v_fade: vec4<f32>;
+var<private> v_alphas: vec2<f32>;
 
 fn main_1() {
     var p: vec2<f32>;
@@ -45,43 +53,51 @@ fn main_1() {
     var h: mat3x3<f32>;
     var q: vec3<f32>;
 
-    let _e29 = gl_VertexIndex_1;
+    let _e34 = gl_VertexIndex_1;
     indexable = array<vec2<f32>, 6>(vec2<f32>(0f, 0f), vec2<f32>(1f, 0f), vec2<f32>(0f, 1f), vec2<f32>(0f, 1f), vec2<f32>(1f, 0f), vec2<f32>(1f, 1f));
-    let _e31 = indexable[_e29];
-    p = _e31;
-    let _e32 = gl_InstanceIndex_1;
-    let _e35 = unnamed.instances[_e32];
-    inst.h0_ = _e35.h0_;
-    inst.h1_ = _e35.h1_;
-    inst.h2_ = _e35.h2_;
-    inst.uv = _e35.uv;
-    inst.extra = _e35.extra;
-    let _e47 = inst.h0_;
-    let _e48 = _e47.xyz;
-    let _e51 = inst.h0_[3u];
-    let _e53 = inst.h1_;
-    let _e54 = _e53.xy;
-    let _e57 = vec3<f32>(_e51, _e54.x, _e54.y);
-    let _e59 = inst.h1_;
-    let _e60 = _e59.zw;
-    let _e63 = inst.h2_[0u];
-    let _e66 = vec3<f32>(_e60.x, _e60.y, _e63);
-    h = mat3x3<f32>(vec3<f32>(_e48.x, _e48.y, _e48.z), vec3<f32>(_e57.x, _e57.y, _e57.z), vec3<f32>(_e66.x, _e66.y, _e66.z));
-    let _e80 = h;
-    let _e81 = p;
-    q = (_e80 * vec3<f32>(_e81.x, _e81.y, 1f));
-    let _e87 = unnamed_2.projection;
-    let _e88 = q;
-    let _e91 = q[2u];
-    let _e93 = (_e88.xy / vec2(_e91));
-    let _e99 = q[2u];
-    unnamed_1.gl_Position = ((_e87 * vec4<f32>(_e93.x, _e93.y, 0f, 1f)) * _e99);
-    let _e103 = inst.uv;
-    let _e106 = inst.uv;
-    let _e108 = p;
-    v_uv = mix(_e103.xy, _e106.zw, _e108);
-    let _e111 = inst.extra;
-    v_tint = _e111;
+    let _e36 = indexable[_e34];
+    p = _e36;
+    let _e37 = gl_InstanceIndex_1;
+    let _e40 = unnamed.instances[_e37];
+    inst.h0_ = _e40.h0_;
+    inst.h1_ = _e40.h1_;
+    inst.h2_ = _e40.h2_;
+    inst.uv = _e40.uv;
+    inst.extra = _e40.extra;
+    inst.fade = _e40.fade;
+    inst.alphas = _e40.alphas;
+    let _e56 = inst.h0_;
+    let _e57 = _e56.xyz;
+    let _e60 = inst.h0_[3u];
+    let _e62 = inst.h1_;
+    let _e63 = _e62.xy;
+    let _e66 = vec3<f32>(_e60, _e63.x, _e63.y);
+    let _e68 = inst.h1_;
+    let _e69 = _e68.zw;
+    let _e72 = inst.h2_[0u];
+    let _e75 = vec3<f32>(_e69.x, _e69.y, _e72);
+    h = mat3x3<f32>(vec3<f32>(_e57.x, _e57.y, _e57.z), vec3<f32>(_e66.x, _e66.y, _e66.z), vec3<f32>(_e75.x, _e75.y, _e75.z));
+    let _e89 = h;
+    let _e90 = p;
+    q = (_e89 * vec3<f32>(_e90.x, _e90.y, 1f));
+    let _e96 = unnamed_2.projection;
+    let _e97 = q;
+    let _e100 = q[2u];
+    let _e102 = (_e97.xy / vec2(_e100));
+    let _e108 = q[2u];
+    unnamed_1.gl_Position = ((_e96 * vec4<f32>(_e102.x, _e102.y, 0f, 1f)) * _e108);
+    let _e112 = inst.uv;
+    let _e115 = inst.uv;
+    let _e117 = p;
+    v_uv = mix(_e112.xy, _e115.zw, _e117);
+    let _e120 = inst.extra;
+    v_tint = _e120;
+    let _e121 = p;
+    v_unit = _e121;
+    let _e123 = inst.fade;
+    v_fade = _e123;
+    let _e125 = inst.alphas;
+    v_alphas = _e125.xy;
     return;
 }
 
@@ -90,8 +106,11 @@ fn vs_main(@builtin(vertex_index) gl_VertexIndex: u32, @builtin(instance_index) 
     gl_VertexIndex_1 = i32(gl_VertexIndex);
     gl_InstanceIndex_1 = i32(gl_InstanceIndex);
     main_1();
-    let _e10 = unnamed_1.gl_Position;
-    let _e11 = v_uv;
-    let _e12 = v_tint;
-    return VertexOutput(_e10, _e11, _e12);
+    let _e13 = unnamed_1.gl_Position;
+    let _e14 = v_uv;
+    let _e15 = v_tint;
+    let _e16 = v_unit;
+    let _e17 = v_fade;
+    let _e18 = v_alphas;
+    return VertexOutput(_e13, _e14, _e15, _e16, _e17, _e18);
 }

@@ -52,6 +52,8 @@ struct Instance
     float4 h2;
     float4 uv;
     float4 extra;
+    float4 fade;
+    float4 alphas;
 };
 
 struct Instance_1
@@ -61,6 +63,8 @@ struct Instance_1
     float4 h2;
     float4 uv;
     float4 extra;
+    float4 fade;
+    float4 alphas;
 };
 
 struct Instances
@@ -79,10 +83,13 @@ struct vs_main_out
 {
     float2 v_uv [[user(locn0)]];
     float4 v_tint [[user(locn1)]];
+    float2 v_unit [[user(locn2)]];
+    float4 v_fade [[user(locn3)]];
+    float2 v_alphas [[user(locn4)]];
     float4 gl_Position [[position]];
 };
 
-vertex vs_main_out vs_main(const device Instances& _36 [[buffer(0)]], const device Uniforms& _113 [[buffer(1)]], uint gl_VertexIndex [[vertex_id]], uint gl_InstanceIndex [[instance_id]])
+vertex vs_main_out vs_main(const device Instances& _36 [[buffer(0)]], const device Uniforms& _119 [[buffer(1)]], uint gl_VertexIndex [[vertex_id]], uint gl_InstanceIndex [[instance_id]])
 {
     vs_main_out out = {};
     float2 p = _19[int(gl_VertexIndex)];
@@ -92,11 +99,16 @@ vertex vs_main_out vs_main(const device Instances& _36 [[buffer(0)]], const devi
     inst.h2 = _36.instances[int(gl_InstanceIndex)].h2;
     inst.uv = _36.instances[int(gl_InstanceIndex)].uv;
     inst.extra = _36.instances[int(gl_InstanceIndex)].extra;
+    inst.fade = _36.instances[int(gl_InstanceIndex)].fade;
+    inst.alphas = _36.instances[int(gl_InstanceIndex)].alphas;
     float3x3 h = float3x3(float3(inst.h0.xyz), float3(float3(inst.h0.w, inst.h1.xy)), float3(float3(inst.h1.zw, inst.h2.x)));
     float3 q = h * float3(p, 1.0);
-    out.gl_Position = (_113.projection * float4(q.xy / float2(q.z), 0.0, 1.0)) * q.z;
+    out.gl_Position = (_119.projection * float4(q.xy / float2(q.z), 0.0, 1.0)) * q.z;
     out.v_uv = mix(inst.uv.xy, inst.uv.zw, p);
     out.v_tint = inst.extra;
+    out.v_unit = p;
+    out.v_fade = inst.fade;
+    out.v_alphas = inst.alphas.xy;
     return out;
 }
 

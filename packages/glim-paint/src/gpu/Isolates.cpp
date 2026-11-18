@@ -314,13 +314,20 @@ void drawIsolate(
   Stats& stats,
   void* texture,
   const Renderer::BlitInstance& rect,
-  const std::optional<Mat3>& warp
+  const std::optional<Mat3>& warp,
+  const UnitFade& fade
 ) {
   if (warp && pipes.warp.native()) {
     Renderer::WarpInstance w{};
     std::copy(std::begin(warp->m), std::end(warp->m), w.h);
     std::copy(std::begin(rect.uv), std::end(rect.uv), w.uv);
     std::copy(std::begin(rect.extra), std::end(rect.extra), w.extra);
+    w.fade[0] = fade.origin.x;
+    w.fade[1] = fade.origin.y;
+    w.fade[2] = fade.step.x;
+    w.fade[3] = fade.step.y;
+    w.alphas[0] = fade.fromAlpha;
+    w.alphas[1] = fade.toAlpha;
     pass.setPipeline(pipes.warp);
     pass.setBytes(0, &w, sizeof(w));
   } else {

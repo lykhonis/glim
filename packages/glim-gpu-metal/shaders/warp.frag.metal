@@ -13,12 +13,16 @@ struct fs_main_in
 {
     float2 v_uv [[user(locn0)]];
     float4 v_tint [[user(locn1)]];
+    float2 v_unit [[user(locn2)]];
+    float4 v_fade [[user(locn3), flat]];
+    float2 v_alphas [[user(locn4), flat]];
 };
 
 fragment fs_main_out fs_main(fs_main_in in [[stage_in]], texture2d<float> tex [[texture(2)]], sampler samp [[sampler(6)]])
 {
     fs_main_out out = {};
-    out.out_color = tex.sample(samp, in.v_uv) * in.v_tint;
+    float t = fast::clamp(dot(in.v_unit - in.v_fade.xy, in.v_fade.zw), 0.0, 1.0);
+    out.out_color = (tex.sample(samp, in.v_uv) * in.v_tint) * mix(in.v_alphas.x, in.v_alphas.y, t);
     return out;
 }
 

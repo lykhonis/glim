@@ -734,7 +734,8 @@ void Renderer::encodeGroup(
             stats_,
             ft->native(),
             blit,
-            isolateWarp(extra * child->params.transform, surface)
+            isolateWarp(child->params, extra * child->params.transform, surface),
+            unitFade(child->params.fade, surface)
           );
         } else {
           resumePass();

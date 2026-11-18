@@ -234,7 +234,8 @@ void warpBuffer(
   int sw,
   int sh,
   const Mat3& warp,
-  float opacity
+  float opacity,
+  const UnitFade& fade
 ) {
   const std::optional<Mat3> inv = warp.inverse();
   if (!inv) {
@@ -264,10 +265,11 @@ void warpBuffer(
         continue;
       }
       Pixel p = samplePixel(src, sw, sh, u * static_cast<float>(sw), v * static_cast<float>(sh));
-      p.r *= opacity;
-      p.g *= opacity;
-      p.b *= opacity;
-      p.a *= opacity;
+      const float a = opacity * fade.at({u, v});
+      p.r *= a;
+      p.g *= a;
+      p.b *= a;
+      p.a *= a;
       srcOver(dest[static_cast<std::size_t>(y * dw + x)], p);
     }
   }

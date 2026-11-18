@@ -103,8 +103,8 @@ PlateInstance makePlate(
   int n
 );
 // Composites an isolate's frame target in an open pass: through warp when
-// the group is perspective-transformed (and the backend has the pipeline),
-// else as the rect blit.
+// the group is perspective-transformed or faded (and the backend has the
+// pipeline), else as the rect blit.
 void drawIsolate(
   gpu::Pass& pass,
   const Renderer::Pipelines& pipes,
@@ -112,7 +112,8 @@ void drawIsolate(
   Stats& stats,
   void* texture,
   const Renderer::BlitInstance& rect,
-  const std::optional<Mat3>& warp
+  const std::optional<Mat3>& warp,
+  const UnitFade& fade
 );
 void blitTexture(
   gpu::CommandEncoder& encoder,

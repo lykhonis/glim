@@ -236,8 +236,33 @@ GlyphRun transformGlyphs(const Mat4& t, const GlyphRun& src) {
   return out;
 }
 
-std::optional<Mat3> isolateWarp(const Mat4& world, const Rect& surface) {
-  if (!world.is3D()) {
+float UnitFade::at(Vec2 p) const {
+  const float t = std::clamp((p.x - origin.x) * step.x + (p.y - origin.y) * step.y, 0.f, 1.f);
+  return fromAlpha + (toAlpha - fromAlpha) * t;
+}
+
+UnitFade unitFade(const std::optional<Fade>& fade, const Rect& surface) {
+  if (!fade) {
+    return {};
+  }
+  const Vec2 d{fade->to.x - fade->from.x, fade->to.y - fade->from.y};
+  const float len2 = d.x * d.x + d.y * d.y;
+  if (len2 <= 1e-12f || surface.size.x <= 0.f || surface.size.y <= 0.f) {
+    return {.fromAlpha = fade->toAlpha, .toAlpha = fade->toAlpha};
+  }
+  // t = dot(local - from, d) / |d|^2 with local = origin + size * p.
+  return {
+    .origin =
+      {(fade->from.x - surface.origin.x) / surface.size.x,
+       (fade->from.y - surface.origin.y) / surface.size.y},
+    .step = {surface.size.x * d.x / len2, surface.size.y * d.y / len2},
+    .fromAlpha = fade->fromAlpha,
+    .toAlpha = fade->toAlpha,
+  };
+}
+
+std::optional<Mat3> isolateWarp(const GroupParams& params, const Mat4& world, const Rect& surface) {
+  if (!world.is3D() && !params.fade) {
     return std::nullopt;
   }
   Mat3 unit;
@@ -504,7 +529,7 @@ bool needsIsolateBesidesTransform(const Group& g) {
   if (g.params.isolate) {
     return true;
   }
-  if (g.params.opacity < 1.0f - 1e-5f) {
+  if (g.params.opacity < 1.0f - 1e-5f || g.params.fade) {
     return true;
   }
   if (hasBackdrop(g)) {

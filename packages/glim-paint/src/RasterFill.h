@@ -49,7 +49,8 @@ void warpBuffer(
   int sw,
   int sh,
   const Mat3& warp,
-  float opacity
+  float opacity,
+  const UnitFade& fade
 );
 
 void blitImage(

@@ -480,7 +480,9 @@ void Renderer::submitLayer(
     blit.extra[1] = iso.opacity;
     blit.extra[2] = iso.opacity;
     blit.extra[3] = iso.opacity;
-    drawIsolate(pass, pipes_, device_.nativeSampler(), stats_, ft->native(), blit, iso.warp);
+    drawIsolate(
+      pass, pipes_, device_.nativeSampler(), stats_, ft->native(), blit, iso.warp, iso.fade
+    );
   }
   pass.end();
 }

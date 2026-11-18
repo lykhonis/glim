@@ -9,6 +9,8 @@ struct Instance {
     vec4 h2;
     vec4 uv;
     vec4 extra;
+    vec4 fade;
+    vec4 alphas;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {
@@ -21,6 +23,9 @@ layout(std430, set = 0, binding = 1) readonly buffer Uniforms {
 
 layout(location = 0) out vec2 v_uv;
 layout(location = 1) out vec4 v_tint;
+layout(location = 2) out vec2 v_unit;
+layout(location = 3) flat out vec4 v_fade;
+layout(location = 4) flat out vec2 v_alphas;
 
 void main() {
     const vec2 unit[6] = vec2[](
@@ -33,4 +38,7 @@ void main() {
     gl_Position = (projection * vec4(q.xy / q.z, 0.0, 1.0)) * q.z;
     v_uv = mix(inst.uv.xy, inst.uv.zw, p);
     v_tint = inst.extra;
+    v_unit = p;
+    v_fade = inst.fade;
+    v_alphas = inst.alphas.xy;
 }
