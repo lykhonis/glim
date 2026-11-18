@@ -12,14 +12,15 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
   const int w = std::max(desc.width, 1);
   const int h = std::max(desc.height, 1);
   GpuImage* found = nullptr;
+  Handle handle = 0;
   for (std::size_t i = 1; i < impl_->targets.size(); ++i) {
     GpuImage& img = impl_->targets[i];
     if (!img.inUse && img.image && img.width == w && img.height == h) {
       found = &img;
+      handle = static_cast<Handle>(i);
       break;
     }
   }
-  Handle handle = 0;
   if (!found) {
     handle = impl_->next++;
     if (handle >= impl_->targets.size()) {
@@ -37,8 +38,6 @@ Result<FrameTarget> Device::createFrameTarget(const FrameTargetDesc& desc) {
       return Result<FrameTarget>::fail("Vulkan FrameTarget image failed");
     }
     found = &img;
-  } else {
-    handle = static_cast<Handle>(found - impl_->targets.data());
   }
   found->inUse = true;
   FrameTarget t;

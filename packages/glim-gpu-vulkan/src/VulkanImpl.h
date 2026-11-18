@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <utility>
+#include <deque>
 #include <vector>
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
 #include <android/hardware_buffer.h>
@@ -225,8 +226,11 @@ struct Device::Impl {
   std::vector<vulkan::ShaderRec> shaders;
   std::vector<vulkan::PipelineRec> pipelines;
   std::vector<vulkan::GpuBuffer> buffers;
-  std::vector<vulkan::GpuImage> targets;
-  std::vector<vulkan::GpuImage> sampled;
+  // Deques: an open pass holds a pointer to its target, and images are
+  // created mid-frame (nested isolates, uploads), so growth must not move
+  // them.
+  std::deque<vulkan::GpuImage> targets;
+  std::deque<vulkan::GpuImage> sampled;
   Handle next = 1;
 
   VkPhysicalDeviceProperties props{};
