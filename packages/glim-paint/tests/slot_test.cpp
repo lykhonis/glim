@@ -3,6 +3,7 @@
 #include <glim/paint/Renderer.h>
 #include <glim/paint/Scene.h>
 
+#include <cmath>
 #include <cstdint>
 #include <algorithm>
 #include <cstdlib>
@@ -156,6 +157,44 @@ int main() {
             y <= f.origin.y + f.size.y + 0.5f,
           "frame bounds the projected quad"
         );
+      }
+    }
+    // A seat drawn twice is one native view shown twice: the later drawing
+    // is a copy with its own transform and the fade over it, as a
+    // reflection composes it (flip about the bottom edge, fade, K89).
+    {
+      glim::paint::Context twice;
+      twice.setSize({400, 300});
+      twice.beginFrame();
+      twice.slot(glim::Rect{{100, 50}, {200, 100}}, 6);
+      glim::paint::GroupParams flip;
+      flip.transform = glim::Mat4::translate(0, 300) * glim::Mat4::scale(1, -1);
+      twice.pushGroup(flip);
+      glim::paint::GroupParams faded;
+      faded.fade = glim::Fade{{200, 150}, {200, 110}, 0.4f, 0.f};
+      twice.pushGroup(faded);
+      twice.slot(glim::Rect{{100, 50}, {200, 100}}, 6);
+      twice.popGroup();
+      twice.popGroup();
+      twice.finish();
+      placed.clear();
+      glim::paint::collectSlots(twice.scene(), &placed);
+      expect(placed.size() == 1 && placed[0].id == 6, "a seat drawn twice is one placement");
+      if (placed.size() == 1) {
+        const glim::paint::SlotPlacement& s = placed[0];
+        expect(
+          s.fade.opaque() && s.copies.size() == 1,
+          "the first drawing is the view, the second a copy"
+        );
+        if (s.copies.size() == 1) {
+          const glim::PlacedRect& c = s.copies[0];
+          const glim::Vec3 top = glim::projectPlane(c.transform, {100, 50});
+          expect(top.y / top.z == 250 && c.local.origin.y == 50, "the copy carries its transform");
+          expect(
+            std::fabs(c.fade.at({0.5f, 1}) - 0.4f) < 1e-5f && c.fade.at({0.5f, 0.6f}) < 1e-5f,
+            "the copy carries its fade over its own rect"
+          );
+        }
       }
     }
     glim::paint::Context flat;

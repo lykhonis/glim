@@ -97,6 +97,28 @@ int main() {
     expect(glim::Mat4::rotateX(0.3f).is3D(), "rotateX is 3D");
   }
 
+  // Inverse undoes perspective, flips and skews; a flat matrix has none.
+  {
+    const glim::Mat4 m = glim::Mat4::translate(30, 40) * glim::Mat4::perspective(500) *
+                         glim::Mat4::rotateY(0.4f) * glim::Mat4::skew(0.2f, 0) *
+                         glim::Mat4::scale(1, -1);
+    const auto inv = m.inverse();
+    expect(inv.has_value(), "an invertible matrix inverts");
+    const glim::Mat4 one = m * *inv;
+    for (int i = 0; i < 16; ++i) {
+      expectNear(one.m[i], glim::Mat4::identity().m[i], "m * inverse is identity", 1e-4f);
+    }
+    expect(!glim::Mat4::scale(0, 1).inverse().has_value(), "a singular matrix has no inverse");
+  }
+
+  // A fade over a rect: alpha at its points, held beyond.
+  {
+    const glim::AlphaRamp r = glim::rampOver({{0, 100}, {0, 50}, 0.4f, 0.f}, {{0, 0}, {10, 100}});
+    expectNear(r.at({0.5f, 1.f}), 0.4f, "fromAlpha at from", 1e-5f);
+    expectNear(r.at({0.5f, 0.75f}), 0.2f, "half way", 1e-5f);
+    expectNear(r.at({0.5f, 0.f}), 0.f, "held beyond to", 1e-5f);
+  }
+
   if (failures != 0) {
     std::cerr << failures << " failure(s)\n";
     return EXIT_FAILURE;

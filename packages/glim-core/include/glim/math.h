@@ -56,6 +56,7 @@ struct Mat4 {
 
   Mat4 operator*(const Mat4& rhs) const noexcept;
   Vec4 operator*(const Vec4& v) const noexcept;
+  std::optional<Mat4> inverse() const noexcept;
 
   bool is3D(float eps = 1e-5f) const noexcept;
 };
@@ -118,6 +119,13 @@ struct AlphaRamp {
 };
 
 AlphaRamp rampOver(const Fade& fade, const Rect& rect) noexcept;
+
+// A rect drawn under a transform, with an alpha ramp over its unit square.
+struct PlacedRect {
+  Rect local{};
+  Mat4 transform = Mat4::identity();
+  AlphaRamp fade{};
+};
 
 struct Color {
   std::uint32_t rgba = 0;

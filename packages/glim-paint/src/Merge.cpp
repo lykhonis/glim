@@ -505,10 +505,14 @@ bool needsIsolate(const Group& g) {
 }
 
 bool needsIsolateBesidesTransform(const Group& g) {
+  return g.params.fade.has_value() || needsIsolateBesidesFade(g);
+}
+
+bool needsIsolateBesidesFade(const Group& g) {
   if (g.params.isolate) {
     return true;
   }
-  if (g.params.opacity < 1.0f - 1e-5f || g.params.fade) {
+  if (g.params.opacity < 1.0f - 1e-5f) {
     return true;
   }
   if (hasBackdrop(g)) {
@@ -825,16 +829,30 @@ Rect intersectAabb(Rect a, Rect b) {
   return {{x0, y0}, {x1 - x0, y1 - y0}};
 }
 
+// The fade a seat sits under, in the space of the group that set it.
+struct FadeScope {
+  const Fade* fade = nullptr;
+  Mat4 world = Mat4::identity();
+};
+
+bool sameMatrix(const Mat4& a, const Mat4& b) {
+  return std::equal(std::begin(a.m), std::end(a.m), std::begin(b.m));
+}
+
 void collectSlotsIn(
   const Group& g,
   const Mat4& extra,
   Rect clip,
   bool clipActive,
   bool underIsolate,
+  FadeScope fade,
   std::vector<SlotPlacement>* out
 ) {
   const Mat4 world = extra;
-  const bool isolate = underIsolate || needsIsolateBesidesTransform(g);
+  const bool isolate = underIsolate || needsIsolateBesidesFade(g);
+  if (g.params.fade) {
+    fade = {&*g.params.fade, world};
+  }
   Rect nextClip = clip;
   bool nextActive = clipActive;
   if (hasClip(g.params)) {
@@ -859,12 +877,19 @@ void collectSlotsIn(
       if (r.size.x <= 0.f || r.size.y <= 0.f) {
         continue;
       }
-      out->push_back(SlotPlacement{hole->id, r, hole->rect, world});
+      // A fade reaches the seat when no transform lies between them; a
+      // transform there is not carried yet, so the seat shows unfaded.
+      const bool faded = fade.fade && sameMatrix(fade.world, world);
+      out->push_back(SlotPlacement{
+        hole->id, r, hole->rect, world, faded ? rampOver(*fade.fade, hole->rect) : AlphaRamp{}, {}
+      });
     }
   }
   for (const auto& child : g.children) {
     if (child) {
-      collectSlotsIn(*child, world * child->params.transform, nextClip, nextActive, isolate, out);
+      collectSlotsIn(
+        *child, world * child->params.transform, nextClip, nextActive, isolate, fade, out
+      );
     }
   }
 }
@@ -878,9 +903,19 @@ void collectSlots(const Scene& scene, std::vector<SlotPlacement>* out) {
   // Off-viewport seats are dropped so a native view never lingers over
   // unpainted area eating input (archived input notes §1, roadmap P0.8).
   const bool viewport = scene.logicalSize.x > 0.f && scene.logicalSize.y > 0.f;
+  std::vector<SlotPlacement> drawn;
   collectSlotsIn(
-    scene.root, Mat4::identity(), Rect::fromSize(scene.logicalSize), viewport, false, out
+    scene.root, Mat4::identity(), Rect::fromSize(scene.logicalSize), viewport, false, {}, &drawn
   );
+  for (SlotPlacement& p : drawn) {
+    const auto first =
+      std::find_if(out->begin(), out->end(), [&](const SlotPlacement& q) { return q.id == p.id; });
+    if (first == out->end()) {
+      out->push_back(std::move(p));
+    } else {
+      first->copies.push_back({p.local, p.transform, p.fade});
+    }
+  }
 }
 
 int coarseTileCount(Vec2 logicalSize, float pixelRatio) {

@@ -402,6 +402,11 @@ struct SlotPlacement {
   // the native view as a layer under perspective (K88).
   Rect local{};
   Mat4 transform = Mat4::identity();
+  // The fade over local, from an enclosing faded group.
+  AlphaRamp fade{};
+  // Later drawings of the same seat: the one live view shown again, as a
+  // replica composes it (K89). They take no input.
+  std::vector<PlacedRect> copies;
 };
 
 struct Hit {
@@ -549,6 +554,8 @@ void stripGlassForIsolate(Group&);
 bool needsIsolate(const Group&);
 // needsIsolate for every reason but a 3D transform.
 bool needsIsolateBesidesTransform(const Group&);
+// What a seat cannot sit under: a fade alone is carried to the shell.
+bool needsIsolateBesidesFade(const Group&);
 // Screen bounds of rect under t, perspective divided.
 Rect projectedBounds(const Mat4& t, const Rect& rect);
 bool canMerge(const Group&);
