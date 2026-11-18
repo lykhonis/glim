@@ -96,7 +96,7 @@ inline void paintProjectedMap(
       pts[i * 2 + 1] = sy;
     }
     const float edge = (li == 0 || li == 10) ? 0.5f : 1.f;
-    sink.polyline(pts, n, 1.5f * edge, 0.f, withAlpha(street, 0.30f));
+    sink.polyline(pts, n, 1.5f * edge, 0.f, scaleAlpha(street, 0.30f));
   }
   // Transverse streets: constant depth, compressed toward horizon.
   for (int ti = 0; ti < 14; ++ti) {
@@ -111,7 +111,7 @@ inline void paintProjectedMap(
       pts[i * 2] = sx;
       pts[i * 2 + 1] = sy;
     }
-    sink.polyline(pts, n, 1.f, 0.f, withAlpha(street, 0.26f));
+    sink.polyline(pts, n, 1.f, 0.f, scaleAlpha(street, 0.26f));
   }
   // Cracked shorts in world space: hashed (x0,z0,len) projected.
   for (int i = 0; i < 14; ++i) {
@@ -137,7 +137,7 @@ inline void paintProjectedMap(
       pts[2] = bx;
       pts[3] = by;
     }
-    sink.polyline(pts, 2, 1.f, 0.f, withAlpha(street, 0.30f));
+    sink.polyline(pts, 2, 1.f, 0.f, scaleAlpha(street, 0.30f));
   }
   // Route: world-space zigzag dives to the horizon, Plus dotted orange.
   {
@@ -192,7 +192,7 @@ inline void paintProjectedMap(
       float tri[8] = {
         sx - 5.f, sy, sx + 5.f, sy, sx, sy - 7.f, sx - 5.f, sy
       };
-      sink.polyline(tri, 4, 1.5f, 0.f, withAlpha(waypoint, 0.35f));
+      sink.polyline(tri, 4, 1.5f, 0.f, scaleAlpha(waypoint, 0.35f));
     }
   }
   paintSubtleMapVignette(box, sink, e);

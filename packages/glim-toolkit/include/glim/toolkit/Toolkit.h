@@ -10,6 +10,7 @@
 #include "glim/toolkit/Action.h"
 #include "glim/toolkit/Anim.h"
 #include "glim/toolkit/Block.h"
+#include "glim/toolkit/Color.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/ConfigureFwd.h"
 #include "glim/toolkit/Custom.h"

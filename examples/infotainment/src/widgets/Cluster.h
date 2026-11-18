@@ -72,7 +72,7 @@ inline void plate(
   sink.fillChamfer(
     at.box(fill.x, fill.y, fill.w, fill.h),
     cut,
-    withAlpha(Ref::kCard, 0.18f)
+    scaleAlpha(Ref::kCard, 0.18f)
   );
   path(sink, at.pts(frame), 1.f, Ref::kFrame);
 }
@@ -748,7 +748,7 @@ struct ModeBar {
     sink.fillChamfer(
       at.box(324.f, 664.f, 541.f, 69.f),
       30.f,
-      withAlpha(Ref::kCard, 0.18f)
+      scaleAlpha(Ref::kCard, 0.18f)
     );
     path(
       sink,

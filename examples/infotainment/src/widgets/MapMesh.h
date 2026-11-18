@@ -70,7 +70,7 @@ inline void paintSubtleMap(
         float jx = (mapHash01(i * 5 + sg * 11 + 4) - 0.5f) * 20.f;
         float ba = meshA * (0.5f + mapHash01(i * 7 + sg * 3 + 9));
         if (yb - ya > 7.f)
-          sink.fill({x + jx, ya, 1.f, yb - ya}, withAlpha(street, ba));
+          sink.fill({x + jx, ya, 1.f, yb - ya}, scaleAlpha(street, ba));
       }
     }
     const int nHoriz = 9;
@@ -88,7 +88,7 @@ inline void paintSubtleMap(
         float jy = (mapHash01(i * 9 + sg * 13 + 8) - 0.5f) * 12.f;
         float ba = meshA * (0.5f + mapHash01(i * 3 + sg * 7 + 1));
         if (xb - xa > 10.f)
-          sink.fill({xa, y + jy, xb - xa, 1.f}, withAlpha(street, ba));
+          sink.fill({xa, y + jy, xb - xa, 1.f}, scaleAlpha(street, ba));
       }
     }
   }
@@ -107,12 +107,12 @@ inline void paintSubtleMap(
         if (x + len > box.x + box.w - 6.f)
           len = box.x + box.w - 6.f - x;
         if (len > 4.f)
-          sink.fill({x, y, len, 1.f}, withAlpha(street, 0.30f));
+          sink.fill({x, y, len, 1.f}, scaleAlpha(street, 0.30f));
       } else {
         if (y + len > box.y + box.h - 6.f)
           len = box.y + box.h - 6.f - y;
         if (len > 4.f)
-          sink.fill({x, y, 1.f, len}, withAlpha(street, 0.30f));
+          sink.fill({x, y, 1.f, len}, scaleAlpha(street, 0.30f));
       }
     }
   }
@@ -124,9 +124,9 @@ inline void paintSubtleMap(
     for (int i = 0; i < 4; ++i) {
       float x = box.x + tx[i] * box.w;
       float y = box.y + ty[i] * box.h;
-      sink.fill({x - 5.f, y, 10.f, 2.f}, withAlpha(ink, 0.28f));
-      sink.fill({x - 3.f, y - 3.f, 6.f, 2.f}, withAlpha(ink, 0.28f));
-      sink.fill({x - 1.f, y - 6.f, 2.f, 2.f}, withAlpha(ink, 0.28f));
+      sink.fill({x - 5.f, y, 10.f, 2.f}, scaleAlpha(ink, 0.28f));
+      sink.fill({x - 3.f, y - 3.f, 6.f, 2.f}, scaleAlpha(ink, 0.28f));
+      sink.fill({x - 1.f, y - 6.f, 2.f, 2.f}, scaleAlpha(ink, 0.28f));
     }
   }
   // Diagonal arterials: true rotated bars (compositor-native).
@@ -140,7 +140,7 @@ inline void paintSubtleMap(
                              : -(20.f + mapHash01(i * 5 + 137) * 24.f);
     sink.pushTransform(transformAt({.rotate = deg}, {x, y}));
     sink.fill(
-      {x - len * 0.5f, y - 0.5f, len, 1.f}, withAlpha(street, 0.28f)
+      {x - len * 0.5f, y - 0.5f, len, 1.f}, scaleAlpha(street, 0.28f)
     );
     sink.pop();
   }
@@ -210,14 +210,14 @@ paintSubtleMapVignette(const Box& box, AnySink& sink, const Engine&) {
   sink.fillGradient(
     {box.x, box.y, box.w, 120.f},
     0,
-    withAlpha(0x000000ff, 0.35f),
+    scaleAlpha(0x000000ff, 0.35f),
     0x00000000u
   );
   sink.fillGradient(
     {box.x, box.y + box.h - 120.f, box.w, 120.f},
     0,
     0x00000000u,
-    withAlpha(0x000000ff, 0.35f)
+    scaleAlpha(0x000000ff, 0.35f)
   );
 }
 

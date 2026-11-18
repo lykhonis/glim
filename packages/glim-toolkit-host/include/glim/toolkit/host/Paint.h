@@ -21,14 +21,6 @@ namespace glim {
 namespace toolkit {
 namespace host {
 
-namespace detail {
-// Packed RGBA with alpha scaled by a clamped to 0..1, rounded.
-inline std::uint32_t scaleAlpha(std::uint32_t rgba, float a) {
-  a = a < 0.f ? 0.f : (a > 1.f ? 1.f : a);
-  return (rgba & 0xffffff00u) | (static_cast<unsigned>((rgba & 0xffu) * a + 0.5f) & 0xffu);
-}
-}  // namespace detail
-
 struct LayerFeed {
   std::uint32_t id = 0;
   bool foreign = false;
@@ -297,7 +289,7 @@ struct ContextSink {
     p.blend = ::glim::paint::Blend::Plus;
     ctx.pushGroup(p);
     if (kind == static_cast<std::uint32_t>(toolkit::EffectKind::Glow))
-      fillRadial(b, radius, detail::scaleAlpha(color, intensity), color & 0xffffff00u);
+      fillRadial(b, radius, scaleAlpha(color, intensity), color & 0xffffff00u);
   }
   void pop() { ctx.popGroup(); }
   void slot(const Box& b, std::uint32_t id) { ctx.slot(toRect(b), id); }

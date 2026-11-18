@@ -24,16 +24,6 @@ struct Info {
   static constexpr std::uint32_t kAccent = 0xff6a00ff;
 };
 
-// Alpha-scale a packed RGBA color. Endpoints exact; mid-flight rounding
-// (±1) never touches a rest state — callers skip the layer at 0.
-inline std::uint32_t withAlpha(std::uint32_t rgba, float a) {
-  if (a >= 1.0f) return rgba;
-  if (a <= 0.0f) return rgba & 0xffffff00u;
-  const unsigned alpha =
-    static_cast<unsigned>((rgba & 0xffu) * a + 0.5f);
-  return (rgba & 0xffffff00u) | (alpha & 0xffu);
-}
-
 inline Block infoThemed(Block child) {
   return themed(
     themeColor(kThemeWindowBg, Info::kWindowBg),

@@ -234,6 +234,14 @@ void test_tags() {
     assert(taps == 1);
   }
 
+  // Alpha scaling keeps the color, rounds, and is exact at both ends.
+  assert(scaleAlpha(0x10203080u, 1.f) == 0x10203080u);
+  assert(scaleAlpha(0x10203080u, 0.f) == 0x10203000u);
+  assert(scaleAlpha(0x102030ffu, 0.5f) == 0x10203080u);
+  assert(
+    scaleAlpha(0x102030ffu, 2.f) == 0x102030ffu && scaleAlpha(0x102030ffu, -1.f) == 0x10203000u
+  );
+
   // Each edge ramps inward from its own side; length 0 spans the node.
   {
     const Box b{10, 20, 100, 40};
