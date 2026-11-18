@@ -59,6 +59,15 @@ struct TextHistory {
   std::optional<TextOp> streak;
 };
 
+// The last press on a field, so the next one can count as a double or
+// triple tap.
+struct TextPress {
+  float time = -1.f;
+  float x = 0.f;
+  float y = 0.f;
+  int taps = 0;
+};
+
 // An owned field's editing state: text, selection (a caret when empty),
 // and the IME's marked run while a composition is open. reversed puts the
 // moving end of the selection at its start, so Shift moves extend it there.
@@ -68,6 +77,7 @@ struct TextEdit {
   std::optional<TextRange> marked;
   bool reversed = false;
   TextHistory history;
+  TextPress press;
 };
 
 // One command from a shell's text input client. Mark carries its selection
@@ -99,6 +109,12 @@ TextEdit moveCaret(
 // Selects the word (or run of spaces or symbols) at the caret.
 TextEdit selectWord(TextEdit edit);
 TextEdit selectAll(TextEdit edit);
+// A press at byte offset at: one tap places the caret (or extends with
+// shift), two select the word, three select all. Taps count when they land
+// close together in time and space.
+TextEdit pressText(TextEdit edit, std::size_t at, float x, float y, float time, bool shift = false);
+// A drag to at moves the selection's moving end.
+TextEdit dragText(TextEdit edit, std::size_t at);
 TextEdit undo(TextEdit edit);
 TextEdit redo(TextEdit edit);
 TextEdit applyText(TextEdit edit, const TextChange& change, const TextRules& rules = {});

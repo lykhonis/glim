@@ -1,6 +1,7 @@
 #include "glim/toolkit/TextEdit.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "text/Segment.h"
 
@@ -11,6 +12,8 @@ namespace {
 
 constexpr std::size_t kUndoDepth = 100;
 constexpr std::string_view kBullet = "•";
+constexpr float kTapSeconds = 0.4f;
+constexpr float kTapSlop = 6.f;
 
 // Shell ranges are untrusted: clamp into the text and onto code points.
 TextRange clamp(const std::string& s, TextRange r) {
@@ -168,6 +171,35 @@ TextEdit selectAll(TextEdit edit) {
   edit.history.streak.reset();
   edit.selection = {0, edit.text.size()};
   edit.reversed = false;
+  return edit;
+}
+
+TextEdit pressText(TextEdit edit, std::size_t at, float x, float y, float time, bool shift) {
+  edit = unmarkText(std::move(edit));
+  edit.history.streak.reset();
+  at = clamp(edit.text, {at, 0}).start;
+  const TextPress& last = edit.press;
+  const bool repeat = !shift && last.time >= 0.f && time - last.time <= kTapSeconds &&
+                      std::abs(x - last.x) <= kTapSlop && std::abs(y - last.y) <= kTapSlop;
+  edit.press = {time, x, y, repeat ? last.taps + 1 : 1};
+  if (edit.press.taps >= 3) return selectAll(std::move(edit));
+  if (edit.press.taps == 2) {
+    edit.selection = {at, 0};
+    return selectWord(std::move(edit));
+  }
+  if (shift) return dragText(std::move(edit), at);
+  edit.selection = {at, 0};
+  edit.reversed = false;
+  return edit;
+}
+
+TextEdit dragText(TextEdit edit, std::size_t at) {
+  const TextRange r = clamp(edit.text, edit.selection);
+  at = clamp(edit.text, {at, 0}).start;
+  const std::size_t anchor = edit.reversed ? r.end() : r.start;
+  const std::size_t moved = at;
+  edit.selection = {std::min(anchor, moved), std::max(anchor, moved) - std::min(anchor, moved)};
+  edit.reversed = moved < anchor;
   return edit;
 }
 

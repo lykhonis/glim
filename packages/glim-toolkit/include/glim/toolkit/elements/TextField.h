@@ -26,6 +26,14 @@ struct FieldGeometry {
   // X of the byte offset within the field's text.
   static float offsetX(const Box& box, const std::string& text, std::size_t at, const Engine& e);
   static Box caret(const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e);
+  // The cluster boundary in the text nearest to x.
+  static std::size_t offsetAt(
+    const Box& box, const std::string& text, const TextRules& rules, float x, const Engine& e
+  );
+  // The selection's highlight; empty for a caret.
+  static Box highlight(
+    const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
+  );
   static Box underline(
     const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
   );

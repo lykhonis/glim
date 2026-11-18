@@ -10,10 +10,16 @@ namespace glim {
 namespace toolkit {
 
 bool Screen::pointerDown(
-  const Block& tree, const Box& box, float x, float y, int pointerId, const Engine& engine
+  const Block& tree,
+  const Box& box,
+  float x,
+  float y,
+  int pointerId,
+  const Engine& engine,
+  bool shift
 ) {
   // Events borrow: the payload must outlive the dispatch.
-  const PointerDown press{x, y, clock.now};
+  const PointerDown press{x, y, clock.now, shift, &engine};
   Event down = Event::borrow(press);
   if (dispatchPointer(tree, box, x, y, down, engine)) {
     // Capture only on a focusable hit; a handled non-focusable clears stale capture.
@@ -49,7 +55,7 @@ bool Screen::pointerMove(
   const Engine& engine
 ) {
   if (!pressed) return false;
-  PointerMove move{x, y, pressed, clock.now};
+  PointerMove move{x, y, pressed, clock.now, &engine};
   Event moved = Event::borrow(move);
   if (drag >= 0) {
     // Second finger never hijacks the drag.

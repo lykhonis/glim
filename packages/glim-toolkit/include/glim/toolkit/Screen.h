@@ -39,7 +39,8 @@ struct Screen {
     float x,
     float y,
     int pointerId,
-    const Engine& engine = Engine{}
+    const Engine& engine = Engine{},
+    bool shift = false
   );
   bool pointerUp(
     const Block& tree, const Box& box, float x, float y, const Engine& engine = Engine{}

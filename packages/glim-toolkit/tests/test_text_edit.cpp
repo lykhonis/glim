@@ -146,4 +146,49 @@ void test_text_field() {
   tree = build();
   const auto nodes = a11yNodes(tree, tb, e);
   assert(nodes.back().traits.role == A11yRole::TextField && nodes.back().traits.value == "你a");
+
+  // Pointer: a tap places the caret at the nearest boundary, a drag
+  // selects, and the selection paints a highlight under the text.
+  {
+    value = TextEdit{.text = "hello world"};
+    tree = build();
+    const float x0 = field.x + FieldGeometry::kPadX;
+    const float adv = Tokens::kTypeAdvance;
+    const float y = field.y + 4;
+    screen.pointerUp(tree, tb, x0, y, e);
+    screen.clock.now = 10.f;
+    assert(screen.pointerDown(tree, tb, x0 + 3.4f * adv, y, 1, e));
+    assert(value->selection.start == 3 && value->selection.length == 0);
+    tree = build();
+    screen.pointerMove(tree, tb, x0 + 8.6f * adv, y, true, 1, e);
+    assert(value->selection.start == 3 && value->selection.length == 6);
+    screen.pointerUp(tree, tb, x0 + 8.6f * adv, y, e);
+    tree = build();
+    OpsRecorder rec;
+    TestFeed feed;
+    paintTree(tree, tb, e, rec, feed);
+    int lit = -1, txt = -1;
+    for (std::size_t i = 0; i < rec.ops.size(); ++i) {
+      const auto& o = rec.ops[i];
+      if (o.kind == Op::Kind::Fill && o.box.x == x0 + 3 * adv && o.box.w == 6 * adv) lit = int(i);
+      if (o.kind == Op::Kind::Text && o.text == "hello world") txt = int(i);
+    }
+    assert(lit >= 0 && lit < txt);
+    // A double tap selects the word; Shift-click extends from the anchor.
+    screen.clock.now = 20.f;
+    screen.pointerDown(tree, tb, x0 + 1.2f * adv, y, 1, e);
+    screen.pointerUp(tree, tb, x0 + 1.2f * adv, y, e);
+    tree = build();
+    screen.clock.now = 20.2f;
+    screen.pointerDown(tree, tb, x0 + 1.2f * adv, y, 1, e);
+    assert(value->selection.start == 0 && value->selection.length == 5);
+    screen.pointerUp(tree, tb, x0, y, e);
+    tree = build();
+    screen.clock.now = 30.f;
+    screen.pointerDown(tree, tb, x0 + 2 * adv, y, 1, e);
+    screen.pointerUp(tree, tb, x0, y, e);
+    tree = build();
+    screen.pointerDown(tree, tb, x0 + 10 * adv, y, 1, e, true);
+    assert(value->selection.start == 2 && value->selection.length == 8);
+  }
 }

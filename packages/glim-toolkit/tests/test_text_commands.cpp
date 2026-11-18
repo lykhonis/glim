@@ -198,6 +198,34 @@ void test_text_commands() {
     assert(run(at("", 0), {.text = "1a2"}, {.accept = digits}).text == "12");
   }
 
+  // Presses: one tap places the caret, two select the word, three select
+  // all; taps far apart in time or space start over. Shift extends.
+  {
+    TextEdit e = pressText(at("hello big world", 0), 7, 50, 5, 1.f);
+    assert(sel(e, 7, 0) && e.press.taps == 1);
+    e = pressText(e, 7, 51, 5, 1.2f);
+    assert(sel(e, 6, 3) && e.press.taps == 2);
+    e = pressText(e, 7, 51, 5, 1.4f);
+    assert(sel(e, 0, 15));
+    assert(pressText(e, 7, 51, 5, 2.f).press.taps == 1);
+    assert(pressText(pressText(at("ab", 0), 1, 0, 0, 1.f), 1, 40, 0, 1.1f).press.taps == 1);
+    e = pressText(at("hello world", 5), 11, 0, 0, 1.f, true);
+    assert(sel(e, 5, 6) && !e.reversed);
+    e = pressText(e, 2, 0, 0, 1.1f, true);
+    assert(sel(e, 2, 3) && e.reversed);
+  }
+
+  // Drags move the selection's moving end and keep the press as anchor.
+  {
+    TextEdit e = pressText(at("hello world", 0), 5, 0, 0, 1.f);
+    e = dragText(e, 9);
+    assert(sel(e, 5, 4) && !e.reversed);
+    e = dragText(e, 1);
+    assert(sel(e, 1, 4) && e.reversed);
+    e = dragText(e, 5);
+    assert(sel(e, 5, 0));
+  }
+
   // Secure fields show a bullet per cluster and never copy.
   {
     const TextRules secure{.secure = true};

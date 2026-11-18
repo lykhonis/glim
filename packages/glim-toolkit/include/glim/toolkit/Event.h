@@ -7,14 +7,21 @@
 namespace glim {
 namespace toolkit {
 
+struct Engine;
+
 enum class Key { Left, Right, Up, Down, Next, Prev, Activate };
 
 // Pointer events carry Screen's run time (seconds) so a handler can
-// measure speed without a clock of its own; 0 when built by hand.
+// measure speed without a clock of its own; 0 when built by hand. engine is
+// the one the event was dispatched under (text measurement, theme), null
+// when built by hand.
 struct PointerDown {
   float x = 0;
   float y = 0;
   float time = 0;
+  // Shift held: the press extends a selection instead of starting one.
+  bool shift = false;
+  const Engine* engine = nullptr;
 };
 struct PointerUp {
   float x = 0;
@@ -27,6 +34,7 @@ struct PointerMove {
   // Set on drags; hover moves arrive clear and must be ignored.
   bool pressed = false;
   float time = 0;
+  const Engine* engine = nullptr;
 };
 struct Wheel {
   float x = 0;
