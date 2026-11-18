@@ -21,9 +21,10 @@ struct WebScreen {
   std::uint32_t seatId = 0;
   std::uint32_t image = 0;
   LayerInputFn input;
-  // Degrees about Y; the page turns in 3D, still live and still taking
-  // input.
-  State<float> tilt;
+  // How the page moves, and how far: it stays live and keeps taking
+  // input under every motion.
+  State<int> motion;
+  State<float> amount;
   WebStatus status;
   // The address bar's owned text field (N8).
   State<TextEdit> address;
@@ -32,120 +33,155 @@ struct WebScreen {
 };
 
 inline constexpr float kWebPad = 24;
-inline constexpr float kWebTiltMax = 60;
+inline constexpr float kWebAmountMax = 60;
+// Room under the page for its live reflection.
+inline constexpr float kWebReflect = 120;
+// About the chrome's height, for the Texture plate's size.
+inline constexpr float kWebChrome = 96;
 
-// Chrome plates sit close together; merged, they would melt into one
-// droplet, so each keeps its own outline.
-inline GlassTag webGlass(int radius) {
-  return glass({.radius = radius, .merge = false});
+enum class WebMotion : int { Flat, Tilt, Skew, Swing };
+inline constexpr const char* kWebMotions[] = {
+  "Flat", "Tilt", "Skew", "Swing"
+};
+
+// Each motion is one transform; amount runs
+// -kWebAmountMax..kWebAmountMax. fit keeps the moved page inside its
+// area, clear of the chrome.
+inline TransformTag webMotion(WebMotion m, float amount) {
+  switch (m) {
+    case WebMotion::Flat:
+      return {};
+    case WebMotion::Tilt:
+      return {.tilt = {0, amount}, .perspective = 900, .fit = true};
+    case WebMotion::Skew:
+      return {
+        .skew = {amount / 3, 0}, .anchor = {0.5f, 1}, .fit = true
+      };
+    case WebMotion::Swing:
+      return {
+        .rotate = amount / 12,
+        .tilt = {amount / 4, amount},
+        .perspective = 700,
+        .fit = true,
+      };
+  }
+  return {};
 }
 
-// Labelled for screen readers by its text.
+// A plain text button, named for screen readers by its text; the
+// selected one reads as primary.
 inline Block webButton(
   std::string label, Action action, bool on = false
 ) {
   const std::string name = label;
-  return on ? tap(
-                lines(std::move(label)),
-                std::move(action),
-                pad(12, 6),
-                webGlass(12),
-                primary(),
-                semantic(name)
-              )
-            : tap(
-                lines(std::move(label)),
-                std::move(action),
-                pad(12, 6),
-                webGlass(12),
-                semantic(name)
-              );
+  if (on)
+    return tap(
+      lines(std::move(label)),
+      std::move(action),
+      pad(8, 4),
+      primary(),
+      semantic(name)
+    );
+  return tap(
+    lines(std::move(label)),
+    std::move(action),
+    pad(8, 4),
+    semantic(name)
+  );
+}
+
+inline std::string webStatusLine(const WebStatus& st) {
+  std::string line =
+    st.title.empty() ? st.url : st.title + "  " + st.url;
+  if (st.loading)
+    line += "  loading " +
+            std::to_string(static_cast<int>(st.progress * 100)) + "%";
+  return line;
+}
+
+inline Block webMotionPicker(const WebScreen& s) {
+  const auto pick = [&s](WebMotion m) {
+    const int i = static_cast<int>(m);
+    return webButton(
+      kWebMotions[i],
+      [motion = s.motion, i] { motion = i; },
+      *s.motion == i
+    );
+  };
+  return row(
+    gap(2),
+    pick(WebMotion::Flat),
+    pick(WebMotion::Tilt),
+    pick(WebMotion::Skew),
+    pick(WebMotion::Swing)
+  );
 }
 
 // Glim's own chrome drives the native page through WebPage (K88
-// bridge): address field, Local/Site, Go, Reload, load progress and
-// tilt.
+// bridge): one quiet glass bar with Local/Site, the address field, Go
+// and Reload, then the motion picker and its amount, with the page
+// status under it.
 inline Block webChrome(const WebScreen& s) {
   const bool local = s.status.url == kLocalUrl;
   const auto go = s.go;
   const State<TextEdit> address = s.address;
   const float barW = s.size.x - 2 * kWebPad;
-  // Site, Go and Reload with their gaps take about 200 px; the field
-  // gets the rest.
-  const float fieldW = std::max(80.0f, std::min(420.0f, barW - 212.0f));
-  const float shown = s.status.loading ? s.status.progress : 1.0f;
+  // The buttons, the picker, the slider and the gaps take about 560 px.
+  const float fieldW = std::max(80.0f, std::min(320.0f, barW - 560.0f));
   return column(
-    gap(10),
+    gap(8),
+    row(gap(12), lines("Glim WebView"), lines(s.mode)),
     row(
-      gap(12),
-      row(pad(14, 8), webGlass(14), lines("Glim WebView")),
-      lines(s.mode)
-    ),
-    row(
-      gap(8),
+      gap(10),
+      pad(12, 6),
+      glass({.radius = 16, .merge = false}),
       webButton(
         local ? "Site" : "Local",
         [go, local] {
           if (go) go(local ? kSiteUrl : kLocalUrl);
         }
       ),
-      row(
-        pad(6, 0),
-        webGlass(12),
-        textField(
-          {.value = address, .width = fieldW, .placeholder = "Address"}
-        )
+      textField(
+        {.value = address, .width = fieldW, .placeholder = "Address"}
       ),
       webButton(
         "Go",
         [go, address] {
           if (go) go(address->text);
-        },
-        true
+        }
       ),
       webButton(
         "Reload",
         [r = s.reload] {
           if (r) r();
         }
+      ),
+      webMotionPicker(s),
+      slider(
+        {.value = s.amount,
+         .lo = -kWebAmountMax,
+         .hi = kWebAmountMax,
+         .step = 1,
+         .width = 140},
+        semantic("Amount")
       )
     ),
-    row(
-      gap(12),
-      lines("Tilt"),
-      slider(
-        {.value = s.tilt,
-         .lo = -kWebTiltMax,
-         .hi = kWebTiltMax,
-         .step = 1,
-         .width = 260},
-        semantic("Tilt")
-      ),
-      lines(std::to_string(static_cast<int>(*s.tilt)))
-    ),
-    row(
-      pad(static_cast<int>(barW * shown / 2), 2),
-      glass({.radius = 2, .tint = 0x3a7bfdcc, .merge = false})
-    ),
-    lines(
-      s.status.title.empty() ? s.status.url
-                             : s.status.title + "  " + s.status.url
-    )
+    lines(webStatusLine(s.status))
   );
 }
 
-// The app's own state (address field, tilt) and the page wired to it.
+// The app's own state (address field, motion) and the page wired to it.
 inline WebScreen webScreen(
   WebPage* p, const Engine& e, glim::Vec2 size
 ) {
   Scope app = rootScope(e);
   State<TextEdit> address =
     app.state("address", TextEdit{.text = kLocalUrl});
-  State<float> tilt = app.state("tilt", 0.0f);
   WebScreen s{
     .mode = p ? p->mode() : "No web view on this platform",
     .size = size,
-    .tilt = tilt,
+    .motion = app.state("motion", static_cast<int>(WebMotion::Tilt)),
+    .amount = app.state("amount", 0.0f),
     .address = address,
   };
   if (!p) return s;
@@ -162,39 +198,56 @@ inline WebScreen webScreen(
   return s;
 }
 
-// A Slot or Layer view composites above the surface, so the chrome sits
-// above the page. Texture pixels are Glim's, so the chrome floats on
-// glass over the page there.
-inline Block webTree(WebScreen s) {
-  Block chrome = webChrome(s);
-  if (s.slot) {
-    return column(
-      expand(),
-      pad(kWebPad),
-      gap(12),
-      std::move(chrome),
-      column(
-        expand(),
-        tilt({.y = *s.tilt, .perspective = 900, .fit = true}),
-        seat(
-          {.id = s.seatId, .width = s.size.x - 2 * kWebPad},
-          expand(),
-          semantic("Web page")
-        )
-      )
+// The live page: a seat for a Slot or Layer view, else the Texture
+// plate. Both take the window less the chrome and the reflection's
+// room.
+inline Block webPage(const WebScreen& s) {
+  const float w = s.size.x - 2 * kWebPad;
+  const float h =
+    std::max(1.0f, s.size.y - 2 * kWebPad - kWebChrome - kWebReflect);
+  if (s.slot)
+    return seat(
+      {.id = s.seatId, .width = w, .height = h}, semantic("Web page")
     );
-  }
+  return layer(
+    {.image = s.image, .onInput = s.input, .width = w, .height = h}
+  );
+}
+
+// A reflection is a composition (K89): the page drawn again, flipped
+// about its bottom edge, fading out over kWebReflect, and inert.
+inline Block webReflected(const WebScreen& s) {
   return stack(
+    webPage(s),
     column(
-      tilt({.y = *s.tilt, .perspective = 900, .fit = true}),
-      layer({
-        .image = s.image,
-        .onInput = std::move(s.input),
-        .width = s.size.x,
-        .height = s.size.y,
-      })
-    ),
-    column(pad(kWebPad), std::move(chrome))
+      transform({.scale = {1, -1}, .anchor = {0.5f, 1}}),
+      fade(
+        {.edge = FadeEdge::Bottom,
+         .length = kWebReflect,
+         .fromAlpha = 0.35f,
+         .toAlpha = 0}
+      ),
+      inert(),
+      webPage(s)
+    )
+  );
+}
+
+// The chrome sits above the page; the page and its reflection move as
+// one plane, with room below for the reflection.
+inline Block webTree(WebScreen s) {
+  return column(
+    expand(),
+    pad(kWebPad),
+    gap(12),
+    webChrome(s),
+    column(
+      expand(),
+      transform(webMotion(static_cast<WebMotion>(*s.motion), *s.amount)
+      ),
+      webReflected(s),
+      row(pad(0, static_cast<int>(kWebReflect / 2)))
+    )
   );
 }
 

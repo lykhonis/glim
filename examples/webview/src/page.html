@@ -4,20 +4,113 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Glim WebView</title>
 <style>
+:root {
+  --ink: #f5f3ff; --muted: #a9a3c7; --night: #0d0b1e; --deep: #17123a;
+  --rose: #ff4f8b; --violet: #7c5cff; --sky: #38c6ff; --sun: #ffb84d;
+}
+* { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 16px;
-  font: 18px -apple-system, Roboto, sans-serif; background: #f4efe6; color: #1d2430;
+  display: flex; flex-direction: column; overflow: hidden;
+  font: 15px -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink);
+  background: var(--night);
 }
-h1 { margin: 0; font-size: 22px; }
-button { flex: 1; border: 0; border-radius: 16px; background: #2f6fde; color: #fff; font-size: 28px; }
-input { padding: 10px; border: 1px solid #9aa4b2; border-radius: 10px; font-size: 18px; }
+.aurora {
+  position: fixed; inset: -20%; z-index: -1; opacity: .7;
+  background:
+    radial-gradient(40% 35% at 20% 25%, var(--violet), transparent 70%),
+    radial-gradient(35% 30% at 80% 20%, var(--rose), transparent 70%),
+    radial-gradient(45% 40% at 60% 85%, var(--sky), transparent 70%);
+  animation: drift 18s ease-in-out infinite alternate;
+}
+@keyframes drift { to { transform: translate(4%, -3%) rotate(8deg) scale(1.08); } }
+header {
+  display: flex; align-items: center; gap: 14px; padding: 18px 28px 6px;
+}
+.logo {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: conic-gradient(from 200deg, var(--rose), var(--violet), var(--sky), var(--rose));
+  box-shadow: 0 6px 24px #7c5cff80;
+}
+header h2 { margin: 0; font-size: 17px; letter-spacing: .02em; }
+header nav { margin-left: auto; display: flex; gap: 18px; color: var(--muted); }
+.hero { padding: 10px 28px 18px; }
+.hero h1 {
+  margin: 0; font-size: 40px; line-height: 1.05; letter-spacing: -.02em;
+  background: linear-gradient(90deg, #fff, #d9d0ff 45%, var(--sky));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero p { margin: 8px 0 0; color: var(--muted); max-width: 520px; }
+.shelf {
+  flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px; padding: 4px 28px 18px; align-content: start; overflow: hidden;
+}
+.album { display: flex; flex-direction: column; gap: 8px; }
+.cover {
+  aspect-ratio: 1; border-radius: 14px; position: relative; overflow: hidden;
+  box-shadow: 0 14px 30px #0008; transition: transform .3s;
+}
+.album:hover .cover { transform: translateY(-4px) scale(1.02); }
+.cover::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, #fff4 0%, transparent 40%);
+}
+.c1 { background: radial-gradient(circle at 30% 30%, var(--sun), var(--rose) 60%, #5a1036); }
+.c2 { background: conic-gradient(from 90deg at 60% 40%, var(--violet), var(--sky), #1b2a6b, var(--violet)); }
+.c3 { background: linear-gradient(135deg, #12d3a8, #0d6e8f 55%, #08203a); }
+.c4 { background: repeating-linear-gradient(45deg, #ff7a59 0 14px, #ffb84d 14px 28px); }
+.c5 { background: radial-gradient(circle at 70% 70%, #b6a6ff, #3a1f8f 65%, #120a33); }
+.c6 { background: linear-gradient(200deg, #ff4f8b, #7c5cff 50%, #38c6ff); }
+.album b { font-size: 14px; }
+.album span { color: var(--muted); font-size: 12px; }
+footer {
+  display: flex; align-items: center; gap: 16px; padding: 14px 28px;
+  background: linear-gradient(90deg, #ff4f8bdd, #7c5cffdd 55%, #38c6ffdd);
+}
+#tap {
+  border: 0; border-radius: 999px; padding: 14px 30px; font-size: 18px; font-weight: 600;
+  color: var(--deep); background: #fff; box-shadow: 0 8px 24px #0006; cursor: pointer;
+}
+#tap:active { transform: scale(.97); }
+#count { margin: 0; font-size: 16px; font-weight: 600; }
+#field {
+  margin-left: auto; width: 220px; padding: 10px 14px; border-radius: 999px;
+  border: 1px solid #ffffff66; background: #ffffff26; color: #fff; font-size: 15px;
+}
+#field::placeholder { color: #ffffffb0; }
+.eq { display: flex; gap: 3px; align-items: end; height: 22px; }
+.eq i { width: 4px; background: #fff; border-radius: 2px; animation: bar 1s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -.3s; }
+.eq i:nth-child(3) { animation-delay: -.6s; }
+.eq i:nth-child(4) { animation-delay: -.15s; }
+@keyframes bar { 0%, 100% { height: 30%; } 50% { height: 100%; } }
 </style>
 </head>
 <body>
-<h1 id="count">Tapped 0 times</h1>
-<button id="tap">Tap me</button>
-<input id="field" placeholder="Type here">
+<div class="aurora"></div>
+<header>
+  <div class="logo"></div>
+  <h2>Glim Records</h2>
+  <nav><span>Discover</span><span>Albums</span><span>Radio</span></nav>
+</header>
+<section class="hero">
+  <h1>Music that bends<br>with the light.</h1>
+  <p>A live web page inside a Glim window: tilt it, skew it, swing it. It stays native and keeps taking input.</p>
+</section>
+<section class="shelf">
+  <div class="album"><div class="cover c1"></div><b>Solar Bloom</b><span>Mira Vale</span></div>
+  <div class="album"><div class="cover c2"></div><b>Night Circuit</b><span>Halcyon</span></div>
+  <div class="album"><div class="cover c3"></div><b>Tidal Glass</b><span>Oslo Kite</span></div>
+  <div class="album"><div class="cover c4"></div><b>Paper Suns</b><span>The Lanterns</span></div>
+  <div class="album"><div class="cover c5"></div><b>Velvet Orbit</b><span>Nadia Rue</span></div>
+  <div class="album"><div class="cover c6"></div><b>Prism Hearts</b><span>Kaleido</span></div>
+</section>
+<footer>
+  <button id="tap">Play</button>
+  <div class="eq"><i></i><i></i><i></i><i></i></div>
+  <h1 id="count">Tapped 0 times</h1>
+  <input id="field" placeholder="Search the store">
+</footer>
 <script>
 let taps = 0;
 document.getElementById("tap").addEventListener("click", () => {

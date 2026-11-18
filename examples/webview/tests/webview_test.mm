@@ -52,6 +52,7 @@ id evaluate(WKWebView* web, NSString* script) {
 WKWebView* findWebView(NSView* root) {
   for (NSView* v in root.subviews) {
     if ([v isKindOfClass:[WKWebView class]]) return (WKWebView*)v;
+    if (WKWebView* inner = findWebView(v)) return inner;
   }
   return nil;
 }
@@ -137,7 +138,7 @@ int main() {
     expect(placed.size() == 1 && placed[0].id == kWebSeat, "the tree reserves one web seat");
     if (placed.size() != 1) return EXIT_FAILURE;
     const glim::Rect box = placed[0].windowLogical;
-    expect(box.size.x == 960 - 48 && box.size.y > 400, "the seat fills the page area");
+    expect(box.size.x == 960 - 48 && box.size.y > 300, "the seat fills the page area");
 
     host::EmbedFrames attached;
     host::syncSeats(window, ctx.scene(), attached, page->seatViews());
@@ -164,8 +165,8 @@ int main() {
     if (rect.count != 2) return EXIT_FAILURE;
     const NSPoint inPage = NSMakePoint([rect[0] doubleValue], [rect[1] doubleValue]);
     const NSPoint at = [web convertPoint:inPage toView:nil];
-    expect([root.window.contentView hitTest:at] == web, "the web view is on top at the button");
-    click(web, at);
+    // A reflected page is layer-hosted even flat; Glim routes its clicks.
+    click(root, at);
     expect(
       spinUntil([&] { return [evaluate(web, @"taps") intValue] == 1; }),
       "a real click reaches the page"
@@ -174,57 +175,129 @@ int main() {
     std::cout << "webview snapshot: " << snapshotMs(web, 10) << " ms per frame at "
               << box.size.x << "x" << box.size.y << "\n";
 
-    // K88 Layer: tilted, the page stays a live native view, composited by
-    // Core Animation under Glim's transform, and Glim routes its clicks.
-    // Drag Glim's tilt slider to 30 degrees, the way a user would.
-    {
+    // K88 Layer, K89 composition: under each motion the page stays a live
+    // native view, composited by Core Animation under Glim's transform, and
+    // its reflection is the same view again, flipped and faded. Pick the
+    // motion and drag the amount slider to 30, the way a user would.
+    NSView* layerHost = nil;
+    const auto move = [&](const std::string& motion) {
+      expect(press(motion), "the Glim motion button is there");
       app.rebuild();
       bool found = false;
       for (const A11yNode& n : a11yNodes(app.tree, app.box, app.engine())) {
-        if (n.id != "Tilt" || n.traits.role != A11yRole::Slider) continue;
-        const float t = (30 + kWebTiltMax) / (2 * kWebTiltMax);
+        if (n.id != "Amount" || n.traits.role != A11yRole::Slider) continue;
+        const float t = (30 + kWebAmountMax) / (2 * kWebAmountMax);
         const float x = n.box.x + Slider::kKnob / 2 + t * (n.box.w - Slider::kKnob);
         found = app.tap(x, n.box.y + n.box.h / 2);
       }
-      expect(found, "the Glim tilt slider is there");
-    }
-    expect(*screen().tilt == 30, "the tilt slider sets the app's tilt");
-    glim::paint::Context tiltedCtx;
-    app.rebuild();
-    app.recordScene(tiltedCtx);
-    placed.clear();
-    glim::paint::collectSlots(tiltedCtx.scene(), &placed);
-    expect(placed.size() == 1 && placed[0].transform.is3D(), "the tilted seat carries a 3D transform");
-    if (placed.size() != 1) return EXIT_FAILURE;
-    const glim::paint::SlotPlacement seat = placed[0];
-    const glim::Rect& drawn = seat.windowLogical;
-    expect(
-      drawn.origin.y >= box.origin.y - 0.5f && drawn.origin.x >= box.origin.x - 0.5f &&
-        drawn.origin.y + drawn.size.y <= box.origin.y + box.size.y + 0.5f &&
-        drawn.origin.x + drawn.size.x <= box.origin.x + box.size.x + 0.5f,
-      "the tilted page stays inside its area, clear of the chrome"
-    );
-    host::syncSeats(window, tiltedCtx.scene(), attached, page->seatViews());
-    NSView* layerHost = web.superview;
-    expect(layerHost != nil && layerHost != root, "the tilted page moves into a layer host");
-    const auto projected = [&](glim::Vec2 local) {
-      const glim::Vec3 q = glim::projectPlane(seat.transform, local);
-      return glim::Vec2{q.x / q.z, q.y / q.z};
+      expect(found && *screen().amount == 30, "the amount slider sets the app's amount");
+      glim::paint::Context movedCtx;
+      app.rebuild();
+      app.recordScene(movedCtx);
+      placed.clear();
+      glim::paint::collectSlots(movedCtx.scene(), &placed);
+      expect(placed.size() == 1 && placed[0].copies.size() == 1, "one seat, drawn again as its reflection");
+      host::syncSeats(window, movedCtx.scene(), attached, page->seatViews());
+      layerHost = web.superview;
+      expect(layerHost != nil && layerHost != root, "the page sits in a layer host");
+      return placed.empty() ? glim::paint::SlotPlacement{} : placed[0];
     };
-    for (const glim::Vec2 c :
-         {seat.local.origin,
-          glim::Vec2{seat.local.origin.x + seat.local.size.x, seat.local.origin.y},
-          glim::Vec2{seat.local.origin.x, seat.local.origin.y + seat.local.size.y}}) {
-      const CGPoint inHost = CGPointMake(c.x - seat.local.origin.x, c.y - seat.local.origin.y);
-      const CGPoint ca = [root.layer convertPoint:inHost fromLayer:layerHost.layer];
-      // The root layer reads y-up; the flipped root view and Glim read y-down.
-      const CGFloat caY = root.layer.geometryFlipped ? root.layer.bounds.size.height - ca.y : ca.y;
-      const glim::Vec2 want = projected(c);
+    const auto projector = [](const glim::paint::SlotPlacement& s) {
+      return [m = s.transform](glim::Vec2 local) {
+        const glim::Vec3 q = glim::projectPlane(m, local);
+        return glim::Vec2{q.x / q.z, q.y / q.z};
+      };
+    };
+    // Core Animation draws each corner where Glim's paint puts it.
+    const auto drawnWhereGlimPaints = [&](const glim::paint::SlotPlacement& s, const char* motion) {
+      const auto projected = projector(s);
+      const glim::Rect& drawn = s.windowLogical;
       expect(
-        std::fabs(ca.x - want.x) < 1.0 && std::fabs(caY - want.y) < 1.0,
-        "Core Animation draws the corner where Glim projects it"
+        drawn.origin.y >= box.origin.y - 0.5f && drawn.origin.x >= box.origin.x - 0.5f &&
+          drawn.origin.y + drawn.size.y <= box.origin.y + box.size.y + kWebReflect + 0.5f &&
+          drawn.origin.x + drawn.size.x <= box.origin.x + box.size.x + 0.5f,
+        "the moved page stays inside its area, clear of the chrome"
       );
-    }
+      for (const glim::Vec2 c :
+           {s.local.origin,
+            glim::Vec2{s.local.origin.x + s.local.size.x, s.local.origin.y},
+            glim::Vec2{s.local.origin.x, s.local.origin.y + s.local.size.y}}) {
+        const CGPoint inHost = CGPointMake(c.x - s.local.origin.x, c.y - s.local.origin.y);
+        const CGPoint ca = [root.layer convertPoint:inHost fromLayer:layerHost.layer];
+        // In the flipped root view's points, which read y-down like Glim.
+        const CGFloat caY = [root convertPointFromLayer:ca].y;
+        const glim::Vec2 want = projected(c);
+        if (std::fabs(ca.x - want.x) >= 1.0 || std::fabs(caY - want.y) >= 1.0) {
+          std::cerr << motion << ": ";
+        }
+        expect(
+          std::fabs(ca.x - want.x) < 1.0 && std::fabs(caY - want.y) < 1.0,
+          "Core Animation draws the corner where Glim paints it"
+        );
+      }
+    };
+    // The replicator's second instance is the flip about the bottom edge,
+    // and the mask holds the page whole and the copy fading from 0.35.
+    const auto reflected = [&](const glim::paint::SlotPlacement& s) {
+      auto* rep = (CAReplicatorLayer*)layerHost.layer;
+      expect([rep isKindOfClass:CAReplicatorLayer.class] && rep.instanceCount == 2, "the page is replicated");
+      const CGFloat h = s.local.size.y;
+      const CATransform3D m = rep.instanceTransform;
+      const auto mirrored = [&](CGFloat y) { return m.m22 * y + m.m42; };
+      expect(
+        std::fabs(mirrored(h) - h) < 0.5 && std::fabs(mirrored(0) - 2 * h) < 0.5,
+        "the copy mirrors about the bottom edge"
+      );
+      NSArray<CALayer*>* drawings = rep.mask.sublayers;
+      expect(drawings.count == 2, "the mask holds the page and its copy");
+      if (drawings.count != 2) return;
+      auto* copy = (CAGradientLayer*)drawings[1];
+      expect(
+        CATransform3DEqualToTransform(copy.transform, m) &&
+          std::fabs(CGColorGetAlpha((CGColorRef)copy.colors[0]) - 0.35) < 1e-3 &&
+          CGColorGetAlpha((CGColorRef)copy.colors[1]) == 0,
+        "the copy's mask lies over it and fades from 0.35 to clear"
+      );
+      // What the window shows: the page's bright footer, mirrored just
+      // under the seam, and the plain window once the fade has run out.
+      // WebKit stops drawing into an occluded window, so the readback runs
+      // only on screen; CI's window is, so there it must.
+      if (!(root.window.occlusionState & NSWindowOcclusionStateVisible)) {
+        std::cerr << "SKIP readback: the window is not on screen\n";
+        expect(std::getenv("CI") == nullptr, "on CI the window is on screen for the readback");
+        return;
+      }
+      spin(0.4);
+      CGImageRef shot = CGWindowListCreateImage(
+        CGRectNull,
+        kCGWindowListOptionIncludingWindow,
+        static_cast<CGWindowID>(root.window.windowNumber),
+        kCGWindowImageBoundsIgnoreFraming | kCGWindowImageNominalResolution
+      );
+      expect(shot != nullptr, "the window can be read back");
+      if (!shot) return;
+      NSBitmapImageRep* px = [[NSBitmapImageRep alloc] initWithCGImage:shot];
+      CGImageRelease(shot);
+      const auto lit = [&](glim::Vec2 local) {
+        const glim::Vec2 at = projector(s)(local);
+        const NSPoint w = [root convertPoint:NSMakePoint(at.x, at.y) toView:nil];
+        NSColor* c = [[px colorAtX:static_cast<NSInteger>(w.x)
+                                 y:px.pixelsHigh - 1 - static_cast<NSInteger>(w.y)]
+          colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        return c.redComponent + c.greenComponent + c.blueComponent;
+      };
+      const float cx = s.local.origin.x + s.local.size.x * 0.3f;
+      const float bottom = s.local.origin.y + s.local.size.y;
+      const double seam = lit({cx, bottom + 6});
+      const double past = lit({cx, bottom + kWebReflect + 20});
+      expect(seam > past + 0.25, "the reflection shows under the page and fades out");
+    };
+
+    const glim::paint::SlotPlacement seat = move("Tilt");
+    expect(seat.transform.is3D(), "the tilted seat carries a 3D transform");
+    drawnWhereGlimPaints(seat, "Tilt");
+    reflected(seat);
+    const auto projected = projector(seat);
     const glim::Vec2 button = projected(
       {seat.local.origin.x + static_cast<float>(inPage.x),
        seat.local.origin.y + static_cast<float>(inPage.y)}
@@ -245,13 +318,18 @@ int main() {
     click(root, flatCorner);
     spin(0.3);
     expect([evaluate(web, @"taps") intValue] == 2, "a press outside the projected page stays Glim's");
+    const glim::Vec2 inReflection =
+      projected({seat.local.origin.x + seat.local.size.x / 2, seat.local.origin.y + seat.local.size.y + kWebReflect / 3});
+    click(root, [root convertPoint:NSMakePoint(inReflection.x, inReflection.y) toView:nil]);
+    spin(0.3);
+    expect([evaluate(web, @"taps") intValue] == 2, "a press on the reflection stays Glim's");
 
-    screen().tilt = 0.0f;
-    glim::paint::Context flatCtx;
-    app.rebuild();
-    app.recordScene(flatCtx);
-    host::syncSeats(window, flatCtx.scene(), attached, page->seatViews());
-    expect(web.superview == root, "flat again, the page is a plain sibling");
+    // Skew and swing are the same primitive with other parts.
+    for (const char* motion : {"Skew", "Swing", "Flat"}) {
+      const glim::paint::SlotPlacement s = move(motion);
+      drawnWhereGlimPaints(s, motion);
+      reflected(s);
+    }
 
     // Bridged chrome (K88): Glim's own address field and buttons drive the page.
     screen().address = TextEdit{.text = "about:blank"};
@@ -272,6 +350,6 @@ int main() {
     host::syncSeats(window, glim::paint::Scene{}, attached, page->seatViews());
     expect(web.superview == nil, "the seat leaving detaches the view");
   }
-  if (failures == 0) std::cout << "webview: seated, loaded, clicked, tilted as a layer, routed, navigated by Glim chrome, detached\n";
+  if (failures == 0) std::cout << "webview: seated, loaded, clicked, tilted, skewed and swung as a layer, reflected, routed, navigated by Glim chrome, detached\n";
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
