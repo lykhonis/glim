@@ -3,6 +3,7 @@
 
 #include "WindowRegistry.h"
 #import "A11yBridge.h"
+#import "SlotReplica.h"
 
 #import <QuartzCore/CAMetalLayer.h>
 #import <QuartzCore/CATransaction.h>
@@ -122,6 +123,16 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
 #endif
 
 }  // namespace
+
+// A seat's host; see Window::attachSlot.
+@interface GlimSlotHost : UIView
+@end
+
+@implementation GlimSlotHost
++ (Class)layerClass {
+    return CAReplicatorLayer.class;
+}
+@end
 
 @interface GlimView : UIView
 @property(nonatomic, strong) GlimA11yBridge* a11yBridge;
@@ -603,6 +614,9 @@ void* Window::nativeView() const {
     return view_;
 }
 
+// Each seat sits in a host whose replicator layer carries its frame,
+// transform, copies and fades (K88, K89). UIKit hit-tests through layer
+// transforms and never into replicas, so the view keeps its own touches.
 void Window::attachSlot(std::uint32_t id, SlotNative native) {
     UIView* parent = (__bridge UIView*)view_;
     UIView* child = (__bridge UIView*)native.view;
@@ -610,44 +624,47 @@ void Window::attachSlot(std::uint32_t id, SlotNative native) {
         return;
     }
     if (void* prev = slots_.get(id); prev && prev != native.view) {
-        [(__bridge UIView*)prev removeFromSuperview];
+        UIView* old = (__bridge UIView*)prev;
+        [old.superview removeFromSuperview];
+        [old removeFromSuperview];
     }
-    [parent addSubview:child];
+    GlimSlotHost* host = [[GlimSlotHost alloc] initWithFrame:CGRectZero];
+    [host addSubview:child];
+    [parent addSubview:host];
     slots_.attach(id, native.view);
 }
 
 void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
-    UIView* child = (__bridge UIView*)slots_.get(id);
-    if (!child) {
-        return;
-    }
-    child.frame = CGRectMake(windowLogical.origin.x, windowLogical.origin.y, windowLogical.size.x,
-                             windowLogical.size.y);
+    positionSlot(id, SlotFrame{.bounds = windowLogical, .local = windowLogical});
 }
 
-// UIKit hit-tests through layer transforms, so a projected seat keeps its
-// own touches; only its geometry changes (K88).
 void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
-    const Rect& local = frame.local;
-    const Mat4& transform = frame.transform;
     UIView* child = (__bridge UIView*)slots_.get(id);
-    if (!child) {
+    UIView* host = child.superview;
+    if (!child || ![host isKindOfClass:GlimSlotHost.class]) {
         return;
     }
-    child.layer.transform = CATransform3DIdentity;
-    if (!transform.is3D()) {
-        child.layer.anchorPoint = CGPointMake(0.5, 0.5);
-        positionSlot(id, frame.bounds);
-        return;
+    const Rect& local = frame.layered() ? frame.local : frame.bounds;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    host.layer.transform = CATransform3DIdentity;
+    host.layer.anchorPoint = CGPointZero;
+    host.bounds = CGRectMake(0, 0, local.size.x, local.size.y);
+    host.layer.position = CGPointMake(local.origin.x, local.origin.y);
+    child.frame = host.bounds;
+    if (frame.layered()) {
+        host.layer.transform =
+            toCoreAnimation<CATransform3D>(slotLayerTransform(local, frame.transform));
+        replicateSlot((CAReplicatorLayer*)host.layer, frame);
+    } else {
+        replicateSlot((CAReplicatorLayer*)host.layer, SlotFrame{.local = local});
     }
-    child.bounds = CGRectMake(0, 0, local.size.x, local.size.y);
-    child.layer.anchorPoint = CGPointZero;
-    child.layer.position = CGPointMake(local.origin.x, local.origin.y);
-    child.layer.transform = toCoreAnimation<CATransform3D>(slotLayerTransform(local, transform));
+    [CATransaction commit];
 }
 
 void Window::detachSlot(std::uint32_t id) {
     UIView* child = (__bridge UIView*)slots_.detach(id);
+    [child.superview removeFromSuperview];
     [child removeFromSuperview];
 }
 

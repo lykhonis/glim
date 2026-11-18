@@ -11,7 +11,8 @@ namespace glim::shell {
 // Where a seat goes this frame. Flat shells place the view at bounds;
 // shells that composite it as a layer show local under transform, faded,
 // and again at each copy (K88, K89). Copies and fades are layer-shell
-// only: macOS shows them (the first copy), others show the view alone.
+// only: macOS and iOS show them (the first copy), others show the view
+// alone.
 struct SlotFrame {
   Rect bounds{};
   Rect local{};

@@ -9,6 +9,7 @@ add_library(glim-shell STATIC
 add_library(glim::shell ALIAS glim-shell)
 target_include_directories(glim-shell PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(glim-shell PUBLIC glim::core glim::gpu glim::shell-api)
+target_include_directories(glim-shell PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple)
 glim_target_defaults(glim-shell)
 
 set_source_files_properties(
