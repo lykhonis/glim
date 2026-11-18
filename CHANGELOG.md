@@ -6,7 +6,16 @@ Before 1.0, a new minor version may change the API. A patch version does not.
 
 The public C++ API is those headers. A configured package installs the headers of the targets it built, including one shell. Anything else — sources, examples, tools — is not public. `@glim/web` exports `GlimCanvas`.
 
-Pushing the tag `vX.Y.Z` publishes the changelog section as a GitHub release. The tag does not publish to npm. `pnpm web-pack` is a dry run; the tarball is a CI artifact.
+Changes land under `## [Unreleased]`. To release, rename it to `## [X.Y.Z] - date`, open a new empty `[Unreleased]` above it, and add a `[X.Y.Z]` link to the tag at the bottom; `pnpm release-check` fails if a section has no link. Pushing the tag `vX.Y.Z` publishes the changelog section as a GitHub release. The tag does not publish to npm. `pnpm web-pack` is a dry run; the tarball is a CI artifact.
+
+## [Unreleased]
+
+- Composition first (K89, `AGENTS.md`): effects are recipes of general primitives. A reflection is the content drawn again under `transform` (flip), `fade` and `inert`; there is no reflection feature.
+- `transform({...})`: one tag for translate, rotate, scale (negative flips), skew and 3D tilt about an anchor, with `fit` to keep the result inside the node's box. It replaces `rotate` and `tilt`; `translate(dx, dy)` stays as shorthand. Paint and hit testing share `transformMatrix`; custom elements push `transformAt`. `PushRotate` and `PushTilt` are gone: `PushTransform` carries the matrix (op archive v9, which still reads v8 rotate and tilt).
+- `fade({.edge, .length, .fromAlpha, .toAlpha})` ramps a subtree's alpha from an edge inward, over the new paint `GroupParams::fade` (software and GPU). `inert()` keeps a subtree out of hit testing, focus and a11y.
+- Native views compose too: a seat drawn twice is reported as a copy (`SlotPlacement::copies`), and a fade over a seat as its `fade`. `shell::SlotFrame` carries both; macOS shows the first copy with a replicator and masks each drawing. Other shells show the view alone for now.
+- Webview example: a designed offline page, Flat/Tilt/Skew/Swing motions with an amount slider, and a live reflection built by composition.
+- Tag factories: `transform` takes its tag struct like `glass`, `shadow` and `effectGlow`.
 
 ## [0.1.0] - 2026-11-12
 
@@ -65,3 +74,6 @@ First versioned release of the public packages.
 - `paint::Stats` reports renderer GPU memory: `textureBytes`, `importedBytes`, `targetBytes`. Vulkan now measures GPU time with timestamp queries (`gpuMs`); `Renderer::stats()` returns by value.
 - Polyline flattening is memoized on world points, width and pitch: infotainment's full-redraw CPU time drops from 9.5 to 7.9 ms with identical output.
 - Probe `bench N gpu`: full-redraw medians for draw and GPU time, draws, instances and memory. `bench` now reuses one paint context across frames, as the host does.
+
+[Unreleased]: https://github.com/lykhonis/glim/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/lykhonis/glim/releases/tag/v0.1.0
