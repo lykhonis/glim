@@ -24,6 +24,9 @@ struct Projected {
 - (BOOL)isFlipped {
   return YES;
 }
+- (CALayer*)makeBackingLayer {
+  return [CAReplicatorLayer layer];
+}
 - (NSView*)hitTest:(NSPoint)point {
   (void)point;
   return nil;
@@ -44,10 +47,9 @@ struct Projected {
   return self;
 }
 
-- (void)project:(std::uint32_t)id
-         native:(NSView*)native
-          local:(glim::Rect)local
-      transform:(const glim::Mat4&)transform {
+- (void)project:(std::uint32_t)id native:(NSView*)native frame:(const glim::shell::SlotFrame&)frame {
+  const glim::Rect& local = frame.local;
+  const glim::Mat4& transform = frame.transform;
   NSView* root = root_;
   if (!root || !native) return;
   Projected& p = projected_[id];
@@ -72,7 +74,50 @@ struct Projected {
   p.host.layer.position = CGPointMake(local.origin.x, local.origin.y);
   p.host.layer.transform =
     glim::shell::toCoreAnimation<CATransform3D>(glim::shell::slotLayerTransform(local, transform));
+  [self replicate:(CAReplicatorLayer*)p.host.layer frame:frame];
   [CATransaction commit];
+}
+
+// The first copy is the replicator's second instance. The mask holds one
+// gradient per drawing, each placed and ramped like it; with no copy and
+// no fade there is no mask.
+- (void)replicate:(CAReplicatorLayer*)layer frame:(const glim::shell::SlotFrame&)frame {
+  const bool copied = !frame.copies.empty();
+  layer.instanceCount = copied ? 2 : 1;
+  layer.instanceTransform =
+    copied ? glim::shell::toCoreAnimation<CATransform3D>(
+               glim::shell::slotCopyTransform(frame.local, frame.transform, frame.copies.front())
+             )
+           : CATransform3DIdentity;
+  if (!copied && frame.fade.opaque()) {
+    layer.mask = nil;
+    return;
+  }
+  CALayer* mask = [CALayer layer];
+  mask.frame = CGRectMake(0, 0, frame.local.size.x, frame.local.size.y);
+  [mask addSublayer:[self drawing:frame.local.size fade:frame.fade at:CATransform3DIdentity]];
+  if (copied) {
+    [mask addSublayer:[self drawing:frame.copies.front().local.size
+                               fade:frame.copies.front().fade
+                                 at:layer.instanceTransform]];
+  }
+  layer.mask = mask;
+}
+
+- (CAGradientLayer*)drawing:(glim::Vec2)size fade:(const glim::AlphaRamp&)fade at:(CATransform3D)at {
+  CAGradientLayer* g = [CAGradientLayer layer];
+  g.anchorPoint = CGPointZero;
+  g.bounds = CGRectMake(0, 0, size.x, size.y);
+  g.position = CGPointZero;
+  g.transform = at;
+  const glim::shell::RampLine line = glim::shell::rampLine(fade);
+  g.startPoint = CGPointMake(line.start.x, line.start.y);
+  g.endPoint = CGPointMake(line.end.x, line.end.y);
+  g.colors = @[
+    (id)[NSColor colorWithWhite:0 alpha:fade.fromAlpha].CGColor,
+    (id)[NSColor colorWithWhite:0 alpha:fade.toAlpha].CGColor
+  ];
+  return g;
 }
 
 - (void)flatten:(std::uint32_t)id native:(NSView*)native {

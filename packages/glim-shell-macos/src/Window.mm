@@ -426,8 +426,8 @@ void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
   if (!child) {
     return;
   }
-  if (frame.transform.is3D()) {
-    [view.slotLayers project:id native:child local:frame.local transform:frame.transform];
+  if (frame.layered()) {
+    [view.slotLayers project:id native:child frame:frame];
     return;
   }
   [view.slotLayers flatten:id native:child];

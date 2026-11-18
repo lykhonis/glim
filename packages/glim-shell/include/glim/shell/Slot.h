@@ -4,16 +4,22 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 namespace glim::shell {
 
-// Where a seat goes this frame. Flat shells place the view at bounds; under
-// a 3D transform, shells that can composite it as a layer of local turned
-// by transform (K88).
+// Where a seat goes this frame. Flat shells place the view at bounds;
+// shells that composite it as a layer show local under transform, faded,
+// and again at each copy (K88, K89). Copies and fades are layer-shell
+// only: macOS shows them (the first copy), others show the view alone.
 struct SlotFrame {
   Rect bounds{};
   Rect local{};
   Mat4 transform = Mat4::identity();
+  AlphaRamp fade{};
+  std::vector<PlacedRect> copies;
+
+  bool layered() const { return transform.is3D() || !fade.opaque() || !copies.empty(); }
 };
 
 // Embedder-owned; Glim never retains.

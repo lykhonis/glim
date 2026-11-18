@@ -318,9 +318,17 @@ int main() {
     LogEmbedder e;
     glim::toolkit::host::EmbedFrames attached;
     const glim::Rect r1{{0, 0}, {10, 10}}, r2{{5, 0}, {10, 10}};
-    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{1, r1}, SlotPlacement{2, r1}}, attached);
-    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{1, r1}, SlotPlacement{2, r2}}, attached);
-    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{2, r2}}, attached);
+    glim::toolkit::host::syncEmbeds(
+      e,
+      {SlotPlacement{.id = 1, .windowLogical = r1}, SlotPlacement{.id = 2, .windowLogical = r1}},
+      attached
+    );
+    glim::toolkit::host::syncEmbeds(
+      e,
+      {SlotPlacement{.id = 1, .windowLogical = r1}, SlotPlacement{.id = 2, .windowLogical = r2}},
+      attached
+    );
+    glim::toolkit::host::syncEmbeds(e, {SlotPlacement{.id = 2, .windowLogical = r2}}, attached);
     assert(e.log == "a1a2p2d1");
     assert(attached.size() == 1 && attached.at(2).origin.x == 5);
   }

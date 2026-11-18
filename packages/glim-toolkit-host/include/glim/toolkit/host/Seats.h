@@ -32,7 +32,7 @@ class SlotOverlay final : public Embedder {
 
  private:
   static glim::shell::SlotFrame frameOf(const paint::SlotPlacement& p) {
-    return {p.windowLogical, p.local, p.transform};
+    return {p.windowLogical, p.local, p.transform, p.fade, p.copies};
   }
 
   glim::shell::Window& window_;
