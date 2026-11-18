@@ -148,6 +148,7 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 - (void)copy:(id)sender {
   (void)sender;
   const auto& s = self.textInput.state;
+  if (s.secure) return;
   const std::string picked = s.text.substr(s.selection.start, s.selection.length);
   NSPasteboard* board = NSPasteboard.generalPasteboard;
   [board clearContents];
@@ -168,7 +169,8 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 - (BOOL)validateMenuItem:(NSMenuItem*)item {
   const SEL a = item.action;
   if (a == @selector(copy:) || a == @selector(cut:)) {
-    return self.textInput.active && self.textInput.state.selection.length > 0;
+    const auto& s = self.textInput.state;
+    return self.textInput.active && !s.secure && s.selection.length > 0;
   }
   if (a == @selector(paste:)) {
     return self.textInput.active &&

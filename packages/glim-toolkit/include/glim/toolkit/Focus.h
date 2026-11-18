@@ -47,6 +47,7 @@ struct TextFocus {
   TextEdit edit;
   Box field;
   Box caret;
+  TextRules rules;
 };
 std::optional<TextFocus> textFocusAt(
   const Block& root, const Box& box, int index, const Engine& e = Engine{}

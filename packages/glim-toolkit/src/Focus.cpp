@@ -122,7 +122,7 @@ std::optional<TextFocus> probeText(const FocusedBox& f, const Engine& e) {
   detail::AutoHandle h(e.store ? &e.store->get() : nullptr, f.path);
   detail::handleIn(*f.block, f.box, f.toNode, Event::borrow(TextProbe{&found}));
   if (found.field.w <= 0) return std::nullopt;
-  found.caret = FieldGeometry::caret(found.field, found.edit, e);
+  found.caret = FieldGeometry::caret(found.field, found.edit, found.rules, e);
   return found;
 }
 

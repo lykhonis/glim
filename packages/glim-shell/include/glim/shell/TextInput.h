@@ -36,8 +36,10 @@ struct TextInputChange {
 
 // The focused field as the platform's text input client sees it. Inactive
 // when focus edits no text; caret is window-logical, the candidate anchor.
+// A secure field shows only its mask and never copies.
 struct TextInputState {
   bool active = false;
+  bool secure = false;
   std::string text;
   TextInputRange selection;
   std::optional<TextInputRange> marked;

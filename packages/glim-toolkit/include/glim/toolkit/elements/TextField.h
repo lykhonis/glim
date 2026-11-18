@@ -25,8 +25,10 @@ struct FieldGeometry {
   static float height() { return Tokens::kTypeLine + 2 * kPadY; }
   // X of the byte offset within the field's text.
   static float offsetX(const Box& box, const std::string& text, std::size_t at, const Engine& e);
-  static Box caret(const Box& box, const TextEdit& edit, const Engine& e);
-  static Box underline(const Box& box, const TextEdit& edit, const Engine& e);
+  static Box caret(const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e);
+  static Box underline(
+    const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
+  );
 };
 
 // Owned text input (N8): Glim draws the text and the shell's text input
@@ -37,12 +39,15 @@ struct TextField : WithSemantic, WithA11y {
   State<TextEdit> value;
   float width = 240.0f;
   std::string placeholder;
+  TextRules rules;
   Box place(Constraints c, const Engine&) const {
     return detail::resolveSize(width, FieldGeometry::height(), c);
   }
   void paint(const Box& box, AnySink& sink, const Engine& e) const;
   bool handleAt(const Box& box, const Event& ev) const;
-  A11yTraits a11yTraits() const { return {.role = A11yRole::TextField, .value = value->text}; }
+  A11yTraits a11yTraits() const {
+    return {.role = A11yRole::TextField, .value = shownText(value->text, rules)};
+  }
 };
 
 template <class... As>

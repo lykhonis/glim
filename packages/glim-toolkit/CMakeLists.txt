@@ -10,6 +10,7 @@ add_library(glim-toolkit STATIC
     src/Focus.cpp
     src/Screen.cpp
     src/TextEdit.cpp
+    src/text/Segment.cpp
     src/Slider.cpp
     src/TextField.cpp
 )
@@ -36,6 +37,7 @@ if(GLIM_HOST_TESTS)
         tests/test_scoped.cpp
         tests/test_theme.cpp
         tests/test_text_edit.cpp
+        tests/test_text_commands.cpp
     )
     target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)
     glim_test_defaults(glim-toolkit-test)

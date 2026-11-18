@@ -15,6 +15,7 @@ void test_scoped();
 void test_theme();
 void test_hit();
 void test_text_edit();
+void test_text_commands();
 void test_text_field();
 
 int main() {
@@ -33,6 +34,7 @@ int main() {
   test_theme();
   test_hit();
   test_text_edit();
+  test_text_commands();
   test_text_field();
 
   std::cout << "toolkit tests ok\n";

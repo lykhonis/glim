@@ -2,55 +2,109 @@
 
 #include <algorithm>
 
+#include "text/Segment.h"
+
 namespace glim {
 namespace toolkit {
 
 namespace {
 
-bool continuation(char c) { return (static_cast<unsigned char>(c) & 0xC0) == 0x80; }
-
-std::size_t prevPoint(const std::string& s, std::size_t i) {
-  if (i == 0) return 0;
-  --i;
-  while (i > 0 && continuation(s[i])) --i;
-  return i;
-}
-
-std::size_t nextPoint(const std::string& s, std::size_t i) {
-  if (i >= s.size()) return s.size();
-  ++i;
-  while (i < s.size() && continuation(s[i])) ++i;
-  return i;
-}
+constexpr std::size_t kUndoDepth = 100;
+constexpr std::string_view kBullet = "•";
 
 // Shell ranges are untrusted: clamp into the text and onto code points.
 TextRange clamp(const std::string& s, TextRange r) {
-  std::size_t a = std::min(r.start, s.size());
+  const std::size_t a = text::snapPoint(s, std::min(r.start, s.size()));
   std::size_t b = std::min(r.start + std::min(r.length, s.size()), s.size());
-  while (a > 0 && a < s.size() && continuation(s[a])) --a;
-  while (b < s.size() && continuation(s[b])) ++b;
+  if (text::snapPoint(s, b) != b) text::decodeAt(s, text::snapPoint(s, b), &b);
   return {a, std::max(a, b) - a};
+}
+
+TextSnapshot snapshot(const TextEdit& e) { return {e.text, e.selection, e.reversed}; }
+
+void restore(TextEdit& e, TextSnapshot s) {
+  e.text = std::move(s.text);
+  e.selection = s.selection;
+  e.reversed = s.reversed;
+  e.marked.reset();
+  e.history.streak.reset();
+}
+
+// Saves the state before an edit, unless it continues a streak of the
+// same coalescing command; any edit drops the redo stack.
+void record(TextEdit& e, std::optional<TextOp> streak) {
+  TextHistory& h = e.history;
+  if (!streak || h.streak != streak) {
+    h.undo.push_back(snapshot(e));
+    if (h.undo.size() > kUndoDepth) h.undo.erase(h.undo.begin());
+  }
+  h.redo.clear();
+  h.streak = streak;
 }
 
 TextEdit replace(TextEdit e, TextRange r, std::string_view text) {
   r = clamp(e.text, r);
   e.text.replace(r.start, r.length, text);
   e.selection = {r.start + text.size(), 0};
+  e.reversed = false;
   e.marked.reset();
   return e;
 }
 
 TextRange target(const TextEdit& e) { return e.marked ? *e.marked : e.selection; }
 
+// Where one unit from at reaches in a direction.
+std::size_t reach(const std::string& s, std::size_t at, int direction, TextUnit unit) {
+  const bool back = direction < 0;
+  switch (unit) {
+    case TextUnit::Character:
+      return back ? text::prevCluster(s, at) : text::nextCluster(s, at);
+    case TextUnit::Word:
+      return back ? text::prevWordStart(s, at) : text::nextWordEnd(s, at);
+    case TextUnit::Line:
+      return back ? text::lineStart(s, at) : text::lineEnd(s, at);
+    case TextUnit::Document:
+      return back ? 0 : s.size();
+  }
+  return at;
+}
+
+// The text with rejected code points dropped, cut to at most room clusters.
+std::string admit(std::string_view in, const TextRules& rules, std::size_t room) {
+  std::string out;
+  for (std::size_t i = 0; i < in.size();) {
+    std::size_t next = in.size();
+    const char32_t c = text::decodeAt(in, i, &next);
+    if (!rules.accept || rules.accept(c)) out.append(in.substr(i, next - i));
+    i = next;
+  }
+  if (rules.maxLength == 0) return out;
+  std::size_t end = 0;
+  for (std::size_t n = 0; n < room && end < out.size(); ++n) end = text::nextCluster(out, end);
+  out.resize(std::min(end, out.size()));
+  return out;
+}
+
 }  // namespace
 
-TextEdit insertText(TextEdit edit, std::string_view text) {
-  const TextRange r = target(edit);
-  return replace(std::move(edit), r, text);
+TextEdit insertText(TextEdit edit, std::string_view text, const TextRules& rules) {
+  const TextRange r = clamp(edit.text, target(edit));
+  std::size_t room = 0;
+  if (rules.maxLength > 0) {
+    const std::size_t kept =
+      text::clusterCount(edit.text) -
+      text::clusterCount(std::string_view(edit.text).substr(r.start, r.length));
+    room = rules.maxLength > kept ? rules.maxLength - kept : 0;
+  }
+  const std::string admitted = admit(text, rules, room);
+  if (admitted.empty() && r.length == 0 && !edit.marked) return edit;
+  if (!edit.marked) record(edit, TextOp::Insert);
+  return replace(std::move(edit), r, admitted);
 }
 
 TextEdit markText(TextEdit edit, std::string_view text, TextRange selection) {
   const TextRange r = clamp(edit.text, target(edit));
+  if (!edit.marked && !text.empty()) record(edit, TextOp::Insert);
   edit = replace(std::move(edit), r, text);
   if (text.empty()) return edit;
   const std::string marked(text);
@@ -67,44 +121,121 @@ TextEdit unmarkText(TextEdit edit) {
   return edit;
 }
 
-TextEdit deleteBackward(TextEdit edit) {
+TextEdit deleteText(TextEdit edit, int direction, TextUnit unit) {
   TextRange r = clamp(edit.text, target(edit));
   if (r.length == 0) {
-    const std::size_t from = prevPoint(edit.text, r.start);
-    r = {from, r.start - from};
+    std::size_t to = reach(edit.text, r.start, direction, unit);
+    if (to == r.start) to = reach(edit.text, r.start, direction, TextUnit::Character);
+    r = {std::min(to, r.start), std::max(to, r.start) - std::min(to, r.start)};
   }
+  if (r.length == 0) return edit;
+  const TextOp op = direction < 0 ? TextOp::DeleteBackward : TextOp::DeleteForward;
+  record(edit, unit == TextUnit::Character ? std::optional<TextOp>(op) : std::nullopt);
   return replace(std::move(edit), r, {});
 }
 
-TextEdit moveCaret(TextEdit edit, int direction) {
+TextEdit deleteBackward(TextEdit edit) { return deleteText(std::move(edit), -1); }
+
+TextEdit moveCaret(TextEdit edit, int direction, TextUnit unit, bool extend) {
   edit = unmarkText(std::move(edit));
+  edit.history.streak.reset();
   const TextRange r = clamp(edit.text, edit.selection);
-  std::size_t at = direction < 0 ? r.start : r.end();
-  if (r.length == 0) at = direction < 0 ? prevPoint(edit.text, at) : nextPoint(edit.text, at);
-  edit.selection = {at, 0};
+  if (extend) {
+    const std::size_t anchor = edit.reversed ? r.end() : r.start;
+    const std::size_t moved = reach(edit.text, edit.reversed ? r.start : r.end(), direction, unit);
+    edit.selection = {std::min(anchor, moved), std::max(anchor, moved) - std::min(anchor, moved)};
+    edit.reversed = moved < anchor;
+    return edit;
+  }
+  const std::size_t side = direction < 0 ? r.start : r.end();
+  const bool collapse = r.length > 0 && unit == TextUnit::Character;
+  edit.selection = {collapse ? side : reach(edit.text, side, direction, unit), 0};
+  edit.reversed = false;
   return edit;
 }
 
-TextEdit applyText(TextEdit edit, const TextChange& change) {
+TextEdit selectWord(TextEdit edit) {
+  edit = unmarkText(std::move(edit));
+  edit.history.streak.reset();
+  const text::Span span = text::runAt(edit.text, clamp(edit.text, edit.selection).start);
+  edit.selection = {span.start, span.end - span.start};
+  edit.reversed = false;
+  return edit;
+}
+
+TextEdit selectAll(TextEdit edit) {
+  edit.marked.reset();
+  edit.history.streak.reset();
+  edit.selection = {0, edit.text.size()};
+  edit.reversed = false;
+  return edit;
+}
+
+TextEdit undo(TextEdit edit) {
+  TextHistory& h = edit.history;
+  if (h.undo.empty()) return edit;
+  TextSnapshot back = std::move(h.undo.back());
+  h.undo.pop_back();
+  h.redo.push_back(snapshot(edit));
+  restore(edit, std::move(back));
+  return edit;
+}
+
+TextEdit redo(TextEdit edit) {
+  TextHistory& h = edit.history;
+  if (h.redo.empty()) return edit;
+  TextSnapshot ahead = std::move(h.redo.back());
+  h.redo.pop_back();
+  h.undo.push_back(snapshot(edit));
+  restore(edit, std::move(ahead));
+  return edit;
+}
+
+TextEdit applyText(TextEdit edit, const TextChange& change, const TextRules& rules) {
   switch (change.op) {
     case TextOp::Insert:
-      return insertText(std::move(edit), change.text);
+      return insertText(std::move(edit), change.text, rules);
     case TextOp::Mark:
       return markText(std::move(edit), change.text, change.selection);
     case TextOp::Unmark:
       return unmarkText(std::move(edit));
     case TextOp::DeleteBackward:
-      return deleteBackward(std::move(edit));
+      return deleteText(std::move(edit), -1, change.unit);
+    case TextOp::DeleteForward:
+      return deleteText(std::move(edit), 1, change.unit);
     case TextOp::MoveLeft:
-      return moveCaret(std::move(edit), -1);
+      return moveCaret(std::move(edit), -1, change.unit, change.extend);
     case TextOp::MoveRight:
-      return moveCaret(std::move(edit), 1);
-    case TextOp::SelectAll: {
-      const std::size_t size = edit.text.size();
-      return {.text = std::move(edit.text), .selection = {0, size}};
-    }
+      return moveCaret(std::move(edit), 1, change.unit, change.extend);
+    case TextOp::SelectAll:
+      return selectAll(std::move(edit));
+    case TextOp::SelectWord:
+      return selectWord(std::move(edit));
+    case TextOp::Undo:
+      return undo(std::move(edit));
+    case TextOp::Redo:
+      return redo(std::move(edit));
   }
   return edit;
+}
+
+std::optional<std::string> copyText(const TextEdit& edit, const TextRules& rules) {
+  const TextRange r = clamp(edit.text, edit.selection);
+  if (rules.secure || r.length == 0) return std::nullopt;
+  return edit.text.substr(r.start, r.length);
+}
+
+std::string shownText(const std::string& text, const TextRules& rules) {
+  if (!rules.secure) return text;
+  std::string out;
+  for (std::size_t n = text::clusterCount(text); n > 0; --n) out.append(kBullet);
+  return out;
+}
+
+std::size_t shownOffset(const std::string& text, std::size_t at, const TextRules& rules) {
+  at = std::min(at, text.size());
+  if (!rules.secure) return at;
+  return text::clusterCount(std::string_view(text).substr(0, at)) * kBullet.size();
 }
 
 }  // namespace toolkit
