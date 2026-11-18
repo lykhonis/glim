@@ -21,16 +21,17 @@ enum class GlassEdge : std::uint8_t {
   Full = 15,
 };
 
-// Lens material preset id. Values pin paint::GlassMaterial (0/1/2);
-// the host asserts the shared layout so drift fails the build.
+// Lens material preset id. Glass, LiquidMetal and Water pin
+// paint::LensMaterial (the host asserts the shared layout so drift fails
+// the build); Clear is glass's unfrosted preset, paint::Lens::clear().
 enum class GlassMaterial : std::uint8_t {
   Glass = 0,
   LiquidMetal = 1,
   Water = 2,
+  Clear = 3,
 };
 
 struct GlassTag {
-  bool clear = false;
   int radius = Tokens::kGlassRadius;
   GlassEdge edge = GlassEdge::Full;
   // Plate tint (0xRRGGBBAA). Transparent keeps the white milk wash;

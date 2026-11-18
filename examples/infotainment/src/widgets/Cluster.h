@@ -59,7 +59,7 @@ inline GlassTag controlGlass() {
 // Dial lens: clear glass disc under the gauge; the bezel ring stays
 // open so the city refracts through it around the face.
 inline GlassTag dialGlass() {
-  return glass({.clear = true, .radius = 258});
+  return glass({.radius = 258, .material = GlassMaterial::Clear});
 }
 
 inline void plate(

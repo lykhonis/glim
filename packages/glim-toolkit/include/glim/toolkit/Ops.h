@@ -49,7 +49,6 @@ struct Op {
   Rec::Entry entry;  // valid when kind == Entry
   Box box{};
   int radius = 0;
-  bool clear = false;         // PushGlass variant
   bool plus = false;          // PushBlend variant (additive light)
   bool foreign = false;       // Image variant
   std::uint8_t edge = 15;     // PushGlass edge mask (toolkit GlassEdge bits)
@@ -87,11 +86,10 @@ struct Op {
            entry.box.h == o.entry.box.h && entry.text == o.entry.text &&
            entry.mark == o.entry.mark && entry.radius == o.entry.radius && box.x == o.box.x &&
            box.y == o.box.y && box.w == o.box.w && box.h == o.box.h && radius == o.radius &&
-           clear == o.clear && plus == o.plus && foreign == o.foreign && edge == o.edge &&
-           tint == o.tint && material == o.material && glassMerge == o.glassMerge &&
-           rgba == o.rgba && rgba2 == o.rgba2 && image == o.image && slot == o.slot &&
-           width == o.width && size == o.size && condense == o.condense &&
-           textWeight == o.textWeight &&
+           plus == o.plus && foreign == o.foreign && edge == o.edge && tint == o.tint &&
+           material == o.material && glassMerge == o.glassMerge && rgba == o.rgba &&
+           rgba2 == o.rgba2 && image == o.image && slot == o.slot && width == o.width &&
+           size == o.size && condense == o.condense && textWeight == o.textWeight &&
            std::equal(std::begin(matrix.m), std::end(matrix.m), std::begin(o.matrix.m)) &&
            cut == o.cut && thickness == o.thickness && startDeg == o.startDeg &&
            sweepDeg == o.sweepDeg && dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox &&
@@ -217,7 +215,6 @@ struct OpsRecorder {
   void pushGlass(
     const Box& b,
     int radius,
-    bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
     std::uint8_t material = 0,
@@ -228,7 +225,6 @@ struct OpsRecorder {
     o.glassMerge = merge;
     o.box = b;
     o.radius = radius;
-    o.clear = clear;
     o.edge = edge;
     o.tint = tint;
     o.material = material;

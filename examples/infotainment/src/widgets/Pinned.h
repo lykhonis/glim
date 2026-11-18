@@ -95,7 +95,6 @@ struct Pinned {
       sink.pushGlass(
         adapt(r, anchors[i], box),
         g.radius,
-        g.clear,
         static_cast<std::uint8_t>(g.edge),
         g.tint,
         static_cast<std::uint8_t>(g.material)

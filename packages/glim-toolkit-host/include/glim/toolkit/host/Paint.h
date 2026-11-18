@@ -116,7 +116,6 @@ struct ContextSink {
   void pushGlass(
     const Box& b,
     int radius,
-    bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
     std::uint8_t material = 0,
@@ -159,8 +158,8 @@ struct ContextSink {
       if (tint != 0) {
         g.tint = ::glim::Color{tint};
       }
-    } else {
-      g = clear ? ::glim::paint::Lens::clear() : ::glim::paint::Lens{};
+    } else if (material == static_cast<std::uint8_t>(toolkit::GlassMaterial::Clear)) {
+      g = ::glim::paint::Lens::clear();
     }
     g.thicknessPx = Tokens::kGlassThickness;
     g.edge = static_cast<PaintEdge>(edge);

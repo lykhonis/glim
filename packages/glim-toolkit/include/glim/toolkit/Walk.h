@@ -189,13 +189,12 @@ struct MarkFrame {
   void pushGlass(
     const Box& b,
     int radius,
-    bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
     std::uint8_t material,
     bool merge = true
   ) {
-    inner->pushGlass(b, radius, clear, edge, tint, material, merge);
+    inner->pushGlass(b, radius, edge, tint, material, merge);
   }
   void pushClip(const Box& b) { inner->pushClip(b); }
   void pushBlend(BlendMode m) { inner->pushBlend(m); }

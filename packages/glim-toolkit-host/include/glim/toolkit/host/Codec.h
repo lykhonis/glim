@@ -98,7 +98,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 9);  // version 9: PushTransform carries a matrix; PushFade
+  detail::putU16(out, 10);  // v10: clear glass is a material; v9: PushTransform matrix
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -116,7 +116,6 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
     detail::putStr(out, o.mark);
     if (o.kind == K::PushGlass) {
       detail::putI32(out, o.radius);
-      detail::putU8(out, o.clear ? 1 : 0);
       detail::putU8(out, o.edge);
       detail::putU32(out, o.tint);
       detail::putU8(out, o.material);
@@ -197,7 +196,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
   const std::uint16_t ver = r.u16();
-  if (ver < 1 || ver > 9) return false;
+  if (ver < 1 || ver > 10) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -231,11 +230,14 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
     o.mark = r.str();
     if (o.kind == K::PushGlass) {
       o.radius = r.i32();
-      o.clear = r.u8() != 0;
+      // Before v10 clear glass was a flag beside the material.
+      const bool clear = ver < 10 && r.u8() != 0;
       o.edge = r.u8();
       o.tint = r.u32();
       // Pre-v4 archives carry no material byte: default refractive glass.
       o.material = (ver >= 4 && r.ok) ? r.u8() : 0;
+      if (clear && o.material == static_cast<std::uint8_t>(GlassMaterial::Glass))
+        o.material = static_cast<std::uint8_t>(GlassMaterial::Clear);
       o.glassMerge = (ver >= 8 && r.ok) ? r.u8() != 0 : true;
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {

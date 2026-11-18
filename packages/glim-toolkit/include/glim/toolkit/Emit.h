@@ -42,7 +42,6 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         sink.pushGlass(
           bx,
           g->get().radius,
-          g->get().clear,
           static_cast<std::uint8_t>(g->get().edge),
           g->get().tint,
           static_cast<std::uint8_t>(g->get().material),

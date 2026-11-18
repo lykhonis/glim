@@ -90,9 +90,8 @@ struct AnySink {
   void (*textStyledFn)(void*, float, float, const std::string&, std::uint32_t, float, float, float, const std::string&) =
     nullptr;
   void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
-  void (*pushGlassFn)(
-    void*, const Box&, int, bool, std::uint8_t, std::uint32_t, std::uint8_t, bool
-  ) = nullptr;
+  void (*pushGlassFn)(void*, const Box&, int, std::uint8_t, std::uint32_t, std::uint8_t, bool) =
+    nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*pushOpacityFn)(void*, float) = nullptr;
@@ -197,13 +196,12 @@ struct AnySink {
   void pushGlass(
     const Box& b,
     int radius,
-    bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
     std::uint8_t material = 0,
     bool merge = true
   ) {
-    pushGlassFn(sink, b, radius, clear, edge, tint, material, merge);
+    pushGlassFn(sink, b, radius, edge, tint, material, merge);
   }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
@@ -266,14 +264,11 @@ void bindOps(AnySink& a) {
                     void* s,
                     const Box& b,
                     int radius,
-                    bool clear,
                     std::uint8_t edge,
                     std::uint32_t tint,
                     std::uint8_t material,
                     bool merge
-                  ) {
-    static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material, merge);
-  };
+                  ) { static_cast<S*>(s)->pushGlass(b, radius, edge, tint, material, merge); };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.pushOpacityFn = [](void* s, float opacity) { static_cast<S*>(s)->pushOpacity(opacity); };

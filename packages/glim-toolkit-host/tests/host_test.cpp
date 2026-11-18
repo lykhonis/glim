@@ -342,7 +342,11 @@ int main() {
     rec.text(1.0f, 2.0f, "hi", 0xffffffff, 14.0f, "m3");
     rec.image({0, 0, 10, 10}, 9, true);
     rec.pushGlass(
-      {0, 0, 10, 10}, 12, true, static_cast<std::uint8_t>(glim::toolkit::GlassEdge::Full), 0
+      {0, 0, 10, 10},
+      12,
+      static_cast<std::uint8_t>(glim::toolkit::GlassEdge::Full),
+      0,
+      static_cast<std::uint8_t>(glim::toolkit::GlassMaterial::Clear)
     );
     rec.pushClip({0, 0, 10, 10});
     rec.pop();
@@ -387,8 +391,8 @@ int main() {
     using glim::toolkit::Op;
     using glim::toolkit::OpsRecorder;
     OpsRecorder rec;
-    rec.pushGlass({0, 0, 10, 10}, 12, false, 15, 0xd8a84eff, 1);
-    rec.pushGlass({0, 0, 10, 10}, 8, false, 15, 0, 2);
+    rec.pushGlass({0, 0, 10, 10}, 12, 15, 0xd8a84eff, 1);
+    rec.pushGlass({0, 0, 10, 10}, 8, 15, 0, 2);
     std::vector<std::uint8_t> bytes;
     glim::toolkit::host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;
@@ -431,7 +435,8 @@ int main() {
     assert(back == now.ops);
   }
 
-  // Pre-v4 archives carry no material byte: decode as refractive glass.
+  // Pre-v4 archives carry no material byte, and pre-v10 a clear flag: a
+  // clear plate decodes as the Clear material.
   {
     using glim::toolkit::Op;
     std::vector<std::uint8_t> v3;
@@ -469,8 +474,9 @@ int main() {
     assert(glim::toolkit::host::decodeOps(v3.data(), v3.size(), back));
     assert(back.size() == 1);
     assert(back[0].kind == Op::Kind::PushGlass);
-    assert(back[0].material == 0);
-    assert(back[0].clear && back[0].edge == 15 && back[0].radius == 12);
+    // Its clear flag becomes the Clear material.
+    assert(back[0].material == static_cast<std::uint8_t>(glim::toolkit::GlassMaterial::Clear));
+    assert(back[0].edge == 15 && back[0].radius == 12);
   }
 
   // Effects mix: tags on a composed node and effects a custom element
@@ -535,7 +541,7 @@ int main() {
       ctx.setSize({100, 100});
       ctx.beginFrame();
       ContextSink sink{ctx};
-      sink.pushGlass({0, 0, 50, 50}, 12, false, 15, tint, material);
+      sink.pushGlass({0, 0, 50, 50}, 12, 15, tint, material);
       sink.pop();
       ctx.finish();
       const glim::paint::Scene& scene = ctx.scene();
@@ -547,13 +553,16 @@ int main() {
     const glim::paint::Lens def = painted(0, 0);
     assert(def.material == glim::paint::LensMaterial::Glass);
     assert(def.mergeKPx > 0.f);
+    const glim::paint::Lens clear = painted(static_cast<std::uint8_t>(GlassMaterial::Clear), 0);
+    assert(clear.material == glim::paint::LensMaterial::Glass);
+    assert(clear.variant == glim::paint::LensVariant::Clear && def.variant != clear.variant);
     // merge = false keeps a plate's own outline next to its neighbors.
     {
       glim::paint::Context ctx;
       ctx.setSize({100, 100});
       ctx.beginFrame();
       ContextSink sink{ctx};
-      sink.pushGlass({0, 0, 50, 50}, 12, false, 15, 0, 0, false);
+      sink.pushGlass({0, 0, 50, 50}, 12, 15, 0, 0, false);
       sink.pop();
       ctx.finish();
       const auto& lens = ctx.scene().root.children[0]->params.lens;
@@ -562,7 +571,7 @@ int main() {
     // The tag reaches the sink and survives the op archive.
     {
       glim::toolkit::OpsRecorder rec;
-      rec.pushGlass({0, 0, 5, 5}, 4, false, 15, 0, 0, false);
+      rec.pushGlass({0, 0, 5, 5}, 4, 15, 0, 0, false);
       std::vector<std::uint8_t> bytes;
       glim::toolkit::host::encodeOps(rec.ops, bytes);
       std::vector<glim::toolkit::Op> back;
