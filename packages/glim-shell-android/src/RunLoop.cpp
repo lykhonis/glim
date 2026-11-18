@@ -87,6 +87,15 @@ void RunLoop::run() {
       read(local_.timerFd, &exp, sizeof(exp));
     }
 
+    // Input that arrived meanwhile goes first: a slow frame between a press
+    // and its release would turn a tap into a long press.
+    for (;;) {
+      android_poll_source* ready = nullptr;
+      const int more = ALooper_pollOnce(0, nullptr, nullptr, reinterpret_cast<void**>(&ready));
+      if (more < 0 || !ready) break;
+      ready->process(app, ready);
+    }
+
     if (local_.framePending.exchange(false)) {
       FrameCallback frame;
       {

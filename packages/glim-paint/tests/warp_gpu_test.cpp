@@ -59,7 +59,13 @@ void check(const std::vector<std::uint8_t>& px, const char* path) {
 }  // namespace
 
 int main() {
-  auto created = glim::gpu::Device::create({});
+  glim::gpu::DeviceCreateInfo info{};
+#if defined(__APPLE__)
+  info.backend = glim::gpu::Backend::Metal;
+#else
+  info.backend = glim::gpu::Backend::Vulkan;
+#endif
+  auto created = glim::gpu::Device::create(info);
   if (!created.ok()) {
     std::cerr << "headless GPU device failed: " << created.message() << '\n';
     return EXIT_FAILURE;
