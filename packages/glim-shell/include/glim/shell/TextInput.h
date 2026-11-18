@@ -16,7 +16,15 @@ struct TextInputRange {
   std::size_t length = 0;
 };
 
-enum class TextInputOp : std::uint8_t { Insert, Mark, Unmark, DeleteBackward, MoveLeft, MoveRight };
+enum class TextInputOp : std::uint8_t {
+  Insert,
+  Mark,
+  Unmark,
+  DeleteBackward,
+  MoveLeft,
+  MoveRight,
+  SelectAll,
+};
 
 // What the platform's text input client asks of the focused field. Mark
 // carries its selection relative to the marked text.

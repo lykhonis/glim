@@ -15,6 +15,14 @@ TextEdit at(std::string text, std::size_t caret) {
 }  // namespace
 
 void test_text_edit() {
+  // Select all spans the text and drops any composition.
+  {
+    TextEdit e = applyText(
+      {.text = "hello", .selection = {2, 0}, .marked = TextRange{1, 1}}, {.op = TextOp::SelectAll}
+    );
+    assert(e.selection.start == 0 && e.selection.length == 5 && !e.marked);
+  }
+
   // Insert replaces the selection and leaves a collapsed caret after it.
   {
     TextEdit e = insertText(at("hello", 5), "!");

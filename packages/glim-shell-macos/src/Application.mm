@@ -173,6 +173,16 @@ void GlimStopDisplayLink() {
   GlimSyncDisplayLinkPaused();
 }
 
+// Glim pumps events itself, so terminate: would exit() under the app. Quit
+// closes the windows instead, and the host ends its loop as on a close.
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
+  for (NSWindow* window in [sender.windows copy]) [window performClose:nil];
+  for (NSWindow* window in [sender.windows copy]) {
+    if (window.visible) [window close];
+  }
+  return NSTerminateCancel;
+}
+
 - (void)applicationDidResignActive:(NSNotification*)notification {
   (void)notification;
 }
@@ -191,17 +201,50 @@ void GlimStopDisplayLink() {
 namespace glim::shell {
 namespace {
 
+NSMenuItem* item(NSString* title, SEL action, NSString* key, NSEventModifierFlags mods = NSEventModifierFlagCommand) {
+  NSMenuItem* i = [[NSMenuItem alloc] initWithTitle:title action:action keyEquivalent:key];
+  i.keyEquivalentModifierMask = mods;
+  return i;
+}
+
+NSMenuItem* submenu(NSString* title, NSArray<NSMenuItem*>* items) {
+  NSMenuItem* top = [NSMenuItem new];
+  NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
+  for (NSMenuItem* i in items) [menu addItem:i];
+  top.submenu = menu;
+  return top;
+}
+
+// The standard macOS menus: their shortcuts reach the first responder, so
+// a focused Glim field or a native seat (WebKit) handles Cut, Copy, Paste
+// and Select All itself.
 NSMenu* makeMenu() {
+  NSString* name = NSProcessInfo.processInfo.processName;
   NSMenu* menubar = [NSMenu new];
-  NSMenuItem* appItem = [NSMenuItem new];
-  [menubar addItem:appItem];
-  NSMenu* appMenu = [NSMenu new];
-  NSMenuItem* quit = [[NSMenuItem alloc] initWithTitle:@"Quit"
-                                                action:@selector(terminate:)
-                                         keyEquivalent:@"q"];
-  quit.keyEquivalentModifierMask = NSEventModifierFlagCommand;
-  [appMenu addItem:quit];
-  appItem.submenu = appMenu;
+  [menubar addItem:submenu(name, @[
+    item([@"Hide " stringByAppendingString:name], @selector(hide:), @"h"),
+    item(@"Hide Others", @selector(hideOtherApplications:), @"h",
+         NSEventModifierFlagCommand | NSEventModifierFlagOption),
+    item(@"Show All", @selector(unhideAllApplications:), @"", 0),
+    [NSMenuItem separatorItem],
+    item([@"Quit " stringByAppendingString:name], @selector(terminate:), @"q"),
+  ])];
+  [menubar addItem:submenu(@"Edit", @[
+    item(@"Cut", @selector(cut:), @"x"),
+    item(@"Copy", @selector(copy:), @"c"),
+    item(@"Paste", @selector(paste:), @"v"),
+    item(@"Select All", @selector(selectAll:), @"a"),
+  ])];
+  NSMenuItem* window = submenu(@"Window", @[
+    item(@"Minimize", @selector(performMiniaturize:), @"m"),
+    item(@"Zoom", @selector(performZoom:), @"", 0),
+    item(@"Enter Full Screen", @selector(toggleFullScreen:), @"f",
+         NSEventModifierFlagCommand | NSEventModifierFlagControl),
+    [NSMenuItem separatorItem],
+    item(@"Close", @selector(performClose:), @"w"),
+  ]);
+  [menubar addItem:window];
+  NSApp.windowsMenu = window.submenu;
   return menubar;
 }
 

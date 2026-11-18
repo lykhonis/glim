@@ -24,7 +24,15 @@ struct TextEdit {
   std::optional<TextRange> marked;
 };
 
-enum class TextOp : std::uint8_t { Insert, Mark, Unmark, DeleteBackward, MoveLeft, MoveRight };
+enum class TextOp : std::uint8_t {
+  Insert,
+  Mark,
+  Unmark,
+  DeleteBackward,
+  MoveLeft,
+  MoveRight,
+  SelectAll
+};
 
 // One change from a shell's text input client. Mark carries its selection
 // relative to the marked run.

@@ -18,6 +18,8 @@ TextOp toolkitOp(shell::TextInputOp op) {
       return TextOp::MoveLeft;
     case shell::TextInputOp::MoveRight:
       return TextOp::MoveRight;
+    case shell::TextInputOp::SelectAll:
+      return TextOp::SelectAll;
   }
   return TextOp::Insert;
 }

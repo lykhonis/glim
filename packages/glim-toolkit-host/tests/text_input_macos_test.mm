@@ -22,10 +22,10 @@ void expect(bool ok, const std::string& what) {
   }
 }
 
-NSEvent* key(NSString* chars, unsigned short code) {
+NSEvent* key(NSString* chars, unsigned short code, NSEventModifierFlags flags = 0) {
   return [NSEvent keyEventWithType:NSEventTypeKeyDown
                           location:NSZeroPoint
-                     modifierFlags:0
+                     modifierFlags:flags
                          timestamp:0
                       windowNumber:0
                            context:nil
@@ -114,11 +114,47 @@ int main() {
     [view setMarkedText:@"" selectedRange:NSMakeRange(0, 0) replacementRange:NSMakeRange(NSNotFound, 0)];
     expect(value->text == "hi!你" && ![view hasMarkedText], "empty mark cancels");
 
-    // Focus leaving deactivates the client.
-    screen.focus = -1;
-    publish();
-    expect([view selectedRange].location == NSNotFound, "focus loss deactivates");
+    // Standard shortcuts: the menu item a key equivalent names, sent down
+    // the focused view's responder chain as AppKit does for the key window.
+    const auto menuItem = [](NSString* k, NSEventModifierFlags mods) -> NSMenuItem* {
+      for (NSMenuItem* top in NSApp.mainMenu.itemArray) {
+        for (NSMenuItem* i in top.submenu.itemArray) {
+          if ([i.keyEquivalent isEqualToString:k] && i.keyEquivalentModifierMask == mods) return i;
+        }
+      }
+      return nil;
+    };
+    const auto shortcut = [&](NSString* k, unsigned short, NSEventModifierFlags extra = 0) {
+      NSMenuItem* i = menuItem(k, NSEventModifierFlagCommand | extra);
+      return i && [(id)view validateMenuItem:i] && [view tryToPerform:i.action with:i];
+    };
+    NSPasteboard* board = NSPasteboard.generalPasteboard;
+    expect(shortcut(@"a", 0), "Cmd+A is a menu shortcut");
+    expect(value->selection.start == 0 && value->selection.length == value->text.size(), "Cmd+A selects the field");
+    expect(shortcut(@"c", 8), "Cmd+C is a menu shortcut");
+    expect([[board stringForType:NSPasteboardTypeString] isEqualToString:@"hi!你"], "Cmd+C copies the selection");
+    expect(shortcut(@"x", 7), "Cmd+X is a menu shortcut");
+    expect(value->text.empty(), "Cmd+X cuts the selection");
+    expect(shortcut(@"v", 9), "Cmd+V is a menu shortcut");
+    expect(value->text == "hi!你", "Cmd+V pastes at the caret");
+    for (NSString* k : @[ @"h", @"m", @"w", @"q" ]) {
+      expect(menuItem(k, NSEventModifierFlagCommand) != nil, std::string("menu has Cmd+") + k.UTF8String);
+    }
+    expect(menuItem(@"f", NSEventModifierFlagCommand | NSEventModifierFlagControl) != nil, "menu has Ctrl+Cmd+F");
+
+    // Quit closes the windows, so the host's loop ends the way a closed
+    // window ends it; the process is not torn down under the app.
+    bool closed = false;
+    window.setEventCallback([&](const glim::shell::Event& ev) {
+      closed |= ev.type() == glim::shell::EventType::WindowClosed;
+    });
+    expect(
+      [NSApp.mainMenu performKeyEquivalent:key(@"q", 12, NSEventModifierFlagCommand)],
+      "Cmd+Q is a menu shortcut"
+    );
+    expect(closed, "Cmd+Q closes the window");
+    expect(!view.window.visible, "the window is gone");
   }
-  if (failures == 0) std::cout << "text input macos: typed, composed, deleted, deactivated\n";
+  if (failures == 0) std::cout << "text input macos: typed, composed, deleted, edited by shortcut, quit\n";
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

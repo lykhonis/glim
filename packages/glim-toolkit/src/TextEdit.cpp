@@ -99,6 +99,10 @@ TextEdit applyText(TextEdit edit, const TextChange& change) {
       return moveCaret(std::move(edit), -1);
     case TextOp::MoveRight:
       return moveCaret(std::move(edit), 1);
+    case TextOp::SelectAll: {
+      const std::size_t size = edit.text.size();
+      return {.text = std::move(edit.text), .selection = {0, size}};
+    }
   }
   return edit;
 }

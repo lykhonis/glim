@@ -138,6 +138,46 @@ TextInputRange bytes(const std::string& text, NSRange r) {
   }
 }
 
+// Edit menu commands on the focused field; disabled when none is focused,
+// so the menu passes them on.
+- (void)selectAll:(id)sender {
+  (void)sender;
+  [self.textInput send:{.op = TextInputOp::SelectAll}];
+}
+
+- (void)copy:(id)sender {
+  (void)sender;
+  const auto& s = self.textInput.state;
+  const std::string picked = s.text.substr(s.selection.start, s.selection.length);
+  NSPasteboard* board = NSPasteboard.generalPasteboard;
+  [board clearContents];
+  [board setString:@(picked.c_str()) forType:NSPasteboardTypeString];
+}
+
+- (void)cut:(id)sender {
+  [self copy:sender];
+  [self.textInput send:{.op = TextInputOp::DeleteBackward}];
+}
+
+- (void)paste:(id)sender {
+  (void)sender;
+  NSString* text = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
+  if (text) [self.textInput send:{.op = TextInputOp::Insert, .text = glim::shell::detail::utf8(text)}];
+}
+
+- (BOOL)validateMenuItem:(NSMenuItem*)item {
+  const SEL a = item.action;
+  if (a == @selector(copy:) || a == @selector(cut:)) {
+    return self.textInput.active && self.textInput.state.selection.length > 0;
+  }
+  if (a == @selector(paste:)) {
+    return self.textInput.active &&
+           [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] != nil;
+  }
+  if (a == @selector(selectAll:)) return self.textInput.active;
+  return YES;
+}
+
 - (BOOL)hasMarkedText {
   return self.textInput.state.marked.has_value();
 }

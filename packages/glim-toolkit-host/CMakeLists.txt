@@ -64,5 +64,7 @@ if(GLIM_HOST_TESTS)
         target_link_libraries(glim-text-input-macos-test PRIVATE glim::toolkit-host "-framework AppKit")
         glim_test_defaults(glim-text-input-macos-test)
         add_test(NAME glim-text-input-macos-test COMMAND glim-text-input-macos-test)
+        # Quit must not exit() under the test: only a finished run passes.
+        set_tests_properties(glim-text-input-macos-test PROPERTIES PASS_REGULAR_EXPRESSION "edited by shortcut, quit")
     endif()
 endif()
