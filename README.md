@@ -43,7 +43,7 @@ Humans get the same loop: these flags are the profiler, the test runner and the 
 
 ## A taste of the toolkit
 
-Effects are tags on any block. Custom elements paint the same effects through their sink, and both mix in one tree.
+Effects are tags on any block, or recipes of them. Custom elements paint the same primitives through their sink (`glow(sink, ...)` is a Plus blend over a radial fill), and both mix in one tree.
 
 ```cpp
 #include <glim/toolkit.h>
@@ -55,9 +55,8 @@ Block card() {
   return column(
       glass({.radius = 16}),
       shadow({.sigma = 16.f, .offsetY = 8.f}),
-      effectGlow({.radius = 12, .color = 0xff7a3dffu, .intensity = 0.6f}),
       pad(20),
-      lines("Glass, shadow and glow are tags.")
+      lines("Glass and shadow are tags.")
   );
 }
 

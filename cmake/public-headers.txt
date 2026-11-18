@@ -60,6 +60,7 @@ packages/glim-toolkit/include/glim/toolkit/A11yTraits.h
 packages/glim-toolkit/include/glim/toolkit/Action.h
 packages/glim-toolkit/include/glim/toolkit/Anim.h
 packages/glim-toolkit/include/glim/toolkit/Block.h
+packages/glim-toolkit/include/glim/toolkit/Color.h
 packages/glim-toolkit/include/glim/toolkit/Configure.h
 packages/glim-toolkit/include/glim/toolkit/ConfigureFwd.h
 packages/glim-toolkit/include/glim/toolkit/Custom.h
@@ -68,6 +69,7 @@ packages/glim-toolkit/include/glim/toolkit/Emit.h
 packages/glim-toolkit/include/glim/toolkit/Event.h
 packages/glim-toolkit/include/glim/toolkit/Factories.h
 packages/glim-toolkit/include/glim/toolkit/Focus.h
+packages/glim-toolkit/include/glim/toolkit/Glow.h
 packages/glim-toolkit/include/glim/toolkit/Layout.h
 packages/glim-toolkit/include/glim/toolkit/Measure.h
 packages/glim-toolkit/include/glim/toolkit/Motion.h
@@ -98,7 +100,6 @@ packages/glim-toolkit/include/glim/toolkit/elements/TextField.h
 packages/glim-toolkit/include/glim/toolkit/tags/A11y.h
 packages/glim-toolkit/include/glim/toolkit/tags/Align.h
 packages/glim-toolkit/include/glim/toolkit/tags/Center.h
-packages/glim-toolkit/include/glim/toolkit/tags/Effect.h
 packages/glim-toolkit/include/glim/toolkit/tags/Expand.h
 packages/glim-toolkit/include/glim/toolkit/tags/Fade.h
 packages/glim-toolkit/include/glim/toolkit/tags/Glass.h

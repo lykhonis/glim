@@ -144,7 +144,7 @@ void test_tags() {
   }
 
   // Scope tags emit their push before the node paints and one pop after
-  // its subtree, in a fixed order: shadow, effect, then the transform,
+  // its subtree, in a fixed order: shadow, then the transform,
   // whose parts compose into one matrix.
   {
     OpsRecorder rec;
@@ -152,7 +152,6 @@ void test_tags() {
     const TransformTag moved{.translate = {3.f, -4.f}, .rotate = 30.f, .anchor = {0, 0}};
     Block t = column(
       shadow({.sigma = 12.f, .offsetX = 1.f, .offsetY = 4.f, .expandPx = 2.f, .opacity = 0.5f}),
-      effectGlow({.radius = 5, .color = 0xff6a00ffu, .intensity = 0.3f}),
       transform(moved),
       lines("x")
     );
@@ -166,10 +165,6 @@ void test_tags() {
         assert(o.sigma == 12.f && o.sox == 1.f && o.soy == 4.f && o.shadowColor == 0x000000a6u);
         assert(o.expand == 2.f && o.casterOpacity == 0.5f);
       }
-      if (o.kind == Op::Kind::PushEffect) {
-        assert(o.effect == static_cast<std::uint32_t>(EffectKind::Glow));
-        assert(o.rgba == 0xff6a00ffu && o.e0 == 0.3f && o.radius == 5);
-      }
       if (o.kind == Op::Kind::PushTransform) {
         // The corner (0, 0) of the box turns in place, then moves by (3, -4).
         const glim::Vec3 q = glim::projectPlane(o.matrix, {tb.x, tb.y});
@@ -177,15 +172,11 @@ void test_tags() {
         const glim::Mat4 want = transformMatrix(moved, tb);
         for (int i = 0; i < 16; ++i) assert(o.matrix.m[i] == want.m[i]);
       }
-      if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushEffect ||
-          o.kind == Op::Kind::PushTransform)
+      if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushTransform)
         pushes.push_back(o.kind);
     }
-    assert(
-      (pushes ==
-       std::vector<Op::Kind>{Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushTransform})
-    );
-    assert(pops == 3);
+    assert((pushes == std::vector<Op::Kind>{Op::Kind::PushShadow, Op::Kind::PushTransform}));
+    assert(pops == 2);
   }
 
   // A fade ramps alpha from its edge inward in the node's own space, inside

@@ -108,7 +108,6 @@ struct AnySink {
   void (*polylineFn)(void*, const float*, std::size_t, float, float, std::uint32_t, const std::string&) =
     nullptr;
   void (*pushShadowFn)(void*, float, float, float, std::uint32_t, float, float) = nullptr;
-  void (*pushEffectFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, float) = nullptr;
   void (*popFn)(void*) = nullptr;
   void (*slotFn)(void*, const Box&, std::uint32_t) = nullptr;
   void (*strokeFn)(void*, const Box&, int, float, std::uint32_t, const std::string&) = nullptr;
@@ -165,11 +164,6 @@ struct AnySink {
     float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f
   ) {
     pushShadowFn(sink, sigma, ox, oy, color, expand, opacity);
-  }
-  void pushEffect(
-    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-  ) {
-    pushEffectFn(sink, b, radius, kind, color, intensity);
   }
   void text(
     float x,
@@ -324,10 +318,6 @@ void bindOps(AnySink& a) {
     [](void* s, float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity) {
       static_cast<S*>(s)->pushShadow(sigma, ox, oy, color, expand, opacity);
     };
-  a.pushEffectFn =
-    [](
-      void* s, const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-    ) { static_cast<S*>(s)->pushEffect(b, radius, kind, color, intensity); };
   a.popFn = [](void* s) { static_cast<S*>(s)->pop(); };
   a.slotFn = [](void* s, const Box& b, std::uint32_t id) { static_cast<S*>(s)->slot(b, id); };
   a.strokeFn =

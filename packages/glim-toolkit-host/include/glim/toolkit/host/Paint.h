@@ -279,18 +279,6 @@ struct ContextSink {
     p.opacity = opacity;
     ctx.pushGroup(p);
   }
-  // Effect scope. Glow lowers to an additive radial gradient: color at
-  // `intensity` alpha in the center, transparent at the edge. No isolate,
-  // no blur.
-  void pushEffect(
-    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-  ) {
-    ::glim::paint::GroupParams p;
-    p.blend = ::glim::paint::Blend::Plus;
-    ctx.pushGroup(p);
-    if (kind == static_cast<std::uint32_t>(toolkit::EffectKind::Glow))
-      fillRadial(b, radius, scaleAlpha(color, intensity), color & 0xffffff00u);
-  }
   void pop() { ctx.popGroup(); }
   void slot(const Box& b, std::uint32_t id) { ctx.slot(toRect(b), id); }
   void stroke(const Box& b, int radius, float width, std::uint32_t rgba, const std::string& = {}) {

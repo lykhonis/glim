@@ -202,13 +202,14 @@ int main(int argc, char** argv) {
         ++shadows;
       }
     assert(shadows == 7);
-    // First-class effect: needle/crown glows ride PushEffect (Glow),
+    // Glows are a Plus group whose first draw is a radial light.
     {
-      int ei = findOp(crec.ops, Op::Kind::PushEffect, 0);
-      assert(ei >= 0);
-      assert(crec.ops[static_cast<std::size_t>(ei)].effect == 0);
-      int e1 = findOp(crec.ops, Op::Kind::PushEffect, 1);
-      assert(e1 >= 0);
+      int glows = 0;
+      for (std::size_t i = 0; i + 1 < crec.ops.size(); ++i)
+        glows += crec.ops[i].kind == Op::Kind::PushBlend &&
+                 crec.ops[i].plus &&
+                 crec.ops[i + 1].kind == Op::Kind::FillRadial;
+      assert(glows >= 2);
     }
 
     std::vector<std::uint8_t> bytes;

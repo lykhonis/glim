@@ -609,8 +609,8 @@ bool Probe::dispatch(const std::vector<std::string>& a, const std::string& line)
       paintTree(app_.tree, app_.box, e, rec, app_.feed);
     }
     auto isPush = [](Op::Kind k) {
-      return k == Op::Kind::PushGlass || k == Op::Kind::PushEffect || k == Op::Kind::PushBlend ||
-             k == Op::Kind::PushClip || k == Op::Kind::PushShadow || k == Op::Kind::PushTransform ||
+      return k == Op::Kind::PushGlass || k == Op::Kind::PushBlend || k == Op::Kind::PushClip ||
+             k == Op::Kind::PushShadow || k == Op::Kind::PushTransform ||
              k == Op::Kind::PushOpacity || k == Op::Kind::PushFade;
     };
     int depth = 0;

@@ -40,8 +40,9 @@ struct Op {
     Arc,
     Polyline,
     PushShadow,
-    PushEffect,
-    PushOpacity,
+    // 20 was PushEffect (glow) until glow became a Plus blend over a
+    // radial fill; the codec still reads it from older archives.
+    PushOpacity = 21,
     PushFade,
   };
   Kind kind = Kind::Pop;
@@ -75,8 +76,6 @@ struct Op {
   float expand = 0.f;              // PushShadow expand px
   std::uint32_t shadowColor = 0;   // PushShadow color
   float casterOpacity = 1.f;       // PushShadow caster fade; the shadow stays
-  std::uint32_t effect = 0;        // PushEffect kind (EffectKind bits)
-  float e0 = 0.f;                  // PushEffect intensity (Glow alpha mul)
   float opacity = 1.f;             // PushOpacity group fade
   Fade fade{};                     // PushFade alpha ramp, logical px
   std::vector<float> pts;          // Polyline flat points
@@ -97,8 +96,8 @@ struct Op {
            cut == o.cut && thickness == o.thickness && startDeg == o.startDeg &&
            sweepDeg == o.sweepDeg && dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox &&
            soy == o.soy && expand == o.expand && shadowColor == o.shadowColor &&
-           casterOpacity == o.casterOpacity && effect == o.effect && e0 == o.e0 &&
-           opacity == o.opacity && fade.from.x == o.fade.from.x && fade.from.y == o.fade.from.y &&
+           casterOpacity == o.casterOpacity && opacity == o.opacity &&
+           fade.from.x == o.fade.from.x && fade.from.y == o.fade.from.y &&
            fade.to.x == o.fade.to.x && fade.to.y == o.fade.to.y &&
            fade.fromAlpha == o.fade.fromAlpha && fade.toAlpha == o.fade.toAlpha && pts == o.pts &&
            text == o.text && mark == o.mark;
@@ -111,7 +110,7 @@ inline const char* opKindName(Op::Kind k) {
     "Entry",    "Fill",       "FillRounded", "FillGradient", "Stroke",        "Text",
     "Image",    "PushGlass",  "PushClip",    "PushBlend",    "PushTransform", "Pop",
     "Slot",     "Retired",    "FillRadial",  "FillChamfer",  "StrokeChamfer", "Arc",
-    "Polyline", "PushShadow", "PushEffect",  "PushOpacity",  "PushFade",
+    "Polyline", "PushShadow", "Retired",     "PushOpacity",  "PushFade",
   };
   static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<int>(Op::Kind::PushFade) + 1);
   return kNames[static_cast<int>(k)];
@@ -349,18 +348,6 @@ struct OpsRecorder {
     o.shadowColor = color;
     o.expand = expand;
     o.casterOpacity = opacity;
-    ops.push_back(o);
-  }
-  void pushEffect(
-    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-  ) {
-    Op o;
-    o.kind = Op::Kind::PushEffect;
-    o.box = b;
-    o.radius = radius;
-    o.effect = kind;
-    o.rgba = color;
-    o.e0 = intensity;
     ops.push_back(o);
   }
   void pop() {

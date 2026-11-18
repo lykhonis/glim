@@ -207,11 +207,6 @@ struct MarkFrame {
   ) {
     inner->pushShadow(sigma, ox, oy, color, expand, opacity);
   }
-  void pushEffect(
-    const Box& b, int radius, std::uint32_t kind, std::uint32_t color, float intensity
-  ) {
-    inner->pushEffect(b, radius, kind, color, intensity);
-  }
   void pop() { inner->pop(); }
   void slot(const Box& b, std::uint32_t id) { inner->slot(b, id); }
 };

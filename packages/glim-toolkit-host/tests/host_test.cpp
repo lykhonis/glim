@@ -58,10 +58,7 @@ struct FxCard {
     sink.pushShadow(6.f, 8.f, 8.f, 0x000000ffu, 0.f, 0.f);
     sink.fillRounded(b, 4, 0xff0000ffu);
     sink.pop();
-    sink.pushEffect(
-      b, 10, static_cast<std::uint32_t>(glim::toolkit::EffectKind::Glow), 0x00ff00ffu, 1.f
-    );
-    sink.pop();
+    glim::toolkit::glow(sink, b, 10, 0x00ff00ffu);
   }
 };
 
@@ -72,7 +69,6 @@ glim::toolkit::Block fxScene() {
     pad(40),
     column(
       shadow({.sigma = 6.f, .offsetY = 0.f, .color = 0x000000ffu, .opacity = 0.5f}),
-      effectGlow({.radius = 4, .color = 0x0000ffffu}),
       finish(FxCard{})
     )
   );
@@ -374,7 +370,7 @@ int main() {
     rec.arc(5, 5, 4, 1, -90, 180, 0xffffffff);
     rec.polyline(pts, 3, 2.0f, 6.0f, 0x123456ff, "p");
     rec.pushShadow(12.0f, 1.0f, 4.0f, 0x000000a6, 2.0f, 0.25f);
-    rec.pushEffect({0, 0, 10, 10}, 5, 0, 0xff6a00ff, 0.3f);
+    rec.pushBlend(glim::toolkit::BlendMode::Plus);
     rec.pushOpacity(0.4f);
     rec.pushFade({{1, 2}, {3, 4}, 0.5f, 0.25f});
     for (int i = 0; i < 5; ++i) rec.pop();
@@ -400,6 +396,39 @@ int main() {
     assert(back == rec.ops);
     assert(back[0].material == 1 && back[0].tint == 0xd8a84eff);
     assert(back[1].material == 2);
+  }
+
+  // Archives up to v9 may hold a glow scope (kind 20): it decodes to a Plus
+  // group whose first draw is the light, as glow() records it now.
+  {
+    using glim::toolkit::Op;
+    std::vector<std::uint8_t> v9;
+    auto put = [&](std::uint32_t u, int n) {
+      for (int i = 0; i < n; ++i) v9.push_back(static_cast<std::uint8_t>((u >> (8 * i)) & 0xff));
+    };
+    auto putF32 = [&](float f) {
+      std::uint32_t u = 0;
+      std::memcpy(&u, &f, sizeof(u));
+      put(u, 4);
+    };
+    for (const char* m = "GLIMUI02"; *m; ++m) put(static_cast<std::uint8_t>(*m), 1);
+    put(9, 2);
+    put(2, 4);  // two ops
+    put(20, 1);
+    for (const float f : {1.f, 2.f, 30.f, 10.f}) putF32(f);
+    put(1, 2);
+    put('g', 1);  // mark "g"
+    put(5, 4);    // radius
+    put(0, 4);    // glow
+    put(0xff6a00ffu, 4);
+    putF32(0.3f);
+    put(static_cast<std::uint8_t>(Op::Kind::Pop), 1);
+    std::vector<Op> back;
+    assert(glim::toolkit::host::decodeOps(v9.data(), v9.size(), back));
+    glim::toolkit::OpsRecorder now;
+    glim::toolkit::glow(now, {1, 2, 30, 10}, 5, 0xff6a00ffu, 0.3f);
+    now.ops[1].mark = "g";
+    assert(back == now.ops);
   }
 
   // Pre-v4 archives carry no material byte: decode as refractive glass.
@@ -457,22 +486,20 @@ int main() {
     std::vector<float> casters;
     int depth = 0, maxDepth = 0;
     for (const Op& o : rec.ops) {
-      if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushEffect) {
+      if (o.kind == Op::Kind::PushShadow || o.kind == Op::Kind::PushBlend) {
         pushes.push_back(o.kind);
         maxDepth = std::max(maxDepth, ++depth);
         if (o.kind == Op::Kind::PushShadow) casters.push_back(o.casterOpacity);
       }
       if (o.kind == Op::Kind::Pop) --depth;
     }
-    // Tag shadow, tag effect, then the card's own shadow and glow inside them.
+    // The tag's shadow, then the card's own shadow and glow inside it.
     assert(
       (pushes ==
-       std::vector<Op::Kind>{
-         Op::Kind::PushShadow, Op::Kind::PushEffect, Op::Kind::PushShadow, Op::Kind::PushEffect
-       })
+       std::vector<Op::Kind>{Op::Kind::PushShadow, Op::Kind::PushShadow, Op::Kind::PushBlend})
     );
     assert((casters == std::vector<float>{0.5f, 0.f}));
-    assert(maxDepth == 3 && depth == 0);
+    assert(maxDepth == 2 && depth == 0);
     std::vector<std::uint8_t> bytes;
     host::encodeOps(rec.ops, bytes);
     std::vector<Op> back;

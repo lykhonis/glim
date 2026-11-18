@@ -35,11 +35,6 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
         sink.pushShadow(s.sigma, s.offsetX, s.offsetY, s.color, s.expandPx, s.opacity);
         transforms.push_back(std::cref(n));
       }
-      if (auto fx = n.tag<EffectTag>()) {
-        const auto& f = fx->get();
-        sink.pushEffect(bx, f.radius, static_cast<std::uint32_t>(f.kind), f.color, f.intensity);
-        transforms.push_back(std::cref(n));
-      }
       paintSelf(n, bx, sink, feed, en);
       // Glass tags go on fill-only containers; text inside glass would frost.
       // Edge mask rides the group so flat plates skip the rim/hairline.

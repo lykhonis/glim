@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "glim/toolkit/Color.h"
 #include "glim/toolkit/Ops.h"
 #include "glim/toolkit/Tags.h"
 
@@ -162,11 +163,6 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putU32(out, o.shadowColor);
       detail::putF32(out, o.expand);
       detail::putF32(out, o.casterOpacity);
-    } else if (o.kind == K::PushEffect) {
-      detail::putI32(out, o.radius);
-      detail::putU32(out, o.effect);
-      detail::putU32(out, o.rgba);
-      detail::putF32(out, o.e0);
     } else if (o.kind == K::Slot) {
       detail::putU32(out, o.slot);
     } else if (o.kind == K::Fill) {
@@ -207,6 +203,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   out.clear();
   out.reserve(count);
   using K = Op::Kind;
+  constexpr std::uint8_t kLegacyGlow = 20;
   for (std::uint32_t i = 0; i < count; ++i) {
     Op o;
     const std::uint8_t kind = r.u8();
@@ -308,12 +305,23 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.shadowColor = r.u32();
       o.expand = r.f32();
       o.casterOpacity = ver >= 5 ? r.f32() : 1.f;
-    } else if (o.kind == K::PushEffect) {
+    } else if (kind == kLegacyGlow) {
+      // A glow scope is a Plus group whose first draw is its light.
       if (ver < 3) return false;
-      o.radius = r.i32();
-      o.effect = r.u32();
-      o.rgba = r.u32();
-      o.e0 = r.f32();
+      Op light;
+      light.kind = K::FillRadial;
+      light.box = o.box;
+      light.mark = o.mark;
+      light.radius = r.i32();
+      r.u32();  // effect kind: glow was the only one
+      const std::uint32_t color = r.u32();
+      light.rgba = scaleAlpha(color, r.f32());
+      light.rgba2 = color & 0xffffff00u;
+      o = Op{};
+      o.kind = K::PushBlend;
+      o.plus = true;
+      out.push_back(o);
+      o = light;
     } else if (o.kind == K::Slot) {
       o.slot = r.u32();
     } else if (o.kind == K::Fill) {

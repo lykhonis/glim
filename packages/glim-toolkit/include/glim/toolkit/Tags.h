@@ -17,7 +17,6 @@ struct is_slot_tag : std::false_type {};
 #include "glim/toolkit/tags/A11y.h"
 #include "glim/toolkit/tags/Align.h"
 #include "glim/toolkit/tags/Center.h"
-#include "glim/toolkit/tags/Effect.h"
 #include "glim/toolkit/tags/Expand.h"
 #include "glim/toolkit/tags/Glass.h"
 #include "glim/toolkit/tags/Fade.h"

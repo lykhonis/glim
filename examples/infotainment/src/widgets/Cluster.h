@@ -496,14 +496,13 @@ struct Vsi {
                                          : 0x69310eff;
       sink.fill(at.box(1014.f, y, 21.f, 8.f), c);
     }
-    sink.pushEffect(
+    glow(
+      sink,
       at.box(1003.f, markY - 9.f, 42.f, 18.f),
       8,
-      static_cast<std::uint32_t>(EffectKind::Glow),
       Ref::kOrange,
       0.3f
     );
-    sink.pop();
     sink.fill(at.box(1008.f, markY - 3.5f, 32.f, 8.f), 0xfea330ff);
     char vb[16];
     std::snprintf(

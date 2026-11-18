@@ -139,12 +139,8 @@ struct SpeedGauge {
     sink.arc(bx, by, 118.f, 1.f, 162.f, 216.f, 0x424c55ff);
     // Lamps at 12 and 6 o'clock.
     // Lamps: thin hot segment (x 571..594 at r242) with a tight halo.
-    constexpr auto kGlow = static_cast<std::uint32_t>(EffectKind::Glow);
     for (const float y : {cy - 247.f, cy + 237.f}) {
-      sink.pushEffect(
-        {cx - 18.f, y, 36.f, 10.f}, 5, kGlow, Ref::kOrange, 0.3f
-      );
-      sink.pop();
+      glow(sink, {cx - 18.f, y, 36.f, 10.f}, 5, Ref::kOrange, 0.3f);
     }
     sink.arc(cx, cy, 242.f, 2.f, 267.3f, 5.4f, 0xffb050ff);
     sink.arc(cx, cy, 242.f, 2.f, 87.3f, 5.4f, 0xffb050ff);
