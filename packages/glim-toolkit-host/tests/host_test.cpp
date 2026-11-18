@@ -120,7 +120,7 @@ int main() {
     assert(
       glim::toolkit::host::toolkitText({.op = TextInputOp::MoveRight}).op == TextOp::MoveRight
     );
-    for (const auto [shellOp, op] :
+    for (const auto& [shellOp, op] :
          {std::pair{TextInputOp::Insert, TextOp::Insert},
           std::pair{TextInputOp::Unmark, TextOp::Unmark},
           std::pair{TextInputOp::DeleteBackward, TextOp::DeleteBackward},
