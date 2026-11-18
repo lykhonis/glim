@@ -71,6 +71,8 @@ struct Isolate {
   float opacity = 1;
   int contentW = 1;
   int contentH = 1;
+  // The content's logical size; contentW/H may be smaller (half-res 3D).
+  Vec2 surface{};
   float backdropSigma = 0;
   float backdropRadius = 0;
   float backdropU0 = 0;

@@ -42,6 +42,7 @@ Isolate encodeIsolate(
                                           : (explicitBounds ? g.params.bounds : contentBounds(g))));
   iso.contentW = isolatePixelSizeFor(g, surface.size.x, pixelRatio);
   iso.contentH = isolatePixelSizeFor(g, surface.size.y, pixelRatio);
+  iso.surface = surface.size;
   const Rect dest = transformRect(extra * g.params.transform, surface);
   iso.warp = isolateWarp(g.params, extra * g.params.transform, surface);
   iso.fade = unitFade(g.params.fade, surface);

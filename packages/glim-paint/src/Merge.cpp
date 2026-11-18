@@ -605,9 +605,14 @@ Rect contentBounds(const Group& g) {
       b = unionRect(b, hole->rect);
     }
   }
+  // Children draw under their own transform, so their bounds do too.
   for (const auto& child : g.children) {
-    if (child) {
-      b = unionRect(b, contentBounds(*child));
+    if (!child) {
+      continue;
+    }
+    const Rect inner = contentBounds(*child);
+    if (inner.size.x > 0.f && inner.size.y > 0.f) {
+      b = unionRect(b, projectedBounds(child->params.transform, inner));
     }
   }
   return b;

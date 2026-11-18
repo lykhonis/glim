@@ -284,11 +284,15 @@ void rasterIsolate(
   const ImageStore& images,
   float pixelRatio
 ) {
-  std::vector<Pixel> tmp(static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0});
+  // Content is in logical px here, so paint it at full size: half-res is
+  // the GPU's saving, not this rasterizer's.
+  const int cw = std::max(1, static_cast<int>(std::ceil(iso.surface.x * pixelRatio)));
+  const int ch = std::max(1, static_cast<int>(std::ceil(iso.surface.y * pixelRatio)));
+  std::vector<Pixel> tmp(static_cast<std::size_t>(cw * ch), Pixel{0, 0, 0, 0});
   if (iso.hasGlass) {
     if (!iso.lensPills.empty()) {
       const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
-      const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
+      const float pr = iso.destW > 0.f ? static_cast<float>(cw) / iso.destW : pixelRatio;
       const Rect local{{0.f, 0.f}, {iso.destW, iso.destH}};
       const PlateSpec field = glassPillsToField(
         iso.lensPills.empty() ? nullptr : iso.lensPills.data(),
@@ -298,41 +302,25 @@ void rasterIsolate(
         local,
         tlsRaster
       );
-      sampleGlassPlate(
-        tmp, iso.contentW, iso.contentH, dest, w, h, destR, iso.lens, field, tlsRaster
-      );
+      sampleGlassPlate(tmp, cw, ch, dest, w, h, destR, iso.lens, field, tlsRaster);
     }
   } else if (iso.backdropSigma > 0.f) {
     const Rect destR{{iso.destX, iso.destY}, {iso.destW, iso.destH}};
-    const float pr = iso.destW > 0.f ? static_cast<float>(iso.contentW) / iso.destW : pixelRatio;
+    const float pr = iso.destW > 0.f ? static_cast<float>(cw) / iso.destW : pixelRatio;
     PlateSpec copy = specFromIsolate(iso, pr);
-    copyDestPlate(tmp, iso.contentW, iso.contentH, dest, w, h, destR);
-    blurCheap(tmp, iso.contentW, iso.contentH, iso.backdropSigma * pixelRatio * 0.5f);
-    maskFrostPlate(tmp, iso.contentW, iso.contentH, copy);
+    copyDestPlate(tmp, cw, ch, dest, w, h, destR);
+    blurCheap(tmp, cw, ch, iso.backdropSigma * pixelRatio * 0.5f);
+    maskFrostPlate(tmp, cw, ch, copy);
   }
   if (iso.hasShadow || iso.contentSigma > 0.f) {
-    std::vector<Pixel> card(
-      static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
-    );
-    paintQuads(
-      card,
-      iso.contentW,
-      iso.contentH,
-      iso.quads,
-      iso.blits,
-      iso.gradients,
-      iso.isolates,
-      images,
-      pixelRatio
-    );
+    std::vector<Pixel> card(static_cast<std::size_t>(cw * ch), Pixel{0, 0, 0, 0});
+    paintQuads(card, cw, ch, iso.quads, iso.blits, iso.gradients, iso.isolates, images, pixelRatio);
     if (iso.contentSigma > 0.f) {
-      blurCheap(card, iso.contentW, iso.contentH, iso.contentSigma * pixelRatio * 0.5f);
+      blurCheap(card, cw, ch, iso.contentSigma * pixelRatio * 0.5f);
     }
     if (iso.hasShadow) {
       const Vec4 tint = premulLinear(iso.shadow.color);
-      std::vector<Pixel> sh(
-        static_cast<std::size_t>(iso.contentW * iso.contentH), Pixel{0, 0, 0, 0}
-      );
+      std::vector<Pixel> sh(static_cast<std::size_t>(cw * ch), Pixel{0, 0, 0, 0});
       for (std::size_t i = 0; i < card.size() && i < sh.size(); ++i) {
         const float a = card[i].a;
         if (a > 1e-5f) {
@@ -342,41 +330,24 @@ void rasterIsolate(
           sh[i].a = tint.w * a;
         }
       }
-      blurCheap(sh, iso.contentW, iso.contentH, iso.shadow.sigma * pixelRatio * 0.5f);
+      blurCheap(sh, cw, ch, iso.shadow.sigma * pixelRatio * 0.5f);
       const Rect shRect{
         {iso.destX + iso.shadow.offset.x, iso.destY + iso.shadow.offset.y}, {iso.destW, iso.destH}
       };
-      blitBuffer(dest, w, h, sh, iso.contentW, iso.contentH, shRect, 1.f);
+      blitBuffer(dest, w, h, sh, cw, ch, shRect, 1.f);
     }
     for (std::size_t i = 0; i < card.size() && i < tmp.size(); ++i) {
       srcOver(tmp[i], card[i]);
     }
   } else {
-    paintQuads(
-      tmp,
-      iso.contentW,
-      iso.contentH,
-      iso.quads,
-      iso.blits,
-      iso.gradients,
-      iso.isolates,
-      images,
-      pixelRatio
-    );
+    paintQuads(tmp, cw, ch, iso.quads, iso.blits, iso.gradients, iso.isolates, images, pixelRatio);
   }
   if (iso.warp) {
-    warpBuffer(dest, w, h, tmp, iso.contentW, iso.contentH, *iso.warp, iso.opacity, iso.fade);
+    warpBuffer(dest, w, h, tmp, cw, ch, *iso.warp, iso.opacity, iso.fade);
     return;
   }
   blitBuffer(
-    dest,
-    w,
-    h,
-    tmp,
-    iso.contentW,
-    iso.contentH,
-    Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}},
-    iso.opacity
+    dest, w, h, tmp, cw, ch, Rect{{iso.destX, iso.destY}, {iso.destW, iso.destH}}, iso.opacity
   );
 }
 

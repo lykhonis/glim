@@ -86,10 +86,47 @@ inline void checkFade(const Pixels& px, const char* path) {
   expect(!filled(px, 200, 90) && !filled(px, 200, 210), "outside the plate stays canvas");
 }
 
+// A reflection under a turned page, as the toolkit composes it: inside a
+// slight tilt, the plate drawn again flipped about its bottom edge and
+// faded. Two isolates, one inside the other.
+inline void recordNested(glim::paint::Context& ctx) {
+  ctx.setSize({kW, kH});
+  ctx.beginFrame();
+  glim::paint::GroupParams tilt;
+  tilt.transform = glim::Mat4::translate(200, 150) * glim::Mat4::perspective(900) *
+                   glim::Mat4::rotateY(0.03f) * glim::Mat4::translate(-200, -150);
+  ctx.pushGroup(tilt);
+  ctx.setFillColor(0x2050e0ff);
+  ctx.fill(glim::Rect{{100, 50}, {200, 100}});
+  glim::paint::GroupParams flip;
+  flip.transform = glim::Mat4::translate(0, 300) * glim::Mat4::scale(1, -1);
+  ctx.pushGroup(flip);
+  glim::paint::GroupParams faded;
+  faded.fade = glim::Fade{.from = {200, 150}, .to = {200, 100}, .fromAlpha = 1, .toAlpha = 0};
+  ctx.pushGroup(faded);
+  ctx.fill(glim::Rect{{100, 50}, {200, 100}});
+  ctx.popGroup();
+  ctx.popGroup();
+  ctx.popGroup();
+  ctx.finish();
+}
+
+inline void checkNested(const Pixels& px, const char* path) {
+  const int page = blueness(px, 200, 100);
+  const int seam = blueness(px, 200, 153);
+  const int tail = blueness(px, 200, 199);
+  std::cout << path << " nested: page " << page << " seam " << seam << " tail " << tail << '\n';
+  expect(page > 150, "the page shows inside the tilt");
+  expect(seam > 150, "its reflection starts opaque under it");
+  expect(tail < seam / 4, "and fades out nearly clear");
+}
+
 struct Case {
   void (*record)(glim::paint::Context&);
   void (*check)(const Pixels&, const char*);
 };
-inline constexpr Case kCases[] = {{recordTilt, checkTilt}, {recordFade, checkFade}};
+inline constexpr Case kCases[] = {
+  {recordTilt, checkTilt}, {recordFade, checkFade}, {recordNested, checkNested}
+};
 
 }  // namespace warp_cases
