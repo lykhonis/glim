@@ -420,18 +420,18 @@ void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
                   )];
 }
 
-void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect local, const Mat4& transform) {
+void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
   GlimView* view = (__bridge GlimView*)view_;
   NSView* child = (__bridge NSView*)slots_.get(id);
   if (!child) {
     return;
   }
-  if (transform.is3D()) {
-    [view.slotLayers project:id native:child local:local transform:transform];
+  if (frame.transform.is3D()) {
+    [view.slotLayers project:id native:child local:frame.local transform:frame.transform];
     return;
   }
   [view.slotLayers flatten:id native:child];
-  positionSlot(id, windowLogical);
+  positionSlot(id, frame.bounds);
 }
 
 void Window::detachSlot(std::uint32_t id) {

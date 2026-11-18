@@ -627,7 +627,9 @@ void Window::positionSlot(std::uint32_t id, Rect windowLogical) {
 
 // UIKit hit-tests through layer transforms, so a projected seat keeps its
 // own touches; only its geometry changes (K88).
-void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect local, const Mat4& transform) {
+void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
+    const Rect& local = frame.local;
+    const Mat4& transform = frame.transform;
     UIView* child = (__bridge UIView*)slots_.get(id);
     if (!child) {
         return;
@@ -635,7 +637,7 @@ void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect local, cons
     child.layer.transform = CATransform3DIdentity;
     if (!transform.is3D()) {
         child.layer.anchorPoint = CGPointMake(0.5, 0.5);
-        positionSlot(id, windowLogical);
+        positionSlot(id, frame.bounds);
         return;
     }
     child.bounds = CGRectMake(0, 0, local.size.x, local.size.y);

@@ -101,8 +101,8 @@ void Window::positionSlot(std::uint32_t, Rect) {
   // NativeActivity hello has one window. Child ANativeWindow placement is embedder-owned.
 }
 
-void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect, const Mat4&) {
-  positionSlot(id, windowLogical);
+void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
+  positionSlot(id, frame.bounds);
 }
 
 void Window::detachSlot(std::uint32_t id) { slots_.detach(id); }

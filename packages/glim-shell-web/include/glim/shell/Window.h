@@ -52,10 +52,7 @@ class Window final {
   void* nativeView() const;
   void attachSlot(std::uint32_t id, SlotNative);
   void positionSlot(std::uint32_t id, Rect windowLogical);
-  // Under a 3D transform the native view composites as a layer of the
-  // local rect turned by transform, where the shell can (K88); others
-  // place it flat at windowLogical.
-  void positionSlot(std::uint32_t id, Rect windowLogical, Rect local, const Mat4& transform);
+  void positionSlot(std::uint32_t id, const SlotFrame& frame);
   void detachSlot(std::uint32_t id);
   // Shows system UI; done fires once on the main thread.
   void present(const PresentRequest&, PresentDone done);

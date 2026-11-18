@@ -1,9 +1,20 @@
 #pragma once
 
+#include <glim/math.h>
+
 #include <cstdint>
 #include <unordered_map>
 
 namespace glim::shell {
+
+// Where a seat goes this frame. Flat shells place the view at bounds; under
+// a 3D transform, shells that can composite it as a layer of local turned
+// by transform (K88).
+struct SlotFrame {
+  Rect bounds{};
+  Rect local{};
+  Mat4 transform = Mat4::identity();
+};
 
 // Embedder-owned; Glim never retains.
 struct SlotNative {

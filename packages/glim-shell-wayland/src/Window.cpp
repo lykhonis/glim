@@ -374,8 +374,8 @@ void Window::attachSlot(std::uint32_t id, SlotNative native) {
 
 void Window::positionSlot(std::uint32_t, Rect) {}
 
-void Window::positionSlot(std::uint32_t id, Rect windowLogical, Rect, const Mat4&) {
-  positionSlot(id, windowLogical);
+void Window::positionSlot(std::uint32_t id, const SlotFrame& frame) {
+  positionSlot(id, frame.bounds);
 }
 
 void Window::detachSlot(std::uint32_t id) { slots_.detach(id); }
