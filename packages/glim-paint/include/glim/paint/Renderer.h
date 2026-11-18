@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -164,7 +165,9 @@ class Renderer {
       int w = 0;
       int h = 0;
     };
-    std::vector<Slot> slots_;
+    // A deque: nested isolates hold a target while inner ones acquire
+    // more, so growth must not move handed-out slots.
+    std::deque<Slot> slots_;
     int used_ = 0;
   };
 

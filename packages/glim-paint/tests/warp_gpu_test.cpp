@@ -22,6 +22,14 @@ int main() {
   }
   glim::gpu::Device device = std::move(created.value());
   glim::paint::Renderer renderer(device);
+  // Nested isolates hold a target while inner ones take more: a handed-out
+  // target never moves.
+  {
+    glim::paint::Renderer::TargetPool pool;
+    glim::gpu::FrameTarget* outer = pool.acquire(device, 64, 64);
+    for (int i = 0; i < 20; ++i) pool.acquire(device, 64 + 64 * i, 64);
+    expect(outer == &pool.slots_.front().ft, "an acquired target stays put as the pool grows");
+  }
   for (const Case& c : kCases) {
     glim::paint::Context ctx;
     c.record(ctx);
