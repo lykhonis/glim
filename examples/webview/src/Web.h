@@ -32,12 +32,7 @@ struct WebScreen {
   std::function<void()> reload;
 };
 
-inline constexpr float kWebPad = 24;
 inline constexpr float kWebAmountMax = 60;
-// Room under the page for its live reflection.
-inline constexpr float kWebReflect = 120;
-// About the chrome's height, for the Texture plate's size.
-inline constexpr float kWebChrome = 96;
 
 enum class WebMotion : int { Flat, Tilt, Skew, Swing };
 inline constexpr const char* kWebMotions[] = {
@@ -119,15 +114,18 @@ inline Block webMotionPicker(const WebScreen& s) {
 
 // Glim's own chrome drives the native page through WebPage (K88
 // bridge): one quiet glass bar with Local/Site, the address field, Go
-// and Reload, then the motion picker and its amount, with the page
-// status under it.
+// and Reload, a row with the motion picker and its amount, and the
+// page status.
 inline Block webChrome(const WebScreen& s) {
   const bool local = s.status.url == kLocalUrl;
   const auto go = s.go;
   const State<TextEdit> address = s.address;
   const float barW = s.size.x - 2 * kWebPad;
-  // The buttons, the picker, the slider and the gaps take about 560 px.
-  const float fieldW = std::max(80.0f, std::min(320.0f, barW - 560.0f));
+  // The buttons and gaps take about 260 px of the address bar, and the
+  // picker about 260 px of the motion row.
+  const float fieldW = std::max(80.0f, std::min(320.0f, barW - 260.0f));
+  const float sliderW =
+    std::max(80.0f, std::min(240.0f, barW - 260.0f));
   return column(
     gap(8),
     row(gap(12), lines("Glim WebView"), lines(s.mode)),
@@ -155,14 +153,18 @@ inline Block webChrome(const WebScreen& s) {
         [r = s.reload] {
           if (r) r();
         }
-      ),
+      )
+    ),
+    row(
+      gap(10),
+      pad(12, 0),
       webMotionPicker(s),
       slider(
         {.value = s.amount,
          .lo = -kWebAmountMax,
          .hi = kWebAmountMax,
          .step = 1,
-         .width = 140},
+         .width = sliderW},
         semantic("Amount")
       )
     ),
@@ -199,18 +201,19 @@ inline WebScreen webScreen(
 }
 
 // The live page: a seat for a Slot or Layer view, else the Texture
-// plate. Both take the window less the chrome and the reflection's
-// room.
+// plate, at webPageSize.
 inline Block webPage(const WebScreen& s) {
-  const float w = s.size.x - 2 * kWebPad;
-  const float h =
-    std::max(1.0f, s.size.y - 2 * kWebPad - kWebChrome - kWebReflect);
+  const glim::Vec2 size = webPageSize(s.size);
   if (s.slot)
     return seat(
-      {.id = s.seatId, .width = w, .height = h}, semantic("Web page")
+      {.id = s.seatId, .width = size.x, .height = size.y},
+      semantic("Web page")
     );
   return layer(
-    {.image = s.image, .onInput = s.input, .width = w, .height = h}
+    {.image = s.image,
+     .onInput = s.input,
+     .width = size.x,
+     .height = size.y}
   );
 }
 

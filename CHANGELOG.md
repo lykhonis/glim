@@ -13,8 +13,8 @@ Changes land under `## [Unreleased]`. To release, rename it to `## [X.Y.Z] - dat
 - Composition first (K89, `AGENTS.md`): effects are recipes of general primitives. A reflection is the content drawn again under `transform` (flip), `fade` and `inert`; there is no reflection feature.
 - `transform({...})`: one tag for translate, rotate, scale (negative flips), skew and 3D tilt about an anchor, with `fit` to keep the result inside the node's box. It replaces `rotate` and `tilt`; `translate(dx, dy)` stays as shorthand. Paint and hit testing share `transformMatrix`; custom elements push `transformAt`. `PushRotate` and `PushTilt` are gone: `PushTransform` carries the matrix (op archive v9, which still reads v8 rotate and tilt).
 - `fade({.edge, .length, .fromAlpha, .toAlpha})` ramps a subtree's alpha from an edge inward, over the new paint `GroupParams::fade` (software and GPU). `inert()` keeps a subtree out of hit testing, focus and a11y.
-- Native views compose too: a seat drawn twice is reported as a copy (`SlotPlacement::copies`), and a fade over a seat as its `fade`. `shell::SlotFrame` carries both; macOS shows the first copy with a replicator and masks each drawing. Other shells show the view alone for now.
-- Webview example: a designed offline page, Flat/Tilt/Skew/Swing motions with an amount slider, and a live reflection built by composition.
+- Native views compose too: a seat drawn twice is reported as a copy (`SlotPlacement::copies`), and a fade over a seat as its `fade`. `shell::SlotFrame` carries both; macOS and iOS show the first copy with a replicator and mask each drawing. Other shells show the view alone for now.
+- Webview example: a designed offline page, Flat/Tilt/Skew/Swing motions with an amount slider, and a live reflection built by composition. The chrome fits a phone, and the Android Texture page renders at its plate's size instead of the window's.
 - Tag factories: `transform` takes its tag struct like `glass`, `shadow` and `effectGlow`.
 
 ## [0.1.0] - 2026-11-12

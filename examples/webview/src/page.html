@@ -9,6 +9,7 @@
   --rose: #ff4f8b; --violet: #7c5cff; --sky: #38c6ff; --sun: #ffb84d;
 }
 * { box-sizing: border-box; }
+button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html, body { margin: 0; height: 100%; }
 body {
   display: flex; flex-direction: column; overflow: hidden;
@@ -45,9 +46,12 @@ header nav { margin-left: auto; display: flex; gap: 18px; color: var(--muted); }
   flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 18px; padding: 4px 28px 18px; align-content: start; overflow: hidden;
 }
-.album { display: flex; flex-direction: column; gap: 8px; }
+.album {
+  display: flex; flex-direction: column; gap: 8px; cursor: pointer;
+  padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+}
 .cover {
-  aspect-ratio: 1; border-radius: 14px; position: relative; overflow: hidden;
+  display: block; aspect-ratio: 1; border-radius: 14px; position: relative; overflow: hidden;
   box-shadow: 0 14px 30px #0008; transition: transform .3s;
 }
 .album:hover .cover { transform: translateY(-4px) scale(1.02); }
@@ -62,9 +66,9 @@ header nav { margin-left: auto; display: flex; gap: 18px; color: var(--muted); }
 .c5 { background: radial-gradient(circle at 70% 70%, #b6a6ff, #3a1f8f 65%, #120a33); }
 .c6 { background: linear-gradient(200deg, #ff4f8b, #7c5cff 50%, #38c6ff); }
 .album b { font-size: 14px; }
-.album span { color: var(--muted); font-size: 12px; }
+.album span:last-child { color: var(--muted); font-size: 12px; }
 footer {
-  display: flex; align-items: center; gap: 16px; padding: 14px 28px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 28px;
   background: linear-gradient(90deg, #ff4f8bdd, #7c5cffdd 55%, #38c6ffdd);
 }
 #tap {
@@ -72,9 +76,9 @@ footer {
   color: var(--deep); background: #fff; box-shadow: 0 8px 24px #0006; cursor: pointer;
 }
 #tap:active { transform: scale(.97); }
-#count { margin: 0; font-size: 16px; font-weight: 600; }
+#count { margin: 0; font-size: 16px; font-weight: 600; white-space: nowrap; }
 #field {
-  margin-left: auto; width: 220px; padding: 10px 14px; border-radius: 999px;
+  margin-left: auto; flex: 0 1 220px; min-width: 120px; padding: 10px 14px; border-radius: 999px;
   border: 1px solid #ffffff66; background: #ffffff26; color: #fff; font-size: 15px;
 }
 #field::placeholder { color: #ffffffb0; }
@@ -84,6 +88,12 @@ footer {
 .eq i:nth-child(3) { animation-delay: -.6s; }
 .eq i:nth-child(4) { animation-delay: -.15s; }
 @keyframes bar { 0%, 100% { height: 30%; } 50% { height: 100%; } }
+@media (max-width: 520px) {
+  header, .hero, .shelf, footer { padding-left: 18px; padding-right: 18px; }
+  header nav { display: none; }
+  .hero h1 { font-size: 30px; }
+  .shelf { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
+}
 </style>
 </head>
 <body>
@@ -98,12 +108,12 @@ footer {
   <p>A live web page inside a Glim window: tilt it, skew it, swing it. It stays native and keeps taking input.</p>
 </section>
 <section class="shelf">
-  <div class="album"><div class="cover c1"></div><b>Solar Bloom</b><span>Mira Vale</span></div>
-  <div class="album"><div class="cover c2"></div><b>Night Circuit</b><span>Halcyon</span></div>
-  <div class="album"><div class="cover c3"></div><b>Tidal Glass</b><span>Oslo Kite</span></div>
-  <div class="album"><div class="cover c4"></div><b>Paper Suns</b><span>The Lanterns</span></div>
-  <div class="album"><div class="cover c5"></div><b>Velvet Orbit</b><span>Nadia Rue</span></div>
-  <div class="album"><div class="cover c6"></div><b>Prism Hearts</b><span>Kaleido</span></div>
+  <button class="album"><span class="cover c1"></span><b>Solar Bloom</b><span>Mira Vale</span></button>
+  <button class="album"><span class="cover c2"></span><b>Night Circuit</b><span>Halcyon</span></button>
+  <button class="album"><span class="cover c3"></span><b>Tidal Glass</b><span>Oslo Kite</span></button>
+  <button class="album"><span class="cover c4"></span><b>Paper Suns</b><span>The Lanterns</span></button>
+  <button class="album"><span class="cover c5"></span><b>Velvet Orbit</b><span>Nadia Rue</span></button>
+  <button class="album"><span class="cover c6"></span><b>Prism Hearts</b><span>Kaleido</span></button>
 </section>
 <footer>
   <button id="tap">Play</button>
@@ -113,10 +123,21 @@ footer {
 </footer>
 <script>
 let taps = 0;
-document.getElementById("tap").addEventListener("click", () => {
+const play = () => {
   taps += 1;
   document.getElementById("count").textContent = "Tapped " + taps + " times";
   if (window.glim) glim.tapped(taps);
+};
+// A press plays on release, however slow; click is left to the keyboard,
+// since a slow touch counts as a long press and never clicks.
+for (const control of document.querySelectorAll("#tap, .album")) {
+  control.addEventListener("pointerup", play);
+  control.addEventListener("click", (e) => {
+    if (e.detail === 0) play();
+  });
+}
+document.addEventListener("contextmenu", (e) => {
+  if (e.target.closest("button")) e.preventDefault();
 });
 if (window.glim) glim.ready();
 </script>

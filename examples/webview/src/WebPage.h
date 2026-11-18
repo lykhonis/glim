@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -15,6 +16,22 @@ inline constexpr std::uint32_t kWebSeat = 1;
 // The bundled page: offline, so CI never needs the network.
 inline constexpr const char* kLocalUrl = "about:glim";
 inline constexpr const char* kSiteUrl = "https://example.com/";
+
+inline constexpr float kWebPad = 24;
+// Room under the page for its live reflection.
+inline constexpr float kWebReflect = 120;
+// About the chrome's height.
+inline constexpr float kWebChrome = 136;
+
+// The page's logical size in a window: the window less the chrome and
+// the reflection's room. Texture pages render at it, so they are not
+// stretched.
+inline glim::Vec2 webPageSize(glim::Vec2 window) {
+  return {
+    std::max(1.0f, window.x - 2 * kWebPad),
+    std::max(1.0f, window.y - 2 * kWebPad - kWebChrome - kWebReflect),
+  };
+}
 
 // What the Glim chrome shows about the page.
 struct WebStatus {

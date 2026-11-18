@@ -11,6 +11,11 @@ WKWebView* webView() {
   static WKWebView* web = nil;
   if (web == nil) {
     web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:[WKWebViewConfiguration new]];
+#if TARGET_OS_IPHONE
+    // Glim places and turns the page, so the screen's safe area does not
+    // apply inside it.
+    web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+#endif
     [web loadHTMLString:@(kPageHtml) baseURL:nil];
   }
   return web;

@@ -223,8 +223,9 @@ class AndroidWebPage final : public WebPage {
     );
     if (failed(env, "densityDpi") || dpi <= 0) return false;
     const float scale = static_cast<float>(dpi) / 160.0f;
-    width_ = static_cast<int>(std::lround(ctx.size().x * scale));
-    height_ = static_cast<int>(std::lround(ctx.size().y * scale));
+    const glim::Vec2 size = webPageSize(ctx.size());
+    width_ = static_cast<int>(std::lround(size.x * scale));
+    height_ = static_cast<int>(std::lround(size.y * scale));
     constexpr std::uint64_t usage =
       AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
       AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
