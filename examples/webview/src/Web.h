@@ -23,16 +23,22 @@ struct WebScreen {
   LayerInputFn input;
   // Degrees about Y; the page turns in 3D, still live and still taking
   // input.
-  float tilt = 0;
+  State<float> tilt;
   WebStatus status;
   // The address bar's owned text field (N8).
   State<TextEdit> address;
   std::function<void(std::string)> go;
   std::function<void()> reload;
-  std::function<void(float)> setTilt;
 };
 
 inline constexpr float kWebPad = 24;
+inline constexpr float kWebTiltMax = 60;
+
+// Chrome plates sit close together; merged, they would melt into one
+// droplet, so each keeps its own outline.
+inline GlassTag webGlass(int radius) {
+  return glass({.radius = radius, .merge = false});
+}
 
 // Labelled for screen readers by its text.
 inline Block webButton(
@@ -43,7 +49,7 @@ inline Block webButton(
                 lines(std::move(label)),
                 std::move(action),
                 pad(12, 6),
-                glass({.radius = 12}),
+                webGlass(12),
                 primary(),
                 semantic(name)
               )
@@ -51,7 +57,7 @@ inline Block webButton(
                 lines(std::move(label)),
                 std::move(action),
                 pad(12, 6),
-                glass({.radius = 12}),
+                webGlass(12),
                 semantic(name)
               );
 }
@@ -68,35 +74,11 @@ inline Block webChrome(const WebScreen& s) {
   // gets the rest.
   const float fieldW = std::max(80.0f, std::min(420.0f, barW - 212.0f));
   const float shown = s.status.loading ? s.status.progress : 1.0f;
-  // One glass plate for the tilt presets; only the chosen one gets its
-  // own. A glass container lenses at most kMaxLensPills plates, and the
-  // chrome stays within it.
-  const auto tiltTo = [set = s.setTilt, now = s.tilt](float t) {
-    std::string label = std::to_string(static_cast<int>(t));
-    const std::string name = "Tilt " + label;
-    Action pick = [set, t] {
-      if (set) set(t);
-    };
-    return now == t ? tap(
-                        lines(std::move(label)),
-                        std::move(pick),
-                        pad(10, 4),
-                        glass({.radius = 10}),
-                        primary(),
-                        semantic(name)
-                      )
-                    : tap(
-                        lines(std::move(label)),
-                        std::move(pick),
-                        pad(10, 4),
-                        semantic(name)
-                      );
-  };
   return column(
     gap(10),
     row(
       gap(12),
-      row(pad(14, 8), glass({.radius = 14}), lines("Glim WebView")),
+      row(pad(14, 8), webGlass(14), lines("Glim WebView")),
       lines(s.mode)
     ),
     row(
@@ -109,7 +91,7 @@ inline Block webChrome(const WebScreen& s) {
       ),
       row(
         pad(6, 0),
-        glass({.radius = 12}),
+        webGlass(12),
         textField(
           {.value = address, .width = fieldW, .placeholder = "Address"}
         )
@@ -129,20 +111,21 @@ inline Block webChrome(const WebScreen& s) {
       )
     ),
     row(
-      gap(8),
+      gap(12),
       lines("Tilt"),
-      row(
-        pad(2, 2),
-        glass({.radius = 12}),
-        tiltTo(0),
-        tiltTo(15),
-        tiltTo(30),
-        tiltTo(45)
-      )
+      slider(
+        {.value = s.tilt,
+         .lo = -kWebTiltMax,
+         .hi = kWebTiltMax,
+         .step = 1,
+         .width = 260},
+        semantic("Tilt")
+      ),
+      lines(std::to_string(static_cast<int>(*s.tilt)))
     ),
     row(
       pad(static_cast<int>(barW * shown / 2), 2),
-      glass({.radius = 2, .tint = 0x3a7bfdcc})
+      glass({.radius = 2, .tint = 0x3a7bfdcc, .merge = false})
     ),
     lines(
       s.status.title.empty() ? s.status.url
@@ -162,9 +145,8 @@ inline WebScreen webScreen(
   WebScreen s{
     .mode = p ? p->mode() : "No web view on this platform",
     .size = size,
-    .tilt = *tilt,
+    .tilt = tilt,
     .address = address,
-    .setTilt = [tilt](float t) { tilt = t; },
   };
   if (!p) return s;
   s.slot = p->seatViews() != nullptr;
@@ -193,7 +175,7 @@ inline Block webTree(WebScreen s) {
       std::move(chrome),
       column(
         expand(),
-        tilt({.y = s.tilt}),
+        tilt({.y = *s.tilt, .perspective = 900, .fit = true}),
         seat(
           {.id = s.seatId, .width = s.size.x - 2 * kWebPad},
           expand(),
@@ -204,7 +186,7 @@ inline Block webTree(WebScreen s) {
   }
   return stack(
     column(
-      tilt({.y = s.tilt}),
+      tilt({.y = *s.tilt, .perspective = 900, .fit = true}),
       layer({
         .image = s.image,
         .onInput = std::move(s.input),

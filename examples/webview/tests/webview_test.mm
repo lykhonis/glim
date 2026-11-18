@@ -176,8 +176,19 @@ int main() {
 
     // K88 Layer: tilted, the page stays a live native view, composited by
     // Core Animation under Glim's transform, and Glim routes its clicks.
-    expect(press("Tilt 30"), "the Glim tilt button is there");
-    expect(screen().tilt == 30, "the tilt button sets the app's tilt");
+    // Drag Glim's tilt slider to 30 degrees, the way a user would.
+    {
+      app.rebuild();
+      bool found = false;
+      for (const A11yNode& n : a11yNodes(app.tree, app.box, app.engine())) {
+        if (n.id != "Tilt" || n.traits.role != A11yRole::Slider) continue;
+        const float t = (30 + kWebTiltMax) / (2 * kWebTiltMax);
+        const float x = n.box.x + Slider::kKnob / 2 + t * (n.box.w - Slider::kKnob);
+        found = app.tap(x, n.box.y + n.box.h / 2);
+      }
+      expect(found, "the Glim tilt slider is there");
+    }
+    expect(*screen().tilt == 30, "the tilt slider sets the app's tilt");
     glim::paint::Context tiltedCtx;
     app.rebuild();
     app.recordScene(tiltedCtx);
@@ -186,6 +197,13 @@ int main() {
     expect(placed.size() == 1 && placed[0].transform.is3D(), "the tilted seat carries a 3D transform");
     if (placed.size() != 1) return EXIT_FAILURE;
     const glim::paint::SlotPlacement seat = placed[0];
+    const glim::Rect& drawn = seat.windowLogical;
+    expect(
+      drawn.origin.y >= box.origin.y - 0.5f && drawn.origin.x >= box.origin.x - 0.5f &&
+        drawn.origin.y + drawn.size.y <= box.origin.y + box.size.y + 0.5f &&
+        drawn.origin.x + drawn.size.x <= box.origin.x + box.size.x + 0.5f,
+      "the tilted page stays inside its area, clear of the chrome"
+    );
     host::syncSeats(window, tiltedCtx.scene(), attached, page->seatViews());
     NSView* layerHost = web.superview;
     expect(layerHost != nil && layerHost != root, "the tilted page moves into a layer host");
@@ -228,7 +246,7 @@ int main() {
     spin(0.3);
     expect([evaluate(web, @"taps") intValue] == 2, "a press outside the projected page stays Glim's");
 
-    screen().setTilt(0);
+    screen().tilt = 0.0f;
     glim::paint::Context flatCtx;
     app.rebuild();
     app.recordScene(flatCtx);
