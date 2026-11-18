@@ -10,6 +10,7 @@ add_library(glim-toolkit STATIC
     src/Focus.cpp
     src/Screen.cpp
     src/TextEdit.cpp
+    src/Slider.cpp
     src/TextField.cpp
 )
 add_library(glim::toolkit ALIAS glim-toolkit)
@@ -31,6 +32,7 @@ if(GLIM_HOST_TESTS)
         tests/test_state.cpp
         tests/test_text.cpp
         tests/test_tags.cpp
+        tests/test_slider.cpp
         tests/test_scoped.cpp
         tests/test_theme.cpp
         tests/test_text_edit.cpp

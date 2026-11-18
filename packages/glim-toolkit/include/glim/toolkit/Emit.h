@@ -50,7 +50,8 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
           g->get().clear,
           static_cast<std::uint8_t>(g->get().edge),
           g->get().tint,
-          static_cast<std::uint8_t>(g->get().material)
+          static_cast<std::uint8_t>(g->get().material),
+          g->get().merge
         );
         sink.pop();
       }
@@ -64,7 +65,7 @@ void emitTree(const Block& b, const Box& box, const Engine& e, S& sink, F& feed)
       }
       if (auto tt = n.tag<TiltTag>(); tt && tt->get().active()) {
         const TiltTag& t = tt->get();
-        sink.pushTilt(t.x, t.y, t.perspective, bx.x + bx.w / 2, bx.y + bx.h / 2);
+        sink.pushTilt(t.x, t.y, t.perspective, bx.x + bx.w / 2, bx.y + bx.h / 2, tiltScale(t, bx));
         transforms.push_back(std::cref(n));
       }
       if (clipsChildren(n)) {

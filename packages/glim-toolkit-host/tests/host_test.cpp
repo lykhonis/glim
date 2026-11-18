@@ -448,6 +448,29 @@ int main() {
     };
     const glim::paint::Lens def = painted(0, 0);
     assert(def.material == glim::paint::LensMaterial::Glass);
+    assert(def.mergeKPx > 0.f);
+    // merge = false keeps a plate's own outline next to its neighbors.
+    {
+      glim::paint::Context ctx;
+      ctx.setSize({100, 100});
+      ctx.beginFrame();
+      ContextSink sink{ctx};
+      sink.pushGlass({0, 0, 50, 50}, 12, false, 15, 0, 0, false);
+      sink.pop();
+      ctx.finish();
+      const auto& lens = ctx.scene().root.children[0]->params.lens;
+      assert(lens && lens->mergeKPx == 0.f && lens->thicknessPx > 0.f);
+    }
+    // The tag reaches the sink and survives the op archive.
+    {
+      glim::toolkit::OpsRecorder rec;
+      rec.pushGlass({0, 0, 5, 5}, 4, false, 15, 0, 0, false);
+      std::vector<std::uint8_t> bytes;
+      glim::toolkit::host::encodeOps(rec.ops, bytes);
+      std::vector<glim::toolkit::Op> back;
+      assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back) && back.size() == 1);
+      assert(!back[0].glassMerge);
+    }
     const glim::paint::Lens metal =
       painted(static_cast<std::uint8_t>(GlassMaterial::LiquidMetal), 0xd8a84eff);
     assert(metal.material == glim::paint::LensMaterial::LiquidMetal);

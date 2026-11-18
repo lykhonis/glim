@@ -90,14 +90,15 @@ struct AnySink {
   void (*textStyledFn)(void*, float, float, const std::string&, std::uint32_t, float, float, float, const std::string&) =
     nullptr;
   void (*imageFn)(void*, const Box&, std::uint32_t, bool, const std::string&) = nullptr;
-  void (*pushGlassFn)(void*, const Box&, int, bool, std::uint8_t, std::uint32_t, std::uint8_t) =
-    nullptr;
+  void (*pushGlassFn)(
+    void*, const Box&, int, bool, std::uint8_t, std::uint32_t, std::uint8_t, bool
+  ) = nullptr;
   void (*pushClipFn)(void*, const Box&) = nullptr;
   void (*pushBlendFn)(void*, BlendMode) = nullptr;
   void (*pushOpacityFn)(void*, float) = nullptr;
   void (*pushTransformFn)(void*, float, float) = nullptr;
   void (*pushRotateFn)(void*, float, float, float) = nullptr;
-  void (*pushTiltFn)(void*, float, float, float, float, float) = nullptr;
+  void (*pushTiltFn)(void*, float, float, float, float, float, float) = nullptr;
   void (*fillRadialFn)(void*, const Box&, int, std::uint32_t, std::uint32_t, const std::string&) =
     nullptr;
   void (*fillChamferFn)(void*, const Box&, float, std::uint32_t, const std::string&) = nullptr;
@@ -206,17 +207,18 @@ struct AnySink {
     bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
-    std::uint8_t material = 0
+    std::uint8_t material = 0,
+    bool merge = true
   ) {
-    pushGlassFn(sink, b, radius, clear, edge, tint, material);
+    pushGlassFn(sink, b, radius, clear, edge, tint, material, merge);
   }
   void pushClip(const Box& b) { pushClipFn(sink, b); }
   void pushBlend(BlendMode m) { pushBlendFn(sink, m); }
   void pushOpacity(float opacity) { pushOpacityFn(sink, opacity); }
   void pushTransform(float dx, float dy) { pushTransformFn(sink, dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { pushRotateFn(sink, angleDeg, cx, cy); }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
-    pushTiltFn(sink, xDeg, yDeg, perspective, cx, cy);
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
+    pushTiltFn(sink, xDeg, yDeg, perspective, cx, cy, scale);
   }
   void pop() { popFn(sink); }
   void slot(const Box& b, std::uint32_t id) { slotFn(sink, b, id); }
@@ -277,8 +279,11 @@ void bindOps(AnySink& a) {
                     bool clear,
                     std::uint8_t edge,
                     std::uint32_t tint,
-                    std::uint8_t material
-                  ) { static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material); };
+                    std::uint8_t material,
+                    bool merge
+                  ) {
+    static_cast<S*>(s)->pushGlass(b, radius, clear, edge, tint, material, merge);
+  };
   a.pushClipFn = [](void* s, const Box& b) { static_cast<S*>(s)->pushClip(b); };
   a.pushBlendFn = [](void* s, BlendMode m) { static_cast<S*>(s)->pushBlend(m); };
   a.pushOpacityFn = [](void* s, float opacity) { static_cast<S*>(s)->pushOpacity(opacity); };
@@ -288,9 +293,10 @@ void bindOps(AnySink& a) {
   a.pushRotateFn = [](void* s, float angleDeg, float cx, float cy) {
     static_cast<S*>(s)->pushRotate(angleDeg, cx, cy);
   };
-  a.pushTiltFn = [](void* s, float xDeg, float yDeg, float perspective, float cx, float cy) {
-    static_cast<S*>(s)->pushTilt(xDeg, yDeg, perspective, cx, cy);
-  };
+  a.pushTiltFn =
+    [](void* s, float xDeg, float yDeg, float perspective, float cx, float cy, float scale) {
+      static_cast<S*>(s)->pushTilt(xDeg, yDeg, perspective, cx, cy, scale);
+    };
   a.fillRadialFn = [](
                      void* s,
                      const Box& b,

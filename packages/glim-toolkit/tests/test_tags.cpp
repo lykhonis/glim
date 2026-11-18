@@ -227,6 +227,46 @@ void test_tilt() {
   assert(dispatchPointer(tree, tb, nx, ny + 1, Event::borrow(PointerDown{nx, ny + 1})));
   assert(taps == 2);
 
+  // fit keeps the projected quad inside the node's box, so it never covers
+  // neighbors; without it the near edge reaches outside.
+  for (const float deg : {30.f, 60.f, -75.f}) {
+    const Box b{100, 100, 400, 300};
+    const auto bounds = [&](const glim::Mat4& mt) {
+      float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+      for (const glim::Vec2 c :
+           {glim::Vec2{100, 100}, glim::Vec2{500, 100}, glim::Vec2{100, 400}, glim::Vec2{500, 400}
+           }) {
+        const glim::Vec3 q = glim::projectPlane(mt, c);
+        x0 = std::min(x0, q.x / q.z), y0 = std::min(y0, q.y / q.z);
+        x1 = std::max(x1, q.x / q.z), y1 = std::max(y1, q.y / q.z);
+      }
+      return Box{x0, y0, x1 - x0, y1 - y0};
+    };
+    const Box loose = bounds(tiltMatrix({.y = deg, .perspective = 600}, b));
+    assert(loose.y < b.y - 1);
+    const Box fitted = bounds(tiltMatrix({.y = deg, .perspective = 600, .fit = true}, b));
+    assert(fitted.x >= b.x - 0.5f && fitted.y >= b.y - 0.5f);
+    assert(fitted.x + fitted.w <= b.x + b.w + 0.5f && fitted.y + fitted.h <= b.y + b.h + 0.5f);
+    assert(fitted.h > b.h * 0.6f);
+  }
+
+  // Paint gets the same fit scale hit testing uses.
+  {
+    const TiltTag fitTilt{.y = 60, .perspective = 600, .fit = true};
+    Block fitted = column(pad(50), tilt(fitTilt), tap(lines("page"), [] {}, pad(100, 80)));
+    Box fb = place(fitted, {0, 600, 0, 400});
+    OpsRecorder r;
+    TestFeed f;
+    paintTree(fitted, fb, Engine{}, r, f);
+    int seen = 0;
+    for (const auto& o : r.ops) {
+      if (o.kind != Op::Kind::PushTilt) continue;
+      assert(o.tiltS < 1.f && o.tiltS == tiltScale(fitTilt, fb));
+      ++seen;
+    }
+    assert(seen == 1);
+  }
+
   // Focus and a11y report the node in its own space; a tilt at 0 is no tilt.
   assert(focusAt(tree, tb, cx, cy) == 0);
   Block flat = column(tilt({}), tap(lines("page"), [] {}));

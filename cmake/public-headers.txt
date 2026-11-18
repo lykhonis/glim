@@ -91,6 +91,7 @@ packages/glim-toolkit/include/glim/toolkit/elements/List.h
 packages/glim-toolkit/include/glim/toolkit/elements/Roll.h
 packages/glim-toolkit/include/glim/toolkit/elements/Row.h
 packages/glim-toolkit/include/glim/toolkit/elements/Seat.h
+packages/glim-toolkit/include/glim/toolkit/elements/Slider.h
 packages/glim-toolkit/include/glim/toolkit/elements/Stack.h
 packages/glim-toolkit/include/glim/toolkit/elements/Tap.h
 packages/glim-toolkit/include/glim/toolkit/elements/TextField.h

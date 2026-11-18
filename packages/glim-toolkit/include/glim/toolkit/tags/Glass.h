@@ -40,6 +40,8 @@ struct GlassTag {
   // Lens material preset id (GlassMaterial bits, 0 = refractive glass).
   // No new tag types: metal and water ride the same glass pipeline.
   GlassMaterial material = GlassMaterial::Glass;
+  // Nearby plates melt into one droplet; false keeps this plate's outline.
+  bool merge = true;
 };
 
 inline GlassTag glass(GlassTag g = {}) { return g; }

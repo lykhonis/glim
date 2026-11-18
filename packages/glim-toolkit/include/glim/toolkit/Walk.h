@@ -192,17 +192,18 @@ struct MarkFrame {
     bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
-    std::uint8_t material
+    std::uint8_t material,
+    bool merge = true
   ) {
-    inner->pushGlass(b, radius, clear, edge, tint, material);
+    inner->pushGlass(b, radius, clear, edge, tint, material, merge);
   }
   void pushClip(const Box& b) { inner->pushClip(b); }
   void pushBlend(BlendMode m) { inner->pushBlend(m); }
   void pushOpacity(float opacity) { inner->pushOpacity(opacity); }
   void pushTransform(float dx, float dy) { inner->pushTransform(dx, dy); }
   void pushRotate(float angleDeg, float cx, float cy) { inner->pushRotate(angleDeg, cx, cy); }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
-    inner->pushTilt(xDeg, yDeg, perspective, cx, cy);
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
+    inner->pushTilt(xDeg, yDeg, perspective, cx, cy, scale);
   }
   void pushShadow(
     float sigma, float ox, float oy, std::uint32_t color, float expand, float opacity = 1.f

@@ -49,6 +49,7 @@ struct Op {
   std::uint8_t edge = 15;     // PushGlass edge mask (toolkit GlassEdge bits)
   std::uint32_t tint = 0;     // PushGlass plate tint (0xRRGGBBAA, 0 = milk)
   std::uint8_t material = 0;  // PushGlass lens preset (toolkit GlassMaterial bits)
+  bool glassMerge = true;     // PushGlass melts into nearby plates
   std::uint32_t rgba = 0;
   std::uint32_t rgba2 = 0;  // FillGradient bottom
   std::uint32_t image = 0;  // Image variant
@@ -79,6 +80,7 @@ struct Op {
   float tiltX = 0.f;              // PushTilt degrees about X (pivot rcx, rcy)
   float tiltY = 0.f;              // PushTilt degrees about Y
   float tiltD = 0.f;              // PushTilt perspective distance px
+  float tiltS = 1.f;              // PushTilt content scale (fit)
   std::vector<float> pts;         // Polyline flat points
   std::string text;               // Text variant
   std::string mark;               // semantic mark for every op
@@ -89,15 +91,16 @@ struct Op {
            entry.mark == o.entry.mark && entry.radius == o.entry.radius && box.x == o.box.x &&
            box.y == o.box.y && box.w == o.box.w && box.h == o.box.h && radius == o.radius &&
            clear == o.clear && plus == o.plus && foreign == o.foreign && edge == o.edge &&
-           tint == o.tint && material == o.material && rgba == o.rgba && rgba2 == o.rgba2 &&
-           image == o.image && slot == o.slot && width == o.width && size == o.size &&
-           condense == o.condense && textWeight == o.textWeight && dx == o.dx && dy == o.dy &&
-           angleDeg == o.angleDeg && rcx == o.rcx && rcy == o.rcy && cut == o.cut &&
-           thickness == o.thickness && startDeg == o.startDeg && sweepDeg == o.sweepDeg &&
-           dotPitch == o.dotPitch && sigma == o.sigma && sox == o.sox && soy == o.soy &&
-           expand == o.expand && shadowColor == o.shadowColor && casterOpacity == o.casterOpacity &&
-           effect == o.effect && e0 == o.e0 && opacity == o.opacity && tiltX == o.tiltX &&
-           tiltY == o.tiltY && tiltD == o.tiltD && pts == o.pts && text == o.text && mark == o.mark;
+           tint == o.tint && material == o.material && glassMerge == o.glassMerge &&
+           rgba == o.rgba && rgba2 == o.rgba2 && image == o.image && slot == o.slot &&
+           width == o.width && size == o.size && condense == o.condense &&
+           textWeight == o.textWeight && dx == o.dx && dy == o.dy && angleDeg == o.angleDeg &&
+           rcx == o.rcx && rcy == o.rcy && cut == o.cut && thickness == o.thickness &&
+           startDeg == o.startDeg && sweepDeg == o.sweepDeg && dotPitch == o.dotPitch &&
+           sigma == o.sigma && sox == o.sox && soy == o.soy && expand == o.expand &&
+           shadowColor == o.shadowColor && casterOpacity == o.casterOpacity && effect == o.effect &&
+           e0 == o.e0 && opacity == o.opacity && tiltX == o.tiltX && tiltY == o.tiltY &&
+           tiltD == o.tiltD && tiltS == o.tiltS && pts == o.pts && text == o.text && mark == o.mark;
   }
   bool operator!=(const Op& o) const { return !(*this == o); }
 };
@@ -217,10 +220,12 @@ struct OpsRecorder {
     bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
-    std::uint8_t material = 0
+    std::uint8_t material = 0,
+    bool merge = true
   ) {
     Op o;
     o.kind = Op::Kind::PushGlass;
+    o.glassMerge = merge;
     o.box = b;
     o.radius = radius;
     o.clear = clear;
@@ -254,9 +259,10 @@ struct OpsRecorder {
     o.dy = dy;
     ops.push_back(o);
   }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
     Op o;
     o.kind = Op::Kind::PushTilt;
+    o.tiltS = scale;
     o.tiltX = xDeg;
     o.tiltY = yDeg;
     o.tiltD = perspective;

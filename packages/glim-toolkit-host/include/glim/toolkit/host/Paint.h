@@ -127,7 +127,8 @@ struct ContextSink {
     bool clear,
     std::uint8_t edge,
     std::uint32_t tint,
-    std::uint8_t material = 0
+    std::uint8_t material = 0,
+    bool merge = true
   ) {
     ::glim::paint::GroupParams p;
     p.bounds = toRect(b);
@@ -177,6 +178,7 @@ struct ContextSink {
       g.mergeKPx = 0.f;
       g.thicknessPx = 0.f;
     }
+    if (!merge) g.mergeKPx = 0.f;
     g.tint = ::glim::Color{tint};
     p.lens = g;
     ctx.pushGroup(p);
@@ -205,9 +207,9 @@ struct ContextSink {
     p.transform = ::glim::Mat4::translate(dx, dy);
     ctx.pushGroup(p);
   }
-  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy) {
+  void pushTilt(float xDeg, float yDeg, float perspective, float cx, float cy, float scale = 1.0f) {
     ::glim::paint::GroupParams p;
-    p.transform = tiltMatrix(xDeg, yDeg, perspective, cx, cy);
+    p.transform = tiltMatrix(xDeg, yDeg, perspective, cx, cy, scale);
     ctx.pushGroup(p);
   }
   void pushRotate(float angleDeg, float cx, float cy) {

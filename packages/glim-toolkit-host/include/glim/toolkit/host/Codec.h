@@ -96,7 +96,7 @@ inline Box getBox(Reader& r) {
 inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out) {
   const char* magic = "GLIMUI02";
   for (int i = 0; i < 8; ++i) detail::putU8(out, static_cast<std::uint8_t>(magic[i]));
-  detail::putU16(out, 7);  // version 7: PushTilt
+  detail::putU16(out, 8);  // version 8: PushGlass merge, PushTilt fit scale
   detail::putU32(out, static_cast<std::uint32_t>(ops.size()));
   for (const auto& o : ops) {
     detail::putU8(out, static_cast<std::uint8_t>(o.kind));
@@ -118,6 +118,7 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putU8(out, o.edge);
       detail::putU32(out, o.tint);
       detail::putU8(out, o.material);
+      detail::putU8(out, o.glassMerge ? 1 : 0);
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       detail::putU8(out, o.plus ? 1 : 0);
@@ -130,6 +131,7 @@ inline void encodeOps(const std::vector<Op>& ops, std::vector<std::uint8_t>& out
       detail::putF32(out, o.tiltX);
       detail::putF32(out, o.tiltY);
       detail::putF32(out, o.tiltD);
+      detail::putF32(out, o.tiltS);
       detail::putF32(out, o.rcx);
       detail::putF32(out, o.rcy);
     } else if (o.kind == K::PushRotate) {
@@ -205,7 +207,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
   for (int i = 0; i < 8; ++i)
     if (r.u8() != static_cast<std::uint8_t>(magic[i])) return false;
   const std::uint16_t ver = r.u16();
-  if (ver < 1 || ver > 7) return false;
+  if (ver < 1 || ver > 8) return false;
   std::uint32_t count = r.u32();
   if (!r.ok) return false;
   out.clear();
@@ -238,6 +240,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.tint = r.u32();
       // Pre-v4 archives carry no material byte: default refractive glass.
       o.material = (ver >= 4 && r.ok) ? r.u8() : 0;
+      o.glassMerge = (ver >= 8 && r.ok) ? r.u8() != 0 : true;
     } else if (o.kind == K::PushClip) {
     } else if (o.kind == K::PushBlend) {
       o.plus = r.u8() != 0;
@@ -252,6 +255,7 @@ inline bool decodeOps(const std::uint8_t* data, std::size_t size, std::vector<Op
       o.tiltX = r.f32();
       o.tiltY = r.f32();
       o.tiltD = r.f32();
+      o.tiltS = ver >= 8 ? r.f32() : 1.f;
       o.rcx = r.f32();
       o.rcy = r.f32();
     } else if (o.kind == K::PushRotate) {
