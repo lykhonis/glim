@@ -117,6 +117,11 @@ int main() {
     expectNear(r.at({0.5f, 1.f}), 0.4f, "fromAlpha at from", 1e-5f);
     expectNear(r.at({0.5f, 0.75f}), 0.2f, "half way", 1e-5f);
     expectNear(r.at({0.5f, 0.f}), 0.f, "held beyond to", 1e-5f);
+    expect(!r.opaque() && glim::AlphaRamp{}.opaque(), "only a full ramp is opaque");
+    const glim::AlphaRamp flat = glim::rampOver({{5, 5}, {5, 5}, 1.f, 0.25f}, {{0, 0}, {10, 10}});
+    expectNear(flat.at({0.f, 0.f}), 0.25f, "a zero-length fade holds its end", 1e-5f);
+    expect(glim::isIdentity(glim::Mat4::identity()), "identity is identity");
+    expect(!glim::isIdentity(glim::Mat4::skew(0.1f, 0)), "a skew is not");
   }
 
   if (failures != 0) {

@@ -234,6 +234,17 @@ void test_tags() {
     assert(taps == 1);
   }
 
+  // Each edge ramps inward from its own side; length 0 spans the node.
+  {
+    const Box b{10, 20, 100, 40};
+    const glim::Fade top = fadeIn({.edge = FadeEdge::Top}, b);
+    assert(top.from.y == 20 && top.to.y == 60 && top.from.x == 60);
+    const glim::Fade left = fadeIn({.edge = FadeEdge::Left, .length = 25}, b);
+    assert(left.from.x == 10 && left.to.x == 35 && left.from.y == 40);
+    const glim::Fade right = fadeIn({.edge = FadeEdge::Right}, b);
+    assert(right.from.x == 110 && right.to.x == 10);
+  }
+
   // Skew and a mirror are transforms too: hit testing follows them.
   {
     int taps = 0;
