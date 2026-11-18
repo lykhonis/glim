@@ -16,6 +16,10 @@ Changes land under `## [Unreleased]`. To release, rename it to `## [X.Y.Z] - dat
 - Native views compose too: a seat drawn twice is reported as a copy (`SlotPlacement::copies`), and a fade over a seat as its `fade`. `shell::SlotFrame` carries both; macOS and iOS show the first copy with a replicator and mask each drawing. Other shells show the view alone for now.
 - Webview example: a designed offline page, Flat/Tilt/Skew/Swing motions with an amount slider, and a live reflection built by composition. The chrome fits a phone, and the Android Texture page renders at its plate's size instead of the window's.
 - Tag factories: `transform` takes its tag struct like `glass`, `shadow` and `effectGlow`.
+- Fixed: nested isolates, such as a faded reflection inside a tilted page, crashed on Vulkan. An inner isolate's render target could move the outer one's. Pool targets and Vulkan images now stay put as their pools grow.
+- Fixed: a group's bounds ignored its children's transforms, so a flipped or moved child inside an isolate was clipped away.
+- Fixed: the software packet rasterizer painted half-resolution (3D) isolates at the wrong scale.
+- Android webview on the emulator: the emulator's GPU layer never shows GL-written virtual-display buffers to Vulkan, so the page is copied through the CPU there. Devices keep the zero-copy import.
 
 ## [0.1.0] - 2026-11-12
 

@@ -5,9 +5,11 @@
 #include <media/NdkImageReader.h>
 #include <poll.h>
 #include <pthread.h>
+#include <sys/system_properties.h>
 #include <unistd.h>
 
 #include <cmath>
+#include <cstring>
 #include <deque>
 #include <iostream>
 #include <string>
@@ -80,6 +82,17 @@ int motionAction(LayerInput::Phase phase) {
   return -1;
 }
 
+// The emulator's host shares GL-written buffers with Vulkan only for
+// window surfaces, and a virtual display's compositor is not one, so
+// the imported image stays empty there. Its frames are copied instead.
+bool onEmulator() {
+  char value[PROP_VALUE_MAX] = {};
+  __system_property_get("ro.boot.qemu", value);
+  if (std::strcmp(value, "1") == 0) return true;
+  __system_property_get("ro.kernel.qemu", value);
+  return std::strcmp(value, "1") == 0;
+}
+
 // An image the frame may sample: open until Feed::claim frees it, so
 // the reader cannot hand its buffer back to the page while the GPU
 // reads it.
@@ -129,6 +142,10 @@ class AndroidWebPage final : public WebPage {
   void reload() override { call(reload_, nullptr, "reload"); }
 
   std::uint32_t acquire() override {
+    if (copy_) {
+      shown_ = published_;
+      return copied_;
+    }
     const std::uint32_t id = feed_.acquire();
     for (const Held& h : held_) {
       if (h.id == id) shown_ = h.seq;
@@ -229,11 +246,13 @@ class AndroidWebPage final : public WebPage {
     constexpr std::uint64_t usage =
       AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
       AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+    const std::uint64_t readable =
+      copy_ ? usage | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN : usage;
     if (AImageReader_newWithUsage(
           width_,
           height_,
           AIMAGE_FORMAT_RGBA_8888,
-          usage,
+          readable,
           kImages,
           &reader_
         ) != AMEDIA_OK) {
@@ -301,6 +320,10 @@ class AndroidWebPage final : public WebPage {
       release(h);
       return;
     }
+    if (copy_) {
+      copyOut(h, buffer);
+      return;
+    }
     std::uint32_t& id = ids_[buffer];
     if (id == 0)
       id = ctx_->wrapSurface(
@@ -318,6 +341,41 @@ class AndroidWebPage final : public WebPage {
                 << " dropped=" << st.dropped
                 << " reuse_waits=" << st.reuseWaits << std::endl;
     }
+  }
+
+  // The frame as a plain image, once its fence has passed; the reader
+  // gets its buffer back at once.
+  __attribute__((availability(android, introduced = 26))) void copyOut(
+    Held& h, AHardwareBuffer* buffer
+  ) {
+    if (h.fence >= 0) {
+      pollfd p{h.fence, POLLIN, 0};
+      poll(&p, 1, -1);
+    }
+    AHardwareBuffer_Desc d{};
+    AHardwareBuffer_describe(buffer, &d);
+    void* px = nullptr;
+    if (AHardwareBuffer_lock(
+          buffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &px
+        ) == 0) {
+      const std::size_t row = 4 * static_cast<std::size_t>(width_);
+      rgba_.resize(row * static_cast<std::size_t>(height_));
+      for (int y = 0; y < height_; ++y) {
+        std::memcpy(
+          rgba_.data() + row * static_cast<std::size_t>(y),
+          static_cast<const std::uint8_t*>(px) +
+            4 * static_cast<std::size_t>(d.stride) * y,
+          row
+        );
+      }
+      AHardwareBuffer_unlock(buffer, nullptr);
+      if (copied_ != 0) ctx_->releaseImage(copied_);
+      copied_ = ctx_->addImage(width_, height_, rgba_.data());
+      if (++published_ % 30 == 1)
+        std::cerr << "webview feed published=" << published_
+                  << " copied" << std::endl;
+    }
+    release(h);
   }
 
   // The newest sequence whose reader fence, and every older one, has
@@ -360,6 +418,9 @@ class AndroidWebPage final : public WebPage {
   int width_ = 0;
   int height_ = 0;
   bool broken_ = false;
+  const bool copy_ = onEmulator();
+  std::vector<std::uint8_t> rgba_;
+  std::uint32_t copied_ = 0;
   std::deque<Held> held_;
   std::unordered_map<AHardwareBuffer*, std::uint32_t> ids_;
   std::uint64_t published_ = 0;
