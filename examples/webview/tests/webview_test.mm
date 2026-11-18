@@ -295,7 +295,19 @@ int main() {
       const float bottom = s.local.origin.y + s.local.size.y;
       const double seam = lit({cx, bottom + 6});
       const double past = lit({cx, bottom + kWebReflect + 20});
+      const double inside = lit({cx, bottom - 6});
       expect(seam > past + 0.25, "the reflection shows under the page and fades out");
+      if (seam <= past + 0.25) {
+        // CI uploads GLIM_GOT_DIR: the capture shows what the window drew.
+        std::cerr << "readback page " << inside << " seam " << seam << " past " << past << " at "
+                  << px.pixelsWide << "x" << px.pixelsHigh << "\n";
+        if (const char* dir = std::getenv("GLIM_GOT_DIR")) {
+          static int n = 0;
+          NSString* path = [NSString stringWithFormat:@"%s/webview-readback-%d.png", dir, n++];
+          [[px representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path
+                                                                                atomically:YES];
+        }
+      }
     };
 
     const glim::paint::SlotPlacement seat = move("Tilt");
