@@ -260,11 +260,16 @@ int main() {
       );
       // What the window shows: the page's bright footer, mirrored just
       // under the seam, and the plain window once the fade has run out.
-      // WebKit stops drawing into an occluded window, so the readback runs
-      // only on screen; CI's window is, so there it must.
+      // The readback needs the window on screen (WebKit stops drawing into
+      // an occluded one) and Screen Recording permission (WebKit draws out
+      // of process). CI runners have no permission, so there the structure
+      // above is the gate.
       if (!(root.window.occlusionState & NSWindowOcclusionStateVisible)) {
         std::cerr << "SKIP readback: the window is not on screen\n";
-        expect(std::getenv("CI") == nullptr, "on CI the window is on screen for the readback");
+        return;
+      }
+      if (!CGPreflightScreenCaptureAccess()) {
+        std::cerr << "SKIP readback: no Screen Recording permission\n";
         return;
       }
       spin(0.4);
