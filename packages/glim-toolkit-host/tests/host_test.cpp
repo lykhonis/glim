@@ -30,6 +30,7 @@
 #include <sstream>
 #include <string>
 #include <typeinfo>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -119,6 +120,41 @@ int main() {
     assert(
       glim::toolkit::host::toolkitText({.op = TextInputOp::MoveRight}).op == TextOp::MoveRight
     );
+    for (const auto [shellOp, op] :
+         {std::pair{TextInputOp::Insert, TextOp::Insert},
+          std::pair{TextInputOp::Unmark, TextOp::Unmark},
+          std::pair{TextInputOp::DeleteBackward, TextOp::DeleteBackward},
+          std::pair{TextInputOp::MoveLeft, TextOp::MoveLeft},
+          std::pair{TextInputOp::SelectAll, TextOp::SelectAll}}) {
+      assert(glim::toolkit::host::toolkitText({.op = shellOp}).op == op);
+    }
+  }
+
+  // PushTilt: the archive keeps the fit scale, and the paint sink turns it
+  // into the same perspective group the toolkit hit-tests through.
+  {
+    glim::toolkit::OpsRecorder rec;
+    rec.pushTilt(10, 30, 700, 50, 40, 0.8f);
+    rec.pop();
+    std::vector<std::uint8_t> bytes;
+    glim::toolkit::host::encodeOps(rec.ops, bytes);
+    std::vector<glim::toolkit::Op> back;
+    assert(glim::toolkit::host::decodeOps(bytes.data(), bytes.size(), back) && back == rec.ops);
+    assert(
+      back[0].tiltX == 10 && back[0].tiltY == 30 && back[0].tiltD == 700 && back[0].tiltS == 0.8f
+    );
+
+    glim::paint::Context ctx;
+    ctx.setSize({100, 100});
+    ctx.beginFrame();
+    glim::toolkit::host::ContextSink sink{ctx};
+    sink.pushTilt(10, 30, 700, 50, 40, 0.8f);
+    sink.pop();
+    ctx.finish();
+    const glim::Mat4& m = ctx.scene().root.children[0]->params.transform;
+    const glim::Mat4 want = glim::toolkit::tiltMatrix(10, 30, 700, 50, 40, 0.8f);
+    assert(m.is3D());
+    for (int i = 0; i < 16; ++i) assert(std::fabs(m.m[i] - want.m[i]) < 1e-5f);
   }
 
   assert(mapKey(Key::DpadLeft) == glim::toolkit::Key::Left);
