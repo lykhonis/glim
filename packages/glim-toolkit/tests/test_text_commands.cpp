@@ -198,6 +198,19 @@ void test_text_commands() {
     assert(run(at("", 0), {.text = "1a2"}, {.accept = digits}).text == "12");
   }
 
+  // Select sets the range a platform chose (UIKit's selection, a
+  // selection handle); it is clamped and commits any composition.
+  {
+    TextEdit e = run(at("hello", 0), {.op = TextOp::Select, .selection = {1, 3}});
+    assert(sel(e, 1, 3) && !e.reversed);
+    assert(sel(run(at("hi", 0), {.op = TextOp::Select, .selection = {1, 9}}), 1, 1));
+    assert(sel(run(at(kAcute, 0), {.op = TextOp::Select, .selection = {1, 0}}), 0, 0));
+    assert(sel(run(at("x" + kAcute, 0), {.op = TextOp::Select, .selection = {0, 2}}), 0, 4));
+    e = run(at("", 0), {.op = TextOp::Mark, .text = "n", .selection = {1, 0}});
+    e = run(e, {.op = TextOp::Select, .selection = {0, 0}});
+    assert(e.text == "n" && !e.marked && sel(e, 0, 0));
+  }
+
   // Presses: one tap places the caret, two select the word, three select
   // all; taps far apart in time or space start over. Shift extends.
   {

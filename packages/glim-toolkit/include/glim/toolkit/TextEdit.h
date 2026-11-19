@@ -49,6 +49,7 @@ enum class TextOp : std::uint8_t {
   SelectWord,
   Undo,
   Redo,
+  Select,
 };
 
 // Undo and redo stacks. Typing and repeated deletes coalesce into one
@@ -106,6 +107,9 @@ TextEdit deleteBackward(TextEdit edit);
 TextEdit moveCaret(
   TextEdit edit, int direction, TextUnit unit = TextUnit::Character, bool extend = false
 );
+// Selects a range the platform chose, snapped out to whole clusters; any
+// composition commits first.
+TextEdit selectText(TextEdit edit, TextRange range);
 // Selects the word (or run of spaces or symbols) at the caret.
 TextEdit selectWord(TextEdit edit);
 TextEdit selectAll(TextEdit edit);

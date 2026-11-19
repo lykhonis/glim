@@ -131,7 +131,8 @@ int main() {
           std::pair{TextInputOp::DeleteForward, TextOp::DeleteForward},
           std::pair{TextInputOp::SelectWord, TextOp::SelectWord},
           std::pair{TextInputOp::Undo, TextOp::Undo},
-          std::pair{TextInputOp::Redo, TextOp::Redo}}) {
+          std::pair{TextInputOp::Redo, TextOp::Redo},
+          std::pair{TextInputOp::Select, TextOp::Select}}) {
       assert(glim::toolkit::host::toolkitText({.op = shellOp}).op == op);
     }
     const glim::toolkit::TextChange word = glim::toolkit::host::toolkitText(

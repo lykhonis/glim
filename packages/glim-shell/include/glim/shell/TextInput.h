@@ -28,6 +28,8 @@ enum class TextInputOp : std::uint8_t {
   SelectWord,
   Undo,
   Redo,
+  // The platform set the selection (UIKit, Android, the browser).
+  Select,
 };
 
 // How far a move or delete reaches.

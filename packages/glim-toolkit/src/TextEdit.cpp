@@ -157,6 +157,23 @@ TextEdit moveCaret(TextEdit edit, int direction, TextUnit unit, bool extend) {
   return edit;
 }
 
+TextEdit selectText(TextEdit edit, TextRange range) {
+  edit = unmarkText(std::move(edit));
+  edit.history.streak.reset();
+  const std::string& s = edit.text;
+  // A boundary inside a cluster moves to the cluster's start or end.
+  const auto down = [&](std::size_t at) {
+    return at >= s.size() ? s.size() : text::prevCluster(s, text::nextCluster(s, at));
+  };
+  const auto up = [&](std::size_t at) { return down(at) == at ? at : text::nextCluster(s, at); };
+  const TextRange r = clamp(s, range);
+  const std::size_t a = down(r.start);
+  const std::size_t b = r.length == 0 ? a : up(r.end());
+  edit.selection = {a, b - a};
+  edit.reversed = false;
+  return edit;
+}
+
 TextEdit selectWord(TextEdit edit) {
   edit = unmarkText(std::move(edit));
   edit.history.streak.reset();
@@ -241,6 +258,8 @@ TextEdit applyText(TextEdit edit, const TextChange& change, const TextRules& rul
       return moveCaret(std::move(edit), 1, change.unit, change.extend);
     case TextOp::SelectAll:
       return selectAll(std::move(edit));
+    case TextOp::Select:
+      return selectText(std::move(edit), change.selection);
     case TextOp::SelectWord:
       return selectWord(std::move(edit));
     case TextOp::Undo:

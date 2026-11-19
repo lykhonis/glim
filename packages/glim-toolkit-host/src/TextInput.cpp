@@ -28,6 +28,8 @@ TextOp toolkitOp(shell::TextInputOp op) {
       return TextOp::Undo;
     case shell::TextInputOp::Redo:
       return TextOp::Redo;
+    case shell::TextInputOp::Select:
+      return TextOp::Select;
   }
   return TextOp::Insert;
 }
