@@ -27,6 +27,7 @@ packages/glim-shell/include/glim/shell/Event.h
 packages/glim-shell/include/glim/shell/Present.h
 packages/glim-shell/include/glim/shell/Slot.h
 packages/glim-shell/include/glim/shell/SlotLayer.h
+packages/glim-shell/include/glim/shell/TextCommands.h
 packages/glim-shell/include/glim/shell/TextInput.h
 packages/glim-shell-android/include/glim/shell/AndroidActivity.h
 packages/glim-shell-android/include/glim/shell/Application.h

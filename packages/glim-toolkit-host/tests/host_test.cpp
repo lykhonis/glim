@@ -1,4 +1,5 @@
 #include <glim/paint/Software.h>
+#include <glim/shell/TextCommands.h>
 #include <glim/toolkit.h>
 #include <glim/toolkit/host/A11y.h>
 #include <glim/toolkit/host/Codec.h>
@@ -121,9 +122,47 @@ int main() {
           std::pair{TextInputOp::Unmark, TextOp::Unmark},
           std::pair{TextInputOp::DeleteBackward, TextOp::DeleteBackward},
           std::pair{TextInputOp::MoveLeft, TextOp::MoveLeft},
-          std::pair{TextInputOp::SelectAll, TextOp::SelectAll}}) {
+          std::pair{TextInputOp::SelectAll, TextOp::SelectAll},
+          std::pair{TextInputOp::DeleteForward, TextOp::DeleteForward},
+          std::pair{TextInputOp::SelectWord, TextOp::SelectWord},
+          std::pair{TextInputOp::Undo, TextOp::Undo},
+          std::pair{TextInputOp::Redo, TextOp::Redo}}) {
       assert(glim::toolkit::host::toolkitText({.op = shellOp}).op == op);
     }
+    const glim::toolkit::TextChange word = glim::toolkit::host::toolkitText(
+      {.op = TextInputOp::MoveLeft, .unit = glim::shell::TextInputUnit::Word, .extend = true}
+    );
+    assert(word.unit == glim::toolkit::TextUnit::Word && word.extend);
+    assert(
+      glim::toolkit::host::toolkitText({.unit = glim::shell::TextInputUnit::Line}).unit ==
+        glim::toolkit::TextUnit::Line &&
+      glim::toolkit::host::toolkitText({.unit = glim::shell::TextInputUnit::Document}).unit ==
+        glim::toolkit::TextUnit::Document
+    );
+
+    // Cocoa command names map onto commands; unknown ones pass through.
+    using glim::shell::TextInputUnit;
+    const auto cmd = [](const char* name) { return *glim::shell::textCommand(name); };
+    assert(cmd("deleteForward:").op == TextInputOp::DeleteForward);
+    assert(cmd("deleteWordBackward:").unit == TextInputUnit::Word);
+    assert(cmd("moveToEndOfLine:").op == TextInputOp::MoveRight);
+    assert(cmd("moveToEndOfLine:").unit == TextInputUnit::Line && !cmd("moveToEndOfLine:").extend);
+    const auto ext = cmd("moveWordLeftAndModifySelection:");
+    assert(ext.op == TextInputOp::MoveLeft && ext.unit == TextInputUnit::Word && ext.extend);
+    assert(cmd("moveToBeginningOfDocumentAndModifySelection:").unit == TextInputUnit::Document);
+    assert(cmd("undo:").op == TextInputOp::Undo && cmd("redo:").op == TextInputOp::Redo);
+    assert(!glim::shell::textCommand("insertNewline:") && !glim::shell::textCommand("bogus:"));
+
+    // A secure field gives the shell only its mask, ranges included.
+    const glim::toolkit::TextFocus secret{
+      .edit = {.text = "pass", .selection = {1, 2}},
+      .field = {0, 0, 100, 26},
+      .caret = {0, 0, 2, 14},
+      .rules = {.secure = true},
+    };
+    const glim::shell::TextInputState masked = glim::toolkit::host::shellTextInput(secret);
+    assert(masked.secure && masked.text == "••••");
+    assert(masked.selection.start == 3 && masked.selection.length == 6);
   }
 
   // PushTransform: the archive keeps the matrix, and the paint sink turns

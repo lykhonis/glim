@@ -1,5 +1,7 @@
 #import "GlimView.h"
 
+#include <glim/shell/TextCommands.h>
+
 #include <algorithm>
 
 using glim::shell::TextInputChange;
@@ -121,12 +123,8 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 }
 
 - (void)doCommandBySelector:(SEL)selector {
-  if (selector == @selector(deleteBackward:)) {
-    [self.textInput send:{.op = TextInputOp::DeleteBackward}];
-  } else if (selector == @selector(moveLeft:)) {
-    [self.textInput send:{.op = TextInputOp::MoveLeft}];
-  } else if (selector == @selector(moveRight:)) {
-    [self.textInput send:{.op = TextInputOp::MoveRight}];
+  if (auto change = glim::shell::textCommand(NSStringFromSelector(selector).UTF8String)) {
+    [self.textInput send:*change];
   } else if (selector == @selector(insertNewline:)) {
     glim::shell::Event e(glim::shell::EventType::KeyDown);
     e.setKey(glim::shell::Key::Enter);
@@ -156,8 +154,19 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 }
 
 - (void)cut:(id)sender {
+  if (self.textInput.state.secure) return;
   [self copy:sender];
   [self.textInput send:{.op = TextInputOp::DeleteBackward}];
+}
+
+- (void)undo:(id)sender {
+  (void)sender;
+  [self.textInput send:{.op = TextInputOp::Undo}];
+}
+
+- (void)redo:(id)sender {
+  (void)sender;
+  [self.textInput send:{.op = TextInputOp::Redo}];
 }
 
 - (void)paste:(id)sender {
@@ -176,7 +185,9 @@ TextInputRange bytes(const std::string& text, NSRange r) {
     return self.textInput.active &&
            [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] != nil;
   }
-  if (a == @selector(selectAll:)) return self.textInput.active;
+  if (a == @selector(selectAll:) || a == @selector(undo:) || a == @selector(redo:)) {
+    return self.textInput.active;
+  }
   return YES;
 }
 

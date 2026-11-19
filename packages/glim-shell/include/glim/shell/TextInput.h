@@ -24,14 +24,24 @@ enum class TextInputOp : std::uint8_t {
   MoveLeft,
   MoveRight,
   SelectAll,
+  DeleteForward,
+  SelectWord,
+  Undo,
+  Redo,
 };
 
+// How far a move or delete reaches.
+enum class TextInputUnit : std::uint8_t { Character, Word, Line, Document };
+
 // What the platform's text input client asks of the focused field. Mark
-// carries its selection relative to the marked text.
+// carries its selection relative to the marked text; extend grows the
+// selection instead of moving the caret.
 struct TextInputChange {
   TextInputOp op = TextInputOp::Insert;
   std::string text;
   TextInputRange selection;
+  TextInputUnit unit = TextInputUnit::Character;
+  bool extend = false;
 };
 
 // The focused field as the platform's text input client sees it. Inactive

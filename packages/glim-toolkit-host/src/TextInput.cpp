@@ -20,8 +20,30 @@ TextOp toolkitOp(shell::TextInputOp op) {
       return TextOp::MoveRight;
     case shell::TextInputOp::SelectAll:
       return TextOp::SelectAll;
+    case shell::TextInputOp::DeleteForward:
+      return TextOp::DeleteForward;
+    case shell::TextInputOp::SelectWord:
+      return TextOp::SelectWord;
+    case shell::TextInputOp::Undo:
+      return TextOp::Undo;
+    case shell::TextInputOp::Redo:
+      return TextOp::Redo;
   }
   return TextOp::Insert;
+}
+
+TextUnit toolkitUnit(shell::TextInputUnit unit) {
+  switch (unit) {
+    case shell::TextInputUnit::Character:
+      return TextUnit::Character;
+    case shell::TextInputUnit::Word:
+      return TextUnit::Word;
+    case shell::TextInputUnit::Line:
+      return TextUnit::Line;
+    case shell::TextInputUnit::Document:
+      return TextUnit::Document;
+  }
+  return TextUnit::Character;
 }
 
 }  // namespace
@@ -50,6 +72,8 @@ TextChange toolkitText(const shell::TextInputChange& change) {
     .op = toolkitOp(change.op),
     .text = change.text,
     .selection = {change.selection.start, change.selection.length},
+    .unit = toolkitUnit(change.unit),
+    .extend = change.extend,
   };
 }
 

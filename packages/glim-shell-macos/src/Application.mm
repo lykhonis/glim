@@ -230,6 +230,9 @@ NSMenu* makeMenu() {
     item([@"Quit " stringByAppendingString:name], @selector(terminate:), @"q"),
   ])];
   [menubar addItem:submenu(@"Edit", @[
+    item(@"Undo", @selector(undo:), @"z"),
+    item(@"Redo", @selector(redo:), @"z", NSEventModifierFlagCommand | NSEventModifierFlagShift),
+    [NSMenuItem separatorItem],
     item(@"Cut", @selector(cut:), @"x"),
     item(@"Copy", @selector(copy:), @"c"),
     item(@"Paste", @selector(paste:), @"v"),
