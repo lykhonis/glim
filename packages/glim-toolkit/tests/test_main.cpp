@@ -18,6 +18,7 @@ void test_text_edit();
 void test_text_commands();
 void test_text_field();
 void test_text_actions();
+void test_edit_menu();
 
 int main() {
   test_basics();
@@ -38,6 +39,7 @@ int main() {
   test_text_commands();
   test_text_field();
   test_text_actions();
+  test_edit_menu();
 
   std::cout << "toolkit tests ok\n";
   return 0;

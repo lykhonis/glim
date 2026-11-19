@@ -13,6 +13,7 @@ add_library(glim-toolkit STATIC
     src/text/Segment.cpp
     src/Slider.cpp
     src/TextField.cpp
+    src/EditMenu.cpp
 )
 add_library(glim::toolkit ALIAS glim-toolkit)
 target_include_directories(glim-toolkit PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -37,6 +38,7 @@ if(GLIM_HOST_TESTS)
         tests/test_scoped.cpp
         tests/test_theme.cpp
         tests/test_text_edit.cpp
+        tests/test_edit_menu.cpp
         tests/test_text_commands.cpp
     )
     target_link_libraries(glim-toolkit-test PRIVATE glim::toolkit)

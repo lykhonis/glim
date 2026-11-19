@@ -11,6 +11,7 @@
 #include "glim/toolkit/Anim.h"
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/Color.h"
+#include "glim/toolkit/EditMenu.h"
 #include "glim/toolkit/Glow.h"
 #include "glim/toolkit/Configure.h"
 #include "glim/toolkit/ConfigureFwd.h"

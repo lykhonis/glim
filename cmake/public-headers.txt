@@ -67,6 +67,7 @@ packages/glim-toolkit/include/glim/toolkit/Configure.h
 packages/glim-toolkit/include/glim/toolkit/ConfigureFwd.h
 packages/glim-toolkit/include/glim/toolkit/Custom.h
 packages/glim-toolkit/include/glim/toolkit/DirtyGate.h
+packages/glim-toolkit/include/glim/toolkit/EditMenu.h
 packages/glim-toolkit/include/glim/toolkit/Emit.h
 packages/glim-toolkit/include/glim/toolkit/Event.h
 packages/glim-toolkit/include/glim/toolkit/Factories.h
