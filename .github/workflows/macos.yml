@@ -26,5 +26,8 @@ jobs:
         pnpm exec nx run-many -t run run-software --projects=tag:example --exclude=web --parallel=1 --smoke=15
         pnpm exec nx run examples:build-web
         WEBGPU_ANGLE=metal pnpm -s web-goldens
+        # Typing into a toolkit text field in Chrome (N8.10).
+        cmake --build build/web-webgpu-debug --target glim-text
+        WEBGPU_ANGLE=metal node tools/web-text-e2e.mjs
         pnpm -s xcframework
         pnpm -s apple-sample

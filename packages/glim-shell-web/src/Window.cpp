@@ -43,7 +43,10 @@ void Window::setCustomTitlebar(bool) {}
 void Window::dragWindow() {}
 
 void Window::show() {
-  if (!shown_) detail::shownWindows().push_back(this);
+  if (!shown_) {
+    detail::shownWindows().push_back(this);
+    detail::listen(this, canvasSelector_);
+  }
   shown_ = true;
 }
 
@@ -113,10 +116,6 @@ void Window::dismissPresented() {}
 void Window::setA11y(std::vector<A11yElement>) {}
 
 // Owned text input lands per shell after macOS (N8).
-void Window::setTextInput(TextInputState) {}
-
-void Window::setTextInputCallback(TextInputCallback) {}
-
 void Window::setA11yPerform(A11yPerform) {}
 
 bool Window::a11yActive() const { return false; }
