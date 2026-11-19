@@ -56,6 +56,11 @@ jobs:
         "$adb" shell input text glim
         sleep 3
         "$adb" logcat -d -s glim | grep -q 'text value glim$'
+        # The system clipboard round-trips through the shell.
+        "$adb" logcat -c
+        "$adb" shell am start -S -n com.glim.text/com.glim.shell.GlimActivity --es args --clipboard-check
+        sleep 8
+        "$adb" logcat -d -s glim | grep -q 'clipboard wrote read=glim clip$'
 
   sdk:
     uses: ./.github/workflows/native.yml

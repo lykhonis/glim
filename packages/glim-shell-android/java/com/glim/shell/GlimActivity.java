@@ -1,6 +1,8 @@
 package com.glim.shell;
 
 import android.app.NativeActivity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.os.Bundle;
 import android.view.ViewGroup;
 
@@ -14,6 +16,18 @@ public class GlimActivity extends NativeActivity {
     super.onCreate(state);
     text = new TextInputView(this);
     addContentView(text, new ViewGroup.LayoutParams(1, 1));
+  }
+
+  // The clipboard's text, or null when it holds none.
+  public String readClipboard() {
+    final ClipData clip = getSystemService(ClipboardManager.class).getPrimaryClip();
+    if (clip == null || clip.getItemCount() == 0) return null;
+    final CharSequence text = clip.getItemAt(0).coerceToText(this);
+    return text == null ? null : text.toString();
+  }
+
+  public void writeClipboard(String text) {
+    getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Glim", text));
   }
 
   // From the native thread: the focused field in UTF-16 units, or inactive.

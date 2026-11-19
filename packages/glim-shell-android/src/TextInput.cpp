@@ -90,20 +90,6 @@ void deleteForward(JNIEnv*, jclass) {
   });
 }
 
-// Runs f with a JNIEnv on this thread, attaching only if it was not.
-template <class F>
-void withEnv(F&& f) {
-  android_app* app = detail::androidApp();
-  if (!app || !app->activity) return;
-  JavaVM* vm = app->activity->vm;
-  JNIEnv* env = nullptr;
-  const bool attached = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_OK;
-  if (!attached && vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return;
-  f(env, app->activity->clazz);
-  if (env->ExceptionCheck()) env->ExceptionClear();
-  if (!attached) vm->DetachCurrentThread();
-}
-
 // App classes are not visible to FindClass off the UI thread; the
 // activity's class loader finds them.
 void registerNatives(JNIEnv* env, jobject activity) {
@@ -151,7 +137,7 @@ void Window::setTextInput(TextInputState state) {
                        state.secure != i.state.secure;
   i.state = std::move(state);
   if (!changed) return;
-  withEnv([&](JNIEnv* env, jobject activity) {
+  detail::withJni([&](JNIEnv* env, jobject activity) {
     if (!i.registered) {
       registerNatives(env, activity);
       i.registered = true;
