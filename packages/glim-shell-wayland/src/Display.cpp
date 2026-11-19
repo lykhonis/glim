@@ -10,6 +10,9 @@
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
 #include "fractional-scale-v1-client-protocol.h"
 #endif
+#ifdef GLIM_HAS_TEXT_INPUT_V3
+#include "text-input-unstable-v3-client-protocol.h"
+#endif
 
 #include <linux/input-event-codes.h>
 #include <unistd.h>
@@ -228,6 +231,12 @@ void registryGlobal(
       wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1)
     );
 #endif
+#ifdef GLIM_HAS_TEXT_INPUT_V3
+  } else if (std::strcmp(interface, zwp_text_input_manager_v3_interface.name) == 0) {
+    gWl.textInputs = static_cast<zwp_text_input_manager_v3*>(
+      wl_registry_bind(registry, name, &zwp_text_input_manager_v3_interface, 1)
+    );
+#endif
   }
 }
 void registryRemove(void*, wl_registry*, uint32_t) {}
@@ -264,6 +273,12 @@ void waylandDisconnect() {
     gWl = {};
     return;
   }
+  textInputDisconnect();
+#ifdef GLIM_HAS_TEXT_INPUT_V3
+  if (gWl.textInputs) {
+    zwp_text_input_manager_v3_destroy(gWl.textInputs);
+  }
+#endif
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
   if (gWl.fractional) {
     wp_fractional_scale_manager_v1_destroy(gWl.fractional);

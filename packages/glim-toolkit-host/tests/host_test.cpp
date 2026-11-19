@@ -240,6 +240,17 @@ int main() {
       };
       assert(inside(sh::imeDeleteSurroundingBytes(state(base), 99, 99), base.text.size()));
       assert(inside(sh::imeUpdate(cs, {.deleteBefore = 99, .deleteAfter = 99}), 2));
+      // Shells tell the platform only what changed.
+      sh::TextInputState moved = cs;
+      assert(sh::sameTextInput(cs, moved));
+      moved.caret.origin.x += 1;
+      assert(!sh::sameTextInput(cs, moved));
+      moved = cs;
+      moved.marked.reset();
+      assert(!sh::sameTextInput(cs, moved));
+      moved = cs;
+      moved.selection.length = 1;
+      assert(!sh::sameTextInput(cs, moved));
       // No preedit and nothing to commit: the composition ends.
       e = run(composing, sh::imeUpdate(cs, {}));
       assert(e.text == "ab" && !e.marked && e.selection.start == 1);

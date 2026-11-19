@@ -34,6 +34,13 @@ if(EXISTS "${_fractional}")
     set(GLIM_HAS_FRACTIONAL_SCALE ON)
 endif()
 
+# text-input-v3: the IME client (N8.9). Without it fields take keys only.
+set(_text_input "${WAYLAND_PROTOCOLS_DIR}/unstable/text-input/text-input-unstable-v3.xml")
+if(EXISTS "${_text_input}")
+    glim_wayland_protocol("${_text_input}")
+    set(GLIM_HAS_TEXT_INPUT_V3 ON)
+endif()
+
 add_library(glim-shell STATIC
     src/Application.cpp
     src/Window.cpp
@@ -42,6 +49,7 @@ add_library(glim-shell STATIC
     src/RunLoop.cpp
     src/WindowRegistry.cpp
     src/Display.cpp
+    src/TextInput.cpp
     ${GLIM_WL_PROTOCOL_SOURCES}
     ${GLIM_WL_PROTOCOL_HEADERS})
 add_library(glim::shell ALIAS glim-shell)
@@ -51,6 +59,9 @@ target_link_libraries(glim-shell PUBLIC glim::core glim::gpu glim::shell-api)
 target_link_libraries(glim-shell PUBLIC ${WAYLAND_CLIENT_LIBRARIES})
 if(GLIM_HAS_FRACTIONAL_SCALE)
     target_compile_definitions(glim-shell PRIVATE GLIM_HAS_FRACTIONAL_SCALE=1)
+endif()
+if(GLIM_HAS_TEXT_INPUT_V3)
+    target_compile_definitions(glim-shell PRIVATE GLIM_HAS_TEXT_INPUT_V3=1)
 endif()
 set_source_files_properties(src/Window.cpp PROPERTIES COMPILE_DEFINITIONS GLIM_SOFTWARE=1)
 set_source_files_properties(${GLIM_WL_PROTOCOL_SOURCES} PROPERTIES COMPILE_FLAGS "-w")

@@ -14,6 +14,9 @@ struct wp_viewporter;
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
 struct wp_fractional_scale_manager_v1;
 #endif
+#ifdef GLIM_HAS_TEXT_INPUT_V3
+struct zwp_text_input_manager_v3;
+#endif
 
 namespace glim::shell {
 
@@ -35,6 +38,9 @@ struct Wayland {
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
   wp_fractional_scale_manager_v1* fractional = nullptr;
 #endif
+#ifdef GLIM_HAS_TEXT_INPUT_V3
+  zwp_text_input_manager_v3* textInputs = nullptr;
+#endif
   int outputScale = 1;
   bool connected = false;
 };
@@ -48,6 +54,9 @@ void waylandDispatchPending();
 bool waylandPrepareRead();
 void waylandCancelRead();
 int waylandReadEvents();
+
+// Drops the seat's text input before its manager and seat go.
+void textInputDisconnect();
 
 void registerSurface(wl_surface*, Window*);
 void unregisterSurface(wl_surface*);

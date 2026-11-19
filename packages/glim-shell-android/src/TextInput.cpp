@@ -131,10 +131,7 @@ void publishToJava(JNIEnv* env, jobject activity, const TextInputState& s) {
 
 void Window::setTextInput(TextInputState state) {
   Ime& i = ime();
-  const bool changed = state.active != i.state.active || state.text != i.state.text ||
-                       state.selection.start != i.state.selection.start ||
-                       state.selection.length != i.state.selection.length ||
-                       state.secure != i.state.secure;
+  const bool changed = !sameTextInput(state, i.state);
   i.state = std::move(state);
   if (!changed) return;
   detail::withJni([&](JNIEnv* env, jobject activity) {

@@ -58,6 +58,19 @@ struct TextInputState {
   Rect caret{};
 };
 
+// Whether a shell needs to tell its platform anything new.
+inline bool sameTextInput(const TextInputState& a, const TextInputState& b) {
+  const auto range = [](const TextInputRange& x, const TextInputRange& y) {
+    return x.start == y.start && x.length == y.length;
+  };
+  const bool marked =
+    a.marked.has_value() == b.marked.has_value() && (!a.marked || range(*a.marked, *b.marked));
+  return a.active == b.active && a.secure == b.secure && a.text == b.text &&
+         range(a.selection, b.selection) && marked && a.caret.origin.x == b.caret.origin.x &&
+         a.caret.origin.y == b.caret.origin.y && a.caret.size.x == b.caret.size.x &&
+         a.caret.size.y == b.caret.size.y;
+}
+
 using TextInputCallback = std::function<void(const TextInputChange&)>;
 
 }  // namespace glim::shell
