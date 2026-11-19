@@ -33,6 +33,9 @@ struct TextRules {
   bool secure = false;
 };
 
+// How far a press may drift and still count as a tap or a hold, px.
+inline constexpr float kTextTapSlop = 6.f;
+
 // How far a move or delete reaches. Lines are hard lines until layout
 // supplies wrapped ones.
 enum class TextUnit : std::uint8_t { Character, Word, Line, Document };

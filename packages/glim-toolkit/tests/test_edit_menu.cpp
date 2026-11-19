@@ -73,4 +73,43 @@ void test_edit_menu() {
     s.pointerUp(ft, fb, far, y, fe);
     assert(!s.menuAt);
   }
+
+  // A long press on a field selects the word under it and opens the menu;
+  // moving past the tap slop or lifting first cancels it.
+  {
+    Store store;
+    Engine fe;
+    fe.store = store;
+    State<TextEdit> value = rootScope(fe).state("hold", TextEdit{.text = "hello world"});
+    const auto build = [&] { return textField({.value = value, .width = 300}); };
+    Block ft = build();
+    const Box fb = fe.place(ft, {0, 400, 0, 100});
+    const Box field = focusBox(ft, fb, 0, fe);
+    const float x = field.x + FieldGeometry::kPadX + 8 * Tokens::kTypeAdvance;
+    const float y = field.y + 4;
+    Screen s;
+    s.clock.now = 1.f;
+    assert(s.pointerDown(ft, fb, x, y, 1, fe));
+    ft = build();
+    s.clock.now = 1.3f;
+    assert(!s.holdTick(ft, fb, fe) && !s.menuAt);
+    s.clock.now = 1.6f;
+    assert(s.holdTick(ft, fb, fe));
+    assert(s.menuAt && s.menuAt->x == x);
+    assert(value->selection.start == 6 && value->selection.length == 5);
+    assert(!s.holdTick(ft, fb, fe));
+    s.pointerUp(ft, fb, x, y, fe);
+    // Lifting before the hold cancels it.
+    s.clock.now = 5.f;
+    s.pointerDown(ft, fb, x, y, 1, fe);
+    s.pointerUp(ft, fb, x, y, fe);
+    s.clock.now = 6.f;
+    assert(!s.holdTick(ft, fb, fe) && !s.menuAt);
+    // So does a drag past the slop.
+    s.clock.now = 10.f;
+    s.pointerDown(ft, fb, x, y, 1, fe);
+    s.pointerMove(ft, fb, x + kTextTapSlop + 1, y, true, 1, fe);
+    s.clock.now = 11.f;
+    assert(!s.holdTick(ft, fb, fe) && !s.menuAt);
+  }
 }

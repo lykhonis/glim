@@ -29,6 +29,13 @@ struct Screen {
   bool caretOn(bool reduceMotion) const;
   // Where the edit menu is open, in window space; any press closes it.
   std::optional<Vec2> menuAt;
+  // A press still down and in place, and when it began; a long one opens
+  // the edit menu.
+  std::optional<Vec2> held;
+  float heldSince = 0.0f;
+  // Called each frame: a hold past its time on a focused field selects the
+  // word there and opens the edit menu. True when it opened.
+  bool holdTick(const Block& tree, const Box& box, const Engine& engine = Engine{});
   // Pointer capture: pressed moves route straight to the hit target, plus id so a
   // second touch can't hijack the drag.
   int drag = -1;

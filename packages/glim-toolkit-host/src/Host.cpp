@@ -471,6 +471,14 @@ int run(
         if (on != caretShown) invalidate();
         caretShown = on;
       }
+      if (screen.held) {
+        auto [tree, box] = buildFresh(window.size());
+        if (screen.holdTick(tree, box, active)) {
+          menuActions = editMenuActions(screen, tree, box, active);
+          menuField = screen.focus;
+          invalidate();
+        }
+      }
       if (screen.moving()) {
         auto [tree, box] = buildFresh(window.size());
         screen.tick(tree, box, active);

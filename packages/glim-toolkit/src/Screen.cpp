@@ -1,3 +1,4 @@
+#include <cmath>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -34,6 +35,8 @@ bool Screen::pointerDown(
       drag = -1;
     }
     focusVisible = false;
+    held = Vec2{x, y};
+    heldSince = clock.now;
     return true;
   }
   drag = -1;
@@ -59,10 +62,21 @@ bool Screen::contextPress(
   return true;
 }
 
+bool Screen::holdTick(const Block& tree, const Box& box, const Engine& engine) {
+  constexpr float kHoldSeconds = 0.5f;
+  if (!held || clock.now - heldSince < kHoldSeconds) return false;
+  const Vec2 at = *held;
+  held.reset();
+  if (!text(tree, box, {.op = TextOp::SelectWord}, engine)) return false;
+  menuAt = at;
+  return true;
+}
+
 bool Screen::pointerUp(const Block& tree, const Box& box, float x, float y, const Engine& engine) {
   const PointerUp release{x, y, clock.now};
   Event up = Event::borrow(release);
   drag = -1;
+  held.reset();
   return dispatchPointer(tree, box, x, y, up, engine);
 }
 
@@ -76,6 +90,9 @@ bool Screen::pointerMove(
   const Engine& engine
 ) {
   if (!pressed) return false;
+  if (held && (std::abs(x - held->x) > kTextTapSlop || std::abs(y - held->y) > kTextTapSlop)) {
+    held.reset();
+  }
   PointerMove move{x, y, pressed, clock.now, &engine};
   Event moved = Event::borrow(move);
   if (drag >= 0) {

@@ -13,7 +13,6 @@ namespace {
 constexpr std::size_t kUndoDepth = 100;
 constexpr std::string_view kBullet = "•";
 constexpr float kTapSeconds = 0.4f;
-constexpr float kTapSlop = 6.f;
 
 // Shell ranges are untrusted: clamp into the text and onto code points.
 TextRange clamp(const std::string& s, TextRange r) {
@@ -197,7 +196,7 @@ TextEdit pressText(TextEdit edit, std::size_t at, float x, float y, float time, 
   at = clamp(edit.text, {at, 0}).start;
   const TextPress& last = edit.press;
   const bool repeat = !shift && last.time >= 0.f && time - last.time <= kTapSeconds &&
-                      std::abs(x - last.x) <= kTapSlop && std::abs(y - last.y) <= kTapSlop;
+                      std::abs(x - last.x) <= kTextTapSlop && std::abs(y - last.y) <= kTextTapSlop;
   edit.press = {time, x, y, repeat ? last.taps + 1 : 1};
   if (edit.press.taps >= 3) return selectAll(std::move(edit));
   if (edit.press.taps == 2) {
