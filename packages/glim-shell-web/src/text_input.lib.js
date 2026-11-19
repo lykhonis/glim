@@ -65,4 +65,20 @@ addToLibrary({
     }
     if (document.activeElement !== el) el.focus({preventScroll: true});
   },
+
+  // The system clipboard takes text asynchronously; reads are not offered,
+  // since a synchronous read is impossible in the browser.
+  glim_web_clipboard_write__deps: ['$UTF8ToString'],
+  glim_web_clipboard_write: (text) => {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return 0;
+    navigator.clipboard.writeText(UTF8ToString(text)).catch(() => {});
+    return 1;
+  },
+
+  // The canvas's right-click is Glim's: no browser context menu over it.
+  glim_web_canvas_init__deps: ['$UTF8ToString'],
+  glim_web_canvas_init: (selector) => {
+    const canvas = document.querySelector(UTF8ToString(selector));
+    if (canvas) canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  },
 });

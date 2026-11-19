@@ -5,6 +5,9 @@
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/html5.h>
+
+// Defined in text_input.lib.js.
+extern "C" void glim_web_canvas_init(const char* selector);
 #endif
 
 namespace glim::shell::detail {
@@ -73,6 +76,7 @@ EM_BOOL onKey(int type, const EmscriptenKeyboardEvent* k, void* user) {
 
 void listen(Window* window, const std::string& selector) {
   const char* target = selector.c_str();
+  glim_web_canvas_init(target);
   emscripten_set_mousedown_callback(target, window, true, onMouse);
   emscripten_set_mouseup_callback(target, window, true, onMouse);
   emscripten_set_mousemove_callback(target, window, true, onMouse);

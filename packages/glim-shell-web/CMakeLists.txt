@@ -2,7 +2,7 @@ add_library(glim-shell STATIC
     src/Application.cpp
     src/Window.cpp
     src/Surface.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/ClipboardUnsupported.cpp
+    src/Clipboard.cpp
     src/RunLoop.cpp
     src/Input.cpp
     src/TextInput.cpp)

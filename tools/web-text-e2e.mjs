@@ -128,7 +128,27 @@ await send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Backspace", cod
 await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8 });
 await until(async () => logs.includes("text value gli"), "deleted backward");
 
-console.log("web text: focused, typed glim, deleted to gli");
+// Glim's edit menu: select all, right-click the field, pick Cut (the
+// first item); the field empties and the system clipboard holds the text.
+await send("Browser.grantPermissions", {
+  origin: `http://127.0.0.1:${port}`,
+  permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
+});
+await send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 4, commands: ["selectAll"] });
+await send("Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 4 });
+await new Promise((r) => setTimeout(r, 500));
+for (const type of ["mousePressed", "mouseReleased"]) {
+  await send("Input.dispatchMouseEvent", { type, x: 60, y: 16, button: "right", clickCount: 1 });
+}
+await new Promise((r) => setTimeout(r, 500));
+await click(78, 30);
+await until(async () => logs.includes("text value "), "cut the field from the menu");
+await until(
+  async () => (await send("Runtime.evaluate", { expression: "navigator.clipboard.readText()", awaitPromise: true, returnByValue: true }).then((/** @type {any} */ m) => m.result.result.value)) === "gli",
+  "put the cut text on the clipboard",
+);
+
+console.log("web text: focused, typed glim, deleted to gli, cut gli from the edit menu");
 clearTimeout(timer);
 ws.close();
 const exited = new Promise((r) => chrome.on("close", r));
