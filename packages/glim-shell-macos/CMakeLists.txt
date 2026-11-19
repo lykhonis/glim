@@ -2,6 +2,7 @@ add_library(glim-shell STATIC
     src/Application.mm
     src/Window.mm
     src/Present.mm
+    src/Clipboard.mm
     src/A11y.mm
     src/TextInput.mm
     src/SlotLayers.mm
@@ -18,6 +19,7 @@ set_source_files_properties(
     src/Application.mm
     src/Window.mm
     src/Present.mm
+    src/Clipboard.mm
     src/A11y.mm
     src/TextInput.mm
     src/SlotLayers.mm

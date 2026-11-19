@@ -1,5 +1,6 @@
 #import "GlimView.h"
 
+#include <glim/shell/Clipboard.h>
 #include <glim/shell/TextCommands.h>
 
 #include <algorithm>
@@ -147,10 +148,7 @@ TextInputRange bytes(const std::string& text, NSRange r) {
   (void)sender;
   const auto& s = self.textInput.state;
   if (s.secure) return;
-  const std::string picked = s.text.substr(s.selection.start, s.selection.length);
-  NSPasteboard* board = NSPasteboard.generalPasteboard;
-  [board clearContents];
-  [board setString:@(picked.c_str()) forType:NSPasteboardTypeString];
+  glim::shell::writeClipboard(std::string_view(s.text).substr(s.selection.start, s.selection.length));
 }
 
 - (void)cut:(id)sender {
@@ -171,8 +169,10 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 
 - (void)paste:(id)sender {
   (void)sender;
-  NSString* text = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
-  if (text) [self.textInput send:{.op = TextInputOp::Insert, .text = glim::shell::detail::utf8(text)}];
+  auto pasted = glim::shell::readClipboard();
+  if (pasted.status == glim::shell::ClipboardStatus::Ok) {
+    [self.textInput send:{.op = TextInputOp::Insert, .text = std::move(pasted.text)}];
+  }
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem*)item {
@@ -183,7 +183,7 @@ TextInputRange bytes(const std::string& text, NSRange r) {
   }
   if (a == @selector(paste:)) {
     return self.textInput.active &&
-           [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] != nil;
+           glim::shell::readClipboard().status == glim::shell::ClipboardStatus::Ok;
   }
   if (a == @selector(selectAll:) || a == @selector(undo:) || a == @selector(redo:)) {
     return self.textInput.active;

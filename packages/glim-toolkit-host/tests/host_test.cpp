@@ -1,5 +1,10 @@
 #include <glim/paint/Software.h>
+#include <glim/shell/Clipboard.h>
 #include <glim/shell/TextCommands.h>
+
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
 #include <glim/toolkit.h>
 #include <glim/toolkit/host/A11y.h>
 #include <glim/toolkit/host/Codec.h>
@@ -152,6 +157,24 @@ int main() {
     assert(cmd("moveToBeginningOfDocumentAndModifySelection:").unit == TextInputUnit::Document);
     assert(cmd("undo:").op == TextInputOp::Undo && cmd("redo:").op == TextInputOp::Redo);
     assert(!glim::shell::textCommand("insertNewline:") && !glim::shell::textCommand("bogus:"));
+
+    // The clipboard round-trips text where the shell has one, and says
+    // Unsupported where it does not; the user's clipboard is restored.
+    {
+      using glim::shell::ClipboardStatus;
+      const glim::shell::ClipboardText before = glim::shell::readClipboard();
+      const std::string probe = "glim clipboard \xe2\x9c\x93";
+      const ClipboardStatus wrote = glim::shell::writeClipboard(probe);
+      const glim::shell::ClipboardText back = glim::shell::readClipboard();
+#if defined(__APPLE__) && !TARGET_OS_TV
+      assert(wrote == ClipboardStatus::Ok);
+      assert(back.status == ClipboardStatus::Ok && back.text == probe);
+      if (before.status == ClipboardStatus::Ok) glim::shell::writeClipboard(before.text);
+#else
+      assert(wrote == ClipboardStatus::Unsupported && back.status == ClipboardStatus::Unsupported);
+      assert(before.status == ClipboardStatus::Unsupported);
+#endif
+    }
 
     // A secure field gives the shell only its mask, ranges included.
     const glim::toolkit::TextFocus secret{

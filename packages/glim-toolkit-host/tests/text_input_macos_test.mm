@@ -137,6 +137,28 @@ int main() {
     expect(value->text.empty(), "Cmd+X cuts the selection");
     expect(shortcut(@"v", 9), "Cmd+V is a menu shortcut");
     expect(value->text == "hi!你", "Cmd+V pastes at the caret");
+    // Text-system commands reach the model: word moves extend, forward
+    // delete, and undo and redo through the Edit menu.
+    [view doCommandBySelector:@selector(moveToBeginningOfDocument:)];
+    [view doCommandBySelector:@selector(moveWordRightAndModifySelection:)];
+    expect(value->selection.start == 0 && value->selection.length == 2, "word extend selects 'hi'");
+    [view doCommandBySelector:@selector(deleteForward:)];
+    expect(value->text == "!你", "forward delete removes the selection");
+    expect(shortcut(@"z", 6), "Cmd+Z is a menu shortcut");
+    expect(value->text == "hi!你", "Cmd+Z undoes");
+    expect(shortcut(@"z", 6, NSEventModifierFlagShift), "Shift+Cmd+Z is a menu shortcut");
+    expect(value->text == "!你", "Shift+Cmd+Z redoes");
+    // A secure field neither copies nor cuts, with a live selection behind it.
+    expect(shortcut(@"a", 0) && value->selection.length > 0, "select all before the secure check");
+    [board clearContents];
+    window.setTextInput({.active = true, .secure = true, .text = "••", .selection = {0, 6}});
+    NSMenuItem* copyItem = menuItem(@"c", NSEventModifierFlagCommand);
+    expect(![(id)view validateMenuItem:copyItem], "secure copy is disabled");
+    [view tryToPerform:@selector(copy:) with:nil];
+    [view tryToPerform:@selector(cut:) with:nil];
+    expect([board stringForType:NSPasteboardTypeString] == nil, "secure fields never reach the clipboard");
+    expect(value->text == "!你", "secure cut deletes nothing");
+    publish();
     for (NSString* k : @[ @"h", @"m", @"w", @"q" ]) {
       expect(menuItem(k, NSEventModifierFlagCommand) != nil, std::string("menu has Cmd+") + k.UTF8String);
     }

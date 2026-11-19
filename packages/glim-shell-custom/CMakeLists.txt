@@ -2,6 +2,7 @@ add_library(glim-shell STATIC
     src/Application.cpp
     src/Window.cpp
     src/Surface.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/ClipboardUnsupported.cpp
     src/RunLoop.cpp)
 add_library(glim::shell ALIAS glim-shell)
 target_include_directories(glim-shell PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
