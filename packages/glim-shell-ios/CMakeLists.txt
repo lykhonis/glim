@@ -3,6 +3,7 @@ add_library(glim-shell STATIC
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/Surface.mm
     src/RunLoop.cpp
@@ -18,6 +19,7 @@ set_source_files_properties(
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/Surface.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc")

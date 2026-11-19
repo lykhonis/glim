@@ -3,6 +3,7 @@ add_library(glim-shell STATIC
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/TextInput.mm
     src/SlotLayers.mm
@@ -20,6 +21,7 @@ set_source_files_properties(
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/TextInput.mm
     src/SlotLayers.mm
