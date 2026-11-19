@@ -1,5 +1,6 @@
 #include <glim/paint/Software.h>
 #include <glim/shell/Clipboard.h>
+#include <glim/shell/ImeEdits.h>
 #include <glim/shell/TextCommands.h>
 #include <glim/shell/Utf16.h>
 
@@ -174,6 +175,45 @@ int main() {
       // Text cut mid code point never maps past its end.
       const std::string cut = "a\xE4";
       assert(glim::shell::utf16Byte(cut, 5) == 2 && glim::shell::utf16Units(cut, 1) == 1);
+    }
+
+    // IME edits phrased in UTF-16 against the field (Android's
+    // InputConnection, the browser) become byte-range changes. Each change
+    // list, applied to the field, gives what the IME asked for.
+    {
+      namespace sh = glim::shell;
+      using glim::toolkit::TextEdit;
+      const auto run = [](TextEdit e, const std::vector<sh::TextInputChange>& cs) {
+        for (const auto& c : cs)
+          e = glim::toolkit::applyText(e, glim::toolkit::host::toolkitText(c));
+        return e;
+      };
+      const auto state = [](const TextEdit& e) {
+        return sh::TextInputState{
+          .active = true, .text = e.text, .selection = {e.selection.start, e.selection.length}
+        };
+      };
+      const TextEdit base{.text = "a你😀b", .selection = {4, 0}};  // caret after 你
+      // Compose, then commit, at the caret.
+      TextEdit e = run(base, sh::imeCompose(state(base), "ni"));
+      assert(e.text == "a你ni😀b" && e.marked && e.marked->start == 4 && e.selection.start == 6);
+      e = run(e, sh::imeCommit(state(e), "呢"));
+      assert(e.text == "a你呢😀b" && !e.marked && e.selection.start == 7);
+      // Delete one unit before (你) and two after (😀); a selection between stays.
+      const TextEdit sel{.text = "a你x😀b", .selection = {4, 1}};
+      e = run(sel, sh::imeDeleteSurrounding(state(sel), 1, 2));
+      assert(e.text == "axb" && e.selection.start == 1 && e.selection.length == 1);
+      // After counts from the selection's end.
+      const TextEdit abcd{.text = "abcd", .selection = {1, 1}};
+      e = run(abcd, sh::imeDeleteSurrounding(state(abcd), 0, 1));
+      assert(e.text == "abd" && e.selection.start == 1 && e.selection.length == 1);
+      // Past the ends it deletes what there is.
+      e = run(base, sh::imeDeleteSurrounding(state(base), 9, 9));
+      assert(e.text.empty());
+      // Selection and composing regions arrive in UTF-16 units.
+      e = run(base, sh::imeSelect(state(base), 1, 4));
+      assert(e.selection.start == 1 && e.selection.length == 7);
+      assert(sh::imeDeleteSurrounding(state(base), 0, 0).empty());
     }
 
     // The clipboard round-trips text where the shell has one, and says

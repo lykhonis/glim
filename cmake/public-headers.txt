@@ -25,6 +25,7 @@ packages/glim-runtime-wamr/include/glim/runtime_wamr/Wamr.h
 packages/glim-shell/include/glim/shell/A11y.h
 packages/glim-shell/include/glim/shell/Clipboard.h
 packages/glim-shell/include/glim/shell/Event.h
+packages/glim-shell/include/glim/shell/ImeEdits.h
 packages/glim-shell/include/glim/shell/Present.h
 packages/glim-shell/include/glim/shell/Slot.h
 packages/glim-shell/include/glim/shell/SlotLayer.h
