@@ -354,7 +354,7 @@ int run(
     }
     if (e.type() == T::PointerDown) {
       auto [tree, box] = buildFresh(window.size());
-      if (screen.pointerDown(tree, box, e.x(), e.y(), e.pointerId(), active)) {
+      if (screen.pointerDown(tree, box, e.x(), e.y(), e.pointerId(), active, e.shift())) {
         invalidate();
       } else if (config.customTitlebar && e.y() < config.titleDragHeight) {
         // Empty chrome drags: toolkit ignored the press inside the

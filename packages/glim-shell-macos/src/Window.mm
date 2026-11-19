@@ -99,6 +99,7 @@ using glim::shell::Window;
   Event e(EventType::PointerDown);
   e.setPoint(static_cast<float>(p.x), static_cast<float>(p.y));
   e.setButton(glim::shell::PointerButton::Left);
+  e.setShift((event.modifierFlags & NSEventModifierFlagShift) != 0);
   eventCallback_(e);
 }
 

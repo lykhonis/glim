@@ -252,7 +252,7 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
 }
 
 #if !TARGET_OS_TV
-- (void)emitPointer:(EventType)type touch:(UITouch*)touch {
+- (void)emitPointer:(EventType)type touch:(UITouch*)touch event:(UIEvent*)event {
     if (!eventCallback_) {
         return;
     }
@@ -261,34 +261,35 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
     e.setPoint(static_cast<float>(p.x), static_cast<float>(p.y));
     e.setButton(PointerButton::Left);
     e.setPointerId(static_cast<int>(touch.hash & 0x7fffffff));
+    e.setShift((event.modifierFlags & UIKeyModifierShift) != 0);
     eventCallback_(e);
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     [super touchesBegan:touches withEvent:event];
     for (UITouch* touch in touches) {
-        [self emitPointer:EventType::PointerDown touch:touch];
+        [self emitPointer:EventType::PointerDown touch:touch event:event];
     }
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     [super touchesMoved:touches withEvent:event];
     for (UITouch* touch in touches) {
-        [self emitPointer:EventType::PointerMove touch:touch];
+        [self emitPointer:EventType::PointerMove touch:touch event:event];
     }
 }
 
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     [super touchesEnded:touches withEvent:event];
     for (UITouch* touch in touches) {
-        [self emitPointer:EventType::PointerUp touch:touch];
+        [self emitPointer:EventType::PointerUp touch:touch event:event];
     }
 }
 
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     [super touchesCancelled:touches withEvent:event];
     for (UITouch* touch in touches) {
-        [self emitPointer:EventType::PointerUp touch:touch];
+        [self emitPointer:EventType::PointerUp touch:touch event:event];
     }
 }
 #endif

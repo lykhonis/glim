@@ -47,6 +47,8 @@ class Event {
   Key key() const { return key_; }
   PointerButton button() const { return button_; }
   int pointerId() const { return pointerId_; }
+  // Shift held on a pointer press.
+  bool shift() const { return shift_; }
   // Wheel in logical px, web sign (dy > 0 reveals below); AppKit deltas negated.
   float dx() const { return dx_; }
   float dy() const { return dy_; }
@@ -78,6 +80,11 @@ class Event {
     return *this;
   }
 
+  Event& setShift(bool shift) {
+    shift_ = shift;
+    return *this;
+  }
+
   Event& setScroll(float dx, float dy) {
     dx_ = dx;
     dy_ = dy;
@@ -95,6 +102,7 @@ class Event {
   Key key_ = Key::Unknown;
   PointerButton button_ = PointerButton::None;
   int pointerId_ = 0;
+  bool shift_ = false;
   float dx_ = 0;
   float dy_ = 0;
 };

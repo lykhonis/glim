@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace glim::toolkit;
 
@@ -163,6 +164,26 @@ int main() {
       expect(menuItem(k, NSEventModifierFlagCommand) != nil, std::string("menu has Cmd+") + k.UTF8String);
     }
     expect(menuItem(@"f", NSEventModifierFlagCommand | NSEventModifierFlagControl) != nil, "menu has Ctrl+Cmd+F");
+
+    // A pointer press carries Shift from the platform event.
+    {
+      std::vector<bool> shifts;
+      window.setEventCallback([&](const glim::shell::Event& ev) {
+        if (ev.type() == glim::shell::EventType::PointerDown) shifts.push_back(ev.shift());
+      });
+      for (NSEventModifierFlags mods : {NSEventModifierFlags(0), NSEventModifierFlags(NSEventModifierFlagShift)}) {
+        [view mouseDown:[NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+                                           location:NSMakePoint(20, 20)
+                                      modifierFlags:mods
+                                          timestamp:0
+                                       windowNumber:view.window.windowNumber
+                                            context:nil
+                                        eventNumber:0
+                                         clickCount:1
+                                           pressure:1]];
+      }
+      expect(shifts == std::vector<bool>{false, true}, "Shift reaches the pointer event");
+    }
 
     // Quit closes the windows, so the host's loop ends the way a closed
     // window ends it; the process is not torn down under the app.
