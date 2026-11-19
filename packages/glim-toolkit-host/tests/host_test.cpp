@@ -214,6 +214,35 @@ int main() {
       e = run(base, sh::imeSelect(state(base), 1, 4));
       assert(e.selection.start == 1 && e.selection.length == 7);
       assert(sh::imeDeleteSurrounding(state(base), 0, 0).empty());
+      // Wayland's text-input-v3 counts in bytes.
+      e = run(base, sh::imeDeleteSurroundingBytes(state(base), 3, 4));
+      assert(e.text == "ab" && e.selection.start == 1);
+      // Its done applies one update: the old preedit goes, text around the
+      // cursor is deleted, the commit goes in, then the new preedit.
+      const TextEdit ab{.text = "ab", .selection = {1, 0}};
+      TextEdit composing = run(ab, sh::imeCompose(state(ab), "xy"));
+      sh::TextInputState cs = state(composing);
+      cs.marked = sh::TextInputRange{composing.marked->start, composing.marked->length};
+      e = run(
+        composing,
+        sh::imeUpdate(cs, {.deleteBefore = 1, .commit = "Z", .preedit = "qr", .preeditCursor = 1})
+      );
+      assert(e.text == "Zqrb" && e.marked && e.marked->start == 1 && e.marked->length == 2);
+      assert(e.selection.start == 2 && e.selection.length == 0);
+      e = run(composing, sh::imeUpdate(cs, {.preedit = "qr"}));
+      assert(e.text == "aqrb" && e.selection.start == 3);
+      // Every range the shell emits lies inside the text it was computed on.
+      const auto inside = [](const std::vector<sh::TextInputChange>& cs, std::size_t size) {
+        for (const auto& c : cs)
+          if (c.op == sh::TextInputOp::Select && c.selection.start + c.selection.length > size)
+            return false;
+        return true;
+      };
+      assert(inside(sh::imeDeleteSurroundingBytes(state(base), 99, 99), base.text.size()));
+      assert(inside(sh::imeUpdate(cs, {.deleteBefore = 99, .deleteAfter = 99}), 2));
+      // No preedit and nothing to commit: the composition ends.
+      e = run(composing, sh::imeUpdate(cs, {}));
+      assert(e.text == "ab" && !e.marked && e.selection.start == 1);
     }
 
     // The clipboard round-trips text where the shell has one, and says
