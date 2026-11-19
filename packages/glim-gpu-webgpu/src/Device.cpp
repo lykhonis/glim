@@ -1,8 +1,16 @@
 #include "WebGpuImpl.h"
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
+
 namespace glim::gpu {
 
 using namespace webgpu;
+
+namespace {
+constexpr int kDeviceWaitMs = 10000;
+}
 
 Result<Device> Device::create(const DeviceCreateInfo& info) {
   if (info.backend != Backend::WebGpu) {
@@ -22,6 +30,17 @@ Result<Device> Device::create(const DeviceCreateInfo& info) {
   }
   ensureAdapter();
   requestDevice();
+#if defined(__EMSCRIPTEN__)
+  // The adapter and device arrive in browser callbacks. Builds with
+  // Asyncify (toolkit apps) wait for them here; others poll create.
+  if (emscripten_has_asyncify()) {
+    for (int waited = 0; !w.ready && !w.failed && waited < kDeviceWaitMs; waited += 10) {
+      emscripten_sleep(10);
+      if (w.instance != nullptr) wgpuInstanceProcessEvents(w.instance);
+    }
+    if (w.failed) return Result<Device>::fail(w.error.c_str());
+  }
+#endif
   if (!w.ready || w.device == nullptr) {
     return Result<Device>::fail("webgpu device not ready");
   }

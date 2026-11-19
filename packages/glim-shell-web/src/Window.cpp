@@ -1,9 +1,23 @@
 #include <glim/shell/Window.h>
 
+#include <algorithm>
+#include <vector>
+
+#include "Shown.h"
+
 namespace glim::shell {
 
+namespace detail {
+
+std::vector<Window*>& shownWindows() {
+  static std::vector<Window*> shown;
+  return shown;
+}
+
+}  // namespace detail
+
 Window::Window() = default;
-Window::~Window() = default;
+Window::~Window() { hide(); }
 
 void Window::setSize(int width, int height) {
   if (width > 0) {
@@ -28,9 +42,16 @@ void Window::setCustomTitlebar(bool) {}
 
 void Window::dragWindow() {}
 
-void Window::show() { shown_ = true; }
+void Window::show() {
+  if (!shown_) detail::shownWindows().push_back(this);
+  shown_ = true;
+}
 
-void Window::hide() { shown_ = false; }
+void Window::hide() {
+  auto& shown = detail::shownWindows();
+  shown.erase(std::remove(shown.begin(), shown.end(), this), shown.end());
+  shown_ = false;
+}
 
 void Window::setEventCallback(EventCallback callback) { callback_ = std::move(callback); }
 
