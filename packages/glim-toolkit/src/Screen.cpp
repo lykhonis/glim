@@ -21,6 +21,7 @@ bool Screen::pointerDown(
   // Events borrow: the payload must outlive the dispatch.
   const PointerDown press{x, y, clock.now, shift, &engine};
   Event down = Event::borrow(press);
+  caretSince = clock.now;
   if (dispatchPointer(tree, box, x, y, down, engine)) {
     // Capture only on a focusable hit; a handled non-focusable clears stale capture.
     int hit = focusAt(tree, box, x, y, engine);
@@ -117,13 +118,21 @@ bool Screen::wheel(
 bool Screen::key(const Block& tree, const Box& box, Key key, const Engine& engine) {
   focus = deliverKey(tree, box, focus, key, engine);
   focusVisible = true;
+  caretSince = clock.now;
   return true;
 }
 
 bool Screen::text(
   const Block& tree, const Box& box, const TextChange& change, const Engine& engine
 ) {
+  caretSince = clock.now;
   return deliverText(tree, box, focus, change, engine);
+}
+
+bool Screen::caretOn(bool reduceMotion) const {
+  constexpr float kHalfPeriod = 0.5f;
+  const float since = clock.now - caretSince;
+  return reduceMotion || since < 0.0f || static_cast<int>(since / kHalfPeriod) % 2 == 0;
 }
 
 std::optional<TextFocus> Screen::textFocus(const Block& tree, const Box& box, const Engine& engine)

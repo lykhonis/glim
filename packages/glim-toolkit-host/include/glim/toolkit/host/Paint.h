@@ -337,7 +337,8 @@ inline void paintScreen(
   const Engine& engine,
   LayerFeed& feed,
   int focus = -1,
-  bool focusVisible = true
+  bool focusVisible = true,
+  bool caretOn = true
 ) {
   feed.ensure(ctx);
   // The clear color lives under the tree's own theme scope: a root
@@ -362,7 +363,7 @@ inline void paintScreen(
   ContextSink sink{ctx};
   paintTree(tree, box, engine, sink, feed);
   paintFocusRing(tree, box, focus, sink, engine, focusVisible);
-  paintCaret(tree, box, focus, sink, engine);
+  if (caretOn) paintCaret(tree, box, focus, sink, engine);
   paintScrollbars(ctx, tree, box, engine);
 }
 

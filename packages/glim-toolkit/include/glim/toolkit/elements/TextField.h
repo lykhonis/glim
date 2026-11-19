@@ -25,10 +25,18 @@ struct FieldGeometry {
   static float height() { return Tokens::kTypeLine + 2 * kPadY; }
   // X of the byte offset within the field's text.
   static float offsetX(const Box& box, const std::string& text, std::size_t at, const Engine& e);
+  // How far a long value scrolls left so the caret stays inside the field.
+  static float scroll(
+    const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
+  );
+  // X of a byte offset into edit.text as painted, scroll included.
+  static float textX(
+    const Box& box, const TextEdit& edit, const TextRules& rules, std::size_t at, const Engine& e
+  );
   static Box caret(const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e);
   // The cluster boundary in the text nearest to x.
   static std::size_t offsetAt(
-    const Box& box, const std::string& text, const TextRules& rules, float x, const Engine& e
+    const Box& box, const TextEdit& edit, const TextRules& rules, float x, const Engine& e
   );
   // The selection's highlight; empty for a caret.
   static Box highlight(

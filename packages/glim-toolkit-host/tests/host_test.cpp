@@ -595,6 +595,29 @@ int main() {
     assert(s[0] < bg && s[1] < bg && s[2] < bg);
   }
 
+  // paintScreen draws the focused field's caret only in its on phase.
+  {
+    using namespace glim::toolkit;
+    Store store;
+    Engine e;
+    e.store = store;
+    State<TextEdit> value = rootScope(e).state("caret", TextEdit{.text = "ab"});
+    Block t = textField({.value = value, .width = 100});
+    const Box tb = e.place(t, {0, 120, 0, 40});
+    const auto lit = [&](bool on) {
+      host::LayerFeed feed;
+      glim::paint::Context ctx;
+      ctx.setSize({120, 40});
+      ctx.beginFrame();
+      host::paintScreen(ctx, t, tb, e, feed, 0, false, on);
+      ctx.finish();
+      std::vector<std::uint8_t> px(120 * 40 * 4);
+      glim::paint::rasterScene(ctx.scene(), 120, 40, px.data());
+      return px;
+    };
+    assert(lit(true) != lit(false));
+  }
+
   // pushGlass material maps to the matching paint lens preset.
   {
     using glim::toolkit::GlassMaterial;

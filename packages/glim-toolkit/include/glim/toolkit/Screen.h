@@ -22,6 +22,10 @@ struct Screen {
   int focus = -1;
   // Focus-visible modality: pointer sets focus silently, keyboard shows the ring.
   bool focusVisible = false;
+  // When the caret last moved (press, key, text); it shows steadily for a
+  // beat after, then blinks. Reduce motion keeps it on.
+  float caretSince = 0.0f;
+  bool caretOn(bool reduceMotion) const;
   // Pointer capture: pressed moves route straight to the hit target, plus id so a
   // second touch can't hijack the drag.
   int drag = -1;

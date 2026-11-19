@@ -142,6 +142,29 @@ void test_text_field() {
     assert(none.ops.empty());
   }
 
+  // The caret holds steady after any press, key or text change, then
+  // blinks in half-second phases; reduce motion keeps it on.
+  {
+    screen.clock.now = 5.f;
+    screen.text(tree, tb, {.op = TextOp::MoveRight}, e);
+    assert(screen.caretSince == 5.f);
+    screen.clock.now = 5.4f;
+    assert(screen.caretOn(false));
+    screen.clock.now = 5.7f;
+    assert(!screen.caretOn(false) && screen.caretOn(true));
+    screen.clock.now = 6.2f;
+    assert(screen.caretOn(false));
+    screen.clock.now = 6.7f;
+    assert(!screen.caretOn(false));
+    screen.key(tree, tb, Key::Right, e);
+    assert(screen.caretOn(false));
+    screen.clock.now = 7.3f;
+    screen.pointerDown(tree, tb, field.x + 4, field.y + 4, 1, e);
+    screen.pointerUp(tree, tb, field.x + 4, field.y + 4, e);
+    assert(screen.caretSince == 7.3f);
+    tree = build();
+  }
+
   // A11y reports a text field with its value.
   tree = build();
   const auto nodes = a11yNodes(tree, tb, e);
@@ -190,5 +213,37 @@ void test_text_field() {
     tree = build();
     screen.pointerDown(tree, tb, x0 + 10 * adv, y, 1, e, true);
     assert(value->selection.start == 2 && value->selection.length == 8);
+  }
+
+  // A value wider than the field scrolls so the caret stays inside it;
+  // paint, the caret and hit testing share that scroll, and paint clips.
+  {
+    const float adv = Tokens::kTypeAdvance;
+    const std::string long_(40, 'x');
+    const float inner = field.w - 2 * FieldGeometry::kPadX - FieldGeometry::kCaretWidth;
+    value = TextEdit{.text = long_, .selection = {40, 0}};
+    tree = build();
+    const Box caret = screen.textFocus(tree, tb, e)->caret;
+    assert(caret.x + caret.w <= field.x + field.w - FieldGeometry::kPadX + 0.01f);
+    const float shift = 40 * adv - inner;
+    assert(FieldGeometry::scroll(field, value.get(), {}, e) == shift);
+    OpsRecorder rec;
+    TestFeed feed;
+    paintTree(tree, tb, e, rec, feed);
+    bool clipped = false, shifted = false;
+    for (const auto& o : rec.ops) {
+      clipped |= o.kind == Op::Kind::PushClip && o.box.x == field.x && o.box.w == field.w;
+      shifted |= o.kind == Op::Kind::Text && o.text == long_ &&
+                 o.box.x == field.x + FieldGeometry::kPadX - shift;
+    }
+    assert(clipped && shifted);
+    // A tap at the field's right edge lands near the end, not mid-text.
+    screen.clock.now = 40.f;
+    screen.pointerDown(tree, tb, caret.x, field.y + 4, 1, e);
+    screen.pointerUp(tree, tb, caret.x, field.y + 4, e);
+    assert(value->selection.start == 40);
+    // At the start nothing scrolls.
+    value = TextEdit{.text = long_, .selection = {0, 0}};
+    assert(FieldGeometry::scroll(field, value.get(), {}, e) == 0.f);
   }
 }

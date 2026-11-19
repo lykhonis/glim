@@ -84,7 +84,16 @@ int run(
       if (config.prepare) config.prepare(frame.context, store);
       Engine e = measureEngine();
       e.store = store;
-      paintScreen(frame.context, tree, box, e, feed, screen.focus, screen.focusVisible);
+      paintScreen(
+        frame.context,
+        tree,
+        box,
+        e,
+        feed,
+        screen.focus,
+        screen.focusVisible,
+        screen.caretOn(store.prefs().has(A11yPref::ReduceMotion))
+      );
     };
   }
   std::unique_ptr<DriveRun> drive;
@@ -188,6 +197,7 @@ int run(
   // screen-reader activation can tap the node it names.
   std::optional<std::vector<A11yNode>> a11yPublished;
   bool textInputActive = false;
+  bool caretShown = true;
   window.setA11yPerform([&](int index, shell::A11yCommand command) {
     if (!a11yPublished || index < 0 || index >= static_cast<int>(a11yPublished->size())) return;
     const auto build = [&] { return buildFresh(window.size()); };
@@ -432,6 +442,12 @@ int run(
       const auto now = tickClock();
       if (store.valuesLive()) {
         store.stepValues(screen.clock.now);
+      }
+      // The caret blinks only while a field holds focus; each flip repaints.
+      if (textInputActive) {
+        const bool on = screen.caretOn(store.prefs().has(A11yPref::ReduceMotion));
+        if (on != caretShown) invalidate();
+        caretShown = on;
       }
       if (screen.moving()) {
         auto [tree, box] = buildFresh(window.size());
