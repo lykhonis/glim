@@ -16,6 +16,12 @@
 - (void)setCallback:(glim::shell::TextInputCallback)callback;
 - (void)send:(glim::shell::TextInputChange)change;
 - (NSRange)utf16:(glim::shell::TextInputRange)range;
+// Edit commands shared by every Apple client. Secure fields never copy.
+@property(nonatomic, readonly) BOOL canCopy;
+@property(nonatomic, readonly) BOOL canPaste;
+- (void)copySelection;
+- (void)cutSelection;
+- (void)paste;
 @end
 
 namespace glim::shell::detail {

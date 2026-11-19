@@ -1,5 +1,7 @@
 #import "TextInputBridge.h"
 
+#include <glim/shell/Clipboard.h>
+
 #include <algorithm>
 #include <utility>
 
@@ -93,6 +95,34 @@ TextInputRange bytes(const std::string& text, NSRange r) {
   const std::size_t a = glim::shell::detail::units(state_.text, range.start);
   const std::size_t b = glim::shell::detail::units(state_.text, range.start + range.length);
   return NSMakeRange(a, b - a);
+}
+
+- (BOOL)canCopy {
+  return state_.active && !state_.secure && state_.selection.length > 0;
+}
+
+- (BOOL)canPaste {
+  return state_.active && glim::shell::readClipboard().status == glim::shell::ClipboardStatus::Ok;
+}
+
+- (void)copySelection {
+  if (!self.canCopy) return;
+  glim::shell::writeClipboard(
+    std::string_view(state_.text).substr(state_.selection.start, state_.selection.length)
+  );
+}
+
+- (void)cutSelection {
+  if (!self.canCopy) return;
+  [self copySelection];
+  [self send:{.op = glim::shell::TextInputOp::DeleteBackward}];
+}
+
+- (void)paste {
+  auto pasted = glim::shell::readClipboard();
+  if (pasted.status == glim::shell::ClipboardStatus::Ok) {
+    [self send:{.op = glim::shell::TextInputOp::Insert, .text = std::move(pasted.text)}];
+  }
 }
 
 @end

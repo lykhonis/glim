@@ -1,6 +1,5 @@
 #import "GlimView.h"
 
-#include <glim/shell/Clipboard.h>
 #include <glim/shell/TextCommands.h>
 
 #include <algorithm>
@@ -56,15 +55,12 @@ using glim::shell::TextInputState;
 
 - (void)copy:(id)sender {
   (void)sender;
-  const auto& s = self.textInput.state;
-  if (s.secure) return;
-  glim::shell::writeClipboard(std::string_view(s.text).substr(s.selection.start, s.selection.length));
+  [self.textInput copySelection];
 }
 
 - (void)cut:(id)sender {
-  if (self.textInput.state.secure) return;
-  [self copy:sender];
-  [self.textInput send:{.op = TextInputOp::DeleteBackward}];
+  (void)sender;
+  [self.textInput cutSelection];
 }
 
 - (void)undo:(id)sender {
@@ -79,22 +75,13 @@ using glim::shell::TextInputState;
 
 - (void)paste:(id)sender {
   (void)sender;
-  auto pasted = glim::shell::readClipboard();
-  if (pasted.status == glim::shell::ClipboardStatus::Ok) {
-    [self.textInput send:{.op = TextInputOp::Insert, .text = std::move(pasted.text)}];
-  }
+  [self.textInput paste];
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem*)item {
   const SEL a = item.action;
-  if (a == @selector(copy:) || a == @selector(cut:)) {
-    const auto& s = self.textInput.state;
-    return self.textInput.active && !s.secure && s.selection.length > 0;
-  }
-  if (a == @selector(paste:)) {
-    return self.textInput.active &&
-           glim::shell::readClipboard().status == glim::shell::ClipboardStatus::Ok;
-  }
+  if (a == @selector(copy:) || a == @selector(cut:)) return self.textInput.canCopy;
+  if (a == @selector(paste:)) return self.textInput.canPaste;
   if (a == @selector(selectAll:) || a == @selector(undo:) || a == @selector(redo:)) {
     return self.textInput.active;
   }

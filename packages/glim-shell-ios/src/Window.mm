@@ -4,6 +4,7 @@
 #include "WindowRegistry.h"
 #import "A11yBridge.h"
 #import "SlotReplica.h"
+#import "TextView.h"
 
 #import <QuartzCore/CAMetalLayer.h>
 #import <QuartzCore/CATransaction.h>
@@ -136,6 +137,7 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
 
 @interface GlimView : UIView
 @property(nonatomic, strong) GlimA11yBridge* a11yBridge;
+@property(nonatomic, strong, readonly) GlimTextView* text;
 - (void)setEventCallback:(Window::EventCallback)callback;
 - (void)dispatchEvent:(const Event&)event;
 - (void)syncMetalDrawableSize;
@@ -168,6 +170,8 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
         self.multipleTouchEnabled = YES;
 #endif
         lastBackingSize_ = CGSizeMake(-1, -1);
+        _text = [[GlimTextView alloc] initWithFrame:CGRectZero];
+        [self addSubview:_text];
         const CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 1.0;
         self.contentScaleFactor = scale;
     }
@@ -676,9 +680,12 @@ void Window::dispatch(const Event& event) {
     [view dispatchEvent:event];
 }
 
-// Owned text input lands per shell after macOS (N8).
-void Window::setTextInput(TextInputState) {}
+void Window::setTextInput(TextInputState state) {
+    [((__bridge GlimView*)view_).text publish:std::move(state)];
+}
 
-void Window::setTextInputCallback(TextInputCallback) {}
+void Window::setTextInputCallback(TextInputCallback callback) {
+    [((__bridge GlimView*)view_).text.textInput setCallback:std::move(callback)];
+}
 
 }  // namespace glim::shell

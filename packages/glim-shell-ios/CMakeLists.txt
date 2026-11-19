@@ -3,6 +3,7 @@ add_library(glim-shell STATIC
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    src/TextView.mm
     ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/Surface.mm
@@ -19,6 +20,7 @@ set_source_files_properties(
     src/Window.mm
     src/Present.mm
     src/Clipboard.mm
+    src/TextView.mm
     ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple/TextInputBridge.mm
     src/A11y.mm
     src/Surface.mm
@@ -36,4 +38,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_source_files_properties(tests/a11y_bridge_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     target_link_libraries(glim-ios-a11y-bridge-test PRIVATE glim::shell)
     glim_test_defaults(glim-ios-a11y-bridge-test)
+
+    add_executable(glim-ios-text-view-test tests/text_view_test.mm)
+    set_source_files_properties(tests/text_view_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_link_libraries(glim-ios-text-view-test PRIVATE glim::shell)
+    target_include_directories(glim-ios-text-view-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../glim-shell/src/apple)
+    glim_test_defaults(glim-ios-text-view-test)
 endif()

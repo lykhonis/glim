@@ -9,13 +9,15 @@ jobs:
     with:
       name: ios-tvos
       runs-on: macos-15
-      # Two cold simulator boots (iOS, tvOS) alone take 10-12 minutes.
-      timeout-minutes: 40
+      # Two cold simulator boots (iOS, tvOS) alone take 10-12 minutes; three
+      # runs in a row were cancelled at the old 40-minute limit.
+      timeout-minutes: 55
       nx: |
         pnpm exec nx run examples:build-ios-sim
         pnpm exec nx run-many -t run-ios --projects=tag:example --parallel=1 --smoke=15
         # The UIKit a11y bridge on the simulator run-ios left booted.
-        cmake --build build/ios-sim-metal-debug --target glim-ios-a11y-bridge-test
+        cmake --build build/ios-sim-metal-debug --target glim-ios-a11y-bridge-test glim-ios-text-view-test
         xcrun simctl spawn booted build/ios-sim-metal-debug/packages/glim-shell-ios/glim-ios-a11y-bridge-test.app/glim-ios-a11y-bridge-test
+        xcrun simctl spawn booted build/ios-sim-metal-debug/packages/glim-shell-ios/glim-ios-text-view-test.app/glim-ios-text-view-test
         pnpm exec nx run examples:build-tvos-sim
         pnpm exec nx run-many -t run-tvos --projects=tag:example --parallel=1 --smoke=15
