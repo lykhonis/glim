@@ -125,6 +125,7 @@ packages/glim-toolkit-host/include/glim/toolkit/host/A11y.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Codec.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Crash.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Drive.h
+packages/glim-toolkit-host/include/glim/toolkit/host/EditMenu.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Embedded.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Feed.h
 packages/glim-toolkit-host/include/glim/toolkit/host/Host.h

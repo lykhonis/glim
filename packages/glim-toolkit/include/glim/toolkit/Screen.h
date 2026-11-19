@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "glim/toolkit/Block.h"
 #include "glim/toolkit/DirtyGate.h"
@@ -26,6 +27,8 @@ struct Screen {
   // beat after, then blinks. Reduce motion keeps it on.
   float caretSince = 0.0f;
   bool caretOn(bool reduceMotion) const;
+  // Where the edit menu is open, in window space; any press closes it.
+  std::optional<Vec2> menuAt;
   // Pointer capture: pressed moves route straight to the hit target, plus id so a
   // second touch can't hijack the drag.
   int drag = -1;
@@ -45,6 +48,11 @@ struct Screen {
     int pointerId,
     const Engine& engine = Engine{},
     bool shift = false
+  );
+  // A secondary press (right-click): places the caret like a press unless it
+  // lands in the selection, then opens the edit menu if a field has focus.
+  bool contextPress(
+    const Block& tree, const Box& box, float x, float y, const Engine& engine = Engine{}
   );
   bool pointerUp(
     const Block& tree, const Box& box, float x, float y, const Engine& engine = Engine{}

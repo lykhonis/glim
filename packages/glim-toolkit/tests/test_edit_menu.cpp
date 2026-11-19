@@ -33,4 +33,44 @@ void test_edit_menu() {
   assert(picked == TextAction::Paste);
   assert(textActionLabel(TextAction::Cut) == "Cut");
   assert(textActionLabel(TextAction::SelectAll) == "Select All");
+
+  // A right-click on a focused field opens the menu at the press and keeps
+  // a selection it lands in; any other press closes it.
+  {
+    Store store;
+    Engine fe;
+    fe.store = store;
+    State<TextEdit> value = rootScope(fe).state("menu", TextEdit{.text = "hello world"});
+    const auto build = [&] {
+      return column(textField({.value = value, .width = 300}), lines("x"), tap(lines("Go"), [] {}));
+    };
+    Block ft = build();
+    const Box fb = fe.place(ft, {0, 400, 0, 300});
+    Screen s;
+    const Box field = focusBox(ft, fb, 0, fe);
+    const float y = field.y + 4;
+    assert(!s.contextPress(ft, fb, field.x + 4, field.y + field.h + 10, fe));
+    assert(!s.menuAt);
+    // A focusable that edits no text opens no menu.
+    const Box go = focusBox(ft, fb, 1, fe);
+    assert(!s.contextPress(ft, fb, go.x + 2, go.y + 2, fe) && !s.menuAt);
+    value = TextEdit{.text = "hello world", .selection = {0, 5}};
+    s.focus = 0;
+    ft = build();
+    const float inside = field.x + FieldGeometry::kPadX + 2 * Tokens::kTypeAdvance;
+    assert(s.contextPress(ft, fb, inside, y, fe));
+    assert(s.menuAt && s.menuAt->x == inside && s.menuAt->y == y);
+    assert(value->selection.start == 0 && value->selection.length == 5);
+    // Outside the selection it moves the caret first, like a press.
+    ft = build();
+    const float far = field.x + FieldGeometry::kPadX + 8 * Tokens::kTypeAdvance;
+    s.clock.now = 10.f;
+    assert(s.contextPress(ft, fb, far, y, fe));
+    assert(value->selection.length == 0 && value->selection.start == 8);
+    ft = build();
+    s.clock.now = 20.f;
+    s.pointerDown(ft, fb, far, y, 1, fe);
+    s.pointerUp(ft, fb, far, y, fe);
+    assert(!s.menuAt);
+  }
 }

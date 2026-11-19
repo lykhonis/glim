@@ -22,6 +22,7 @@ bool Screen::pointerDown(
   const PointerDown press{x, y, clock.now, shift, &engine};
   Event down = Event::borrow(press);
   caretSince = clock.now;
+  menuAt.reset();
   if (dispatchPointer(tree, box, x, y, down, engine)) {
     // Capture only on a focusable hit; a handled non-focusable clears stale capture.
     int hit = focusAt(tree, box, x, y, engine);
@@ -37,6 +38,25 @@ bool Screen::pointerDown(
   }
   drag = -1;
   return false;
+}
+
+bool Screen::contextPress(
+  const Block& tree, const Box& box, float x, float y, const Engine& engine
+) {
+  const std::optional<TextFocus> held = textFocus(tree, box, engine);
+  const bool inSelection = held && [&] {
+    const std::size_t at = FieldGeometry::offsetAt(held->field, held->edit, held->rules, x, engine);
+    const TextRange r = held->edit.selection;
+    return at >= r.start && at <= r.end() && x >= held->field.x &&
+           x <= held->field.x + held->field.w;
+  }();
+  if (!inSelection) {
+    if (!pointerDown(tree, box, x, y, 0, engine)) return false;
+    pointerUp(tree, box, x, y, engine);
+  }
+  if (!textFocus(tree, box, engine)) return false;
+  menuAt = Vec2{x, y};
+  return true;
 }
 
 bool Screen::pointerUp(const Block& tree, const Box& box, float x, float y, const Engine& engine) {

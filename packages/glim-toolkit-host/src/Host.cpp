@@ -17,6 +17,7 @@
 #include <glim/shell/RunLoop.h>
 #include <glim/toolkit/host/A11y.h>
 #include <glim/toolkit/host/Drive.h>
+#include <glim/toolkit/host/EditMenu.h>
 #include <glim/toolkit/host/Paint.h>
 #include <glim/toolkit/host/Present.h>
 #include <glim/toolkit/host/Seats.h>
@@ -164,8 +165,13 @@ int run(
   Engine active = engine;
   active.env = presentEnv;
   active.store = store;
+  // Glim's edit menu: actions fixed at open, a pick runs after the press.
+  std::vector<TextAction> menuActions;
+  std::optional<TextAction> menuPick;
+  int menuField = -1;
   const auto buildFresh = [&](const Vec2& size) {
-    Block tree = build(active);
+    Block tree =
+      withEditMenu(build(active), screen, menuActions, [&](TextAction a) { menuPick = a; });
     Box box = active.place(tree, {0, size.x, 0, size.y});
     return std::pair<Block, Box>(std::move(tree), box);
   };
@@ -362,9 +368,25 @@ int run(
       invalidate();
       return;
     }
+    if (e.type() == T::PointerDown && e.button() == shell::PointerButton::Right) {
+      auto [tree, box] = buildFresh(window.size());
+      if (screen.contextPress(tree, box, e.x(), e.y(), active)) {
+        menuActions = editMenuActions(screen, tree, box, active);
+        menuField = screen.focus;
+      }
+      invalidate();
+      return;
+    }
     if (e.type() == T::PointerDown) {
       auto [tree, box] = buildFresh(window.size());
       if (screen.pointerDown(tree, box, e.x(), e.y(), e.pointerId(), active, e.shift())) {
+        if (menuPick) {
+          screen.focus = menuField;
+          screen.drag = -1;
+          auto [fresh, freshBox] = buildFresh(window.size());
+          runEditAction(screen, fresh, freshBox, *menuPick, active);
+          menuPick.reset();
+        }
         invalidate();
       } else if (config.customTitlebar && e.y() < config.titleDragHeight) {
         // Empty chrome drags: toolkit ignored the press inside the

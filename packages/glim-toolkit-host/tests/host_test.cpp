@@ -10,6 +10,7 @@
 #include <glim/toolkit/host/Codec.h>
 #include <glim/toolkit/host/Crash.h>
 #include <glim/toolkit/host/Drive.h>
+#include <glim/toolkit/host/EditMenu.h>
 #include <glim/toolkit/host/Embedded.h>
 #include <glim/toolkit/host/Host.h>
 #include <glim/toolkit/host/Paint.h>
@@ -593,6 +594,61 @@ int main() {
     assert(c[0] < bg && c[1] > 150);
     const std::uint8_t* s = at(104, 84);
     assert(s[0] < bg && s[1] < bg && s[2] < bg);
+  }
+
+  // The host's edit menu: actions fixed at open from the clipboard, a pick
+  // runs through the injected clipboard, and the menu overlays the tree.
+  {
+    using namespace glim::toolkit;
+    static std::string board;
+    static bool full;
+    const host::ClipboardAccess clip{
+      [] {
+        return glim::shell::ClipboardText{
+          full ? glim::shell::ClipboardStatus::Ok : glim::shell::ClipboardStatus::Empty, board
+        };
+      },
+      [](std::string_view s) {
+        board = std::string(s);
+        full = true;
+        return glim::shell::ClipboardStatus::Ok;
+      },
+    };
+    Store store;
+    Engine e;
+    e.store = store;
+    State<TextEdit> value =
+      rootScope(e).state("menu", TextEdit{.text = "hello", .selection = {0, 5}});
+    const auto build = [&] { return textField({.value = value, .width = 200}); };
+    Block t = build();
+    const Box tb = e.place(t, {0, 300, 0, 100});
+    Screen s;
+    s.focus = 0;
+    full = false;
+    using A = TextAction;
+    assert((host::editMenuActions(s, t, tb, e, clip) == std::vector<A>{A::Cut, A::Copy}));
+    assert(host::runEditAction(s, t, tb, A::Cut, e, clip));
+    assert(board == "hello" && value->text.empty());
+    t = build();
+    assert((host::editMenuActions(s, t, tb, e, clip) == std::vector<A>{A::Paste}));
+    assert(host::runEditAction(s, t, tb, A::Paste, e, clip) && value->text == "hello");
+    // Copy changes nothing in the field, so it reports no change.
+    t = build();
+    value = TextEdit{.text = "hi", .selection = {0, 2}};
+    assert(!host::runEditAction(s, t, tb, A::Copy, e, clip) && board == "hi");
+    // Overlay: only while open, with one button per action.
+    std::optional<A> picked;
+    const auto pick = [&](A a) { picked = a; };
+    const auto taps = [](const Block& b, const Box& bx, const Engine& en) {
+      int n = 0;
+      for (const auto& node : a11yNodes(b, bx, en)) n += node.traits.role == A11yRole::Button;
+      return n;
+    };
+    Block closed = host::withEditMenu(build(), s, {A::Copy}, pick);
+    assert(taps(closed, e.place(closed, {0, 300, 0, 100}), e) == 0);
+    s.menuAt = glim::Vec2{10, 10};
+    Block open = host::withEditMenu(build(), s, {A::Copy, A::Paste}, pick);
+    assert(taps(open, e.place(open, {0, 300, 0, 100}), e) == 2);
   }
 
   // paintScreen draws the focused field's caret only in its on phase.
