@@ -14,11 +14,11 @@
         android:label="@GLIM_EXAMPLE_LABEL@"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/banner"
-        android:hasCode="@GLIM_EXAMPLE_HAS_CODE@"
+        android:hasCode="true"
         android:extractNativeLibs="true"
         android:appCategory="game">
         <activity
-            android:name="android.app.NativeActivity"
+            android:name="com.glim.shell.GlimActivity"
             android:exported="true"
             android:label="@GLIM_EXAMPLE_LABEL@"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"

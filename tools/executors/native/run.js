@@ -564,7 +564,7 @@ function runOnAndroid(options, apk) {
     return fail(`adb install failed for ${apk}`);
   }
 
-  const component = `${pkg}/android.app.NativeActivity`;
+  const component = `${pkg}/com.glim.shell.GlimActivity`;
   spawnSync(adbPath, ["-s", serial, "shell", "am", "force-stop", pkg], { stdio: "ignore" });
   const smoke = smokeSeconds(options);
   if (smoke) {
