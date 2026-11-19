@@ -131,6 +131,15 @@ enum class TextAction : std::uint8_t { Cut, Copy, Paste, SelectAll };
 // The actions that apply now: cut and copy need copyText, paste needs
 // clipboard text, select all needs text not yet all selected.
 std::vector<TextAction> textActions(const TextEdit& edit, const TextRules& rules, bool canPaste);
+// What an action does: text for the clipboard, then a change to the field.
+struct TextActionStep {
+  std::optional<std::string> copy;
+  std::optional<TextChange> change;
+};
+// pasted is the clipboard's text, read only for Paste.
+TextActionStep textActionStep(
+  TextAction action, const TextEdit& edit, const TextRules& rules, std::string_view pasted
+);
 // What the field shows: the text, or one bullet per cluster when secure.
 std::string shownText(const std::string& text, const TextRules& rules);
 // A byte offset into the text, mapped into shownText.

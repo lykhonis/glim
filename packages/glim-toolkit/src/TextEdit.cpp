@@ -286,6 +286,25 @@ std::vector<TextAction> textActions(const TextEdit& edit, const TextRules& rules
   return out;
 }
 
+TextActionStep textActionStep(
+  TextAction action, const TextEdit& edit, const TextRules& rules, std::string_view pasted
+) {
+  switch (action) {
+    case TextAction::Cut: {
+      std::optional<std::string> copy = copyText(edit, rules);
+      if (!copy) return {};
+      return {std::move(copy), TextChange{.op = TextOp::DeleteBackward}};
+    }
+    case TextAction::Copy:
+      return {copyText(edit, rules), std::nullopt};
+    case TextAction::Paste:
+      return {std::nullopt, TextChange{.op = TextOp::Insert, .text = std::string(pasted)}};
+    case TextAction::SelectAll:
+      return {std::nullopt, TextChange{.op = TextOp::SelectAll}};
+  }
+  return {};
+}
+
 std::string shownText(const std::string& text, const TextRules& rules) {
   if (!rules.secure) return text;
   std::string out;

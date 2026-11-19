@@ -99,6 +99,19 @@ void test_text_actions() {
   assert((actions(all, true) == std::vector<A>{A::Cut, A::Copy, A::Paste}));
   // Secure fields never give their text away.
   assert((actions(part, true, {.secure = true}) == std::vector<A>{A::Paste, A::SelectAll}));
+  // Each action is a clipboard write and an edit change; the host does the I/O.
+  const TextActionStep cut = textActionStep(A::Cut, part, {}, "");
+  assert(cut.copy == "ab" && cut.change && cut.change->op == TextOp::DeleteBackward);
+  assert(applyText(part, *cut.change).text == "c");
+  const TextActionStep copy = textActionStep(A::Copy, part, {}, "");
+  assert(copy.copy == "ab" && !copy.change);
+  const TextActionStep paste = textActionStep(A::Paste, part, {}, "xy");
+  assert(!paste.copy && applyText(part, *paste.change).text == "xyc");
+  const TextActionStep sel = textActionStep(A::SelectAll, part, {}, "");
+  assert(!sel.copy && applyText(part, *sel.change).selection.length == 3);
+  // A secure cut gives nothing away and deletes nothing.
+  const TextActionStep secret = textActionStep(A::Cut, part, {.secure = true}, "");
+  assert(!secret.copy && !secret.change);
 }
 
 void test_text_field() {
