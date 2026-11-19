@@ -48,18 +48,29 @@ jobs:
         # (top left), type, and read the value it logs.
         "$adb" logcat -c
         "$adb" shell am start -S -n com.glim.text/com.glim.shell.GlimActivity
-        sleep 8
         scale=$("$adb" shell wm density | grep -oE '[0-9]+' | tail -1)
-        "$adb" shell input tap $((40 * scale / 160)) $((16 * scale / 160))
-        sleep 3
+        # The emulator renders in software: tap until the field takes focus
+        # and the IME serves our view, up to a minute.
+        for i in $(seq 12); do
+          sleep 5
+          "$adb" shell input tap $((40 * scale / 160)) $((16 * scale / 160))
+          sleep 2
+          "$adb" shell dumpsys input_method | grep -q 'mServedView=com.glim.shell.TextInputView' && break
+        done
         "$adb" shell dumpsys input_method | grep -q 'mServedView=com.glim.shell.TextInputView'
         "$adb" shell input text glim
-        sleep 3
+        for i in $(seq 10); do
+          sleep 2
+          "$adb" logcat -d -s glim | grep -q 'text value glim$' && break
+        done
         "$adb" logcat -d -s glim | grep -q 'text value glim$'
         # The system clipboard round-trips through the shell.
         "$adb" logcat -c
         "$adb" shell am start -S -n com.glim.text/com.glim.shell.GlimActivity --es args --clipboard-check
-        sleep 8
+        for i in $(seq 15); do
+          sleep 2
+          "$adb" logcat -d -s glim | grep -q 'clipboard wrote read=glim clip$' && break
+        done
         "$adb" logcat -d -s glim | grep -q 'clipboard wrote read=glim clip$'
 
   sdk:
