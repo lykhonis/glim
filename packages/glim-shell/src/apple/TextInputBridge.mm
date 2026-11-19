@@ -1,6 +1,7 @@
 #import "TextInputBridge.h"
 
 #include <glim/shell/Clipboard.h>
+#include <glim/shell/Utf16.h>
 
 #include <algorithm>
 #include <utility>
@@ -11,43 +12,6 @@ using glim::shell::TextInputState;
 
 namespace glim::shell::detail {
 
-namespace {
-
-std::size_t unitsOf(unsigned char lead) {
-  if (lead < 0x80) return 1;
-  return (lead >> 4) == 0xF ? 2 : 1;
-}
-
-std::size_t pointBytes(unsigned char lead) {
-  if (lead < 0x80) return 1;
-  if ((lead >> 5) == 0x6) return 2;
-  if ((lead >> 4) == 0xE) return 3;
-  return 4;
-}
-
-std::size_t units(const std::string& text, std::size_t bytes) {
-  std::size_t u = 0;
-  for (std::size_t i = 0; i < std::min(bytes, text.size());) {
-    const auto lead = static_cast<unsigned char>(text[i]);
-    u += unitsOf(lead);
-    i += pointBytes(lead);
-  }
-  return u;
-}
-
-std::size_t byteAt(const std::string& text, std::size_t units) {
-  std::size_t i = 0;
-  std::size_t u = 0;
-  while (i < text.size() && u < units) {
-    const auto lead = static_cast<unsigned char>(text[i]);
-    u += unitsOf(lead);
-    i += pointBytes(lead);
-  }
-  return std::min(i, text.size());
-}
-
-}  // namespace
-
 std::string utf8(id string) {
   NSString* s = [string isKindOfClass:[NSAttributedString class]]
                   ? ((NSAttributedString*)string).string
@@ -57,9 +21,7 @@ std::string utf8(id string) {
 }
 
 TextInputRange bytes(const std::string& text, NSRange r) {
-  const std::size_t a = byteAt(text, r.location);
-  const std::size_t b = byteAt(text, r.location + r.length);
-  return {a, b - a};
+  return utf16Bytes(text, r.location, r.length);
 }
 
 }  // namespace glim::shell::detail
@@ -92,8 +54,8 @@ TextInputRange bytes(const std::string& text, NSRange r) {
 }
 
 - (NSRange)utf16:(TextInputRange)range {
-  const std::size_t a = glim::shell::detail::units(state_.text, range.start);
-  const std::size_t b = glim::shell::detail::units(state_.text, range.start + range.length);
+  const std::size_t a = glim::shell::utf16Units(state_.text, range.start);
+  const std::size_t b = glim::shell::utf16Units(state_.text, range.start + range.length);
   return NSMakeRange(a, b - a);
 }
 

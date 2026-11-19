@@ -1,6 +1,7 @@
 #include <glim/paint/Software.h>
 #include <glim/shell/Clipboard.h>
 #include <glim/shell/TextCommands.h>
+#include <glim/shell/Utf16.h>
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
@@ -159,6 +160,21 @@ int main() {
     assert(cmd("moveToBeginningOfDocumentAndModifySelection:").unit == TextInputUnit::Document);
     assert(cmd("undo:").op == TextInputOp::Undo && cmd("redo:").op == TextInputOp::Redo);
     assert(!glim::shell::textCommand("insertNewline:") && !glim::shell::textCommand("bogus:"));
+
+    // UTF-16 units, as UIKit, Android and the browser count, map to UTF-8
+    // bytes and back: 你 is 3 bytes and 1 unit, 😀 is 4 bytes and 2 units.
+    {
+      const std::string s = "a你😀b";
+      assert(glim::shell::utf16Units(s, 0) == 0 && glim::shell::utf16Units(s, 4) == 2);
+      assert(glim::shell::utf16Units(s, 8) == 4 && glim::shell::utf16Units(s, 99) == 5);
+      assert(glim::shell::utf16Byte(s, 2) == 4 && glim::shell::utf16Byte(s, 4) == 8);
+      assert(glim::shell::utf16Byte(s, 5) == 9 && glim::shell::utf16Byte(s, 99) == 9);
+      const glim::shell::TextInputRange r = glim::shell::utf16Bytes(s, 1, 1);
+      assert(r.start == 1 && r.length == 3);
+      // Text cut mid code point never maps past its end.
+      const std::string cut = "a\xE4";
+      assert(glim::shell::utf16Byte(cut, 5) == 2 && glim::shell::utf16Units(cut, 1) == 1);
+    }
 
     // The clipboard round-trips text where the shell has one, and says
     // Unsupported where it does not; the user's clipboard is restored.
