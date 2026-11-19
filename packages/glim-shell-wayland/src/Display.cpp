@@ -114,7 +114,8 @@ void pointerMotion(void*, wl_pointer*, uint32_t, wl_fixed_t x, wl_fixed_t y) {
   e.setPoint(gPointerX, gPointerY);
   gPointerFocus->dispatch(e);
 }
-void pointerButton(void*, wl_pointer*, uint32_t, uint32_t, uint32_t button, uint32_t state) {
+void pointerButton(void*, wl_pointer*, uint32_t serial, uint32_t, uint32_t button, uint32_t state) {
+  gWl.inputSerial = serial;
   if (!gPointerFocus) {
     return;
   }
@@ -155,9 +156,12 @@ void keyboardKeymap(void*, wl_keyboard*, uint32_t, int32_t fd, uint32_t) {
     close(fd);
   }
 }
-void keyboardEnter(void*, wl_keyboard*, uint32_t, wl_surface*, wl_array*) {}
+void keyboardEnter(void*, wl_keyboard*, uint32_t serial, wl_surface*, wl_array*) {
+  gWl.inputSerial = serial;
+}
 void keyboardLeave(void*, wl_keyboard*, uint32_t, wl_surface*) {}
-void keyboardKey(void*, wl_keyboard*, uint32_t, uint32_t, uint32_t key, uint32_t state) {
+void keyboardKey(void*, wl_keyboard*, uint32_t serial, uint32_t, uint32_t key, uint32_t state) {
+  gWl.inputSerial = serial;
   Window* target = gPointerFocus;
   if (!target && !shownWindows().empty()) {
     target = shownWindows().front();
@@ -222,6 +226,10 @@ void registryGlobal(
       wl_registry_bind(registry, name, &wl_output_interface, version < 2 ? version : 2)
     );
     wl_output_add_listener(gWl.output, &kOutputListener, nullptr);
+  } else if (std::strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+    gWl.dataDevices = static_cast<wl_data_device_manager*>(
+      wl_registry_bind(registry, name, &wl_data_device_manager_interface, version < 3 ? version : 3)
+    );
   } else if (std::strcmp(interface, wp_viewporter_interface.name) == 0) {
     gWl.viewporter =
       static_cast<wp_viewporter*>(wl_registry_bind(registry, name, &wp_viewporter_interface, 1));
@@ -274,6 +282,10 @@ void waylandDisconnect() {
     return;
   }
   textInputDisconnect();
+  clipboardDisconnect();
+  if (gWl.dataDevices) {
+    wl_data_device_manager_destroy(gWl.dataDevices);
+  }
 #ifdef GLIM_HAS_TEXT_INPUT_V3
   if (gWl.textInputs) {
     zwp_text_input_manager_v3_destroy(gWl.textInputs);

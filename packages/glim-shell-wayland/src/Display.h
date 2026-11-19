@@ -11,6 +11,7 @@ struct wl_keyboard;
 struct wl_output;
 struct xdg_wm_base;
 struct wp_viewporter;
+struct wl_data_device_manager;
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
 struct wp_fractional_scale_manager_v1;
 #endif
@@ -35,6 +36,9 @@ struct Wayland {
   wl_keyboard* keyboard = nullptr;
   wl_output* output = nullptr;
   wp_viewporter* viewporter = nullptr;
+  wl_data_device_manager* dataDevices = nullptr;
+  // The latest input event's serial; setting the selection needs one.
+  unsigned inputSerial = 0;
 #ifdef GLIM_HAS_FRACTIONAL_SCALE
   wp_fractional_scale_manager_v1* fractional = nullptr;
 #endif
@@ -55,8 +59,9 @@ bool waylandPrepareRead();
 void waylandCancelRead();
 int waylandReadEvents();
 
-// Drops the seat's text input before its manager and seat go.
+// Drop the seat's text input and clipboard before their managers and seat go.
 void textInputDisconnect();
+void clipboardDisconnect();
 
 void registerSurface(wl_surface*, Window*);
 void unregisterSurface(wl_surface*);
