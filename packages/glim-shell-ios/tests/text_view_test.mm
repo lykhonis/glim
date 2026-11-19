@@ -118,6 +118,36 @@ int main() {
     expect(got.empty(), "secure cut deletes nothing");
     expect(view.isSecureTextEntry && view.autocorrectionType == UITextAutocorrectionTypeNo, "secure keyboard");
 
+    // Geometry comes from the field's stops: carets, selection rects and
+    // the position nearest a point, in UTF-16 positions ("a你b": 你 is 3
+    // bytes, 1 unit).
+    [view publish:{.active = true,
+                   .text = "a你b",
+                   .selection = {1, 3},
+                   .caret = {{30, 20}, {2, 14}},
+                   .stops = {{0, 10}, {1, 18}, {4, 34}, {5, 42}}}];
+    UITextPosition* one = [view positionFromPosition:view.beginningOfDocument offset:1];
+    UITextPosition* two = [view positionFromPosition:view.beginningOfDocument offset:2];
+    const CGRect at1 = [view caretRectForPosition:one];
+    expect(at1.origin.x == 18 && at1.origin.y == 20 && at1.size.height == 14, "caret at a position");
+    NSArray<UITextSelectionRect*>* rects =
+      [view selectionRectsForRange:[view textRangeFromPosition:one toPosition:two]];
+    expect(rects.count == 1 && rects[0].rect.origin.x == 18 && rects[0].rect.size.width == 16,
+           "selection rect spans the range");
+    expect(rects.count == 1 && rects[0].containsStart && rects[0].containsEnd, "one rect holds both ends");
+    const CGRect first = [view firstRectForRange:[view textRangeFromPosition:one toPosition:two]];
+    expect(first.origin.x == 18 && first.size.width == 16, "first rect");
+    expect([view offsetFromPosition:view.beginningOfDocument
+                         toPosition:[view closestPositionToPoint:CGPointMake(33, 25)]] == 2,
+           "nearest position to a point");
+    expect([view offsetFromPosition:view.beginningOfDocument
+                         toPosition:[view closestPositionToPoint:CGPointMake(-50, 25)]] == 0,
+           "points before the text clamp to its start");
+    UITextRange* head = [view textRangeFromPosition:view.beginningOfDocument toPosition:one];
+    expect([view offsetFromPosition:view.beginningOfDocument
+                         toPosition:[view closestPositionToPoint:CGPointMake(42, 25) withinRange:head]] == 1,
+           "nearest within a range stays in it");
+
     // Losing focus drops the client.
     [view publish:{}];
     expect(!view.canBecomeFirstResponder && view.selectedTextRange == nil, "inactive again");

@@ -1,8 +1,10 @@
 #import "TextView.h"
 
 #include <glim/shell/TextCommands.h>
+#include <glim/shell/Utf16.h>
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 using glim::shell::TextInputOp;
@@ -52,6 +54,35 @@ using glim::shell::TextInputState;
 }
 - (NSRange)range {
   return NSMakeRange(start_.offset, end_.offset - start_.offset);
+}
+@end
+
+@interface GlimSelectionRect : UITextSelectionRect
++ (instancetype)rect:(CGRect)rect;
+@end
+
+@implementation GlimSelectionRect {
+  CGRect rect_;
+}
++ (instancetype)rect:(CGRect)rect {
+  GlimSelectionRect* r = [GlimSelectionRect new];
+  r->rect_ = rect;
+  return r;
+}
+- (CGRect)rect {
+  return rect_;
+}
+- (NSWritingDirection)writingDirection {
+  return NSWritingDirectionLeftToRight;
+}
+- (BOOL)containsStart {
+  return YES;
+}
+- (BOOL)containsEnd {
+  return YES;
+}
+- (BOOL)isVertical {
+  return NO;
 }
 @end
 
@@ -284,34 +315,67 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
   return CGRectMake(c.origin.x, c.origin.y, c.size.x, c.size.y);
 }
 
+// The painted x of a UTF-16 position: the last stop at or before it.
+- (CGFloat)xAt:(NSInteger)units {
+  const auto& stops = self.state.stops;
+  if (stops.empty()) return [self caretRect].origin.x;
+  const std::size_t byte = glim::shell::utf16Byte(self.state.text, static_cast<std::size_t>(units));
+  CGFloat x = stops.front().x;
+  for (const auto& s : stops) {
+    if (s.at > byte) break;
+    x = s.x;
+  }
+  return x;
+}
+
+- (CGRect)spanFrom:(NSInteger)a to:(NSInteger)b {
+  const CGRect line = [self caretRect];
+  const CGFloat x0 = [self xAt:a];
+  return CGRectMake(x0, line.origin.y, [self xAt:b] - x0, line.size.height);
+}
+
 - (CGRect)firstRectForRange:(UITextRange*)range {
-  (void)range;
-  return [self caretRect];
+  const NSRange r = ((GlimTextRange*)range).range;
+  return [self spanFrom:r.location to:r.location + r.length];
 }
 
 - (CGRect)caretRectForPosition:(UITextPosition*)position {
-  (void)position;
-  return [self caretRect];
+  const CGRect line = [self caretRect];
+  return CGRectMake([self xAt:offsetOf(position)], line.origin.y, line.size.width, line.size.height);
 }
 
 - (NSArray<UITextSelectionRect*>*)selectionRectsForRange:(UITextRange*)range {
-  (void)range;
-  return @[];
+  return @[ [GlimSelectionRect rect:[self firstRectForRange:range]] ];
+}
+
+// The stop nearest x within [lo, hi], as a UTF-16 position.
+- (NSInteger)nearest:(CGFloat)x from:(NSInteger)lo to:(NSInteger)hi {
+  const std::string& text = self.state.text;
+  NSInteger best = lo;
+  CGFloat gap = CGFLOAT_MAX;
+  for (const auto& s : self.state.stops) {
+    const auto u = static_cast<NSInteger>(glim::shell::utf16Units(text, s.at));
+    if (u < lo || u > hi) continue;
+    if (std::abs(s.x - x) < gap) {
+      gap = std::abs(s.x - x);
+      best = u;
+    }
+  }
+  return best;
 }
 
 - (UITextPosition*)closestPositionToPoint:(CGPoint)point {
-  (void)point;
-  return [self.selectedTextRange end];
+  return [GlimTextPosition at:[self nearest:point.x from:0 to:self.length]];
 }
 
 - (UITextPosition*)closestPositionToPoint:(CGPoint)point withinRange:(UITextRange*)range {
-  (void)point;
-  return range.end;
+  const NSRange r = ((GlimTextRange*)range).range;
+  return [GlimTextPosition at:[self nearest:point.x from:r.location to:r.location + r.length]];
 }
 
 - (UITextRange*)characterRangeAtPoint:(CGPoint)point {
-  (void)point;
-  return self.selectedTextRange;
+  const NSInteger at = [self nearest:point.x from:0 to:self.length];
+  return [GlimTextRange from:at to:std::min(at + 1, self.length)];
 }
 
 #pragma mark Edit commands
