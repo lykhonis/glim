@@ -41,21 +41,27 @@ Box FieldGeometry::caret(
   return {x, box.y + kPadY, kCaretWidth, Tokens::kTypeLine};
 }
 
+std::vector<TextStop> FieldGeometry::stops(
+  const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
+) {
+  const std::string& text = edit.text;
+  std::vector<TextStop> out{{0, textX(box, edit, rules, 0, e)}};
+  for (std::size_t at = text::nextCluster(text, 0); at > 0; at = text::nextCluster(text, at)) {
+    out.push_back({at, textX(box, edit, rules, at, e)});
+    if (at >= text.size()) break;
+  }
+  return out;
+}
+
 std::size_t FieldGeometry::offsetAt(
   const Box& box, const TextEdit& edit, const TextRules& rules, float x, const Engine& e
 ) {
-  const std::string& text = edit.text;
-  std::size_t best = 0;
-  float bestGap = std::abs(textX(box, edit, rules, 0, e) - x);
-  for (std::size_t at = text::nextCluster(text, 0); at > 0; at = text::nextCluster(text, at)) {
-    const float gap = std::abs(textX(box, edit, rules, at, e) - x);
-    if (gap < bestGap) {
-      best = at;
-      bestGap = gap;
-    }
-    if (at >= text.size()) break;
-  }
-  return best;
+  const std::vector<TextStop> all = stops(box, edit, rules, e);
+  const auto nearest =
+    std::min_element(all.begin(), all.end(), [x](const TextStop& a, const TextStop& b) {
+      return std::abs(a.x - x) < std::abs(b.x - x);
+    });
+  return nearest->at;
 }
 
 Box FieldGeometry::highlight(

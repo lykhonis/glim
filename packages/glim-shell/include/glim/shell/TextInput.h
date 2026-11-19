@@ -7,6 +7,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace glim::shell {
 
@@ -46,6 +47,12 @@ struct TextInputChange {
   bool extend = false;
 };
 
+// Where a boundary in the text paints: a byte offset and its window x.
+struct TextInputStop {
+  std::size_t at = 0;
+  float x = 0;
+};
+
 // The focused field as the platform's text input client sees it. Inactive
 // when focus edits no text; caret is window-logical, the candidate anchor.
 // A secure field shows only its mask and never copies.
@@ -56,7 +63,18 @@ struct TextInputState {
   TextInputRange selection;
   std::optional<TextInputRange> marked;
   Rect caret{};
+  // Every cluster boundary, first to last, on the caret's line; platforms
+  // place selection handles and map points to positions with them.
+  std::vector<TextInputStop> stops;
 };
+
+inline bool stopsEqual(const std::vector<TextInputStop>& a, const std::vector<TextInputStop>& b) {
+  if (a.size() != b.size()) return false;
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    if (a[i].at != b[i].at || a[i].x != b[i].x) return false;
+  }
+  return true;
+}
 
 // Whether a shell needs to tell its platform anything new.
 inline bool sameTextInput(const TextInputState& a, const TextInputState& b) {
@@ -68,7 +86,7 @@ inline bool sameTextInput(const TextInputState& a, const TextInputState& b) {
   return a.active == b.active && a.secure == b.secure && a.text == b.text &&
          range(a.selection, b.selection) && marked && a.caret.origin.x == b.caret.origin.x &&
          a.caret.origin.y == b.caret.origin.y && a.caret.size.x == b.caret.size.x &&
-         a.caret.size.y == b.caret.size.y;
+         a.caret.size.y == b.caret.size.y && stopsEqual(a.stops, b.stops);
 }
 
 using TextInputCallback = std::function<void(const TextInputChange&)>;

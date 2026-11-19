@@ -247,6 +247,22 @@ void test_text_field() {
     assert(value->selection.start == 2 && value->selection.length == 8);
   }
 
+  // Stops: where each cluster boundary paints, so a platform can place
+  // handles and map points to positions; they share the scrolled x.
+  {
+    value = TextEdit{.text = "a你b", .selection = {4, 0}};
+    tree = build();
+    const std::optional<TextFocus> f = screen.textFocus(tree, tb, e);
+    assert(f && f->stops.size() == 4);
+    const std::size_t ats[] = {0, 1, 4, 5};
+    for (std::size_t i = 0; i < 4; ++i) {
+      assert(f->stops[i].at == ats[i]);
+      assert(f->stops[i].x == FieldGeometry::textX(field, value.get(), {}, ats[i], e));
+    }
+    assert(f->stops[2].x == f->caret.x);
+    assert(f->stops[0].x < f->stops[1].x && f->stops[1].x < f->stops[2].x);
+  }
+
   // A value wider than the field scrolls so the caret stays inside it;
   // paint, the caret and hit testing share that scroll, and paint clips.
   {

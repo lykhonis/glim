@@ -48,6 +48,8 @@ struct TextFocus {
   Box field;
   Box caret;
   TextRules rules;
+  // Every cluster boundary of edit.text as painted, first to last.
+  std::vector<TextStop> stops;
 };
 std::optional<TextFocus> textFocusAt(
   const Block& root, const Box& box, int index, const Engine& e = Engine{}

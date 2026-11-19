@@ -284,6 +284,15 @@ int main() {
     const glim::shell::TextInputState masked = glim::toolkit::host::shellTextInput(secret);
     assert(masked.secure && masked.text == "••••");
     assert(masked.selection.start == 3 && masked.selection.length == 6);
+    // Stops cross too, at offsets into the text the shell sees.
+    glim::toolkit::TextFocus stopped = secret;
+    stopped.stops = {{0, 5}, {2, 13}, {4, 21}};
+    const glim::shell::TextInputState placed = glim::toolkit::host::shellTextInput(stopped);
+    assert(placed.stops.size() == 3 && placed.stops[1].at == 6 && placed.stops[1].x == 13);
+    assert(placed.stops[2].at == 12 && placed.stops[0].x == 5);
+    glim::shell::TextInputState shifted = placed;
+    shifted.stops[1].x += 1;
+    assert(!glim::shell::sameTextInput(placed, shifted));
   }
 
   // PushTransform: the archive keeps the matrix, and the paint sink turns

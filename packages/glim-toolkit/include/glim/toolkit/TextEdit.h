@@ -17,6 +17,12 @@ struct TextRange {
   std::size_t end() const { return start + length; }
 };
 
+// Where a cluster boundary (a byte offset into the text) paints, in x.
+struct TextStop {
+  std::size_t at = 0;
+  float x = 0.f;
+};
+
 // A state the field can return to: undo and redo restore these.
 struct TextSnapshot {
   std::string text;

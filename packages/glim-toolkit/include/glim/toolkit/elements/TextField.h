@@ -2,6 +2,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "glim/toolkit/ConfigureFwd.h"
 #include "glim/toolkit/Custom.h"
@@ -34,6 +35,10 @@ struct FieldGeometry {
     const Box& box, const TextEdit& edit, const TextRules& rules, std::size_t at, const Engine& e
   );
   static Box caret(const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e);
+  // Every cluster boundary of edit.text and its painted x, in order.
+  static std::vector<TextStop> stops(
+    const Box& box, const TextEdit& edit, const TextRules& rules, const Engine& e
+  );
   // The cluster boundary in the text nearest to x.
   static std::size_t offsetAt(
     const Box& box, const TextEdit& edit, const TextRules& rules, float x, const Engine& e
