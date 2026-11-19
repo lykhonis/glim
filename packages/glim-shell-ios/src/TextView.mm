@@ -75,9 +75,32 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
     tokenizer_ = [[UITextInputStringTokenizer alloc] initWithTextInput:self];
     self.userInteractionEnabled = NO;
     self.hidden = YES;
+#if TARGET_OS_TV
+    _keyboardField = [UITextField new];
+    _keyboardField.alpha = 0;
+    [_keyboardField addTarget:self
+                       action:@selector(keyboardEdited)
+             forControlEvents:UIControlEventEditingChanged];
+#endif
   }
   return self;
 }
+
+#if TARGET_OS_TV
+- (BOOL)openKeyboard {
+  if (!self.textInput.active || !self.superview) return NO;
+  if (self.keyboardField.superview != self.superview) [self.superview addSubview:self.keyboardField];
+  self.keyboardField.secureTextEntry = self.state.secure;
+  self.keyboardField.text = self.state.secure ? @"" : self.string;
+  [self.keyboardField becomeFirstResponder];
+  return YES;
+}
+
+- (void)keyboardEdited {
+  [self send:{.op = TextInputOp::Select, .selection = {0, self.state.text.size()}}];
+  [self send:{.op = TextInputOp::Insert, .text = glim::shell::detail::utf8(self.keyboardField.text ? self.keyboardField.text : @"")}];
+}
+#endif
 
 - (const TextInputState&)state {
   return self.textInput.state;
@@ -98,11 +121,17 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
   [self.textInput publish:std::move(state)];
   [self.inputDelegate textDidChange:self];
   [self.inputDelegate selectionDidChange:self];
+#if TARGET_OS_TV
+  if (wasActive && !self.textInput.active && self.keyboardField.isFirstResponder) {
+    [self.keyboardField resignFirstResponder];
+  }
+#else
   if (self.textInput.active && !self.isFirstResponder) {
     [self becomeFirstResponder];
   } else if (wasActive && !self.textInput.active && self.isFirstResponder) {
     [self resignFirstResponder];
   }
+#endif
 }
 
 - (void)send:(glim::shell::TextInputChange)change {

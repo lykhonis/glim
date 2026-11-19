@@ -385,6 +385,10 @@ void glimRequestSceneGeometry(UIWindowScene* scene) {
                 key = Key::DpadRight;
                 break;
             case UIPressTypeSelect:
+                if ([view.text openKeyboard]) {
+                    handled = true;
+                    continue;
+                }
                 key = Key::DpadCenter;
                 break;
             case UIPressTypeMenu:

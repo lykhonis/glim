@@ -12,4 +12,11 @@
 @property(nonatomic, strong, readonly) GlimTextInput* textInput;
 // Publishes the field and takes or gives up first responder with it.
 - (void)publish:(glim::shell::TextInputState)state;
+#if TARGET_OS_TV
+// tvOS shows its keyboard only for a UITextField. Focus never opens it:
+// Select does, on a hidden field beside this view whose edits replace the
+// Glim field's text. False without a focused field.
+@property(nonatomic, strong, readonly) UITextField* keyboardField;
+- (BOOL)openKeyboard;
+#endif
 @end

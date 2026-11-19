@@ -121,6 +121,30 @@ int main() {
     // Losing focus drops the client.
     [view publish:{}];
     expect(!view.canBecomeFirstResponder && view.selectedTextRange == nil, "inactive again");
+
+#if TARGET_OS_TV
+    // tvOS: focus alone opens no keyboard; Select opens the system keyboard
+    // on a hidden UITextField, and its edits replace the field's text.
+    UIView* host = [UIView new];
+    [host addSubview:view];
+    [view publish:{.active = true, .text = "ab", .selection = {2, 0}}];
+    expect(!view.isFirstResponder, "focus alone opens no keyboard");
+    [view openKeyboard];
+    UITextField* kb = view.keyboardField;
+    expect(kb.superview == host && [kb.text isEqualToString:@"ab"], "the keyboard field holds the text");
+    kb.text = @"abc";
+    [kb sendActionsForControlEvents:UIControlEventEditingChanged];
+    expect(got.size() == 2 && got[0].op == TextInputOp::Select && got[0].selection.start == 0 &&
+             got[0].selection.length == 2 && got[1].op == TextInputOp::Insert && got[1].text == "abc",
+           "keyboard edits replace the text");
+    got.clear();
+    // A secure field starts the keyboard empty: its published text is bullets.
+    [view publish:{.active = true, .secure = true, .text = "••", .selection = {6, 0}}];
+    [view openKeyboard];
+    expect(kb.secureTextEntry && kb.text.length == 0, "secure keyboard starts empty");
+    [view publish:{}];
+    expect(![view openKeyboard], "no keyboard without a field");
+#endif
   }
   if (failures == 0) std::cout << "ios text view: typed, composed, selected, replaced, commanded, edited, secured\n";
   return failures ? EXIT_FAILURE : EXIT_SUCCESS;

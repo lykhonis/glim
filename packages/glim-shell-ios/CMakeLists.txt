@@ -33,7 +33,7 @@ target_link_libraries(glim-shell PUBLIC
 target_link_options(glim-shell PUBLIC "LINKER:-ObjC")
 
 # Runs on the simulator, not under ctest: xcrun simctl spawn <device> <binary>.
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "tvOS")
     add_executable(glim-ios-a11y-bridge-test tests/a11y_bridge_test.mm)
     set_source_files_properties(tests/a11y_bridge_test.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     target_link_libraries(glim-ios-a11y-bridge-test PRIVATE glim::shell)

@@ -21,3 +21,9 @@ jobs:
         xcrun simctl spawn booted build/ios-sim-metal-debug/packages/glim-shell-ios/glim-ios-text-view-test.app/glim-ios-text-view-test
         pnpm exec nx run examples:build-tvos-sim
         pnpm exec nx run-many -t run-tvos --projects=tag:example --parallel=1 --smoke=15
+        # The same UIKit text and a11y clients on the tvOS simulator run-tvos left booted.
+        cmake --build build/tvos-sim-metal-debug --target glim-ios-a11y-bridge-test glim-ios-text-view-test
+        tv=$(xcrun simctl list devices booted -j | jq -r '[.devices | to_entries[] | select(.key | test("tvOS")) | .value[].udid][0]')
+        test -n "$tv" && test "$tv" != null
+        xcrun simctl spawn "$tv" build/tvos-sim-metal-debug/packages/glim-shell-ios/glim-ios-a11y-bridge-test.app/glim-ios-a11y-bridge-test
+        xcrun simctl spawn "$tv" build/tvos-sim-metal-debug/packages/glim-shell-ios/glim-ios-text-view-test.app/glim-ios-text-view-test
