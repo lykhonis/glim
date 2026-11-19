@@ -82,6 +82,25 @@ void test_text_edit() {
   }
 }
 
+void test_text_actions() {
+  using A = TextAction;
+  const auto actions = [](TextEdit e, bool canPaste, TextRules r = {}) {
+    return textActions(e, r, canPaste);
+  };
+  // Empty field: only paste, and only with something to paste.
+  assert(actions({}, false).empty());
+  assert((actions({}, true) == std::vector<A>{A::Paste}));
+  // A caret in text: paste and select all.
+  assert((actions(at("ab", 1), true) == std::vector<A>{A::Paste, A::SelectAll}));
+  // A selection: cut and copy; select all until everything is selected.
+  const TextEdit part{.text = "abc", .selection = {0, 2}};
+  assert((actions(part, false) == std::vector<A>{A::Cut, A::Copy, A::SelectAll}));
+  const TextEdit all{.text = "abc", .selection = {0, 3}};
+  assert((actions(all, true) == std::vector<A>{A::Cut, A::Copy, A::Paste}));
+  // Secure fields never give their text away.
+  assert((actions(part, true, {.secure = true}) == std::vector<A>{A::Paste, A::SelectAll}));
+}
+
 void test_text_field() {
   Store store;
   Engine e;

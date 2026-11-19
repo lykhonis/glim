@@ -17,6 +17,7 @@ void test_hit();
 void test_text_edit();
 void test_text_commands();
 void test_text_field();
+void test_text_actions();
 
 int main() {
   test_basics();
@@ -36,6 +37,7 @@ int main() {
   test_text_edit();
   test_text_commands();
   test_text_field();
+  test_text_actions();
 
   std::cout << "toolkit tests ok\n";
   return 0;

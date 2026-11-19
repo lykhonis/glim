@@ -126,6 +126,11 @@ TextEdit applyText(TextEdit edit, const TextChange& change, const TextRules& rul
 // What a copy takes: the selection, or nothing for a secure field or an
 // empty selection.
 std::optional<std::string> copyText(const TextEdit& edit, const TextRules& rules = {});
+// Edit menu actions, in menu order.
+enum class TextAction : std::uint8_t { Cut, Copy, Paste, SelectAll };
+// The actions that apply now: cut and copy need copyText, paste needs
+// clipboard text, select all needs text not yet all selected.
+std::vector<TextAction> textActions(const TextEdit& edit, const TextRules& rules, bool canPaste);
 // What the field shows: the text, or one bullet per cluster when secure.
 std::string shownText(const std::string& text, const TextRules& rules);
 // A byte offset into the text, mapped into shownText.

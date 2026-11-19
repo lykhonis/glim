@@ -276,6 +276,16 @@ std::optional<std::string> copyText(const TextEdit& edit, const TextRules& rules
   return edit.text.substr(r.start, r.length);
 }
 
+std::vector<TextAction> textActions(const TextEdit& edit, const TextRules& rules, bool canPaste) {
+  std::vector<TextAction> out;
+  if (copyText(edit, rules)) out.insert(out.end(), {TextAction::Cut, TextAction::Copy});
+  if (canPaste) out.push_back(TextAction::Paste);
+  if (clamp(edit.text, edit.selection).length < edit.text.size()) {
+    out.push_back(TextAction::SelectAll);
+  }
+  return out;
+}
+
 std::string shownText(const std::string& text, const TextRules& rules) {
   if (!rules.secure) return text;
   std::string out;
