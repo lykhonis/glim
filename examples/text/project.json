@@ -1,0 +1,66 @@
+{
+  "name": "text",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/text",
+  "projectType": "application",
+  "tags": [
+    "example"
+  ],
+  "implicitDependencies": [
+    "core"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@glim/native:cmake",
+      "dependsOn": [
+        "gpu-vulkan:shaders"
+      ],
+      "options": {
+        "preset": "macos-metal-debug",
+        "target": "glim-text",
+        "install": true
+      }
+    },
+    "run": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "macos-metal-debug",
+        "binary": "examples/text/glim-text"
+      }
+    },
+    "build-android": {
+      "executor": "@glim/native:cmake",
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "target": "glim-text"
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    },
+    "run-android": {
+      "executor": "@glim/native:run",
+      "dependsOn": [
+        "build-android"
+      ],
+      "cache": false,
+      "options": {
+        "preset": "android-arm64-vulkan-debug",
+        "binary": "examples/text/glim-text.apk",
+        "android": true,
+        "packageName": "com.glim.text"
+      },
+      "configurations": {
+        "x86_64": {
+          "preset": "android-x86_64-vulkan-debug"
+        }
+      }
+    }
+  }
+}
