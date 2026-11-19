@@ -118,6 +118,10 @@ int main() {
     const glim::shell::TextInputState s = glim::toolkit::host::shellTextInput(focus);
     assert(s.active && s.text == "ab" && s.selection.start == 1 && s.marked->length == 1);
     assert(s.caret.origin.x == 18 && s.caret.origin.y == 26 && s.caret.size.y == 14);
+    assert(s.field.origin.x == 10 && s.field.origin.y == 20 && s.field.size.x == 200);
+    glim::shell::TextInputState moved = s;
+    moved.field.origin.y += 1;
+    assert(!glim::shell::sameTextInput(s, moved));
     const glim::toolkit::TextChange c =
       glim::toolkit::host::toolkitText({.op = TextInputOp::Mark, .text = "ni", .selection = {2, 0}}
       );

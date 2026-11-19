@@ -66,6 +66,8 @@ shell::TextInputState shellTextInput(const std::optional<TextFocus>& focus) {
   if (e.marked) s.marked = shown(*e.marked);
   const Box& c = focus->caret;
   s.caret = {{c.x, c.y}, {c.w, c.h}};
+  const Box& f = focus->field;
+  s.field = {{f.x, f.y}, {f.w, f.h}};
   for (const TextStop& stop : focus->stops) {
     s.stops.push_back({shownOffset(e.text, stop.at, rules), stop.x});
   }

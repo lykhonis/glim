@@ -63,6 +63,9 @@ struct TextInputState {
   TextInputRange selection;
   std::optional<TextInputRange> marked;
   Rect caret{};
+  // The field's frame, window-logical: where the platform's own text
+  // gestures (selection handles, the loupe) may act.
+  Rect field{};
   // Every cluster boundary, first to last, on the caret's line; platforms
   // place selection handles and map points to positions with them.
   std::vector<TextInputStop> stops;
@@ -83,10 +86,13 @@ inline bool sameTextInput(const TextInputState& a, const TextInputState& b) {
   };
   const bool marked =
     a.marked.has_value() == b.marked.has_value() && (!a.marked || range(*a.marked, *b.marked));
+  const auto rect = [](const Rect& x, const Rect& y) {
+    return x.origin.x == y.origin.x && x.origin.y == y.origin.y && x.size.x == y.size.x &&
+           x.size.y == y.size.y;
+  };
   return a.active == b.active && a.secure == b.secure && a.text == b.text &&
-         range(a.selection, b.selection) && marked && a.caret.origin.x == b.caret.origin.x &&
-         a.caret.origin.y == b.caret.origin.y && a.caret.size.x == b.caret.size.x &&
-         a.caret.size.y == b.caret.size.y && stopsEqual(a.stops, b.stops);
+         range(a.selection, b.selection) && marked && rect(a.caret, b.caret) &&
+         rect(a.field, b.field) && stopsEqual(a.stops, b.stops);
 }
 
 using TextInputCallback = std::function<void(const TextInputChange&)>;

@@ -106,6 +106,12 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
     tokenizer_ = [[UITextInputStringTokenizer alloc] initWithTextInput:self];
     self.userInteractionEnabled = NO;
     self.hidden = YES;
+#if !TARGET_OS_TV
+    UITextInteraction* interaction =
+      [UITextInteraction textInteractionForMode:UITextInteractionModeEditable];
+    interaction.textInput = self;
+    [self addInteraction:interaction];
+#endif
 #if TARGET_OS_TV
     _keyboardField = [UITextField new];
     _keyboardField.alpha = 0;
@@ -150,6 +156,7 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
   [self.inputDelegate selectionWillChange:self];
   [self.inputDelegate textWillChange:self];
   [self.textInput publish:std::move(state)];
+  [self coverField];
   [self.inputDelegate textDidChange:self];
   [self.inputDelegate selectionDidChange:self];
 #if TARGET_OS_TV
@@ -163,6 +170,22 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
     [self resignFirstResponder];
   }
 #endif
+}
+
+// While a field has focus the view covers it, so UIKit's own text
+// gestures (taps, selection handles, the loupe) act there and nowhere else.
+- (void)coverField {
+  const glim::Rect f = self.state.field;
+  const BOOL active = self.textInput.active;
+  self.frame = active ? CGRectMake(f.origin.x, f.origin.y, f.size.x, f.size.y) : CGRectZero;
+#if !TARGET_OS_TV
+  self.hidden = !active;
+  self.userInteractionEnabled = active;
+#endif
+}
+
+- (UIView*)textInputView {
+  return self;
 }
 
 - (void)send:(glim::shell::TextInputChange)change {
@@ -312,7 +335,8 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
 // is what the candidate bar and the loupe need.
 - (CGRect)caretRect {
   const glim::Rect c = self.state.caret;
-  return CGRectMake(c.origin.x, c.origin.y, c.size.x, c.size.y);
+  const CGPoint o = self.frame.origin;
+  return CGRectMake(c.origin.x - o.x, c.origin.y - o.y, c.size.x, c.size.y);
 }
 
 // The painted x of a UTF-16 position: the last stop at or before it.
@@ -325,7 +349,7 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
     if (s.at > byte) break;
     x = s.x;
   }
-  return x;
+  return x - self.frame.origin.x;
 }
 
 - (CGRect)spanFrom:(NSInteger)a to:(NSInteger)b {
@@ -356,8 +380,9 @@ NSInteger offsetOf(UITextPosition* p) { return ((GlimTextPosition*)p).offset; }
   for (const auto& s : self.state.stops) {
     const auto u = static_cast<NSInteger>(glim::shell::utf16Units(text, s.at));
     if (u < lo || u > hi) continue;
-    if (std::abs(s.x - x) < gap) {
-      gap = std::abs(s.x - x);
+    const CGFloat local = s.x - self.frame.origin.x;
+    if (std::abs(local - x) < gap) {
+      gap = std::abs(local - x);
       best = u;
     }
   }

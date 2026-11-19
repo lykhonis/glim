@@ -148,9 +148,35 @@ int main() {
                          toPosition:[view closestPositionToPoint:CGPointMake(42, 25) withinRange:head]] == 1,
            "nearest within a range stays in it");
 
+    // The view covers the focused field and is its own text input view, so
+    // UIKit's gestures, handles and loupe act there only; geometry is
+    // relative to it.
+    [view publish:{.active = true,
+                   .text = "a你b",
+                   .selection = {1, 3},
+                   .caret = {{30, 20}, {2, 14}},
+                   .field = {{8, 16}, {200, 26}},
+                   .stops = {{0, 10}, {1, 18}, {4, 34}, {5, 42}}}];
+    expect(CGRectEqualToRect(view.frame, CGRectMake(8, 16, 200, 26)) && view.textInputView == view,
+           "the view covers the field");
+    const CGRect local = [view caretRectForPosition:one];
+    expect(local.origin.x == 10 && local.origin.y == 4, "geometry is relative to the field");
+    expect([view offsetFromPosition:view.beginningOfDocument
+                         toPosition:[view closestPositionToPoint:CGPointMake(25, 9)]] == 2,
+           "points arrive relative to the field");
+    // Without stops the caret alone places the position.
+    [view publish:{.active = true, .text = "ab", .caret = {{30, 20}, {2, 14}}, .field = {{8, 16}, {200, 26}}}];
+    expect([view caretRectForPosition:view.beginningOfDocument].origin.x == 22, "caret fallback is relative too");
+#if !TARGET_OS_TV
+    BOOL interacts = NO;
+    for (id<UIInteraction> i in view.interactions) interacts |= [i isKindOfClass:[UITextInteraction class]];
+    expect(interacts && !view.hidden && view.userInteractionEnabled, "UIKit's text interaction is attached");
+#endif
+
     // Losing focus drops the client.
     [view publish:{}];
     expect(!view.canBecomeFirstResponder && view.selectedTextRange == nil, "inactive again");
+    expect(CGRectIsEmpty(view.frame) && view.hidden, "no field, no frame");
 
 #if TARGET_OS_TV
     // tvOS: focus alone opens no keyboard; Select opens the system keyboard
