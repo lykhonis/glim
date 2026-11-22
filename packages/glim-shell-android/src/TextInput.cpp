@@ -129,6 +129,22 @@ void publishToJava(JNIEnv* env, jobject activity, const TextInputState& s) {
 
 }  // namespace
 
+void detail::typeKey(int32_t keyCode, int32_t metaState) {
+  if (!ime().state.active) return;
+  withJni([&](JNIEnv* env, jobject) {
+    jclass keyEvent = env->FindClass("android/view/KeyEvent");
+    jmethodID make = env->GetMethodID(keyEvent, "<init>", "(II)V");
+    jmethodID unicode = env->GetMethodID(keyEvent, "getUnicodeChar", "(I)I");
+    jobject event = env->NewObject(keyEvent, make, jint{0}, jint{keyCode});
+    const jint c = env->CallIntMethod(event, unicode, jint{metaState});
+    // Controls (Enter, Tab, Del) and dead keys type nothing.
+    if (c < 0x20 || c == 0x7f || c > 0xffff) return;
+    const auto unit = static_cast<jchar>(c);
+    jstring text = env->NewString(&unit, 1);
+    post([t = utf8(env, text)](const TextInputState& s) { return imeCommit(s, t); });
+  });
+}
+
 void Window::setTextInput(TextInputState state) {
   Ime& i = ime();
   const bool changed = !sameTextInput(state, i.state);

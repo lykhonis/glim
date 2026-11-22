@@ -156,6 +156,9 @@ int32_t onInputEvent(android_app*, AInputEvent* event) {
   const int32_t type = AInputEvent_getType(event);
   if (type == AINPUT_EVENT_TYPE_KEY) {
     const int32_t action = AKeyEvent_getAction(event);
+    if (action == AKEY_EVENT_ACTION_DOWN) {
+      detail::typeKey(AKeyEvent_getKeyCode(event), AKeyEvent_getMetaState(event));
+    }
     const Key key = mapKey(AKeyEvent_getKeyCode(event));
     if (key == Key::Unknown) {
       return 0;

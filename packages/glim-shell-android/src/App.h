@@ -28,4 +28,8 @@ void withJni(F&& f) {
   if (!attached) vm->DetachCurrentThread();
 }
 
+// A key press that types a character (a hardware keyboard, or an IME that
+// passes keys through) inserts it into the focused field.
+void typeKey(int32_t keyCode, int32_t metaState);
+
 }  // namespace glim::shell::detail
