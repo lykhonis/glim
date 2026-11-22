@@ -77,6 +77,11 @@ class Window final {
 
   void inject(const Event& event) { dispatch(event); }
   void injectFrame();
+  // Text entry without an IME: the embedder maps its keys to edits of the
+  // focused field (typing, deletes, moves). False, and dropped, when no
+  // field is focused.
+  const TextInputState& textInput() const { return textInput_; }
+  bool injectText(const TextInputChange& change);
 
  private:
   std::string title_ = "Glim";
@@ -85,6 +90,8 @@ class Window final {
   float pixelRatio_ = 1.0f;
   bool shown_ = false;
   EventCallback callback_;
+  TextInputState textInput_;
+  TextInputCallback textCallback_;
   SlotTable slots_{};
   std::unordered_map<std::uint32_t, Rect> slotRects_{};
   // Unconditional: guarded members would change layout seen by consumers.

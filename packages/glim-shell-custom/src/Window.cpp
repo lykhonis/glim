@@ -1,5 +1,7 @@
 #include <glim/shell/Window.h>
 
+#include <utility>
+
 namespace glim::shell {
 
 Window::Window() = default;
@@ -99,10 +101,17 @@ void Window::dismissPresented() {}
 
 void Window::setA11y(std::vector<A11yElement>) {}
 
-// Owned text input lands per shell after macOS (N8).
-void Window::setTextInput(TextInputState) {}
+void Window::setTextInput(TextInputState state) { textInput_ = std::move(state); }
 
-void Window::setTextInputCallback(TextInputCallback) {}
+void Window::setTextInputCallback(TextInputCallback callback) {
+  textCallback_ = std::move(callback);
+}
+
+bool Window::injectText(const TextInputChange& change) {
+  if (!textInput_.active || !textCallback_) return false;
+  textCallback_(change);
+  return true;
+}
 
 void Window::setA11yPerform(A11yPerform) {}
 
