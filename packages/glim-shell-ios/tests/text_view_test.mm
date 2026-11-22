@@ -192,7 +192,14 @@ int main() {
     UITextField* kb = view.keyboardField;
     expect(kb.superview == host && [kb.text isEqualToString:@"ab"], "the keyboard field holds the text");
     kb.text = @"abc";
-    [kb sendActionsForControlEvents:UIControlEventEditingChanged];
+    // UIControl dispatches through UIApplication, which a bare test lacks:
+    // invoke the wired actions directly.
+    NSArray<NSString*>* edited = [kb actionsForTarget:view forControlEvent:UIControlEventEditingChanged];
+    expect(edited.count == 1, "the keyboard field reports edits");
+    for (NSString* action in edited) {
+      const SEL sel = NSSelectorFromString(action);
+      reinterpret_cast<void (*)(id, SEL)>([view methodForSelector:sel])(view, sel);
+    }
     expect(got.size() == 2 && got[0].op == TextInputOp::Select && got[0].selection.start == 0 &&
              got[0].selection.length == 2 && got[1].op == TextInputOp::Insert && got[1].text == "abc",
            "keyboard edits replace the text");
