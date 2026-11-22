@@ -47,6 +47,8 @@ jobs:
         # Typing reaches a field through the IME: tap the text example's field
         # (top left), type, and read the value it logs.
         "$adb" logcat -c
+        trap '"$adb" shell dumpsys input_method | grep -E "mServedView|mCurrentInputConnection" || true;
+          "$adb" logcat -d -s glim AndroidRuntime | tail -40' ERR
         "$adb" shell am start -S -n com.glim.text/com.glim.shell.GlimActivity
         scale=$("$adb" shell wm density | grep -oE '[0-9]+' | tail -1)
         # The emulator renders in software: tap until the field takes focus
@@ -59,6 +61,7 @@ jobs:
             grep 'class="android.view.View"' |
             sed -nE 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),[0-9]+\]".*/\1 \2 \3/p' |
             awk '$3 - $1 > 1 { print $1, $2; exit }')
+          echo "surface at ${left:-?},${top:-?}"
           "$adb" shell input tap $((${left:-0} + 40 * scale / 160)) $((${top:-0} + 16 * scale / 160))
           sleep 2
           "$adb" shell dumpsys input_method | grep -q 'mServedView=com.glim.shell.TextInputView' && break
