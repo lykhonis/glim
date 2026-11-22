@@ -66,14 +66,47 @@ addToLibrary({
     if (document.activeElement !== el) el.focus({preventScroll: true});
   },
 
-  // The system clipboard takes text asynchronously; reads are not offered,
-  // since a synchronous read is impossible in the browser.
-  glim_web_clipboard_write__deps: ['$UTF8ToString'],
+  // The browser reads the clipboard only asynchronously, so reads answer
+  // from a mirror: our own writes, the page's copy, cut and paste events,
+  // and a read whenever the page regains focus (the user may have copied
+  // elsewhere). Null until the page has seen any clipboard text.
+  $glimClipboard: { text: null },
+  $glimClipboard__postset: `
+    if (typeof document !== "undefined") {
+      const take = (e) => {
+        const t = e.clipboardData && e.clipboardData.getData("text/plain");
+        if (t) glimClipboard.text = t;
+      };
+      const refresh = () => {
+        if (!navigator.clipboard || !navigator.clipboard.readText) return;
+        navigator.clipboard.readText().then((t) => { glimClipboard.text = t; }, () => {});
+      };
+      const selected = (e) => {
+        const el = e.target;
+        if (el && el.type === "text" && el.selectionStart !== el.selectionEnd) {
+          glimClipboard.text = el.value.substring(el.selectionStart, el.selectionEnd);
+        }
+      };
+      document.addEventListener("paste", take, true);
+      document.addEventListener("copy", selected, true);
+      document.addEventListener("cut", selected, true);
+      window.addEventListener("focus", refresh);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+      refresh();
+    }`,
+
+  glim_web_clipboard_write__deps: ['$UTF8ToString', '$glimClipboard'],
   glim_web_clipboard_write: (text) => {
     if (!navigator.clipboard || !navigator.clipboard.writeText) return 0;
-    navigator.clipboard.writeText(UTF8ToString(text)).catch(() => {});
+    const s = UTF8ToString(text);
+    glimClipboard.text = s;
+    navigator.clipboard.writeText(s).catch(() => {});
     return 1;
   },
+
+  // The mirrored text as a malloc'd UTF-8 string the caller frees, or 0.
+  glim_web_clipboard_read__deps: ['$stringToNewUTF8', '$glimClipboard'],
+  glim_web_clipboard_read: () => (glimClipboard.text === null ? 0 : stringToNewUTF8(glimClipboard.text)),
 
   // The canvas's right-click is Glim's: no browser context menu over it.
   glim_web_canvas_init__deps: ['$UTF8ToString'],

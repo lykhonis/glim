@@ -148,7 +148,25 @@ await until(
   "put the cut text on the clipboard",
 );
 
-console.log("web text: focused, typed glim, deleted to gli, cut gli from the edit menu");
+// Text copied elsewhere reaches the edit menu's Paste (the only item on an
+// empty field) once the page regains focus.
+await evaluate(`navigator.clipboard.writeText("web clip").then(() => window.dispatchEvent(new Event("focus")))`);
+await new Promise((r) => setTimeout(r, 500));
+for (const type of ["mousePressed", "mouseReleased"]) {
+  await send("Input.dispatchMouseEvent", { type, x: 60, y: 16, button: "right", clickCount: 1 });
+}
+await new Promise((r) => setTimeout(r, 500));
+await click(78, 30);
+await until(async () => logs.includes("text value web clip"), "pasted from the edit menu");
+
+// IME composition: marked text shows in the field, and the commit
+// replaces it.
+await send("Input.imeSetComposition", { text: "にほん", selectionStart: 3, selectionEnd: 3 });
+await until(async () => logs.includes("text value web clipにほん"), "showed the composition");
+await send("Input.insertText", { text: "日本" });
+await until(async () => logs.includes("text value web clip日本"), "committed the composition");
+
+console.log("web text: focused, typed glim, deleted to gli, cut gli and pasted from the edit menu, composed 日本");
 clearTimeout(timer);
 ws.close();
 const exited = new Promise((r) => chrome.on("close", r));
