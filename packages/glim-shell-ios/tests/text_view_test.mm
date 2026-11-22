@@ -116,7 +116,10 @@ int main() {
     expect(![view canPerformAction:@selector(cut:) withSender:nil], "secure cut disabled");
     [view cut:nil];
     expect(got.empty(), "secure cut deletes nothing");
-    expect(view.isSecureTextEntry && view.autocorrectionType == UITextAutocorrectionTypeNo, "secure keyboard");
+    expect(view.isSecureTextEntry, "secure keyboard");
+#if !TARGET_OS_TV
+    expect(view.autocorrectionType == UITextAutocorrectionTypeNo, "secure keyboard has no autocorrect");
+#endif
 
     // Geometry comes from the field's stops: carets, selection rects and
     // the position nearest a point, in UTF-16 positions ("a你b": 你 is 3
