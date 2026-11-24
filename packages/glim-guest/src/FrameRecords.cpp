@@ -392,6 +392,9 @@ bool appendArray(std::vector<T>& into, w::RecordView record, Fields fields) {
   const std::size_t count = tail->size() / stride;
   into.resize(first + count);
   bool ok = true;
+  if (count == 0) {
+    return true;
+  }
   if (kMemcpy<T> && stride == sizeof(T)) {
     std::memcpy(static_cast<void*>(into.data() + first), tail->data(), tail->size());
   } else {

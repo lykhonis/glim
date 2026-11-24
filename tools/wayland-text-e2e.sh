@@ -18,6 +18,7 @@ tmp=$(mktemp -d)
 export XDG_RUNTIME_DIR=$tmp
 chmod 700 "$tmp"
 pids=()
+app_pid=0
 cleanup() {
   for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done
   rm -rf "$tmp"
@@ -25,6 +26,13 @@ cleanup() {
 trap cleanup EXIT
 fail() {
   echo "FAIL: $1"
+  kill -0 "$app_pid" 2>/dev/null && echo "app alive" || echo "app exited"
+  SWAYSOCK=$(ls "$tmp"/sway-ipc.*.sock 2>/dev/null | head -1) || true
+  export SWAYSOCK
+  swaymsg -t get_tree 2>&1 | grep -E '"(name|app_id|focused|rect)"' | head -20 || true
+  swaymsg -t get_seats 2>&1 | head -20 || true
+  echo "--- app protocol"
+  grep -E 'wl_pointer|wl_keyboard|zwp_text_input|xdg_toplevel.configure|wl_seat.capabilities' "$tmp/wl.log" 2>/dev/null | tail -40 || true
   for log in sway ime app; do
     echo "--- $log"
     tail -40 "$tmp/$log.log" 2>/dev/null || true
@@ -61,8 +69,9 @@ exec 3> "$tmp/ime.in"
 for _ in $(seq 50); do grep -q '^ime ready$' "$tmp/ime.log" && break; sleep 0.2; done
 grep -q '^ime ready$' "$tmp/ime.log" || fail "the input method never bound"
 
-"$app" > "$tmp/app.log" 2>&1 &
-pids+=($!)
+WAYLAND_DEBUG=client "$app" > "$tmp/app.log" 2> "$tmp/wl.log" &
+app_pid=$!
+pids+=("$app_pid")
 
 # wlrctl moves the pointer relatively: pin it to the top left, then move.
 click() {
