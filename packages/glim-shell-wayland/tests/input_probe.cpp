@@ -1,6 +1,8 @@
-// A scriptable input method for the Wayland text e2e (tools/wayland-text-e2e.sh).
-// It reads commands from stdin and prints each state the compositor applies:
+// The Wayland text e2e's input (tools/wayland-text-e2e.sh): one virtual
+// pointer and an input method, driven by commands on stdin. It prints each
+// input method state the compositor applies.
 //
+//   click <x> <y> <left|right>   on an output of kExtentW x kExtentH
 //   preedit <text>   compose <text>, caret at its end
 //   commit <text>    commit <text>
 //   delete <b> <a>   delete <b> bytes before and <a> after the caret
@@ -11,15 +13,21 @@
 #include <wayland-client.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
 
+#include <linux/input-event-codes.h>
+
 #include "input-method-unstable-v2-client-protocol.h"
+#include "wlr-virtual-pointer-unstable-v1-client-protocol.h"
 
 namespace {
+
+// The output size tools/wayland-text-e2e.sh configures sway with.
+constexpr std::uint32_t kExtentW = 800;
+constexpr std::uint32_t kExtentH = 600;
 
 struct State {
   bool active = false;
@@ -34,6 +42,9 @@ struct Probe {
   wl_seat* seat = nullptr;
   zwp_input_method_manager_v2* manager = nullptr;
   zwp_input_method_v2* method = nullptr;
+  zwlr_virtual_pointer_manager_v1* pointers = nullptr;
+  zwlr_virtual_pointer_v1* pointer = nullptr;
+  std::uint32_t time = 0;
   State pending;
   std::uint32_t serial = 0;
   bool unavailable = false;
@@ -91,7 +102,21 @@ void global(
     gProbe.manager = static_cast<zwp_input_method_manager_v2*>(
       wl_registry_bind(registry, name, &zwp_input_method_manager_v2_interface, 1)
     );
+  } else if (std::strcmp(interface, zwlr_virtual_pointer_manager_v1_interface.name) == 0) {
+    gProbe.pointers = static_cast<zwlr_virtual_pointer_manager_v1*>(
+      wl_registry_bind(registry, name, &zwlr_virtual_pointer_manager_v1_interface, 1)
+    );
   }
+}
+
+void click(std::uint32_t x, std::uint32_t y, std::uint32_t button) {
+  zwlr_virtual_pointer_v1* p = gProbe.pointer;
+  zwlr_virtual_pointer_v1_motion_absolute(p, gProbe.time += 10, x, y, kExtentW, kExtentH);
+  zwlr_virtual_pointer_v1_frame(p);
+  zwlr_virtual_pointer_v1_button(p, gProbe.time += 10, button, WL_POINTER_BUTTON_STATE_PRESSED);
+  zwlr_virtual_pointer_v1_frame(p);
+  zwlr_virtual_pointer_v1_button(p, gProbe.time += 10, button, WL_POINTER_BUTTON_STATE_RELEASED);
+  zwlr_virtual_pointer_v1_frame(p);
 }
 void globalRemove(void*, wl_registry*, std::uint32_t) {}
 
@@ -109,6 +134,18 @@ bool run(const std::string& line) {
   std::string rest;
   std::getline(in >> std::ws, rest);
   zwp_input_method_v2* m = gProbe.method;
+  if (verb == "click") {
+    std::uint32_t x = 0;
+    std::uint32_t y = 0;
+    std::string button;
+    std::istringstream(rest) >> x >> y >> button;
+    if (button != "left" && button != "right") {
+      std::cerr << "input probe: unknown button " << line << std::endl;
+      return false;
+    }
+    click(x, y, button == "left" ? BTN_LEFT : BTN_RIGHT);
+    return true;
+  }
   if (verb == "preedit") {
     const auto end = static_cast<std::int32_t>(rest.size());
     zwp_input_method_v2_set_preedit_string(m, rest.c_str(), end, end);
@@ -120,7 +157,7 @@ bool run(const std::string& line) {
     std::istringstream(rest) >> before >> after;
     zwp_input_method_v2_delete_surrounding_text(m, before, after);
   } else {
-    std::cerr << "ime probe: unknown command " << line << std::endl;
+    std::cerr << "input probe: unknown command " << line << std::endl;
     return false;
   }
   zwp_input_method_v2_commit(m, gProbe.serial);
@@ -132,20 +169,23 @@ bool run(const std::string& line) {
 int main() {
   wl_display* display = wl_display_connect(nullptr);
   if (!display) {
-    std::cerr << "ime probe: no Wayland display" << std::endl;
+    std::cerr << "input probe: no Wayland display" << std::endl;
     return 1;
   }
   wl_registry* registry = wl_display_get_registry(display);
   wl_registry_add_listener(registry, &kRegistryListener, nullptr);
   wl_display_roundtrip(display);
-  if (!gProbe.seat || !gProbe.manager) {
-    std::cerr << "ime probe: the compositor offers no input-method-v2" << std::endl;
+  if (!gProbe.seat || !gProbe.manager || !gProbe.pointers) {
+    std::cerr << "input probe: the compositor offers no input-method-v2 or virtual pointer"
+              << std::endl;
     return 1;
   }
+  gProbe.pointer =
+    zwlr_virtual_pointer_manager_v1_create_virtual_pointer(gProbe.pointers, gProbe.seat);
   gProbe.method = zwp_input_method_manager_v2_get_input_method(gProbe.manager, gProbe.seat);
   zwp_input_method_v2_add_listener(gProbe.method, &kMethodListener, nullptr);
   wl_display_roundtrip(display);
-  std::cout << "ime ready" << std::endl;
+  std::cout << "input ready" << std::endl;
 
   std::string buffered;
   while (!gProbe.unavailable) {

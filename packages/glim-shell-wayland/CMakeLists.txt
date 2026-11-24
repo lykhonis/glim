@@ -67,14 +67,16 @@ set_source_files_properties(src/Window.cpp PROPERTIES COMPILE_DEFINITIONS GLIM_S
 set_source_files_properties(${GLIM_WL_PROTOCOL_SOURCES} PROPERTIES COMPILE_FLAGS "-w")
 glim_target_defaults(glim-shell)
 
-# The input method tools/wayland-text-e2e.sh drives under sway (N8.9).
+# The pointer and input method tools/wayland-text-e2e.sh drives under sway (N8.9).
 if(GLIM_HOST_TESTS AND GLIM_HAS_TEXT_INPUT_V3)
+    set(GLIM_WL_PROTOCOL_SOURCES)
+    set(GLIM_WL_PROTOCOL_HEADERS)
     glim_wayland_protocol("${PROJECT_SOURCE_DIR}/vendor/wlr-protocols/input-method-unstable-v2.xml")
-    set(_im_h "${_glim_wl_gen}/input-method-unstable-v2-client-protocol.h")
-    set(_im_c "${_glim_wl_gen}/input-method-unstable-v2-protocol.c")
-    add_executable(glim-wayland-ime-probe tests/ime_probe.cpp "${_im_c}" "${_im_h}")
-    target_include_directories(glim-wayland-ime-probe PRIVATE ${_glim_wl_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
-    target_link_libraries(glim-wayland-ime-probe PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
-    set_source_files_properties("${_im_c}" PROPERTIES COMPILE_FLAGS "-w")
-    glim_test_defaults(glim-wayland-ime-probe)
+    glim_wayland_protocol("${PROJECT_SOURCE_DIR}/vendor/wlr-protocols/wlr-virtual-pointer-unstable-v1.xml")
+    add_executable(glim-wayland-input-probe tests/input_probe.cpp
+        ${GLIM_WL_PROTOCOL_SOURCES} ${GLIM_WL_PROTOCOL_HEADERS})
+    target_include_directories(glim-wayland-input-probe PRIVATE ${_glim_wl_gen} ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    target_link_libraries(glim-wayland-input-probe PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+    set_source_files_properties(${GLIM_WL_PROTOCOL_SOURCES} PROPERTIES COMPILE_FLAGS "-w")
+    glim_test_defaults(glim-wayland-input-probe)
 endif()

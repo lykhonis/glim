@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # Text input and clipboard on Wayland (N8.9). Runs the text example under a
-# headless sway, types through text-input-v3 with glim-wayland-ime-probe as
-# the input method, and round-trips the clipboard through Glim's edit menu.
+# headless sway; glim-wayland-input-probe clicks with a virtual pointer and
+# types as the input method through text-input-v3. The clipboard round-trips
+# through Glim's edit menu.
 #
 #   tools/wayland-text-e2e.sh
 #
-# Needs sway, wlrctl and wl-clipboard. Env: GLIM_BUILD_DIR.
+# Needs sway and wl-clipboard. Env: GLIM_BUILD_DIR.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=${GLIM_BUILD_DIR:-$root/build/linux-vulkan-debug}
 app=$build/examples/text/glim-text
-probe=$build/packages/glim-shell-wayland/glim-wayland-ime-probe
-[ -x "$app" ] && [ -x "$probe" ] || { echo "FAIL: build glim-text and glim-wayland-ime-probe in $build"; exit 1; }
+probe=$build/packages/glim-shell-wayland/glim-wayland-input-probe
+[ -x "$app" ] && [ -x "$probe" ] || { echo "FAIL: build glim-text and glim-wayland-input-probe in $build"; exit 1; }
 
 tmp=$(mktemp -d)
 export XDG_RUNTIME_DIR=$tmp
@@ -66,19 +67,14 @@ mkfifo "$tmp/ime.in"
 "$probe" < "$tmp/ime.in" > "$tmp/ime.log" 2>&1 &
 pids+=($!)
 exec 3> "$tmp/ime.in"
-for _ in $(seq 50); do grep -q '^ime ready$' "$tmp/ime.log" && break; sleep 0.2; done
-grep -q '^ime ready$' "$tmp/ime.log" || fail "the input method never bound"
+for _ in $(seq 50); do grep -q '^input ready$' "$tmp/ime.log" && break; sleep 0.2; done
+grep -q '^input ready$' "$tmp/ime.log" || fail "the input probe never bound"
 
 WAYLAND_DEBUG=client "$app" > "$tmp/app.log" 2> "$tmp/wl.log" &
 app_pid=$!
 pids+=("$app_pid")
 
-# wlrctl moves the pointer relatively: pin it to the top left, then move.
-click() {
-  wlrctl pointer move -5000 -5000
-  wlrctl pointer move "$1" "$2"
-  wlrctl pointer click "$3"
-}
+click() { echo "click $1 $2 $3" >&3; }
 
 # The field sits at the window's top left, and the window fills the output.
 # Click until the field takes focus and the input method activates on it,
