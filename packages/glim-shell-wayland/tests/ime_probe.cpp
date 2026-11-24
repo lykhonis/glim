@@ -46,7 +46,9 @@ void activate(void*, zwp_input_method_v2*) {
   gProbe.pending.active = true;
 }
 void deactivate(void*, zwp_input_method_v2*) { gProbe.pending.active = false; }
-void surrounding(void*, zwp_input_method_v2*, const char* text, std::uint32_t cursor, std::uint32_t anchor) {
+void surrounding(
+  void*, zwp_input_method_v2*, const char* text, std::uint32_t cursor, std::uint32_t anchor
+) {
   gProbe.pending.surrounding = text ? text : "";
   gProbe.pending.cursor = cursor;
   gProbe.pending.anchor = anchor;
@@ -80,7 +82,9 @@ const zwp_input_method_v2_listener kMethodListener = [] {
   return l;
 }();
 
-void global(void*, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t) {
+void global(
+  void*, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t
+) {
   if (std::strcmp(interface, wl_seat_interface.name) == 0 && !gProbe.seat) {
     gProbe.seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
   } else if (std::strcmp(interface, zwp_input_method_manager_v2_interface.name) == 0) {
