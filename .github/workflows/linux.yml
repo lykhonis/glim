@@ -9,12 +9,14 @@ jobs:
     with:
       name: linux
       runs-on: ubuntu-24.04
-      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools
+      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools sway wlrctl wl-clipboard
       nx: |
         # Lavapipe exports dmabufs through udmabuf (glim-video-vulkan-test).
         ls -l /dev/udmabuf && sudo chmod a+rw /dev/udmabuf
         # Full build + every registered ctest (units, CPU goldens, GPU goldens).
         pnpm -s test:host
+        # Text input and clipboard under a headless sway (N8.9).
+        tools/wayland-text-e2e.sh
         pnpm -s package-test
         pnpm exec nx run examples:build
         pnpm exec nx run examples:build-software
