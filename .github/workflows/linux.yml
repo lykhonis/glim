@@ -9,7 +9,7 @@ jobs:
     with:
       name: linux
       runs-on: ubuntu-24.04
-      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools sway wl-clipboard
+      packages: ninja-build pkg-config libwayland-dev wayland-protocols libvulkan-dev mesa-vulkan-drivers zlib1g-dev glslang-tools sway wtype wl-clipboard
       nx: |
         # Lavapipe exports dmabufs through udmabuf (glim-video-vulkan-test).
         ls -l /dev/udmabuf && sudo chmod a+rw /dev/udmabuf

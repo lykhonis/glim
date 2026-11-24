@@ -141,6 +141,12 @@ void pointerAxis(void*, wl_pointer*, uint32_t, uint32_t axis, wl_fixed_t value) 
   gPointerFocus->dispatch(e);
 }
 
+// Seat v5 sends these; libwayland aborts on an event without a handler.
+void pointerFrame(void*, wl_pointer*) {}
+void pointerAxisSource(void*, wl_pointer*, uint32_t) {}
+void pointerAxisStop(void*, wl_pointer*, uint32_t, uint32_t) {}
+void pointerAxisDiscrete(void*, wl_pointer*, uint32_t, int32_t) {}
+
 const wl_pointer_listener kPointerListener = [] {
   wl_pointer_listener l{};
   l.enter = pointerEnter;
@@ -148,6 +154,10 @@ const wl_pointer_listener kPointerListener = [] {
   l.motion = pointerMotion;
   l.button = pointerButton;
   l.axis = pointerAxis;
+  l.frame = pointerFrame;
+  l.axis_source = pointerAxisSource;
+  l.axis_stop = pointerAxisStop;
+  l.axis_discrete = pointerAxisDiscrete;
   return l;
 }();
 
@@ -174,6 +184,7 @@ void keyboardKey(void*, wl_keyboard*, uint32_t serial, uint32_t, uint32_t key, u
   target->dispatch(e);
 }
 void keyboardModifiers(void*, wl_keyboard*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
+void keyboardRepeatInfo(void*, wl_keyboard*, int32_t, int32_t) {}
 
 const wl_keyboard_listener kKeyboardListener = [] {
   wl_keyboard_listener l{};
@@ -182,6 +193,7 @@ const wl_keyboard_listener kKeyboardListener = [] {
   l.leave = keyboardLeave;
   l.key = keyboardKey;
   l.modifiers = keyboardModifiers;
+  l.repeat_info = keyboardRepeatInfo;
   return l;
 }();
 

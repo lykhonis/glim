@@ -6,7 +6,7 @@
 #
 #   tools/wayland-text-e2e.sh
 #
-# Needs sway and wl-clipboard. Env: GLIM_BUILD_DIR.
+# Needs sway, wtype and wl-clipboard. Env: GLIM_BUILD_DIR.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -85,6 +85,11 @@ for _ in $(seq 30); do
   grep -qxF 'ime state active=1 purpose=0 hint=0 cursor=0 anchor=0 surrounding=' "$tmp/ime.log" && break
 done
 until_log ime 'ime state active=1 purpose=0 hint=0 cursor=0 anchor=0 surrounding=' "activated the input method"
+
+# A keyboard attaching sends keymap and repeat_info; the app takes both.
+wtype -k F13
+sleep 0.5
+kill -0 "$app_pid" 2>/dev/null || fail "the app exited when a keyboard attached"
 
 # Composition shows in the field, the commit replaces it, and the shell
 # reports the new text and caret back as surrounding text (bytes).
